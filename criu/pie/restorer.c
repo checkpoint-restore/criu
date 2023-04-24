@@ -1068,7 +1068,7 @@ static int vma_remap(VmaEntry *vma_entry, int uffd)
 		 * |G|----tgt----|       |
 		 *
 		 * 3. remap src to any other place.
-		 *    G prevents src from being remaped on tgt again
+		 *    G prevents src from being remapped on tgt again
 		 * |       |-------------| -> |+++++src+++++|
 		 * |G|---tgt-----|                          |
 		 *

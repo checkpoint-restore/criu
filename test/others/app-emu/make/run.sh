@@ -28,7 +28,7 @@ setsid make -j4 &
 
 pid=${!}
 
-echo Lanuched make in $pid background
+echo Launched make in $pid background
 sleep 2
 
 ${criu} dump --shell-job -D dump -o dump.log -v4  -t ${pid} || {

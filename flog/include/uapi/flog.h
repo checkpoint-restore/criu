@@ -86,7 +86,7 @@
 		 /* double:			13, */			\
 		 /* long double:		14, */			\
 									\
-		 /* Basic poniters */					\
+		 /* Basic pointers */					\
 		 char *:			(1u << (ord - n - 1)),	\
 		 signed char *:			(1u << (ord - n - 1)),	\
 		 unsigned char *:		(1u << (ord - n - 1)),	\

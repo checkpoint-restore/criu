@@ -1241,7 +1241,7 @@ static bool map_devices(struct tp_system *src_sys, struct tp_system *dest_sys, s
 				return true;
 			} else {
 				/* We could not map remaining nodes in the list. Add dest node back
-				 * to list and try to map next dest ndoe in list to current src
+				 * to list and try to map next dest node in list to current src
 				 * node.
 				 */
 				pr_debug("Nodes after [0x%04X -> 0x%04X] did not match, "
