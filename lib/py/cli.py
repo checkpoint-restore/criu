@@ -364,6 +364,7 @@ def main():
     desc = 'CRiu Image Tool'
     parser = argparse.ArgumentParser(
         description=desc, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('--version', action='version', version=pycriu.__version__)
 
     subparsers = parser.add_subparsers(
         help='Use crit CMD --help for command-specific help')
