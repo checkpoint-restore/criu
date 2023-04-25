@@ -6,6 +6,7 @@ import sys
 import os
 import fcntl
 import termios
+import time
 
 # <sched.h> constants for unshare
 CLONE_NEWNS = 0x00020000
@@ -110,8 +111,8 @@ def wrap_restore():
     if '--restore-sibling' in restore_args:
         raise OSError(errno.EINVAL, "--restore-sibling is not supported")
 
-    # Unshare pid and mount namespaces
-    if _unshare(CLONE_NEWNS | CLONE_NEWPID) != 0:
+    # Unshare pid namespace
+    if _unshare(CLONE_NEWPID) != 0:
         _errno = ctypes.get_errno()
         raise OSError(_errno, errno.errorcode[_errno])
 
@@ -123,8 +124,32 @@ def wrap_restore():
         restore_detached = True
         restore_args.remove('--restore-detached')
 
+    restore_pidfile = None
+    if '--pidfile' in restore_args:
+        try:
+            opt_index = restore_args.index('--pidfile')
+            restore_pidfile = restore_args[opt_index + 1]
+            del restore_args[opt_index:opt_index + 2]
+        except (ValueError, IndexError, FileNotFoundError):
+            raise OSError(errno.ENOENT, "--pidfile missing argument")
+
+        if not restore_pidfile.startswith('/'):
+            for base_dir_opt in ['--work-dir', '-W', '--images-dir', '-D']:
+                if base_dir_opt in restore_args:
+                    try:
+                        opt_index = restore_args.index(base_dir_opt)
+                        restore_pidfile = os.path.join(restore_args[opt_index + 1], restore_pidfile)
+                        break
+                    except (ValueError, IndexError, FileNotFoundError):
+                        raise OSError(errno.ENOENT, base_dir_opt + " missing argument")
+
     criu_pid = os.fork()
     if criu_pid == 0:
+        # Unshare mount namespace
+        if _unshare(CLONE_NEWNS) != 0:
+            _errno = ctypes.get_errno()
+            raise OSError(_errno, errno.errorcode[_errno])
+
         os.setsid()
         # Set stdin tty to be a controlling tty of our new session, this is
         # required by --shell-job option, as for it CRIU would try to set a
@@ -138,6 +163,25 @@ def wrap_restore():
 
         _mount_new_proc()
         run_criu(restore_args)
+
+    if restore_pidfile:
+        restored_pid = None
+        retry = 5
+
+        while not restored_pid and retry:
+            with open('/proc/%d/task/%d/children' % (criu_pid, criu_pid)) as f:
+                line = f.readline().strip()
+                if len(line):
+                    restored_pid = line
+                    break
+            retry -= 1
+            time.sleep(1)
+
+        if restored_pid:
+            with open(restore_pidfile, 'w+') as f:
+                f.write(restored_pid)
+        else:
+            print("Warn: Search of restored pid for --pidfile option timeouted")
 
     if restore_detached:
         return 0
