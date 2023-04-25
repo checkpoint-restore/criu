@@ -399,6 +399,7 @@ class zdtm_test:
         self.__name = name
         self.__desc = desc
         self.__freezer = None
+        self.__timeout = int(self.__desc.get('timeout') or 30)
         self.__rootless = rootless
         self.__make_action('cleanout')
         self.__pid = 0
@@ -408,7 +409,6 @@ class zdtm_test:
         self._env = {'TMPDIR': os.environ.get('TMPDIR', '/tmp')}
         self._deps = desc.get('deps', [])
         self.auto_reap = True
-        self.__timeout = int(self.__desc.get('timeout') or 30)
 
     def __make_action(self, act, env=None, root=None):
         sys.stdout.flush()  # Not to let make's messages appear before ours
@@ -430,7 +430,7 @@ class zdtm_test:
             preexec_fn=self.__freezer and self.__freezer.attach or None)
         if act == "pid":
             try_run_hook(self, ["--post-start"])
-        if s.wait():
+        if s.wait(timeout=self.__timeout):
             raise test_fail_exc(str(s_args))
 
         if self.__freezer:
@@ -839,7 +839,7 @@ class groups_test(zdtm_test):
         subprocess.check_call(s_args + [tname + '.cleanout'])
         s = subprocess.Popen(s_args + ['--dry-run', tname + '.pid'],
                              stdout=subprocess.PIPE)
-        out, _ = s.communicate()
+        out, _ = s.communicate(timeout=self.__timeout)
         cmd = out.decode().splitlines()[-1].strip()
 
         return 'cd /' + tdir + ' && ' + cmd
@@ -883,7 +883,8 @@ class criu_cli:
             fault=None,
             strace=[],
             preexec=None,
-            nowait=False):
+            nowait=False,
+            timeout=60):
         env = dict(
             os.environ,
             ASAN_OPTIONS="log_path=asan.log:disable_coredump=0:detect_leaks=0")
@@ -899,7 +900,7 @@ class criu_cli:
                               preexec_fn=preexec)
         if nowait:
             return cr
-        return cr.wait()
+        return cr.wait(timeout=timeout)
 
 
 class criu_rpc_process:
@@ -982,7 +983,8 @@ class criu_rpc:
             fault=None,
             strace=[],
             preexec=None,
-            nowait=False):
+            nowait=False,
+            timeout=None):
         if fault:
             raise test_fail_exc('RPC and FAULT not supported')
         if strace:
