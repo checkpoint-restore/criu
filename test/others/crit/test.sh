@@ -101,6 +101,8 @@ function run_test2 {
 	${CRIT} x ./ rss || exit 1
 }
 
+${CRIT} --version
+
 gen_imgs
 run_test1
 run_test2
