@@ -1169,7 +1169,7 @@ static int timerfd_arm(struct task_restore_args *args)
 static int create_posix_timers(struct task_restore_args *args)
 {
 	int ret, i;
-	kernel_timer_t next_id;
+	kernel_timer_t next_id = 0, timer_id;
 	struct sigevent sev;
 
 	for (i = 0; i < args->posix_timers_n; i++) {
@@ -1183,24 +1183,25 @@ static int create_posix_timers(struct task_restore_args *args)
 		sev.sigev_value.sival_ptr = args->posix_timers[i].spt.sival_ptr;
 
 		while (1) {
-			ret = sys_timer_create(args->posix_timers[i].spt.clock_id, &sev, &next_id);
+			ret = sys_timer_create(args->posix_timers[i].spt.clock_id, &sev, &timer_id);
 			if (ret < 0) {
 				pr_err("Can't create posix timer - %d\n", i);
 				return ret;
 			}
 
-			if (next_id == args->posix_timers[i].spt.it_id)
-				break;
-
-			ret = sys_timer_delete(next_id);
-			if (ret < 0) {
-				pr_err("Can't remove temporaty posix timer 0x%x\n", next_id);
-				return ret;
-			}
-
-			if ((long)next_id > args->posix_timers[i].spt.it_id) {
+			if (timer_id != next_id) {
 				pr_err("Can't create timers, kernel don't give them consequently\n");
 				return -1;
+			}
+			next_id++;
+
+			if (timer_id == args->posix_timers[i].spt.it_id)
+				break;
+
+			ret = sys_timer_delete(timer_id);
+			if (ret < 0) {
+				pr_err("Can't remove temporaty posix timer 0x%x\n", timer_id);
+				return ret;
 			}
 		}
 	}
