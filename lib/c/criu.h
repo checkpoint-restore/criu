@@ -322,6 +322,9 @@ struct criu_feature_check {
 int criu_feature_check(struct criu_feature_check *features, size_t size);
 int criu_local_feature_check(criu_opts *opts, struct criu_feature_check *features, size_t size);
 
+void criu_local_set_empty_ns(criu_opts *opts, int namespaces);
+void criu_set_empty_ns(int namespaces);
+
 #ifdef __GNUG__
 }
 #endif
