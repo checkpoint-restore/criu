@@ -47,15 +47,14 @@ int main(int argc, char **argv)
 	if (get_smaps_bits((unsigned long)area, &new_flags, &new_madv))
 		return -1;
 
+	errno = 0;
 	if (orig_flags != new_flags) {
-		pr_err("Flags are changed %lx -> %lx\n", orig_flags, new_flags);
-		fail();
+		fail("Flags changed %lx -> %lx\n", orig_flags, new_flags);
 		return -1;
 	}
 
 	if (orig_madv != new_madv) {
-		pr_err("Madvs are changed %lx -> %lx\n", orig_madv, new_madv);
-		fail();
+		fail("Madvs changed %lx -> %lx\n", orig_madv, new_madv);
 		return -1;
 	}
 
