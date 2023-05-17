@@ -816,7 +816,7 @@ static int __send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
 				continue;
 			}
 
-			logerr("Can't restore %d queue data (%d), want (%d:%d:%d)", queue, ret, chunk, len, max_chunk);
+			logerr("Can't restore %d queue data (%d), want (%d-%d:%d:%d)", queue, ret, off, chunk, len, max_chunk);
 			goto err;
 		}
 		off += ret;
