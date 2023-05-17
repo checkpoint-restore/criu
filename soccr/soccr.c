@@ -781,7 +781,7 @@ int libsoccr_restore(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsi
 	return 0;
 }
 
-static int __send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
+static int __send_queue(struct libsoccr_sk *sk, const char *queue, char *buf, __u32 len)
 {
 	int ret, err = -1, max_chunk;
 	int off;
@@ -816,7 +816,7 @@ static int __send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
 				continue;
 			}
 
-			logerr("Can't restore %d queue data (%d), want (%d-%d:%d:%d)", queue, ret, off, chunk, len, max_chunk);
+			logerr("Can't restore %s queue data (%d), want (%d-%d:%d:%d)", queue, ret, off, chunk, len, max_chunk);
 			goto err;
 		}
 		off += ret;
@@ -837,7 +837,7 @@ static int send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
 		return -1;
 	}
 
-	return __send_queue(sk, queue, buf, len);
+	return __send_queue(sk, queue == TCP_RECV_QUEUE ? "recv" : "send", buf, len);
 }
 
 static int libsoccr_restore_queue(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size, int queue,
@@ -876,7 +876,7 @@ static int libsoccr_restore_queue(struct libsoccr_sk *sk, struct libsoccr_sk_dat
 			 * they can be restored without any tricks.
 			 */
 			tcp_repair_off(sk->fd);
-			if (__send_queue(sk, TCP_SEND_QUEUE, buf + len, ulen))
+			if (__send_queue(sk, "not-sent send", buf + len, ulen))
 				return -3;
 			if (tcp_repair_on(sk->fd))
 				return -4;
