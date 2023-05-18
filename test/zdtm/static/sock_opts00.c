@@ -12,21 +12,27 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 #define TEST_PORT 59687
 #define TEST_ADDR INADDR_ANY
 
-#define NOPTS 8
-
 int main(int argc, char **argv)
 {
-	int sock, ret = 0, vname[NOPTS], val[NOPTS], rval, i;
-	socklen_t len = sizeof(int);
+	#define OPT(x) { x, #x }
+	static const struct {
+		int opt;
+		const char *name;
+	} vname[] = {
+		OPT(SO_PRIORITY),
+		OPT(SO_RCVLOWAT),
+		OPT(SO_MARK),
+		OPT(SO_PASSCRED),
+		OPT(SO_PASSSEC),
+		OPT(SO_DONTROUTE),
+		OPT(SO_NO_CHECK),
+		OPT(SO_OOBINLINE),
+	};
+	static const int NOPTS = sizeof(vname) / sizeof(*vname);
+	#undef OPT
 
-	vname[0] = SO_PRIORITY;
-	vname[1] = SO_RCVLOWAT;
-	vname[2] = SO_MARK;
-	vname[3] = SO_PASSCRED;
-	vname[4] = SO_PASSSEC;
-	vname[5] = SO_DONTROUTE;
-	vname[6] = SO_NO_CHECK;
-	vname[7] = SO_OOBINLINE;
+	int sock, ret = 0, val[NOPTS], rval, i;
+	socklen_t len = sizeof(int);
 
 	test_init(argc, argv);
 
@@ -37,29 +43,29 @@ int main(int argc, char **argv)
 	}
 
 	for (i = 0; i < NOPTS; i++) {
-		ret = getsockopt(sock, SOL_SOCKET, vname[i], &val[i], &len);
+		ret = getsockopt(sock, SOL_SOCKET, vname[i].opt, &val[i], &len);
 		if (ret) {
-			pr_perror("can't get option %d", i);
+			pr_perror("can't get %s", vname[i].name);
 			return 1;
 		}
 
 		val[i]++;
 
-		ret = setsockopt(sock, SOL_SOCKET, vname[i], &val[i], len);
+		ret = setsockopt(sock, SOL_SOCKET, vname[i].opt, &val[i], len);
 		if (ret) {
-			pr_perror("can't set option %d", i);
+			pr_perror("can't set %s = %d", vname[i].name, val[i]);
 			return 1;
 		}
 
-		ret = getsockopt(sock, SOL_SOCKET, vname[i], &rval, &len);
+		ret = getsockopt(sock, SOL_SOCKET, vname[i].opt, &rval, &len);
 		if (ret) {
-			pr_perror("can't get option %d 2", i);
+			pr_perror("can't re-get %s", vname[i].name);
 			return 1;
 		}
 
 		if (rval != val[i]) {
 			if (rval + 1 == val[i]) {
-				pr_perror("can't reset option %d want %d have %d", i, val[i], rval);
+				pr_perror("failed to set %s: want %d have %d", vname[i].name, val[i], rval);
 				return 1;
 			}
 
@@ -72,14 +78,15 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	for (i = 0; i < NOPTS; i++) {
-		ret = getsockopt(sock, SOL_SOCKET, vname[i], &rval, &len);
+		ret = getsockopt(sock, SOL_SOCKET, vname[i].opt, &rval, &len);
 		if (ret) {
-			pr_perror("can't get option %d again", i);
+			pr_perror("can't verify %s", vname[i].name);
 			return 1;
 		}
 
 		if (val[i] != rval) {
-			fail("option %d changed", i);
+			errno = 0;
+			fail("%s changed: %d -> %d", vname[i].name, val[i], rval);
 			return 1;
 		}
 	}
