@@ -427,7 +427,6 @@ static int cgp_parse_builtins(void)
 						"\"memory.move_charge_at_immigrate\", "
 						"\"memory.oom_control\", "
 						"\"memory.use_hierarchy\", "
-						"\"memory.kmem.limit_in_bytes\", "
 						"\"memory.kmem.tcp.limit_in_bytes\" "
 						"]\n"
 						/*
