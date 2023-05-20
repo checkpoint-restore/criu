@@ -6,7 +6,7 @@
 set -e
 set -x
 
-VAGRANT_VERSION=2.2.19
+VAGRANT_VERSION=2.3.7
 FEDORA_VERSION=37
 FEDORA_BOX_VERSION=37.20221105.0
 
@@ -19,7 +19,7 @@ setup() {
 	# Tar up the git checkout to have vagrant rsync it to the VM
 	tar cf criu.tar ../../../criu
 	# Cirrus has problems with the following certificate.
-	wget --no-check-certificate https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_"$(uname -m)".deb -O /tmp/vagrant.deb && \
+	wget --no-check-certificate https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}-1_"$(dpkg --print-architecture)".deb -O /tmp/vagrant.deb && \
 		dpkg -i /tmp/vagrant.deb
 
 	./apt-install libvirt-clients libvirt-daemon-system libvirt-dev qemu-utils qemu \
