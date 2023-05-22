@@ -1197,8 +1197,8 @@ int __check_mountpoint_fd(struct mount_info *pm, int mnt_fd, bool parse_mountinf
 		    dev == pm->s_dev_rt)
 			return 0;
 
-		pr_err("The file system %#x %#x (%#x) %s %s is inaccessible\n", pm->s_dev, pm->s_dev_rt, dev,
-		       pm->fstype->name, pm->ns_mountpoint);
+		pr_warn("The file system %#x %#x (%#x) %s %s is inaccessible\n", pm->s_dev, pm->s_dev_rt, dev,
+		        pm->fstype->name, pm->ns_mountpoint);
 		return -1;
 	}
 
@@ -1239,12 +1239,16 @@ int __open_mountpoint(struct mount_info *pm)
 int open_mount(unsigned int s_dev)
 {
 	struct mount_info *m;
+	int mnt_fd;
 
 	m = lookup_mnt_sdev(s_dev);
 	if (!m)
 		return -ENOENT;
 
-	return __open_mountpoint(m);
+	mnt_fd = __open_mountpoint(m);
+	if (mnt_fd < 0)
+		pr_err("Can't open mount %#x\n", s_dev);
+	return mnt_fd;
 }
 
 /* Bind-mount a mount point in a temporary place without children */
