@@ -2344,11 +2344,6 @@ def run_tests(opts):
         return
 
     torun = list(torun)
-    if opts['keep_going'] and len(torun) < 2:
-        print(
-            "[WARNING] Option --keep-going is more useful when running multiple tests"
-        )
-        opts['keep_going'] = False
 
     if opts['exclude']:
         excl = re.compile(".*(" + "|".join(opts['exclude']) + ")")
