@@ -69,6 +69,7 @@ extern int inet_connect(int sk, struct inet_sk_info *);
 
 #ifdef CR_NOGLIBC
 #define setsockopt sys_setsockopt
+#define pr_perror(fmt, ...) pr_err(fmt ": errno %d\n", ##__VA_ARGS__, -ret)
 #endif
 static inline void tcp_repair_off(int fd)
 {
@@ -76,7 +77,7 @@ static inline void tcp_repair_off(int fd)
 
 	ret = setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux));
 	if (ret < 0)
-		pr_err("Failed to turn off repair mode on socket\n");
+		pr_perror("Failed to turn off repair mode on socket %d", fd);
 }
 
 extern void tcp_locked_conn_add(struct inet_sk_info *);
