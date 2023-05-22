@@ -1566,7 +1566,7 @@ static int is_iptables_nft(char *bin)
 		goto err;
 	}
 
-	ret = cr_system(-1, pfd[1], -1, cmd[0], cmd, 0);
+	ret = cr_system(-1, pfd[1], -1, cmd[0], cmd, CRS_CAN_FAIL);
 	if (ret) {
 		pr_err("%s -V failed\n", cmd[0]);
 		goto err;
