@@ -134,11 +134,11 @@ task:
     memory: 8G
 
   setup_script: |
-    # EPEL is needed for python2-future, python2-junit_xml, python-flake8 and libbsd-devel.
+    # EPEL is needed for python2-future, python2-junit_xml, python-pathlib, python-flake8 and libbsd-devel.
     # Do not fail if latest epel repository definition is already installed
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm || :
     ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
-    yum install -y findutils gcc git gnutls-devel iproute iptables libaio-devel libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make procps-ng protobuf-c-devel protobuf-devel protobuf-python python python-flake8 python-ipaddress python2-future python2-junit_xml python-yaml python-six sudo tar which e2fsprogs python2-pip rubygem-asciidoctor libselinux-devel
+    yum install -y findutils gcc git gnutls-devel iproute iptables libaio-devel libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make procps-ng protobuf-c-devel protobuf-devel protobuf-python python python-flake8 python-ipaddress python2-future python2-junit_xml python-yaml python-six python-pathlib sudo tar which e2fsprogs python2-pip rubygem-asciidoctor libselinux-devel
     # Even with selinux in permissive mode the selinux tests will be executed
     # The Cirrus CI user runs as a service from selinux point of view and is
     # much more restricted than a normal shell (system_u:system_r:unconfined_service_t:s0)
