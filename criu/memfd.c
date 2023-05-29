@@ -93,8 +93,17 @@ static int dump_memfd_inode(int fd, struct memfd_dump_inode *inode, const char *
 	}
 
 	mie.seals = fcntl(fd, F_GET_SEALS);
-	if (mie.seals == -1)
-		goto out;
+	if (mie.seals == -1) {
+		if (errno != EINVAL || ~mie.hugetlb_flag & MFD_HUGETLB) {
+			pr_perror("fcntl(F_GET_SEALS)");
+			goto out;
+		}
+		/* Kernels before 4.16 don't allow MFD_HUGETLB |
+		 * MFD_ALLOW_SEALING and return EINVAL for
+		 * fcntl(MFD_HUGETLB-enabled fd).
+		 */
+		mie.seals = F_SEAL_SEAL;
+	}
 
 	if (pb_write_one(img_from_set(glob_imgset, CR_FD_MEMFD_INODE), &mie, PB_MEMFD_INODE))
 		goto out;
