@@ -2003,12 +2003,20 @@ class Launcher:
                   file=self.__file_report)
             print(u"# ", file=self.__file_report)
             print(u"1.." + str(nr_tests), file=self.__file_report)
-        with open("/proc/sys/kernel/tainted") as taintfd:
-            self.__taint = taintfd.read()
+        self.__taint = self.__read_kernel_tainted()
         if int(self.__taint, 0) != 0:
-            print("The kernel is tainted: %r" % self.__taint)
-            if not opts["ignore_taint"] and os.getenv("ZDTM_IGNORE_TAINT") != '1':
-                raise Exception("The kernel is tainted: %r" % self.__taint)
+            self.__report_kernel_taint("The kernel is tainted: %r" % self.__taint)
+
+    @staticmethod
+    def __read_kernel_tainted():
+        with open("/proc/sys/kernel/tainted") as taintfd:
+            return taintfd.read().strip()
+
+    @staticmethod
+    def __report_kernel_taint(msg):
+        print(msg)
+        if not opts["ignore_taint"] and os.getenv("ZDTM_IGNORE_TAINT") != "1":
+            raise Exception(msg)
 
     def __show_progress(self, msg):
         perc = int(self.__nr * 16 / self.__total)
@@ -2034,11 +2042,12 @@ class Launcher:
         if len(self.__subs) >= self.__max:
             self.wait()
 
-        with open("/proc/sys/kernel/tainted") as taintfd:
-            taint = taintfd.read()
+        taint = self.__read_kernel_tainted()
         if self.__taint != taint:
-            raise Exception("The kernel is tainted: %r (%r)" %
-                            (taint, self.__taint))
+            prev_taint = self.__taint
+            self.__taint = taint
+            self.__report_kernel_taint(
+                "The kernel is tainted: %r (was %r)" % (taint, prev_taint))
 
         '''
         The option --link-remap allows criu to hardlink open files back to the
