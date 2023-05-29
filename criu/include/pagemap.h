@@ -87,6 +87,7 @@ struct page_read {
 /* flags for open_page_read */
 #define PR_SHMEM 0x1
 #define PR_TASK	 0x2
+#define PR_SECRETMEM 0x3
 
 #define PR_TYPE_MASK 0x3
 #define PR_MOD	     0x4 /* Will need to modify */

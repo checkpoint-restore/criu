@@ -42,6 +42,7 @@
 #include "fault-injection.h"
 #include "memfd.h"
 #include "hugetlb.h"
+#include "memfd-secret.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -78,6 +79,9 @@ static char *buf = __buf.buf;
  */
 
 #define AIO_FNAME "/[aio]"
+
+/* memfd_secret */
+#define SECRETMEM_NAME "/secretmem (deleted)"
 
 /* check the @line starts with "%lx-%lx" format */
 static bool __is_vma_range_fmt(char *line)
@@ -463,6 +467,14 @@ static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd, st
 				return 0;
 			}
 
+			/* memfd_secret */
+			if (!strncmp(fname, SECRETMEM_NAME, sizeof(SECRETMEM_NAME))) {
+				pr_info("Found memfd_secret fd mapping\n");
+				vma->e->secretmem_id = buf.st_ino;
+				vma->e->status = VMA_AREA_MEMFD_SECRET;
+				return 0;
+			}
+
 			pr_err("Unknown shit %o (%s)\n", buf.st_mode, fname);
 			return -1;
 		}
@@ -651,6 +663,8 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 
 				close_safe(vm_file_fd);
 				return 0;
+			} else if (is_memfd_secret(st_buf->st_dev)) { /* for memfd_secret case */
+				vma_area->e->status |= VMA_AREA_MEMFD_SECRET;
 			}
 
 			if (vma_area->e->flags & MAP_PRIVATE)

@@ -37,6 +37,7 @@
 #define FDINFO_MAGIC	     0x56213732 /* Dmitrov */
 #define PAGEMAP_MAGIC	     0x56084025 /* Vladimir */
 #define SHMEM_PAGEMAP_MAGIC  PAGEMAP_MAGIC
+#define SECRETMEM_PAGEMAP_MAGIC	 PAGEMAP_MAGIC
 #define PAGES_MAGIC	     RAW_IMAGE_MAGIC
 #define CORE_MAGIC	     0x55053847 /* Kolomna */
 #define IDS_MAGIC	     0x54432030 /* Konigsberg */
@@ -95,6 +96,7 @@
 #define AUTOFS_MAGIC	     0x49353943 /* Sochi */
 #define FILES_MAGIC	     0x56303138 /* Toropets */
 #define MEMFD_INODE_MAGIC    0x48453499 /* Dnipro */
+#define MEMFD_SECRET_INODE_MAGIC 0x44573468 /* Simferopol */
 #define TIMENS_MAGIC	     0x43114433 /* Beslan */
 #define PIDNS_MAGIC	     0x61157326 /* Surgut */
 #define BPFMAP_FILE_MAGIC    0x57506142 /* Alapayevsk */

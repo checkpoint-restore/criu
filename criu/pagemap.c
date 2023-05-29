@@ -778,6 +778,9 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	case PR_SHMEM:
 		i_typ = CR_FD_SHMEM_PAGEMAP;
 		break;
+	case PR_SECRETMEM:
+		i_typ = CR_FD_SECRETMEM_PAGEMAP;
+		break;
 	default:
 		BUG();
 		return -1;

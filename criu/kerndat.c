@@ -52,6 +52,7 @@
 #include "kcmp.h"
 #include "sched.h"
 #include "memfd.h"
+#include "memfd-secret.h"
 #include "mount-v2.h"
 #include "util-caps.h"
 
@@ -256,6 +257,33 @@ static int kerndat_get_shmemdev(void)
 
 err:
 	munmap(map, PAGE_SIZE);
+	return -1;
+}
+
+static int kerndat_get_secretmem_dev(int fd)
+{
+	void *secretmem = NULL;
+	dev_t dev;
+
+	if (ftruncate(fd, PAGE_SIZE) < 0)
+		goto err;
+
+	secretmem = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (secretmem == MAP_FAILED)
+		return -1;
+
+	if (kerndat_get_dev(&dev, secretmem, PAGE_SIZE))
+		goto err;
+
+	munmap(secretmem, PAGE_SIZE);
+	kdat.secretmem_dev = dev;
+	pr_info("Found secret-memory device at %" PRIx64 "\n", kdat.secretmem_dev);
+
+	return 0;
+
+err:
+	if (secretmem)
+		munmap(secretmem, PAGE_SIZE);
 	return -1;
 }
 
@@ -529,6 +557,41 @@ static bool kerndat_has_memfd_hugetlb(void)
 		pr_perror("Unexpected error from memfd_create(\"\", MFD_HUGETLB)");
 		return -1;
 	}
+
+	return 0;
+}
+
+static bool kerndat_has_memfd_secret(void)
+{
+	int fd, ret;
+
+	fd = memfd_secret(0);
+
+	if (errno == ENOSYS) {
+		pr_warn("CRIU was built without memfd_secret support\n");
+		kdat.has_memfd_secret = false;
+		kdat.secretmem_dev = 0;
+		return 0;
+	}
+
+	if (fd > 0) {
+		kdat.has_memfd_secret = true;
+	} else if (fd == -1 && (errno == EINVAL || errno == EMFILE || errno == ENOMEM)) {
+		kdat.has_memfd_secret = false;
+		kdat.secretmem_dev = 0;
+		return 0;
+	} else {
+		pr_perror("Unexpected error from memfd_secret(0)");
+		return -1;
+	}
+
+	ret = kerndat_get_secretmem_dev(fd);
+	if (ret) {
+		close(fd);
+		return -1;
+	}
+
+	close(fd);
 
 	return 0;
 }
@@ -1816,6 +1879,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_memfd_hugetlb()) {
 		pr_err("kerndat_has_memfd_hugetlb failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_memfd_secret()) {
+		pr_err("kerndat_has_memfd_secret failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_detect_stack_guard_gap()) {
