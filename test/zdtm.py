@@ -2231,9 +2231,21 @@ def all_tests(opts):
                 continue
             files.append(fp)
     excl = list(map(lambda x: os.path.join(desc['dir'], x), desc['exclude']))
-    tlist = list(filter(
+    tlist = list(sorted(filter(
         lambda x: not x.endswith('.checkskip') and not x.endswith('.hook') and
-        x not in excl, map(lambda x: x.strip(), files)))
+        x not in excl, map(lambda x: x.strip(), files))))
+
+    if opts.get('test_shard_count'):
+        if opts.get('test_shard_index') is None:
+            raise KeyError('--test_shard_count > 0 must come with --test_shard_index')
+        slice_idx = opts['test_shard_index']
+        slices = opts['test_shard_count']
+        if slice_idx >= slices:
+            raise IndexError('--test_shard_index not less than --test_shard_count ({} >= {})'.format(slice_idx, slices))
+        slist = list(tlist[slice_idx::slices])
+        print("We're shard #{} of {}. Running {} of {} tests.\n".format(slice_idx, slices, len(slist), len(tlist)))
+        tlist = slist
+
     return tlist
 
 
@@ -2765,6 +2777,10 @@ def get_cli_args():
     rp.add_argument("--mntns-compat-mode",
                     help="Use old compat mounts restore engine",
                     action='store_true')
+    rp.add_argument("--test-shard-index", type=int, default=None,
+                    help="Select tests for a shard <index> (0-based)")
+    rp.add_argument("--test-shard-count", type=int, default=0,
+                    help="Specify how many shards are being run (0=sharding disabled; must be the same for all shards)")
 
     lp = sp.add_parser("list", help="List tests")
     lp.set_defaults(action=list_tests)
