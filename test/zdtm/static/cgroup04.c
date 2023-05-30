@@ -17,25 +17,25 @@ const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);
-static const char *cgname = "zdtmtst";
+static const char *const cgname = "zdtmtst";
 
 int mount_and_add(const char *controller, const char *path, const char *prop, const char *value)
 {
 	char aux[1024], paux[1024], subdir[1024];
 
 	if (mkdir(dirname, 0700) < 0 && errno != EEXIST) {
-		pr_perror("Can't make dir");
+		pr_perror("Can't make dir %s", dirname);
 		return -1;
 	}
 
 	sprintf(subdir, "%s/%s", dirname, controller);
 	if (mkdir(subdir, 0700) < 0) {
-		pr_perror("Can't make dir");
+		pr_perror("Can't make dir %s", subdir);
 		return -1;
 	}
 
 	if (mount("none", subdir, "cgroup", 0, controller)) {
-		pr_perror("Can't mount cgroups");
+		pr_perror("Can't mount cgroup controller %s at %s", controller, subdir);
 		goto err_rd;
 	}
 
@@ -52,7 +52,8 @@ int mount_and_add(const char *controller, const char *path, const char *prop, co
 		goto err_rs;
 
 	ssprintf(paux, "%s/%s/special_prop_check", subdir, path);
-	mkdir(paux, 0600);
+	if (mkdir(paux, 0600) < 0)
+		pr_perror("Can't make dir %s", paux);
 
 	return 0;
 err_rs:
@@ -74,11 +75,11 @@ bool checkval(char *path, char *val)
 	}
 
 	n = read(fd, buf, sizeof(buf) - 1);
+	if (n < 0)
+		pr_perror("read %s", path);
 	close(fd);
-	if (n < 0) {
-		pr_perror("read");
+	if (n < 0)
 		return false;
-	}
 	buf[n] = 0;
 
 	if (strcmp(val, buf)) {
@@ -95,7 +96,7 @@ int main(int argc, char **argv)
 	char buf[1024], path[PATH_MAX];
 	struct stat sb;
 
-	char *dev_allow[] = {
+	const char *const dev_allow[] = {
 		"c *:* m",   "b *:* m",	  "c 1:3 rwm", "c 1:5 rwm",   "c 1:7 rwm",    "c 5:0 rwm",
 		"c 5:2 rwm", "c 1:8 rwm", "c 1:9 rwm", "c 136:* rwm", "c 10:229 rwm",
 	};
@@ -126,12 +127,14 @@ int main(int argc, char **argv)
 
 	sprintf(path, "%s/devices/%s/devices.list", dirname, cgname);
 	if (!checkval(path, buf)) {
+		errno = 0;
 		fail();
 		goto out;
 	}
 
 	sprintf(path, "%s/memory/%s/memory.limit_in_bytes", dirname, cgname);
 	if (!checkval(path, "268435456\n")) {
+		errno = 0;
 		fail();
 		goto out;
 	}
@@ -143,6 +146,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!S_ISDIR(sb.st_mode)) {
+		errno = 0;
 		fail("special_prop_check not a directory?");
 		goto out;
 	}
