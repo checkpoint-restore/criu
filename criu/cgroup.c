@@ -714,6 +714,8 @@ static int collect_cgroups(struct list_head *ctls)
 			}
 		} else {
 			fd = open_cgroupfs(cc);
+			if (fd < 0)
+				return -1;
 		}
 
 		path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
