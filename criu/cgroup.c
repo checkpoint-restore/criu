@@ -639,8 +639,8 @@ static int open_cgroupfs(struct cg_ctl *cc)
 		return -1;
 	}
 
-	if (mount("none", prefix, fstype, 0, mopts) < 0) {
-		pr_perror("Unable to mount %s", mopts);
+	if (mount("none", prefix, fstype, 0, mopts[0] ? mopts : NULL) < 0) {
+		pr_perror("Unable to mount %s %s", fstype, mopts);
 		rmdir(prefix);
 		return -1;
 	}
