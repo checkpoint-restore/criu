@@ -1,3 +1,20 @@
 #!/bin/bash
+set -e
 
-! test -f /sys/fs/cgroup/cgroup.controllers
+test ! -f /sys/fs/cgroup/cgroup.controllers
+
+for ctl in devices memory; do
+	# Check that the controller is available.
+
+	grep -q "^${ctl}\\s" /proc/cgroups
+
+	# Check that the controller is not co-mounted with any other.
+
+	# /proc/self/cgroup may have:
+	# "1:devices:/sys"
+	if ! grep -q "^[0-9]*:${ctl}:" /proc/self/cgroup; then
+		# but not eg:
+		# "1:devices,job:/sys"
+		grep -qE "^[0-9]*:([^:]*,)?${ctl}(,[^:]*)?:" /proc/self/cgroup && exit 1
+	fi
+done
