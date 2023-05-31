@@ -28,8 +28,8 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	sk1 = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	sk2 = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	sk1 = socket(PF_INET, SOCK_DGRAM | SOCK_NONBLOCK, IPPROTO_UDP);
+	sk2 = socket(PF_INET, SOCK_DGRAM | SOCK_NONBLOCK, IPPROTO_UDP);
 	if (sk1 < 0 || sk2 < 0) {
 		pr_perror("Can't create socket");
 		exit(1);
