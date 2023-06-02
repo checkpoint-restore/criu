@@ -47,6 +47,21 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	test_msg("Fetch pre-migration flags/adv\n");
+	if (get_smaps_bits((unsigned long)area, &new_flags, &new_madv))
+		return -1;
+
+	errno = 0;
+	if (orig_flags != new_flags) {
+		fail("Flags changed %lx -> %lx\n", orig_flags, new_flags);
+		return -1;
+	}
+
+	if (orig_madv != new_madv) {
+		fail("Madvs changed %lx -> %lx\n", orig_madv, new_madv);
+		return -1;
+	}
+
 	test_daemon();
 	test_waitsig();
 
