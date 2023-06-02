@@ -1324,6 +1324,8 @@ int kerndat_has_thp_disable(void)
 
 			parse_vmflags(str, &flags, &madv, &io_pf);
 			kdat.has_thp_disable = !(madv & (1 << MADV_NOHUGEPAGE));
+			if (!kdat.has_thp_disable)
+				pr_warn("prctl PR_SET_THP_DISABLE sets MADV_NOHUGEPAGE");
 			break;
 		}
 	}
