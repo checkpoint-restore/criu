@@ -17,6 +17,7 @@ int main(int argc, char **argv)
 	unsigned long orig_flags = 0, new_flags = 0;
 	unsigned long orig_madv = 0, new_madv = 0;
 	void *area;
+	int ret;
 
 	test_init(argc, argv);
 
@@ -35,8 +36,30 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	ret = prctl(PR_GET_THP_DISABLE, 0, 0, 0, 0);
+	if (ret < 0) {
+		pr_perror("Getting THP-disabled flag failed");
+		return -1;
+	}
+	if (ret != 1) {
+		errno = 0;
+		fail("prctl(GET_THP_DISABLE) returned unexpected value: %d != 1\n", ret);
+		return -1;
+	}
+
 	test_daemon();
 	test_waitsig();
+
+	ret = prctl(PR_GET_THP_DISABLE, 0, 0, 0, 0);
+	if (ret < 0) {
+		pr_perror("Getting post-migration THP-disabled flag failed");
+		return -1;
+	}
+	if (ret != 1) {
+		errno = 0;
+		fail("post-migration prctl(GET_THP_DISABLE) returned unexpected value: %d != 1\n", ret);
+		return -1;
+	}
 
 	if (prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0)) {
 		pr_perror("Enabling THP failed");
