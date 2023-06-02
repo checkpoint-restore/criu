@@ -73,8 +73,6 @@ struct rst_info {
 	 */
 	bool has_old_seccomp_filter;
 
-	bool has_thp_enabled;
-
 	struct rst_rseq *rseqe;
 
 	void *breakpoint;
