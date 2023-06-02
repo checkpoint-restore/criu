@@ -1217,8 +1217,6 @@ err_addr:
 
 static int maybe_disable_thp(struct pstree_item *t, struct page_read *pr)
 {
-	MmEntry *mm = rsti(t)->mm;
-
 	/*
 	 * There is no need to disable it if the page read doesn't
 	 * have parent. In this case VMA will be empty until
@@ -1241,8 +1239,6 @@ static int maybe_disable_thp(struct pstree_item *t, struct page_read *pr)
 		pr_perror("Cannot disable THP");
 		return -1;
 	}
-	if (!(mm->has_thp_disabled && mm->thp_disabled))
-		rsti(t)->has_thp_enabled = true;
 
 	return 0;
 }
