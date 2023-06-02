@@ -2971,7 +2971,7 @@ static int prepare_mm(pid_t pid, struct task_restore_args *args)
 
 	args->fd_exe_link = exe_fd;
 
-	args->has_thp_enabled = rsti(current)->has_thp_enabled;
+	args->thp_disabled = mm->has_thp_disabled && mm->thp_disabled;
 
 	ret = 0;
 out:

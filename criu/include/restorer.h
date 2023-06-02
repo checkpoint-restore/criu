@@ -144,7 +144,7 @@ struct task_restore_args {
 	struct timeval logstart;
 
 	int uffd;
-	bool has_thp_enabled;
+	bool thp_disabled;
 
 	/* threads restoration */
 	int nr_threads;				 /* number of threads */
