@@ -444,6 +444,7 @@ usage:
 	       "  --evasive-devices     use any path to a device file if the original one\n"
 	       "                        is inaccessible\n"
 	       "  --link-remap          allow one to link unlinked files back when possible\n"
+	       "  --keep-link-remaps    On restore, don't automatically remove link remaps.\n"
 	       "  --ghost-limit size    limit max size of deleted file contents inside image\n"
 	       "  --ghost-fiemap        enable dumping of deleted files using fiemap\n"
 	       "  --action-script FILE  add an external action script\n"
