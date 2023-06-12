@@ -1,0 +1,6 @@
+#ifndef __CR_BITSPERLONG_H__
+#define __CR_BITSPERLONG_H__
+
+#define BITS_PER_LONG _LOONGARCH_SZLONG
+
+#endif /* __CR_BITSPERLONG_H__ */
