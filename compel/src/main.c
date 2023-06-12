@@ -57,6 +57,9 @@ static const flags_t flags = {
 #elif defined CONFIG_MIPS
 	.arch = "mips",
 	.cflags = COMPEL_CFLAGS_PIE,
+#elif defined CONFIG_LOONGARCH64
+	.arch = "loongarch64",
+	.cflags = COMPEL_CFLAGS_PIE,
 #else
 #error "CONFIG_<ARCH> not defined, or unsupported ARCH"
 #endif

@@ -20,7 +20,8 @@ ARCH	?= $(shell echo $(SUBARCH) | sed	\
                 -e s/ppc64.*/ppc64/		\
                 -e s/mips.*/mips/		\
                 -e s/sh[234].*/sh/		\
-                -e s/aarch64.*/aarch64/)
+                -e s/aarch64.*/aarch64/		\
+                -e s/loongarch64.*/loongarch64/)
 
 export SUBARCH ARCH
 
