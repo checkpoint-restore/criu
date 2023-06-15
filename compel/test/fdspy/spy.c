@@ -110,11 +110,11 @@ static int check_pipe_ends(int wfd, int rfd)
 	printf("Check pipe ends are connected\n");
 	if (write(wfd, "1", 2) != 2) {
 		fprintf(stderr, "write to pipe failed\n");
-		return -1;
+		return 0;
 	}
 	if (read(rfd, aux, sizeof(aux)) != sizeof(aux)) {
 		fprintf(stderr, "read from pipe failed\n");
-		return -1;
+		return 0;
 	}
 	if (aux[0] != '1' || aux[1] != '\0') {
 		fprintf(stderr, "Pipe connectivity lost\n");
