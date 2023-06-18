@@ -1,0 +1,7 @@
+# We need pip version 20.1 or newer to correctly build with 'pycriu' symlink.
+# - Building of local directories with pip 20.1 or newer is done in place,
+#   instead of a temporary location containing a copy of the directory tree.
+#   (https://github.com/pypa/pip/issues/7555)
+pip>=20.1
+setuptools>=42.0.0
+wheel
