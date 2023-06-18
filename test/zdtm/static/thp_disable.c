@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 	}
 	if (ret != 1) {
 		errno = 0;
-		fail("prctl(GET_THP_DISABLE) returned unexpected value: %d != 1\n", ret);
+		fail("prctl(GET_THP_DISABLE) returned unexpected value: %d != 1", ret);
 		return -1;
 	}
 
@@ -53,12 +53,12 @@ int main(int argc, char **argv)
 
 	errno = 0;
 	if (orig_flags != new_flags) {
-		fail("Flags changed %lx -> %lx\n", orig_flags, new_flags);
+		fail("Flags changed %lx -> %lx", orig_flags, new_flags);
 		return -1;
 	}
 
 	if (orig_madv != new_madv) {
-		fail("Madvs changed %lx -> %lx\n", orig_madv, new_madv);
+		fail("Madvs changed %lx -> %lx", orig_madv, new_madv);
 		return -1;
 	}
 
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 	}
 	if (ret != 1) {
 		errno = 0;
-		fail("post-migration prctl(GET_THP_DISABLE) returned unexpected value: %d != 1\n", ret);
+		fail("post-migration prctl(GET_THP_DISABLE) returned unexpected value: %d != 1", ret);
 		return -1;
 	}
 
@@ -87,12 +87,12 @@ int main(int argc, char **argv)
 
 	errno = 0;
 	if (orig_flags != new_flags) {
-		fail("Flags changed %lx -> %lx\n", orig_flags, new_flags);
+		fail("Flags changed %lx -> %lx", orig_flags, new_flags);
 		return -1;
 	}
 
 	if (orig_madv != new_madv) {
-		fail("Madvs changed %lx -> %lx\n", orig_madv, new_madv);
+		fail("Madvs changed %lx -> %lx", orig_madv, new_madv);
 		return -1;
 	}
 
