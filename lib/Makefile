@@ -4,6 +4,9 @@ UAPI_HEADERS		:= lib/c/criu.h images/rpc.proto images/rpc.pb-c.h criu/include/ve
 
 all-y	+= lib-c lib-a lib-py
 
+PYTHON_EXTERNALLY_MANAGED := $(shell $(PYTHON) -c 'import os, sysconfig; print(int(os.path.isfile(os.path.join(sysconfig.get_path("stdlib"), "EXTERNALLY-MANAGED"))))')
+PIP_BREAK_SYSTEM_PACKAGES := 0
+
 #
 # C language bindings.
 lib/c/Makefile: ;
@@ -54,9 +57,19 @@ install: lib-c lib-a lib-py lib/c/criu.pc.in
 	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
 	$(Q) sed -e 's,@version@,$(CRIU_VERSION),' -e 's,@libdir@,$(LIBDIR),' -e 's,@includedir@,$(dir $(INCLUDEDIR)/criu/),' lib/c/criu.pc.in > lib/c/criu.pc
 	$(Q) install -m 644 lib/c/criu.pc $(DESTDIR)$(LIBDIR)/pkgconfig
-ifeq ($(PYTHON),python3)
+ifeq ($(PYTHON_EXTERNALLY_MANAGED),1)
+ifeq ($(PIP_BREAK_SYSTEM_PACKAGES),0)
+	$(E) "  SKIP INSTALL crit: Externally managed python environment (See PEP 668 for more information)"
+	$(E) "  Consider using PIP_BREAK_SYSTEM_PACKAGES=1 make install"
+else
 	$(E) "  INSTALL " crit
-	$(Q) $(PYTHON) -m pip install --upgrade --force-reinstall --prefix=$(DESTDIR)$(PREFIX) ./crit
+	$(Q) $(PYTHON) -m pip install -r ./crit/requirements.txt
+	$(Q) $(PYTHON) -m pip install --no-build-isolation --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./crit
+endif
+else
+	$(E) "  INSTALL " crit
+	$(Q) $(PYTHON) -m pip install -r ./crit/requirements.txt
+	$(Q) $(PYTHON) -m pip install --no-build-isolation --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./crit
 endif
 .PHONY: install
 
@@ -69,7 +82,15 @@ uninstall:
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/criu/,$(notdir $(UAPI_HEADERS)))
 	$(E) " UNINSTALL" pkgconfig/criu.pc
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/pkgconfig/,criu.pc)
-ifeq ($(PYTHON),python3)
+ifeq ($(PYTHON_EXTERNALLY_MANAGED),1)
+ifeq ($(PIP_BREAK_SYSTEM_PACKAGES),0)
+	$(E) " SKIP UNINSTALL crit: Externally managed python environment (See PEP 668 for more information)"
+	$(E) " Consider using PIP_BREAK_SYSTEM_PACKAGES=1 make uninstall"
+else
+	$(E) " UNINSTALL" crit
+	$(Q) $(PYTHON) ./scripts/uninstall_module.py --prefix=$(DESTDIR)$(PREFIX) crit
+endif
+else
 	$(E) " UNINSTALL" crit
 	$(Q) $(PYTHON) ./scripts/uninstall_module.py --prefix=$(DESTDIR)$(PREFIX) crit
 endif
