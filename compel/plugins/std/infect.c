@@ -27,7 +27,7 @@ static struct rt_sigframe *sigframe;
  */
 static unsigned __page_size;
 
-unsigned __attribute((weak)) page_size(void)
+unsigned long __attribute((weak)) page_size(void)
 {
 	return __page_size;
 }
