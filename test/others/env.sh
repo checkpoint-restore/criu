@@ -13,5 +13,5 @@ fi
 #export PYTHON
 CRIT=$(readlink -f `dirname ${BASH_SOURCE[0]}`/../../crit/crit-"${PYTHON}")
 crit=$CRIT
-CRIU_COREDUMP=$(readlink -f `dirname ${BASH_SOURCE[0]}`/../../coredump/coredump-"${PYTHON}")
+CRIU_COREDUMP=$(readlink -f `dirname ${BASH_SOURCE[0]}`/../../coredump/coredump)
 criu_coredump=$CRIU_COREDUMP
