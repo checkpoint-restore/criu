@@ -41,7 +41,7 @@ clean: clean-lib
 cleanup-y	+= lib/c/$(CRIU_SO) lib/c/$(CRIU_A) lib/c/criu.pc
 mrproper: clean
 
-install: lib-c lib-a lib-py crit/crit lib/c/criu.pc.in
+install: lib-c lib-a lib-py lib/c/criu.pc.in
 	$(E) "  INSTALL " lib
 	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)
 	$(Q) install -m 755 lib/c/$(CRIU_SO) $(DESTDIR)$(LIBDIR)/$(CRIU_SO).$(CRIU_SO_VERSION_MAJOR).$(CRIU_SO_VERSION_MINOR)
