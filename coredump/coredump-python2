@@ -1,6 +1,0 @@
-#!/usr/bin/env python2
-
-import coredump
-
-if __name__ == '__main__':
-    coredump.main()
