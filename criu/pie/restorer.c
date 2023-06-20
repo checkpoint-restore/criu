@@ -104,7 +104,7 @@ bool fault_injected(enum faults f)
  * Hint: compel on aarch64 shall learn relocs for that.
  */
 static unsigned __page_size;
-unsigned page_size(void)
+unsigned long page_size(void)
 {
 	return __page_size;
 }
