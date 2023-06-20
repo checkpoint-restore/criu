@@ -122,8 +122,8 @@ static inline struct vma_area *vma_next(struct vma_area *vma)
 static inline bool vma_entry_can_be_lazy(VmaEntry *e)
 {
 	return ((e->flags & MAP_ANONYMOUS) && (e->flags & MAP_PRIVATE) && !(e->flags & MAP_LOCKED) &&
-		!(vma_entry_is(e, VMA_AREA_VDSO)) && !(vma_entry_is(e, VMA_AREA_VSYSCALL)) &&
-		!(e->flags & MAP_HUGETLB));
+		!(vma_entry_is(e, VMA_AREA_VDSO)) && !(vma_entry_is(e, VMA_AREA_VVAR)) &&
+		!(vma_entry_is(e, VMA_AREA_VSYSCALL)) && !(e->flags & MAP_HUGETLB));
 }
 
 #endif /* __CR_VMA_H__ */
