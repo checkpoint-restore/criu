@@ -2,9 +2,6 @@
 
 set -e
 
-# CentOS 7 kernels do not have NSpid -> skip this test
-grep NSpid /proc/self/status || exit 0
-
 # This test creates a process in non-host pidns and then dumps it and restores
 # it into host pidns. We use pid >100000 in non-host pidns to make sure it does
 # not intersect with some host pid on restore but it is potentially racy so
