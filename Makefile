@@ -156,7 +156,7 @@ HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
 export AFLAGS CFLAGS USERCLFAGS HOSTCFLAGS
 
 # Default target
-all: flog criu lib crit
+all: flog criu lib
 .PHONY: all
 
 #
@@ -268,26 +268,19 @@ criu: $(criu-deps)
 	$(Q) $(MAKE) $(build)=criu all
 .PHONY: criu
 
-crit/Makefile: ;
-crit/%: criu .FORCE
-	$(Q) $(MAKE) $(build)=crit $@
-crit: criu
-	$(Q) $(MAKE) $(build)=crit all
-.PHONY: crit
-
 unittest: $(criu-deps)
 	$(Q) $(MAKE) $(build)=criu unittest
 .PHONY: unittest
 
 
 #
-# Libraries next once crit it ready
+# Libraries next once criu is ready
 # (we might generate headers and such
 # when building criu itself).
 lib/Makefile: ;
-lib/%: crit .FORCE
+lib/%: criu .FORCE
 	$(Q) $(MAKE) $(build)=lib $@
-lib: crit
+lib: criu
 	$(Q) $(MAKE) $(build)=lib all
 .PHONY: lib
 
@@ -300,7 +293,6 @@ clean mrproper:
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 	$(Q) $(MAKE) $(build)=lib $@
-	$(Q) $(MAKE) $(build)=crit $@
 .PHONY: clean mrproper
 
 clean-amdgpu_plugin:
