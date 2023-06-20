@@ -441,7 +441,7 @@ lint:
 	flake8 --config=scripts/flake8.cfg test/others/criu-ns/run.py
 	flake8 --config=scripts/flake8.cfg crit/setup.py
 	flake8 --config=scripts/flake8.cfg scripts/uninstall_module.py
-	flake8 --config=scripts/flake8.cfg coredump/
+	flake8 --config=scripts/flake8.cfg coredump/ coredump/coredump
 	shellcheck --version
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install

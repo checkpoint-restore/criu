@@ -35,12 +35,6 @@ import ctypes
 from pycriu import images
 from . import elf
 
-
-try:
-    from itertools import ifilter as filter
-except ImportError:
-    pass
-
 # Some memory-related constants
 PAGESIZE = 4096
 status = {
@@ -318,10 +312,7 @@ class coredump_generator:
         # prpsinfo.pr_psargs has a limit of 80 characters which means it will
         # fail here if the cmdline is longer than 80
         prpsinfo.pr_psargs = self._gen_cmdline(pid)[:80]
-        if (sys.version_info > (3, 0)):
-            prpsinfo.pr_fname = core["tc"]["comm"].encode()
-        else:
-            prpsinfo.pr_fname = core["tc"]["comm"]
+        prpsinfo.pr_fname = core["tc"]["comm"].encode()
 
         nhdr = elf.Elf64_Nhdr()
         nhdr.n_namesz = 5
@@ -581,10 +572,7 @@ class coredump_generator:
             setattr(data, "start" + str(i), info.start)
             setattr(data, "end" + str(i), info.end)
             setattr(data, "file_ofs" + str(i), info.file_ofs)
-            if (sys.version_info > (3, 0)):
-                setattr(data, "name" + str(i), info.name.encode())
-            else:
-                setattr(data, "name" + str(i), info.name)
+            setattr(data, "name" + str(i), info.name.encode())
 
         nhdr = elf.Elf64_Nhdr()
 
