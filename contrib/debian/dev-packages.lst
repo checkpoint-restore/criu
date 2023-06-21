@@ -17,4 +17,3 @@ libcap-dev
 libaio-dev
 python3-yaml
 libnl-route-3-dev
-python-future

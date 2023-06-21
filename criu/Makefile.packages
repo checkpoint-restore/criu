@@ -6,7 +6,6 @@ REQ-RPM-PKG-NAMES	+= protobuf-devel
 REQ-RPM-PKG-NAMES	+= protobuf-python
 REQ-RPM-PKG-NAMES	+= libnl3-devel
 REQ-RPM-PKG-NAMES	+= libcap-devel
-REQ-RPM-PKG-NAMES	+= $(PYTHON)-future
 
 REQ-RPM-PKG-TEST-NAMES  += libaio-devel
 
@@ -15,7 +14,6 @@ REQ-DEB-PKG-NAMES	+= libprotobuf-c-dev
 REQ-DEB-PKG-NAMES	+= protobuf-c-compiler
 REQ-DEB-PKG-NAMES	+= protobuf-compiler
 REQ-DEB-PKG-NAMES	+= $(PYTHON)-protobuf
-REQ-DEB-PKG-NAMES	+= $(PYTHON)-future
 REQ-DEB-PKG-NAMES	+= libnl-3-dev
 REQ-DEB-PKG-NAMES	+= libcap-dev
 
