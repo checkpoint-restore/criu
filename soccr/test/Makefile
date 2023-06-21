@@ -21,7 +21,6 @@ tcp-conn-v6: tcp-conn-v6.c
 test: tcp-constructor tcp-conn tcp-conn-v6
 	unshare -n sh -c "ip link set up dev lo; ./tcp-conn"
 	unshare -n sh -c "ip link set up dev lo; ./tcp-conn-v6"
-	python run.py ./$(RUN)
+	python3 run.py ./$(RUN)
 
 .PHONY: test
-
