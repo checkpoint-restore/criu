@@ -263,6 +263,10 @@ bool is_path_prefix(const char *path, const char *prefix);
 FILE *fopenat(int dirfd, char *path, char *cflags);
 void split(char *str, char token, char ***out, int *n);
 
+int cr_fchown(int fd, uid_t new_uid, gid_t new_gid);
+int cr_fchperm(int fd, uid_t new_uid, gid_t new_gid, mode_t new_mode);
+int cr_fchpermat(int dirfd, const char *path, uid_t new_uid, gid_t new_gid, mode_t new_mode, int flags);
+
 int fd_has_data(int lfd);
 
 int make_yard(char *path);
