@@ -22,6 +22,7 @@
 #include "rst-malloc.h"
 #include "log.h"
 #include "common/list.h"
+#include "util.h"
 #include "util-pie.h"
 #include "proc_parse.h"
 #include "file-ids.h"
@@ -867,7 +868,7 @@ static int restore_tty_params(int fd, struct tty_info *info)
 	}
 
 	if (info->tie->has_uid && info->tie->has_gid) {
-		if (fchown(fd, info->tie->uid, info->tie->gid)) {
+		if (cr_fchown(fd, info->tie->uid, info->tie->gid)) {
 			pr_perror("Can't setup uid %d gid %d on %#x", (int)info->tie->uid, (int)info->tie->gid,
 				  info->tfe->id);
 			return -1;
