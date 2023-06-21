@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import subprocess
 import socket
@@ -67,7 +67,7 @@ if sys.argv[1] == "--post-start":
             cln, addr = srv.accept()
             cln.sendall(str.encode("--post-restore"))
             cln.close()
-        
+
         # Server will be closed when zdtm sends SIGKILL
 
 if sys.argv[1] == "--pre-dump":

@@ -4,7 +4,7 @@ all: test-c rpc_pb2.py criu
 CFLAGS += -g -Werror -Wall -I.
 LDLIBS +=  -lprotobuf-c
 
-PYTHON ?= python
+PYTHON ?= python3
 
 run: all
 	@make -C .. loop
