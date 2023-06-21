@@ -952,6 +952,88 @@ FILE *fopenat(int dirfd, char *path, char *cflags)
 	return fdopen(tmp, cflags);
 }
 
+int cr_fchown(int fd, uid_t new_uid, gid_t new_gid)
+{
+	struct stat st;
+
+	if (!fchown(fd, new_uid, new_gid))
+		return 0;
+	if (errno != EPERM)
+		return -1;
+
+	if (fstat(fd, &st) < 0) {
+		pr_perror("fstat() after fchown() for fd %d", fd);
+		goto out_eperm;
+	}
+	pr_debug("fstat(%d): uid %u gid %u\n", fd, st.st_uid, st.st_gid);
+
+	if (new_uid != st.st_uid || new_gid != st.st_gid)
+		goto out_eperm;
+
+	return 0;
+out_eperm:
+	errno = EPERM;
+	return -1;
+}
+
+int cr_fchpermat(int dirfd, const char *path, uid_t new_uid, gid_t new_gid, mode_t new_mode, int flags)
+{
+	struct stat st;
+	int ret;
+
+	if (fchownat(dirfd, path, new_uid, new_gid, flags) < 0 && errno != EPERM) {
+		int errno_cpy = errno;
+		pr_perror("Unable to change [%d]/%s ownership to (%d, %d)", dirfd, path, new_uid, new_gid);
+		errno = errno_cpy;
+		return -1;
+	}
+
+	if (fstatat(dirfd, path, &st, flags) < 0) {
+		int errno_cpy = errno;
+		pr_perror("Unable to stat [%d]/%s", dirfd, path);
+		errno = errno_cpy;
+		return -1;
+	}
+
+	if (new_uid != st.st_uid || new_gid != st.st_gid) {
+		errno = EPERM;
+		pr_perror("Unable to change [%d]/%s ownership (%d, %d) to (%d, %d)", dirfd, path, st.st_uid, st.st_gid,
+		          new_uid, new_gid);
+		errno = EPERM;
+		return -1;
+	}
+
+	if (new_mode == st.st_mode)
+		return 0;
+
+	if (S_ISLNK(st.st_mode)) {
+		/*
+		 * We have no lchmod() function, and fchmod() will fail on
+		 * O_PATH | O_NOFOLLOW fd. Yes, we have fchmodat()
+		 * function and flag AT_SYMLINK_NOFOLLOW described in
+		 * man 2 fchmodat, but it is not currently implemented. %)
+		 */
+		return 0;
+	}
+
+	if (!*path && flags & AT_EMPTY_PATH)
+		ret = fchmod(dirfd, new_mode);
+	else
+		ret = fchmodat(dirfd, path, new_mode, flags & ~(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH));
+	if (ret < 0) {
+		int errno_cpy = errno;
+		pr_perror("Unable to set perms %o on [%d]/%s", new_mode, dirfd, path);
+		errno = errno_cpy;
+	}
+
+	return ret;
+}
+
+int cr_fchperm(int fd, uid_t new_uid, gid_t new_gid, mode_t new_mode)
+{
+	return cr_fchpermat(fd, "", new_uid, new_gid, new_mode, AT_EMPTY_PATH);
+}
+
 void split(char *str, char token, char ***out, int *n)
 {
 	int i;
