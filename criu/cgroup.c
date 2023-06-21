@@ -1337,34 +1337,6 @@ void fini_cgroup(void)
 	cg_yard = NULL;
 }
 
-static int restore_perms(int fd, const char *path, CgroupPerms *perms)
-{
-	struct stat sb;
-
-	if (perms) {
-		if (fstat(fd, &sb) < 0) {
-			pr_perror("stat of property %s failed", path);
-			return -1;
-		}
-
-		/* only chmod/chown if the perms are actually different: we aren't
-		 * allowed to chmod some cgroup props (e.g. the read only ones), so we
-		 * don't want to try if the perms already match.
-		 */
-		if (sb.st_mode != (mode_t)perms->mode && fchmod(fd, perms->mode) < 0) {
-			pr_perror("chmod of %s failed", path);
-			return -1;
-		}
-
-		if ((sb.st_uid != perms->uid || sb.st_gid != perms->gid) && fchown(fd, perms->uid, perms->gid)) {
-			pr_perror("chown of %s failed", path);
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
 static int add_subtree_control_prop_prefix(char *input, char *output, char prefix)
 {
 	char *current, *next;
@@ -1462,7 +1434,7 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *pat
 		return -1;
 	}
 
-	if (restore_perms(fd, path, perms) < 0)
+	if (perms && cr_fchperm(fd, perms->uid, perms->gid, perms->mode) < 0)
 		goto out;
 
 	/* skip these two since restoring their values doesn't make sense */
@@ -1786,7 +1758,7 @@ static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
 
 static int prepare_dir_perms(int cg, char *path, CgroupPerms *perms)
 {
-	int fd, ret;
+	int fd, ret = 0;
 
 	fd = openat(cg, path, O_DIRECTORY);
 	if (fd < 0) {
@@ -1794,7 +1766,8 @@ static int prepare_dir_perms(int cg, char *path, CgroupPerms *perms)
 		return -1;
 	}
 
-	ret = restore_perms(fd, path, perms);
+	if (perms)
+		ret = cr_fchperm(fd, perms->uid, perms->gid, perms->mode);
 	close(fd);
 	return ret;
 }
