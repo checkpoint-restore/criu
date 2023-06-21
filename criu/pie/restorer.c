@@ -51,6 +51,11 @@
 #include "shmem.h"
 #include "restorer.h"
 
+/*
+ * sys_getgroups() buffer size. Not too much, to avoid stack overflow.
+ */
+#define MAX_GETGROUPS_CHECKED (512 / sizeof(unsigned int))
+
 #ifndef PR_SET_PDEATHSIG
 #define PR_SET_PDEATHSIG 1
 #endif
@@ -198,10 +203,19 @@ static int restore_creds(struct thread_creds_args *args, int procfd, int lsm_typ
 	 * Setup supplementary group IDs early.
 	 */
 	if (args->groups) {
-		ret = sys_setgroups(ce->n_groups, args->groups);
-		if (ret) {
-			pr_err("Can't setup supplementary group IDs: %d\n", ret);
-			return -1;
+		/*
+		 * We may be in an unprivileged user namespace where setgroups
+		 * is disabled.  If the current list of groups is already what
+		 * we want, skip the call to setgroups.
+		 */
+		unsigned int gids[MAX_GETGROUPS_CHECKED];
+		int n = sys_getgroups(MAX_GETGROUPS_CHECKED, gids);
+		if (n != ce->n_groups || memcmp(gids, args->groups, n * sizeof(*gids))) {
+			ret = sys_setgroups(ce->n_groups, args->groups);
+			if (ret) {
+				pr_err("Can't setgroups([%zu gids]): %d\n", ce->n_groups, ret);
+				return -1;
+			}
 		}
 	}
 
