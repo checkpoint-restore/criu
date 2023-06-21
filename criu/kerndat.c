@@ -12,7 +12,7 @@
 #include <sys/sysmacros.h>
 #include <stdint.h>
 #include <sys/socket.h>
-#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
+#include <netinet/in.h>
 #include <sys/prctl.h>
 #include <sys/inotify.h>
 #include <sched.h>
@@ -615,29 +615,52 @@ static int kerndat_iptables_has_xtlocks(void)
 	return 0;
 }
 
-int kerndat_tcp_repair(void)
-{
-	int sock, clnt = -1, yes = 1, exit_code = -1;
-	struct sockaddr_in addr;
-	socklen_t aux;
+/*
+ * Unfortunately in C htonl() is not constexpr and cannot be used in a static
+ * initialization below.
+ */
+#define constant_htonl(x) \
+	(__BYTE_ORDER == __BIG_ENDIAN ? (x) : \
+		(((x) & 0xff000000) >> 24) | (((x) & 0x00ff0000) >>  8) | \
+		(((x) & 0x0000ff00) <<  8) | (((x) & 0x000000ff) << 24))
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	inet_pton(AF_INET, "127.0.0.1", &(addr.sin_addr));
-	addr.sin_port = 0;
+static int kerndat_tcp_repair(void)
+{
+	static const struct sockaddr_in loopback_ip4 = {
+		.sin_family = AF_INET,
+		.sin_port = 0,
+		.sin_addr = { constant_htonl(INADDR_LOOPBACK) },
+	};
+	static const struct sockaddr_in6 loopback_ip6 = {
+		.sin6_family = AF_INET6,
+		.sin6_port = 0,
+		.sin6_addr = IN6ADDR_LOOPBACK_INIT,
+	};
+	int sock, clnt = -1, yes = 1, exit_code = -1;
+	const struct sockaddr *addr;
+	struct sockaddr_storage listener_addr;
+	socklen_t addrlen;
+
+	addr = (const struct sockaddr *)&loopback_ip4;
+	addrlen = sizeof(loopback_ip4);
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock < 0 && errno == EAFNOSUPPORT) {
+		addr = (const struct sockaddr *)&loopback_ip6;
+		addrlen = sizeof(loopback_ip6);
+		sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+	}
 	if (sock < 0) {
 		pr_perror("Unable to create a socket");
 		return -1;
 	}
 
-	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr))) {
+	if (bind(sock, addr, addrlen)) {
 		pr_perror("Unable to bind a socket");
 		goto err;
 	}
 
-	aux = sizeof(addr);
-	if (getsockname(sock, (struct sockaddr *)&addr, &aux)) {
+	addrlen = sizeof(listener_addr);
+	if (getsockname(sock, (struct sockaddr *)&listener_addr, &addrlen)) {
 		pr_perror("Unable to get a socket name");
 		goto err;
 	}
@@ -647,13 +670,13 @@ int kerndat_tcp_repair(void)
 		goto err;
 	}
 
-	clnt = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	clnt = socket(addr->sa_family, SOCK_STREAM, IPPROTO_TCP);
 	if (clnt < 0) {
 		pr_perror("Unable to create a socket");
 		goto err;
 	}
 
-	if (connect(clnt, (struct sockaddr *)&addr, sizeof(addr))) {
+	if (connect(clnt, (const struct sockaddr *)&listener_addr, addrlen)) {
 		pr_perror("Unable to connect a socket");
 		goto err;
 	}
@@ -977,6 +1000,8 @@ int kerndat_sockopt_buf_lock(void)
 	int sock;
 
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock < 0 && errno == EAFNOSUPPORT)
+		sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if (sock < 0) {
 		pr_perror("Unable to create a socket");
 		return -1;
