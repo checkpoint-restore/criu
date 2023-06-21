@@ -5,8 +5,8 @@ CI_PKGS=(protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
 		libnl-route-3-dev time flake8 libbsd-dev python3-yaml
-		libperl-dev pkg-config python3-future python3-protobuf
-		python3-pip python3-importlib-metadata python3-junit.xml)
+		libperl-dev pkg-config python3-protobuf python3-pip
+		python3-importlib-metadata python3-junit.xml)
 
 X86_64_PKGS=(gcc-multilib)
 

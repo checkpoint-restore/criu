@@ -38,7 +38,7 @@ setup() {
 	ssh default sudo dnf upgrade -y
 	ssh default sudo dnf install -y gcc git gnutls-devel nftables-devel libaio-devel \
 		libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make protobuf-c-devel \
-		protobuf-devel python3-flake8 python3-future python3-protobuf python3-importlib-metadata \
+		protobuf-devel python3-flake8 python3-protobuf python3-importlib-metadata \
 		python3-junit_xml rubygem-asciidoctor iptables libselinux-devel libbpf-devel
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	ssh default sudo systemctl mask sssd

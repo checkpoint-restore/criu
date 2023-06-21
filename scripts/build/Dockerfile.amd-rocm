@@ -55,7 +55,6 @@ RUN apt-get clean -qqy && apt-get update -qqy && apt-get install -qqy --no-insta
 	protobuf-compiler \
 	python-protobuf \
 	python3-minimal \
-	python3-future \
 	python-ipaddress \
 	curl \
 	wget \

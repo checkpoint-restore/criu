@@ -6,7 +6,6 @@ COPY scripts/ci/apt-install /bin/apt-install
 RUN apt-install protobuf-c-compiler \
 	libprotobuf-c-dev \
 	libaio-dev \
-	python3-future \
 	libprotobuf-dev \
 	protobuf-compiler \
 	libcap-dev \
