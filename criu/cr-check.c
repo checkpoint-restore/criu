@@ -1086,6 +1086,8 @@ static int kerndat_tcp_repair_window(void)
 	int sk, val = 1;
 
 	sk = socket(AF_INET, SOCK_STREAM, 0);
+	if (sk < 0 && errno == EAFNOSUPPORT)
+		sk = socket(AF_INET6, SOCK_STREAM, 0);
 	if (sk < 0) {
 		pr_perror("Unable to create inet socket");
 		goto errn;
