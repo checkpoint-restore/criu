@@ -2940,12 +2940,6 @@ out:
 	return ret;
 }
 
-static inline int verify_cap_size(CredsEntry *ce)
-{
-	return ((ce->n_cap_inh == CR_CAP_SIZE) && (ce->n_cap_eff == CR_CAP_SIZE) && (ce->n_cap_prm == CR_CAP_SIZE) &&
-		(ce->n_cap_bnd == CR_CAP_SIZE));
-}
-
 static int prepare_mm(pid_t pid, struct task_restore_args *args)
 {
 	int exe_fd, i, ret = -1;
@@ -3360,16 +3354,30 @@ static bool groups_match(gid_t *groups, int n_groups)
 	return ret;
 }
 
+static void copy_caps(u32 *out_caps, u32 *in_caps, int n_words)
+{
+	int i, cap_end;
+
+	for (i = kdat.last_cap + 1; i < 32 * n_words; ++i) {
+		if (~in_caps[i / 32] & (1 << (i % 32)))
+			continue;
+
+		pr_warn("Dropping unsupported capability %d > %d)\n", i, kdat.last_cap);
+		/* extra caps will be cleared below */
+	}
+
+	n_words = min(n_words, (kdat.last_cap + 31) / 32);
+	cap_end = (kdat.last_cap & 31) + 1;
+	memcpy(out_caps, in_caps, sizeof(*out_caps) * n_words);
+	if ((cap_end & 31) && n_words)
+		out_caps[n_words - 1] &= (1 << cap_end) - 1;
+	memset(out_caps + n_words, 0, sizeof(*out_caps) * (CR_CAP_SIZE - n_words));
+}
+
 static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 {
 	unsigned long this_pos;
 	struct thread_creds_args *args;
-
-	if (!verify_cap_size(ce)) {
-		pr_err("Caps size mismatch %d %d %d %d\n", (int)ce->n_cap_inh, (int)ce->n_cap_eff, (int)ce->n_cap_prm,
-		       (int)ce->n_cap_bnd);
-		return ERR_PTR(-EINVAL);
-	}
 
 	this_pos = rst_mem_align_cpos(RM_PRIVATE);
 
@@ -3458,10 +3466,10 @@ static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned lo
 	args->creds.groups = NULL;
 	args->creds.lsm_profile = NULL;
 
-	memcpy(args->cap_inh, ce->cap_inh, sizeof(args->cap_inh));
-	memcpy(args->cap_eff, ce->cap_eff, sizeof(args->cap_eff));
-	memcpy(args->cap_prm, ce->cap_prm, sizeof(args->cap_prm));
-	memcpy(args->cap_bnd, ce->cap_bnd, sizeof(args->cap_bnd));
+	copy_caps(args->cap_inh, ce->cap_inh, ce->n_cap_inh);
+	copy_caps(args->cap_eff, ce->cap_eff, ce->n_cap_eff);
+	copy_caps(args->cap_prm, ce->cap_prm, ce->n_cap_prm);
+	copy_caps(args->cap_bnd, ce->cap_bnd, ce->n_cap_bnd);
 
 	if (ce->n_groups && !groups_match(ce->groups, ce->n_groups)) {
 		unsigned int *groups;
