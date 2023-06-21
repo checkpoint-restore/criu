@@ -279,7 +279,7 @@ static int memfd_open_inode_nocache(struct memfd_restore_inode *inode)
 	if (restore_memfd_shmem_content(fd, mie->shmid, mie->size))
 		goto out;
 
-	if (fchown(fd, mie->uid, mie->gid)) {
+	if (cr_fchown(fd, mie->uid, mie->gid)) {
 		pr_perror("Can't change uid %d gid %d of memfd:%s", (int)mie->uid, (int)mie->gid, mie->name);
 		goto out;
 	}
