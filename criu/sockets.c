@@ -38,7 +38,7 @@
 #define SOCK_DIAG_BY_FAMILY 20
 #endif
 
-#define SK_HASH_SIZE 32
+#define SK_HASH_SIZE (1 << 14)
 
 #ifndef SO_GET_FILTER
 #define SO_GET_FILTER SO_ATTACH_FILTER
