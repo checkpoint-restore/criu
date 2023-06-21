@@ -465,8 +465,15 @@ static int get_last_cap(void)
 	struct sysctl_req req[] = {
 		{ "kernel/cap_last_cap", &kdat.last_cap, CTL_U32 },
 	};
+	int ret;
 
-	return sysctl_op(req, ARRAY_SIZE(req), CTL_READ, 0);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_READ, 0);
+	if (ret || kdat.last_cap < 32 * CR_CAP_SIZE)
+		return ret;
+
+	pr_err("Kernel reports more capabilities than this CRIU supports: %u > %u\n",
+	       kdat.last_cap, 32 * CR_CAP_SIZE - 1);
+	return -1;
 }
 
 static bool kerndat_has_memfd_create(void)
