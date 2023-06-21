@@ -434,7 +434,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 	/* steal_pipe has to be able to fit all data from a target pipe */
 	if (fcntl(steal_pipe[1], F_SETPIPE_SZ, pipe_size) < 0) {
 		pr_perror("Unable to set a pipe size");
-		goto err;
+		goto err_close;
 	}
 
 	bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
