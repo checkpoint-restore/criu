@@ -58,10 +58,6 @@ ci_prep () {
 
 	scripts/ci/apt-install "${CI_PKGS[@]}"
 	chmod a+x "$HOME"
-
-	# zdtm uses an unversioned python binary to run the tests.
-	# let's point python to python3
-	ln -sf /usr/bin/python3 /usr/bin/python
 }
 
 test_stream() {
