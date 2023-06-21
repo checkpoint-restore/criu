@@ -407,46 +407,24 @@ static int mklnk_ghost(char *path, GhostFileEntry *gfe)
 static int ghost_apply_metadata(const char *path, GhostFileEntry *gfe)
 {
 	struct timeval tv[2];
-	int ret = -1;
 
-	if (S_ISLNK(gfe->mode)) {
-		if (lchown(path, gfe->uid, gfe->gid) < 0) {
-			pr_perror("Can't reset user/group on ghost %s", path);
-			goto err;
-		}
+	if (cr_fchpermat(AT_FDCWD, path, gfe->uid, gfe->gid, gfe->mode, AT_SYMLINK_NOFOLLOW) < 0)
+		return -1;
 
-		/*
-		 * We have no lchmod() function, and fchmod() will fail on
-		 * O_PATH | O_NOFOLLOW fd. Yes, we have fchmodat()
-		 * function and flag AT_SYMLINK_NOFOLLOW described in
-		 * man 2 fchmodat, but it is not currently implemented. %)
-		 */
-	} else {
-		if (chown(path, gfe->uid, gfe->gid) < 0) {
-			pr_perror("Can't reset user/group on ghost %s", path);
-			goto err;
-		}
+	if (!gfe->atim)
+		return 0;
 
-		if (chmod(path, gfe->mode)) {
-			pr_perror("Can't set perms %o on ghost %s", gfe->mode, path);
-			goto err;
-		}
+	tv[0].tv_sec = gfe->atim->tv_sec;
+	tv[0].tv_usec = gfe->atim->tv_usec;
+	tv[1].tv_sec = gfe->mtim->tv_sec;
+	tv[1].tv_usec = gfe->mtim->tv_usec;
+
+	if (lutimes(path, tv)) {
+		pr_perror("Can't set access and modification times on ghost %s", path);
+		return -1;
 	}
 
-	if (gfe->atim) {
-		tv[0].tv_sec = gfe->atim->tv_sec;
-		tv[0].tv_usec = gfe->atim->tv_usec;
-		tv[1].tv_sec = gfe->mtim->tv_sec;
-		tv[1].tv_usec = gfe->mtim->tv_usec;
-		if (lutimes(path, tv)) {
-			pr_perror("Can't set access and modification times on ghost %s", path);
-			goto err;
-		}
-	}
-
-	ret = 0;
-err:
-	return ret;
+	return 0;
 }
 
 static int create_ghost_dentry(char *path, GhostFileEntry *gfe, struct cr_img *img)
