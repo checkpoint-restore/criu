@@ -440,12 +440,12 @@ lint:
 	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh
 	shellcheck -x test/others/config-file/*.sh
 	codespell -S tags
-	# Do not append \n to pr_perror or fail
-	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*\\n"'
-	# Do not use %m with pr_perror or fail
-	! git --no-pager grep -E '^\s*\<(pr_(err|perror|warn|debug|info|msg)|fail)\>.*%m'
-	# Do not use errno with pr_perror or fail
-	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>\(".*".*errno'
+	# Do not append \n to pr_perror, pr_pwarn or fail
+	! git --no-pager grep -E '^\s*\<(pr_perror|pr_pwarn|fail)\>.*\\n"'
+	# Do not use %m with pr_* or fail
+	! git --no-pager grep -E '^\s*\<(pr_(err|perror|warn|pwarn|debug|info|msg)|fail)\>.*%m'
+	# Do not use errno with pr_perror, pr_pwarn or fail
+	! git --no-pager grep -E '^\s*\<(pr_perror|pr_pwarn|fail)\>\(".*".*errno'
 	# End pr_(err|warn|msg|info|debug) with \n
 	! git --no-pager grep -En '^\s*\<pr_(err|warn|msg|info|debug)\>.*);$$' | grep -v '\\n'
 	# No EOL whitespace for C files
