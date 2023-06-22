@@ -72,7 +72,6 @@ struct thread_creds_args {
 	u32 cap_eff[CR_CAP_SIZE];
 	u32 cap_bnd[CR_CAP_SIZE];
 
-	unsigned int secbits;
 	char *lsm_profile;
 	unsigned int *groups;
 	char *lsm_sockcreate;
