@@ -101,7 +101,7 @@ static int irmap_update_stat(struct irmap *i)
 
 	pr_debug("Refresh stat for %s\n", i->path);
 	if (fstatat(mntns_root, i->path + 1, &st, AT_SYMLINK_NOFOLLOW)) {
-		pr_perror("Can't stat %s", i->path);
+		pr_pwarn("Can't stat %s", i->path);
 		return -1;
 	}
 
@@ -136,7 +136,7 @@ static int irmap_update_dir(struct irmap *t)
 	pr_debug("Refilling %s dir\n", t->path);
 	fd = openat(mntns_root, t->path + 1, O_RDONLY);
 	if (fd < 0) {
-		pr_perror("Can't open %s", t->path);
+		pr_pwarn("Can't open %s", t->path);
 		return -1;
 	}
 
