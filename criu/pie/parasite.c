@@ -268,6 +268,7 @@ static int dump_creds(struct parasite_dump_creds *args)
 		}
 	}
 
+	args->no_new_privs = sys_prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0);
 	args->secbits = sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
 
 	ret = sys_getgroups(0, NULL);

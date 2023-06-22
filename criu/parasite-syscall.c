@@ -115,6 +115,10 @@ static int alloc_groups_copy_creds(CredsEntry *ce, struct parasite_dump_creds *c
 	memcpy(ce->cap_eff, c->cap_eff, sizeof(c->cap_eff[0]) * CR_CAP_SIZE);
 	memcpy(ce->cap_bnd, c->cap_bnd, sizeof(c->cap_bnd[0]) * CR_CAP_SIZE);
 
+	if (c->no_new_privs > 0) {
+		ce->no_new_privs = c->no_new_privs;
+		ce->has_no_new_privs = true;
+	}
 	ce->secbits = c->secbits;
 	ce->n_groups = c->ngroups;
 
