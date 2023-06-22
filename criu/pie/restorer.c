@@ -345,6 +345,14 @@ skip_xids:
 	if (lsm_set_label(args->lsm_sockcreate, "sockcreate", procfd) < 0)
 		return -1;
 
+	if (ce->has_no_new_privs && ce->no_new_privs) {
+		ret = sys_prctl(PR_SET_NO_NEW_PRIVS, ce->no_new_privs, 0, 0, 0);
+		if (ret) {
+			pr_err("Unable to set no_new_privs=%d: %d\n", ce->no_new_privs, ret);
+			return -1;
+		}
+	}
+
 	return 0;
 }
 

@@ -148,6 +148,7 @@ struct parasite_dump_creds {
 
 	int uids[4];
 	int gids[4];
+	int no_new_privs;
 	unsigned int secbits;
 	unsigned int ngroups;
 	/*
