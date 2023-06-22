@@ -11,8 +11,6 @@ def inf(opts):
     if opts['in']:
         return open(opts['in'], 'rb')
     else:
-        if (sys.version_info < (3, 0)):
-            return sys.stdin
         if sys.stdin.isatty():
             # If we are reading from a terminal (not a pipe) we want text input and not binary
             return sys.stdin
@@ -28,8 +26,6 @@ def outf(opts, decode):
             mode = 'w+'
         return open(opts['out'], mode)
     else:
-        if (sys.version_info < (3, 0)):
-            return sys.stdout
         if decode:
             return sys.stdout
         return sys.stdout.buffer
