@@ -589,7 +589,7 @@ static int parasite_trap(struct parasite_ctl *ctl, pid_t pid, user_regs_struct_t
 	}
 
 	if (!WIFSTOPPED(status)) {
-		pr_err("Task is still running (pid: %d)\n", pid);
+		pr_err("Task is still running (pid: %d, status: 0x%x)\n", pid, status);
 		goto err;
 	}
 
@@ -1398,7 +1398,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 
 	pr_debug("Daemon %d exited trapping\n", pid);
 	if (!WIFSTOPPED(status)) {
-		pr_err("Task is still running (pid: %d)\n", pid);
+		pr_err("Task is still running (pid: %d, status: 0x%x)\n", pid, status);
 		return -1;
 	}
 
