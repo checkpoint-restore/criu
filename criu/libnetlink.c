@@ -214,8 +214,3 @@ int __wrap_nlmsg_parse(struct nlmsghdr *nlh, int hdrlen, struct nlattr *tb[], in
 
 	return nla_parse(tb, maxtype, nlmsg_attrdata(nlh, hdrlen), nlmsg_attrlen(nlh, hdrlen), policy);
 }
-
-int32_t nla_get_s32(const struct nlattr *nla)
-{
-	return *(const int32_t *)nla_data(nla);
-}
