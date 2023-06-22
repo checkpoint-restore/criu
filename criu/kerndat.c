@@ -703,7 +703,7 @@ err:
 	return exit_code;
 }
 
-int kerndat_nsid(void)
+static int kerndat_nsid(void)
 {
 	int nsid, sk;
 
