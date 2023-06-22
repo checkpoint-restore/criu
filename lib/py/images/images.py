@@ -42,7 +42,6 @@ import base64
 import struct
 import os
 import array
-import sys
 
 from . import magic
 from . import pb
@@ -71,18 +70,12 @@ class MagicException(Exception):
 
 def decode_base64_data(data):
     """A helper function to decode base64 data."""
-    if (sys.version_info > (3, 0)):
-        return base64.decodebytes(str.encode(data))
-    else:
-        return base64.decodebytes(data)
+    return base64.decodebytes(str.encode(data))
 
 
 def write_base64_data(f, data):
     """A helper function to write base64 encoded data to a file."""
-    if (sys.version_info > (3, 0)):
-        f.write(base64.decodebytes(str.encode(data)))
-    else:
-        f.write(base64.decodebytes(data))
+    f.write(base64.decodebytes(str.encode(data)))
 
 
 # Generic class to handle loading/dumping criu images entries from/to bin
