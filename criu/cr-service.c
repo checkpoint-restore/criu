@@ -382,8 +382,14 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	 */
 	if (imgs_changed_by_rpc_conf)
 		strncpy(images_dir_path, opts.imgs_dir, PATH_MAX - 1);
-	else
+	else if (req->images_dir_fd != -1)
 		sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
+	else if (req->images_dir)
+		strncpy(images_dir_path, req->images_dir, PATH_MAX - 1);
+	else {
+		pr_err("Neither images_dir_fd nor images_dir was passed by RPC client.\n");
+		goto err;
+	}
 
 	if (req->parent_img)
 		SET_CHAR_OPTS(img_parent, req->parent_img);
