@@ -707,16 +707,18 @@ static int kerndat_nsid(void)
 {
 	int nsid, sk;
 
+	kdat.has_nsid = false;
+
 	sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (sk < 0) {
-		pr_perror("Unable to create a netlink socket");
-		return -1;
+		pr_pwarn("Unable to create a netlink socket: NSID can't be used.");
+		return 0;
 	}
 
 	if (net_get_nsid(sk, getpid(), &nsid) < 0) {
-		pr_err("NSID is not supported\n");
+		pr_warn("NSID is not supported\n");
 		close(sk);
-		return -1;
+		return 0;
 	}
 
 	kdat.has_nsid = true;
