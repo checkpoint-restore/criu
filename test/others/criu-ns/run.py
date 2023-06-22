@@ -25,19 +25,6 @@ def check_dumpdir(path=IMG_DIR):
     os.mkdir(path, 0o755)
 
 
-def set_blocking(fd, blocking):
-    """Implement os.set_blocking() for compatibility with Python
-    versions earlier than 3.5"""
-    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-
-    if blocking:
-        flags &= ~os.O_NONBLOCK
-    else:
-        flags |= os.O_NONBLOCK
-
-    fcntl.fcntl(fd, fcntl.F_SETFL, flags)
-
-
 def run_task_with_own_pty(task):
     fd_m, fd_s = pty.openpty()
 
@@ -55,7 +42,7 @@ def run_task_with_own_pty(task):
 
     os.close(fd_s)
     fd_m = os.fdopen(fd_m, "rb")
-    set_blocking(fd_m.fileno(), False)
+    os.set_blocking(fd_m.fileno(), False)
 
     while True:
         try:
