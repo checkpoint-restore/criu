@@ -1076,14 +1076,14 @@ void tcp_cork(int sk, bool on)
 {
 	int val = on ? 1 : 0;
 	if (setsockopt(sk, SOL_TCP, TCP_CORK, &val, sizeof(val)))
-		pr_perror("Unable to restore TCP_CORK (%d)", val);
+		pr_pwarn("Unable to restore TCP_CORK (%d)", val);
 }
 
 void tcp_nodelay(int sk, bool on)
 {
 	int val = on ? 1 : 0;
 	if (setsockopt(sk, SOL_TCP, TCP_NODELAY, &val, sizeof(val)))
-		pr_perror("Unable to restore TCP_NODELAY (%d)", val);
+		pr_pwarn("Unable to restore TCP_NODELAY (%d)", val);
 }
 
 static int get_sockaddr_in(struct sockaddr_storage *addr, char *host, unsigned short port)
