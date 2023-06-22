@@ -30,6 +30,12 @@
 #ifndef PR_SET_DUMPABLE
 #define PR_SET_DUMPABLE 4
 #endif
+#ifndef PR_GET_NO_NEW_PRIVS
+#define PR_GET_NO_NEW_PRIVS 39
+#endif
+#ifndef PR_SET_NO_NEW_PRIVS
+#define PR_SET_NO_NEW_PRIVS 38
+#endif
 
 #ifndef PR_SET_MM
 #define PR_SET_MM	      35
