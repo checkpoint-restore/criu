@@ -2070,7 +2070,9 @@ static int cr_dump_finish(int ret)
 	 *    consistency of the FS and other resources, we simply
 	 *    start rollback procedure and cleanup everything.
 	 */
-	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
+	if (opts.resume_on_dump_error && (ret || post_dump_ret))
+		opts.final_state = TASK_ALIVE;
+	if (opts.final_state == TASK_ALIVE) {
 		unsuspend_lsm();
 		network_unlock();
 		delete_link_remaps();
@@ -2082,7 +2084,7 @@ static int cr_dump_finish(int ret)
 
 	if (arch_set_thread_regs(root_item, true) < 0)
 		return -1;
-	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
+	pstree_switch_state(root_item, opts.final_state);
 	timing_stop(TIME_FROZEN);
 	free_pstree(root_item);
 	seccomp_free_entries();

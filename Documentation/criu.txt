@@ -213,6 +213,9 @@ In other words, do not use it unless really needed.
 *-s*, *--leave-stopped*::
     Leave tasks in stopped state after checkpoint, instead of killing.
 
+*--no-resume-on-error*::
+    Leave tasks in stopped state even if checkpoint completed unsuccessfully.
+
 *--external* __type__**[**__id__**]:**__value__::
     Dump an instance of an external resource. The generic syntax is
     'type' of resource, followed by resource 'id' (enclosed in literal

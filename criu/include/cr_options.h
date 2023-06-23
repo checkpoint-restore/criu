@@ -131,6 +131,7 @@ struct cr_options {
 		bool daemon_mode;
 	};
 	int restore_sibling;
+	int resume_on_dump_error;
 	bool ext_unix_sk;
 	int shell_job;
 	int handle_file_locks;
