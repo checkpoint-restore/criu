@@ -28,6 +28,9 @@ CRIU_LOG='/criu.log'
 mkdir -p /etc/criu
 echo "log-file=$CRIU_LOG" > /etc/criu/runc.conf
 
+# Test checkpoint/restore with action script
+echo "action-script /usr/bin/true" | sudo tee /etc/criu/default.conf
+
 export SKIP_CI_TEST=1
 
 ./run-ci-tests.sh
