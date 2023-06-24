@@ -52,6 +52,9 @@ static int run_shell_scripts(const char *action)
 #define ENV_IMGDIR  0x1
 #define ENV_ROOTPID 0x2
 
+	if (list_empty(&scripts))
+		return 0;
+
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
 		return -1;
@@ -119,23 +122,24 @@ int run_scripts(enum script_actions act)
 
 	pr_debug("Running %s scripts\n", action);
 
-	if (scripts_mode == SCRIPTS_NONE)
+	switch (scripts_mode) {
+	case SCRIPTS_NONE:
 		return 0;
-
-	if (scripts_mode == SCRIPTS_RPC) {
+	case SCRIPTS_RPC:
 		ret = rpc_send_fd(act, -1);
-		goto out;
-	}
-
-	if (scripts_mode == SCRIPTS_SHELL) {
+		if (ret)
+			break;
+		/* Enable scripts from config file in RPC mode (fallthrough) */
+	case SCRIPTS_SHELL:
 		ret = run_shell_scripts(action);
-		goto out;
+		break;
+	default:
+		BUG();
 	}
 
-	BUG();
-out:
 	if (ret)
 		pr_err("One of more action scripts failed\n");
+
 	return ret;
 }
 
@@ -143,8 +147,9 @@ int add_script(char *path)
 {
 	struct script *script;
 
-	BUG_ON(scripts_mode == SCRIPTS_RPC);
-	scripts_mode = SCRIPTS_SHELL;
+	/* Set shell mode when a script is added but don't overwrite RPC mode */
+	if (scripts_mode == SCRIPTS_NONE)
+		scripts_mode = SCRIPTS_SHELL;
 
 	script = xmalloc(sizeof(struct script));
 	if (script == NULL)
@@ -170,7 +175,6 @@ int add_rpc_notify(int sk)
 		return -1;
 	}
 
-	BUG_ON(scripts_mode == SCRIPTS_SHELL);
 	scripts_mode = SCRIPTS_RPC;
 
 	if (install_service_fd(RPC_SK_OFF, fd) < 0)
