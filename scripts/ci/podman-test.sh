@@ -17,6 +17,9 @@ mkdir -p /etc/criu
 echo "manage-cgroups ignore" > /etc/criu/runc.conf
 sed -i 's/#runtime\s*=\s*.*/runtime = "runc"/' /usr/share/containers/containers.conf
 
+# Test checkpoint/restore with action script
+echo "action-script /usr/bin/true" | sudo tee /etc/criu/default.conf
+
 podman info
 
 podman run --name cr -d docker.io/library/alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
