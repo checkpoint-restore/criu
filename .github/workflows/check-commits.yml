@@ -1,0 +1,30 @@
+name: Verify self-contained commits
+
+on: pull_request
+
+# Cancel any preceding run on the pull request
+concurrency:
+  group: commit-test-${{ github.event.pull_request.number }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Check if pull request does not have label "not-selfcontained-ok"
+    if: "!contains(github.event.pull_request.labels.*.name, 'not-selfcontained-ok')"
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        # Needed to rebase against the base branch
+        fetch-depth: 0
+        # Checkout pull request HEAD commit instead of merge commit
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Install dependencies
+      run: sudo apt-get install -y libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnl-3-dev libnet-dev libcap-dev
+    - name: Configure git user details
+      run: |
+        git config --global user.email "checkpoint-restore@users.noreply.github.com"
+        git config --global user.name "checkpoint-restore"
+    - name: Configure base branch without switching current branch
+      run: git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+    - name: Build each commit
+      run: git rebase ${{ github.base_ref }} -x "make -C scripts/ci check-commit"
