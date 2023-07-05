@@ -3946,6 +3946,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		"task_args->clone_restore_fn: %p\n"
 		"task_args->thread_args: %p\n",
 		task_args, task_args->t->pid, task_args->nr_threads, task_args->clone_restore_fn,
+		task_args->thread_args);
 
 	/*
 	 * An indirect call to task_restore, note it never returns
