@@ -1578,6 +1578,11 @@ static int kerndat_has_ipv6_freebind(void)
 {
 	int sk, val;
 
+	if (!kdat.ipv6) {
+		kdat.has_ipv6_freebind = false;
+		return 0;
+	}
+
 	sk = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 	if (sk == -1) {
 		pr_perror("Unable to create a ipv6 dgram socket");
