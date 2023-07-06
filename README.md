@@ -38,7 +38,7 @@ Pages worth starting with are:
 - Troubleshooting can be hard, some help can be found [here](https://criu.org/When_C/R_fails), [here](https://criu.org/What_cannot_be_checkpointed) and [here](https://criu.org/FAQ)
 
 ### Checkpoint and restore of simple loop process
-[<p align="center"><img src="https://asciinema.org/a/232445.png" width="572px" height="412px"/></p>](https://asciinema.org/a/232445)
+<p align="center"><a href="https://asciinema.org/a/232445"><img src="https://asciinema.org/a/232445.png" width="572px" height="412px"/></a></p>
 
 ## Advanced features
 
