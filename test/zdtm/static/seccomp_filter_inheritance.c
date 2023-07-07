@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 		if (filter_syscall(__NR_ptrace) < 0)
 			_exit(1);
 
-		if (filter_syscall(__NR_fstat) < 0)
+		if (filter_syscall(__NR_statx) < 0)
 			_exit(1);
 
 		zdtm_seccomp = 1;
