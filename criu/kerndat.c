@@ -1574,9 +1574,26 @@ static int kerndat_has_nftables_concat(void)
 #define IPV6_FREEBIND 78
 #endif
 
+static int __kerndat_has_ipv6_freebind(int sk)
+{
+	int val = 1;
+
+	if (setsockopt(sk, SOL_IPV6, IPV6_FREEBIND, &val, sizeof(int)) == -1) {
+		if (errno == ENOPROTOOPT) {
+			kdat.has_ipv6_freebind = false;
+			return 0;
+		}
+		pr_perror("Unable to setsockopt ipv6_freebind");
+		return -1;
+	}
+
+	kdat.has_ipv6_freebind = true;
+	return 0;
+}
+
 static int kerndat_has_ipv6_freebind(void)
 {
-	int sk, val;
+	int sk, ret;
 
 	if (!kdat.ipv6) {
 		kdat.has_ipv6_freebind = false;
@@ -1589,18 +1606,9 @@ static int kerndat_has_ipv6_freebind(void)
 		return -1;
 	}
 
-	val = 1;
-	if (setsockopt(sk, SOL_IPV6, IPV6_FREEBIND, &val, sizeof(int)) == -1) {
-		if (errno == ENOPROTOOPT) {
-			kdat.has_ipv6_freebind = false;
-			return 0;
-		}
-		pr_perror("Unable to setsockopt ipv6_freebind");
-		return -1;
-	}
-
-	kdat.has_ipv6_freebind = true;
-	return 0;
+	ret = __kerndat_has_ipv6_freebind(sk);
+	close(sk);
+	return ret;
 }
 
 /*
