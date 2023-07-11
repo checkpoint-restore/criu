@@ -110,5 +110,10 @@ check-commit:
 
 .PHONY: check-commit
 
+loongarch64-qemu-test:
+	./loongarch64-qemu-test.sh
+
+.PHONY: loongarch64-qemu-test
+
 %:
 	$(MAKE) -C ../build $@$(target-suffix)

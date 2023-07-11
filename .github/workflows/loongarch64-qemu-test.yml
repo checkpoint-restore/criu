@@ -1,0 +1,15 @@
+name: LoongArch64 Qemu Test
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: loongarch64-qemu-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2 
+      - run: sudo make -C scripts/ci loongarch64-qemu-test
