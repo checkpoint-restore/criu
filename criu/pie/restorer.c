@@ -301,10 +301,18 @@ skip_xids:
 				/* already set */
 				continue;
 			ret = sys_prctl(PR_CAPBSET_DROP, i + b * 32, 0, 0, 0);
-			if (ret) {
+			if (!ret)
+				continue;
+			if (!ce->has_no_new_privs || !ce->no_new_privs || args->cap_prm[b] & (1 << i)) {
 				pr_err("Unable to drop capability %d: %d\n", i + b * 32, ret);
 				return -1;
 			}
+			/*
+			 * If prctl(NO_NEW_PRIVS) is going to be set then it
+			 * will prevent inheriting the capabilities not in
+			 * the permitted set.
+			 */
+			pr_warn("Unable to drop capability %d from bset: %d (but NO_NEW_PRIVS will drop it)\n", i + b * 32, ret);
 		}
 	}
 
