@@ -91,6 +91,8 @@ static int dump_memfd_inode(int fd, struct memfd_dump_inode *inode, const char *
 		mie.has_hugetlb_flag = true;
 		mie.hugetlb_flag = flag | MFD_HUGETLB;
 	}
+	mie.mode = st->st_mode;
+	mie.has_mode = true;
 
 	mie.seals = fcntl(fd, F_GET_SEALS);
 	if (mie.seals == -1) {
@@ -279,8 +281,13 @@ static int memfd_open_inode_nocache(struct memfd_restore_inode *inode)
 	if (restore_memfd_shmem_content(fd, mie->shmid, mie->size))
 		goto out;
 
-	if (cr_fchown(fd, mie->uid, mie->gid)) {
-		pr_perror("Can't change uid %d gid %d of memfd:%s", (int)mie->uid, (int)mie->gid, mie->name);
+	if (mie->has_mode)
+		ret = cr_fchperm(fd, mie->uid, mie->gid, mie->mode);
+	else
+		ret = cr_fchown(fd, mie->uid, mie->gid);
+	if (ret) {
+		pr_perror("Can't set permissions { uid %d gid %d mode %#o } of memfd:%s", (int)mie->uid,
+			  (int)mie->gid, mie->has_mode ? (int)mie->mode : -1, mie->name);
 		goto out;
 	}
 
