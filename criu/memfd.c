@@ -46,6 +46,7 @@ struct memfd_restore_inode {
 	int fdstore_id;
 	unsigned int pending_seals;
 	MemfdInodeEntry *mie;
+	bool was_opened_rw;
 };
 
 static LIST_HEAD(memfd_inodes);
@@ -233,6 +234,7 @@ static int collect_one_memfd_inode(void *o, ProtobufCMessage *base, struct cr_im
 	mutex_init(&inode->lock);
 	inode->fdstore_id = -1;
 	inode->pending_seals = 0;
+	inode->was_opened_rw = false;
 
 	list_add_tail(&inode->list, &memfd_inodes);
 
@@ -339,6 +341,24 @@ int memfd_open(struct file_desc *d, u32 *fdflags)
 
 	/* Reopen the fd with original permissions */
 	flags = fdflags ? *fdflags : mfe->flags;
+
+	if (!mfi->inode->was_opened_rw && (flags & O_ACCMODE) == O_RDWR) {
+		/*
+		 * If there is only a single RW-opened fd for a memfd, it can
+		 * be used to pass it to execveat() with AT_EMPTY_PATH to have
+		 * its contents executed.  This currently works only for the
+		 * original fd from memfd_create() so return the original fd
+		 * once -- in case the caller expects to be the sole opener
+		 * and does execveat() from this memfd.
+		 */
+		if (!fcntl(fd, F_SETFL, flags)) {
+			mfi->inode->was_opened_rw = true;
+			return fd;
+		}
+
+		pr_pwarn("Can't change fd flags to %#o for memfd id=%d", flags, mfe->id);
+	}
+
 	/*
 	 * Ideally we should call compat version open() to not force the
 	 * O_LARGEFILE file flag with regular open(). It doesn't seem that
@@ -347,6 +367,8 @@ int memfd_open(struct file_desc *d, u32 *fdflags)
 	_fd = __open_proc(PROC_SELF, 0, flags, "fd/%d", fd);
 	if (_fd < 0)
 		pr_perror("Can't reopen memfd id=%d", mfe->id);
+	else if ((flags & O_ACCMODE) == O_RDWR)
+		pr_warn("execveat(fd=%d, ..., AT_EMPTY_PATH) might fail after restore; memfd id=%d\n", _fd, mfe->id);
 
 	close(fd);
 	return _fd;
