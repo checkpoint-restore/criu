@@ -30,8 +30,10 @@ int main(int argc, char *argv[])
 {
 	int fd, fl_flags1, fl_flags2, fd_flags1, fd_flags2;
 	struct statfs statfs1, statfs2;
+	struct stat stat;
 	off_t pos1, pos2;
 	char buf[5];
+	int fmode1, fmode2;
 
 	test_init(argc, argv);
 
@@ -58,6 +60,13 @@ int main(int argc, char *argv[])
 	if (lseek(fd, pos1, SEEK_SET) < 0)
 		err(1, "seek error");
 
+	if (fchmod(fd, 0642))
+		err(1, "Can't set permission bits");
+
+	if (fstat(fd, &stat) < 0)
+		err(1, "fstat() issue");
+	fmode1 = stat.st_mode;
+
 	test_daemon();
 	test_waitsig();
 
@@ -82,6 +91,15 @@ int main(int argc, char *argv[])
 
 	if (statfs1.f_type != statfs2.f_type) {
 		fail("statfs.f_type differs");
+		return 1;
+	}
+
+	if (fstat(fd, &stat) < 0)
+		err(1, "fstat() issue");
+	fmode2 = stat.st_mode;
+
+	if (fmode1 != fmode2) {
+		fail("stat.st_mode = %#o != %#o", fmode2, fmode1);
 		return 1;
 	}
 
