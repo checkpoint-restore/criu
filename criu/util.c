@@ -24,7 +24,6 @@
 #include <sys/resource.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
 #include <sched.h>
 #include <ftw.h>
 #include <time.h>
@@ -1153,20 +1152,6 @@ const char *ns_to_string(unsigned int ns)
 	default:
 		return NULL;
 	}
-}
-
-void tcp_cork(int sk, bool on)
-{
-	int val = on ? 1 : 0;
-	if (setsockopt(sk, SOL_TCP, TCP_CORK, &val, sizeof(val)))
-		pr_pwarn("Unable to restore TCP_CORK (%d)", val);
-}
-
-void tcp_nodelay(int sk, bool on)
-{
-	int val = on ? 1 : 0;
-	if (setsockopt(sk, SOL_TCP, TCP_NODELAY, &val, sizeof(val)))
-		pr_pwarn("Unable to restore TCP_NODELAY (%d)", val);
 }
 
 static int get_sockaddr_in(struct sockaddr_storage *addr, char *host, unsigned short port)
