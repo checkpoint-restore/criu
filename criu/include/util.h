@@ -278,8 +278,6 @@ static inline int sk_wait_data(int sk)
 }
 
 void fd_set_nonblocking(int fd, bool on);
-void tcp_nodelay(int sk, bool on);
-void tcp_cork(int sk, bool on);
 
 const char *ns_to_string(unsigned int ns);
 
