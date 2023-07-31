@@ -4,6 +4,7 @@
 #include <sys/user.h>
 #include <asm/unistd.h>
 #include <sys/uio.h>
+#include <linux/const.h>
 
 #include "types.h"
 #include <compel/asm/fpu.h>

@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <elf.h>
 #include <compel/plugins/std/syscall-codes.h>
+#include <linux/const.h>
 #include "uapi/compel/asm/infect-types.h"
 #include "errno.h"
 #include "log.h"
