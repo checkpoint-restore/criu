@@ -501,6 +501,6 @@ int irmap_scan_path_add(char *path)
 
 	o->ir->path = path;
 	o->ir->nr_kids = -1;
-	list_add(&o->node, &opts.irmap_scan_paths);
+	list_add_tail(&o->node, &opts.irmap_scan_paths);
 	return 0;
 }
