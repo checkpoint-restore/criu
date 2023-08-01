@@ -1,0 +1,42 @@
+# See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
+# newer versions of the distribution.
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted
+
+## Major bug fix updates produced after the final release of the
+## distribution.
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted
+
+## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
+## team. Also, please note that software in universe WILL NOT receive any
+## review or updates from the Ubuntu security team.
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy universe
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy universe
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates universe
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy-updates universe
+
+## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
+## team, and may not be under a free licence. Please satisfy yourself as to
+## your rights to use the software. Also, please note that software in
+## multiverse WILL NOT receive any review or updates from the Ubuntu
+## security team.
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy multiverse
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy multiverse
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates multiverse
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy-updates multiverse
+
+## N.B. software from this repository may not have been tested as
+## extensively as that contained in the main release, although it includes
+## newer versions of some applications which may provide useful features.
+## Also, please note that software in backports WILL NOT receive any review
+## or updates from the Ubuntu security team.
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse
+
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security universe
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy-security universe
+deb [arch=riscv64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security multiverse
+# deb-src http://ports.ubuntu.com/ubuntu-ports/ jammy-security multiverse
