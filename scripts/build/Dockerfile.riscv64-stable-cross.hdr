@@ -1,0 +1,5 @@
+FROM ubuntu:jammy
+
+ENV ARCH=riscv64
+ENV DEBIAN_ARCH=riscv64
+ENV CROSS_TRIPLET=riscv64-linux-gnu
