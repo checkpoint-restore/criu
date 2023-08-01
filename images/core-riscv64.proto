@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+import "opts.proto";
+
+// Refer to riscv-gnu-toolchain/linux-headers/include/asm/ptrace.h
+message user_riscv64_regs_entry {
+    required uint64 pc = 1;
+    required uint64 ra = 2;
+    required uint64 sp = 3;
+    required uint64 gp = 4;
+    required uint64 tp = 5;
+    required uint64 t0 = 6;
+    required uint64 t1 = 7;
+    required uint64 t2 = 8;
+    required uint64 s0 = 9;
+    required uint64 s1 = 10;
+    required uint64 a0 = 11;
+    required uint64 a1 = 12;
+    required uint64 a2 = 13;
+    required uint64 a3 = 14;
+    required uint64 a4 = 15;
+    required uint64 a5 = 16;
+    required uint64 a6 = 17;
+    required uint64 a7 = 18;
+    required uint64 s2 = 19;
+    required uint64 s3 = 20;
+    required uint64 s4 = 21;
+    required uint64 s5 = 22;
+    required uint64 s6 = 23;
+    required uint64 s7 = 24;
+    required uint64 s8 = 25;
+    required uint64 s9 = 26;
+    required uint64 s10 = 27;
+    required uint64 s11 = 28;
+    required uint64 t3 = 29;
+    required uint64 t4 = 30;
+    required uint64 t5 = 31;
+    required uint64 t6 = 32;    
+}
+
+message user_riscv64_d_ext_entry {
+    repeated uint64 f = 1;
+    required uint32 fcsr = 2;
+}
+
+message thread_info_riscv64 {
+	required uint64				clear_tid_addr	= 1[(criu).hex = true];
+	required uint64				tls		= 2;
+	required user_riscv64_regs_entry	gpregs		= 3[(criu).hex = true];
+	required user_riscv64_d_ext_entry	fpsimd		= 4;
+}
