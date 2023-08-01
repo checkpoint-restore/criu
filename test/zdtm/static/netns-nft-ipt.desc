@@ -2,7 +2,7 @@
    'deps': [   '/bin/sh',
                '/usr/sbin/nft',
                '/sbin/iptables|/usr/sbin/iptables',
-               '/lib/xtables/libxt_standard.so|/usr/lib64/xtables/libxt_standard.so|/usr/lib/iptables/libxt_standard.so|/usr/lib/powerpc64le-linux-gnu/xtables/libxt_standard.so|/usr/lib/x86_64-linux-gnu/xtables/libxt_standard.so|/usr/lib/s390x-linux-gnu/xtables/libxt_standard.so|/usr/lib/xtables/libxt_standard.so|/usr/lib/aarch64-linux-gnu/xtables/libxt_standard.so',
+               '/lib/xtables/libxt_standard.so|/usr/lib64/xtables/libxt_standard.so|/usr/lib/iptables/libxt_standard.so|/usr/lib/powerpc64le-linux-gnu/xtables/libxt_standard.so|/usr/lib/x86_64-linux-gnu/xtables/libxt_standard.so|/usr/lib/s390x-linux-gnu/xtables/libxt_standard.so|/usr/lib/xtables/libxt_standard.so|/usr/lib/aarch64-linux-gnu/xtables/libxt_standard.so|/usr/lib/riscv64-linux-gnu/xtables/libxt_standard.so',
                '/usr/bin/diff'],
     'flags': 'suid',
     'flavor': 'ns uns'}
