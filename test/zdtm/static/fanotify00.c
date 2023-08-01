@@ -22,7 +22,7 @@
 #elif defined(__PPC64__)
 #define __NR_fanotify_init 323
 #define __NR_fanotify_mark 324
-#elif __aarch64__
+#elif (__aarch64__ || __riscv)
 #define __NR_fanotify_init 262
 #define __NR_fanotify_mark 263
 #elif __s390x__
