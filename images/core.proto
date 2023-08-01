@@ -9,6 +9,7 @@ import "core-ppc64.proto";
 import "core-s390.proto";
 import "core-mips.proto";
 import "core-loongarch64.proto";
+import "core-riscv64.proto";
 
 import "rlimit.proto";
 import "timer.proto";
@@ -126,6 +127,7 @@ message core_entry {
 		S390		= 5;
 		MIPS		= 6;
 		LOONGARCH64		= 7;
+		RISCV64		= 8;
 	}
 
 	required march			mtype		= 1;
@@ -136,6 +138,7 @@ message core_entry {
 	optional thread_info_s390	ti_s390		= 10;
 	optional thread_info_mips	ti_mips		= 11;
 	optional thread_info_loongarch64	ti_loongarch64  = 12;
+	optional thread_info_riscv64	ti_riscv64	= 13;
 
 	optional task_core_entry	tc		= 3;
 	optional task_kobj_ids_entry	ids		= 4;
