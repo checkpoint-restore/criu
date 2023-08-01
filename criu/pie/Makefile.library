@@ -27,3 +27,7 @@ CFLAGS		+= $(CFLAGS_PIE)
 ifeq ($(ARCH),mips)
 CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -mno-abicalls -fno-pic
 endif
+
+ifeq ($(ARCH),riscv64)
+	ccflags-y	+= -fno-stack-protector
+endif

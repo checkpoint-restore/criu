@@ -23,6 +23,10 @@ ifeq ($(ARCH),x86)
 	ccflags-y	+= -mshstk
 endif
 
+ifeq ($(ARCH),riscv64)
+	ccflags-y	+= -fno-stack-protector
+endif
+
 LDS		:= compel/arch/$(ARCH)/scripts/compel-pack.lds.S
 
 restorer-obj-y	+= parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
@@ -41,6 +45,10 @@ endif
 
 ifeq ($(ARCH),ppc64)
         restorer-obj-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
+endif
+
+ifeq ($(ARCH),riscv64)
+        restorer-obj-y	+= ./$(ARCH_DIR)/vdso-lookup.o
 endif
 
 define gen-pie-rules
