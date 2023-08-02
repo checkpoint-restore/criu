@@ -551,8 +551,8 @@ static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrit
 			goto fail;
 	}
 
-	ret = snprintf(path + offset + my_offset, sizeof(path) - offset - my_offset, "/.replace");
-	if (ret < 0 || ret >= sizeof(path) - offset - my_offset) {
+	ret = snprintf(path + offset + my_offset, PATH_MAX - offset - my_offset, "/.replace");
+	if (ret < 0 || ret >= PATH_MAX - offset - my_offset) {
 		pr_err("snprintf failed\n");
 		goto fail;
 	}
