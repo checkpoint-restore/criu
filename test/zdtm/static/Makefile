@@ -257,6 +257,7 @@ TST_NOFILE	:=				\
 		memfd02				\
 		memfd02-hugetlb			\
 		memfd03				\
+		memfd04				\
 		shmemfd				\
 		shmemfd-priv			\
 		time				\
