@@ -817,8 +817,10 @@ static int do_restore_tty_parms(void *arg, int fd, pid_t pid)
 	 * on termios too. Just to be on the safe side.
 	 */
 
-	if ((p->has & HAS_TERMIOS_L) && ioctl(fd, TIOCSLCKTRMIOS, &p->tl) < 0)
-		goto err;
+	if (!opts.unprivileged) {
+		if ((p->has & HAS_TERMIOS_L) && ioctl(fd, TIOCSLCKTRMIOS, &p->tl) < 0)
+			goto err;
+	}
 
 	if ((p->has & HAS_TERMIOS) && ioctl(fd, TCSETS, &p->t) < 0)
 		goto err;
