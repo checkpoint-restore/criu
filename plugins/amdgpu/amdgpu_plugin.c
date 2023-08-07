@@ -451,7 +451,7 @@ void getenv_bool(const char *var, bool *value)
 
 int amdgpu_plugin_init(int stage)
 {
-	pr_info("amdgpu_plugin: initialized:  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
+	pr_info("initialized:  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
 
 	topology_init(&src_topology);
 	topology_init(&dest_topology);
@@ -481,7 +481,7 @@ int amdgpu_plugin_init(int stage)
 
 void amdgpu_plugin_fini(int stage, int ret)
 {
-	pr_info("amdgpu_plugin: finished  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
+	pr_info("finished  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
 
 	if (stage == CR_PLUGIN_STAGE__RESTORE)
 		sys_close_drm_render_devices(&dest_topology);
@@ -513,7 +513,7 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 	char img_path[128];
 	int ret = 0;
 
-	pr_debug("amdgpu_plugin: Enter %s\n", __func__);
+	pr_debug("Enter %s\n", __func__);
 	ret = stat(AMDGPU_KFD_DEVICE, &st_kfd);
 	if (ret == -1) {
 		pr_perror("stat error for /dev/kfd");
@@ -539,7 +539,7 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 		return 0;
 	}
 
-	pr_perror("amdgpu_plugin: Can't handle the VMA mapping");
+	pr_perror("Can't handle the VMA mapping");
 	return -ENOTSUP;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__HANDLE_DEVICE_VMA, amdgpu_plugin_handle_device_vma)
@@ -857,7 +857,7 @@ void *dump_bo_contents(void *_thread_data)
 	void *buffer;
 	char img_path[40];
 
-	pr_info("amdgpu_plugin: Thread[0x%x] started\n", thread_data->gpu_id);
+	pr_info("Thread[0x%x] started\n", thread_data->gpu_id);
 
 	ret = amdgpu_device_initialize(thread_data->drm_fd, &major, &minor, &h_dev);
 	if (ret) {
@@ -922,7 +922,7 @@ void *dump_bo_contents(void *_thread_data)
 	}
 
 exit:
-	pr_info("amdgpu_plugin: Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
+	pr_info("Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
 
 	if (bo_contents_fp)
 		fclose(bo_contents_fp);
@@ -951,7 +951,7 @@ void *restore_bo_contents(void *_thread_data)
 	int num_bos = 0;
 	int i, ret = 0;
 
-	pr_info("amdgpu_plugin: Thread[0x%x] started\n", thread_data->gpu_id);
+	pr_info("Thread[0x%x] started\n", thread_data->gpu_id);
 
 	ret = amdgpu_device_initialize(thread_data->drm_fd, &major, &minor, &h_dev);
 	if (ret) {
@@ -989,8 +989,7 @@ void *restore_bo_contents(void *_thread_data)
 	}
 
 	if (total_bo_size != image_size) {
-		pr_err("amdgpu_plugin: %s size mismatch (current:%ld:expected:%ld)\n", img_path, image_size,
-		       total_bo_size);
+		pr_err("%s size mismatch (current:%ld:expected:%ld)\n", img_path, image_size, total_bo_size);
 
 		ret = -EINVAL;
 		goto exit;
@@ -1026,7 +1025,7 @@ void *restore_bo_contents(void *_thread_data)
 	}
 
 exit:
-	pr_info("amdgpu_plugin: Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
+	pr_info("Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
 
 	if (bo_contents_fp)
 		fclose(bo_contents_fp);
@@ -1054,9 +1053,9 @@ int check_hsakmt_shared_mem(uint64_t *shared_mem_size, uint32_t *shared_mem_magi
 	/* First 4 bytes of shared file is the magic */
 	ret = read_file(HSAKMT_SHM_PATH, shared_mem_magic, sizeof(*shared_mem_magic));
 	if (ret)
-		pr_perror("amdgpu_plugin: Failed to read shared mem magic");
+		pr_perror("Failed to read shared mem magic");
 	else
-		plugin_log_msg("amdgpu_plugin: Shared mem magic:0x%x\n", *shared_mem_magic);
+		plugin_log_msg("Shared mem magic:0x%x\n", *shared_mem_magic);
 
 	return 0;
 }
@@ -1071,7 +1070,7 @@ int restore_hsakmt_shared_mem(const uint64_t shared_mem_size, const uint32_t sha
 		return 0;
 
 	if (!stat(HSAKMT_SHM_PATH, &st)) {
-		pr_debug("amdgpu_plugin: %s already exists\n", HSAKMT_SHM_PATH);
+		pr_debug("%s already exists\n", HSAKMT_SHM_PATH);
 	} else {
 		pr_info("Warning:%s was missing. Re-creating new file but we may lose perf counters\n",
 			HSAKMT_SHM_PATH);
@@ -1079,14 +1078,14 @@ int restore_hsakmt_shared_mem(const uint64_t shared_mem_size, const uint32_t sha
 
 		ret = ftruncate(fd, shared_mem_size);
 		if (ret < 0) {
-			pr_err("amdgpu_plugin: Failed to truncate shared mem %s\n", HSAKMT_SHM);
+			pr_err("Failed to truncate shared mem %s\n", HSAKMT_SHM);
 			close(fd);
 			return -errno;
 		}
 
 		ret = write(fd, &shared_mem_magic, sizeof(shared_mem_magic));
 		if (ret != sizeof(shared_mem_magic)) {
-			pr_perror("amdgpu_plugin: Failed to restore shared mem magic");
+			pr_perror("Failed to restore shared mem magic");
 			close(fd);
 			return -errno;
 		}
@@ -1112,7 +1111,7 @@ static int unpause_process(int fd)
 
 	ret = kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args);
 	if (ret) {
-		pr_perror("amdgpu_plugin: Failed to unpause process");
+		pr_perror("Failed to unpause process");
 		goto exit;
 	}
 
@@ -1254,7 +1253,7 @@ bool kernel_supports_criu(int fd)
 	}
 
 	if (kmtIoctl(fd, AMDKFD_IOC_GET_VERSION, &args) == -1) {
-		pr_perror("amdgpu_plugin: Failed to call get version ioctl");
+		pr_perror("Failed to call get version ioctl");
 		ret = false;
 		goto exit;
 	}
@@ -1262,8 +1261,8 @@ bool kernel_supports_criu(int fd)
 	pr_debug("Kernel IOCTL version:%d.%02d\n", args.major_version, args.minor_version);
 
 	if (args.major_version != KFD_IOCTL_MAJOR_VERSION || args.minor_version < MIN_KFD_IOCTL_MINOR_VERSION) {
-		pr_err("amdgpu_plugin: CR not supported on current kernel (current:%02d.%02d min:%02d.%02d)\n",
-		       args.major_version, args.minor_version, KFD_IOCTL_MAJOR_VERSION, MIN_KFD_IOCTL_MINOR_VERSION);
+		pr_err("CR not supported on current kernel (current:%02d.%02d min:%02d.%02d)\n", args.major_version,
+		       args.minor_version, KFD_IOCTL_MAJOR_VERSION, MIN_KFD_IOCTL_MINOR_VERSION);
 		ret = false;
 		goto exit;
 	}
@@ -1286,13 +1285,13 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	size_t len;
 
 	if (fstat(fd, &st) == -1) {
-		pr_perror("amdgpu_plugin: fstat error");
+		pr_perror("fstat error");
 		return -1;
 	}
 
 	ret = stat(AMDGPU_KFD_DEVICE, &st_kfd);
 	if (ret == -1) {
-		pr_perror("amdgpu_plugin: fstat error for /dev/kfd");
+		pr_perror("fstat error for /dev/kfd");
 		return -1;
 	}
 
@@ -1317,12 +1316,11 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		CriuRenderNode rd = CRIU_RENDER_NODE__INIT;
 		struct tp_node *tp_node;
 
-		pr_info("amdgpu_plugin: Dumper called for /dev/dri/renderD%d, FD = %d, ID = %d\n", minor(st.st_rdev),
-			fd, id);
+		pr_info("Dumper called for /dev/dri/renderD%d, FD = %d, ID = %d\n", minor(st.st_rdev), fd, id);
 
 		tp_node = sys_get_node_by_render_minor(&src_topology, minor(st.st_rdev));
 		if (!tp_node) {
-			pr_err("amdgpu_plugin: Failed to find a device with minor number = %d\n", minor(st.st_rdev));
+			pr_err("Failed to find a device with minor number = %d\n", minor(st.st_rdev));
 
 			return -ENODEV;
 		}
@@ -1350,7 +1348,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		return ret;
 	}
 
-	pr_info("amdgpu_plugin: %s : %s() called for fd = %d\n", CR_PLUGIN_DESC.name, __func__, major(st.st_rdev));
+	pr_info("%s() called for fd = %d\n", __func__, major(st.st_rdev));
 
 	/* KFD only allows ioctl calls from the same process that opened the KFD file descriptor.
 	 * The existing /dev/kfd file descriptor that is passed in is only allowed to do IOCTL calls with
@@ -1362,13 +1360,13 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	args.op = KFD_CRIU_OP_PROCESS_INFO;
 	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args) == -1) {
-		pr_perror("amdgpu_plugin: Failed to call process info ioctl");
+		pr_perror("Failed to call process info ioctl");
 		ret = -1;
 		goto exit;
 	}
 
-	pr_info("amdgpu_plugin: devices:%d bos:%d objects:%d priv_data:%lld\n", args.num_devices, args.num_bos,
-		args.num_objects, args.priv_data_size);
+	pr_info("devices:%d bos:%d objects:%d priv_data:%lld\n", args.num_devices, args.num_bos, args.num_objects,
+		args.priv_data_size);
 
 	e = xmalloc(sizeof(*e));
 	if (!e) {
@@ -1401,7 +1399,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	args.op = KFD_CRIU_OP_CHECKPOINT;
 	ret = kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args);
 	if (ret) {
-		pr_perror("amdgpu_plugin: Failed to call dumper (process) ioctl");
+		pr_perror("Failed to call dumper (process) ioctl");
 		goto exit;
 	}
 
@@ -1423,11 +1421,11 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		goto exit;
 
 	snprintf(img_path, sizeof(img_path), IMG_KFD_FILE, id);
-	pr_info("amdgpu_plugin: img_path = %s\n", img_path);
+	pr_info("img_path = %s\n", img_path);
 
 	len = criu_kfd__get_packed_size(e);
 
-	pr_info("amdgpu_plugin: Len = %ld\n", len);
+	pr_info("Len = %ld\n", len);
 
 	buf = xmalloc(len);
 	if (!buf) {
@@ -1453,9 +1451,9 @@ exit:
 	free_e(e);
 
 	if (ret)
-		pr_err("amdgpu_plugin: Failed to dump (ret:%d)\n", ret);
+		pr_err("Failed to dump (ret:%d)\n", ret);
 	else
-		pr_info("amdgpu_plugin: Dump successful\n");
+		pr_info("Dump successful\n");
 
 	return ret;
 }
@@ -1501,10 +1499,10 @@ static int restore_devices(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 
 		device_bucket->drm_fd = node_get_drm_render_device(tp_node);
 		if (device_bucket->drm_fd < 0) {
-			pr_perror("amdgpu_plugin: Can't pass NULL drm render fd to driver");
+			pr_perror("Can't pass NULL drm render fd to driver");
 			goto exit;
 		} else {
-			pr_info("amdgpu_plugin: passing drm render fd = %d to driver\n", device_bucket->drm_fd);
+			pr_info("passing drm render fd = %d to driver\n", device_bucket->drm_fd);
 		}
 	}
 
@@ -1588,7 +1586,7 @@ static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKf
 			vma_md->new_pgoff = bo_bucket->restored_offset;
 			vma_md->fd = node_get_drm_render_device(tp_node);
 
-			plugin_log_msg("amdgpu_plugin: adding vma_entry:addr:0x%lx old-off:0x%lx "
+			plugin_log_msg("adding vma_entry:addr:0x%lx old-off:0x%lx "
 				       "new_off:0x%lx new_minor:%d\n",
 				       vma_md->vma_entry, vma_md->old_pgoff, vma_md->new_pgoff, vma_md->new_minor);
 
@@ -1669,7 +1667,7 @@ int amdgpu_plugin_restore_file(int id)
 	size_t img_size;
 	FILE *img_fp = NULL;
 
-	pr_info("amdgpu_plugin: Initialized kfd plugin restorer with ID = %d\n", id);
+	pr_info("Initialized kfd plugin restorer with ID = %d\n", id);
 
 	snprintf(img_path, sizeof(img_path), IMG_KFD_FILE, id);
 
@@ -1713,7 +1711,7 @@ int amdgpu_plugin_restore_file(int id)
 		}
 		fclose(img_fp);
 
-		pr_info("amdgpu_plugin: render node gpu_id = 0x%04x\n", rd->gpu_id);
+		pr_info("render node gpu_id = 0x%04x\n", rd->gpu_id);
 
 		target_gpu_id = maps_get_dest_gpu(&restore_maps, rd->gpu_id);
 		if (!target_gpu_id) {
@@ -1727,11 +1725,11 @@ int amdgpu_plugin_restore_file(int id)
 			goto fail;
 		}
 
-		pr_info("amdgpu_plugin: render node destination gpu_id = 0x%04x\n", tp_node->gpu_id);
+		pr_info("render node destination gpu_id = 0x%04x\n", tp_node->gpu_id);
 
 		fd = node_get_drm_render_device(tp_node);
 		if (fd < 0)
-			pr_err("amdgpu_plugin: Failed to open render device (minor:%d)\n", tp_node->drm_render_minor);
+			pr_err("Failed to open render device (minor:%d)\n", tp_node->drm_render_minor);
 	fail:
 		criu_render_node__free_unpacked(rd, NULL);
 		xfree(buf);
@@ -1752,7 +1750,7 @@ int amdgpu_plugin_restore_file(int id)
 		return -1;
 	}
 
-	pr_info("amdgpu_plugin: Opened kfd, fd = %d\n", fd);
+	pr_info("Opened kfd, fd = %d\n", fd);
 
 	if (!kernel_supports_criu(fd))
 		return -ENOTSUP;
@@ -1780,7 +1778,7 @@ int amdgpu_plugin_restore_file(int id)
 		return -1;
 	}
 
-	plugin_log_msg("amdgpu_plugin: read image file data\n");
+	plugin_log_msg("read image file data\n");
 
 	/*
 	 * Initialize fd_next to be 1 greater than the biggest file descriptor in use by the target restore process.
@@ -1847,10 +1845,10 @@ exit:
 	xfree(buf);
 
 	if (ret) {
-		pr_err("amdgpu_plugin: Failed to restore (ret:%d)\n", ret);
+		pr_err("Failed to restore (ret:%d)\n", ret);
 		fd = ret;
 	} else {
-		pr_info("amdgpu_plugin: Restore successful (fd:%d)\n", fd);
+		pr_info("Restore successful (fd:%d)\n", fd);
 	}
 
 	return fd;
@@ -1870,7 +1868,7 @@ int amdgpu_plugin_update_vmamap(const char *in_path, const uint64_t addr, const 
 	char *p_end;
 	bool is_kfd = false, is_renderD = false;
 
-	plugin_log_msg("amdgpu_plugin: Enter %s\n", __func__);
+	plugin_log_msg("Enter %s\n", __func__);
 
 	strncpy(path, in_path, sizeof(path));
 
@@ -1908,8 +1906,8 @@ int amdgpu_plugin_update_vmamap(const char *in_path, const uint64_t addr, const 
 			else
 				*updated_fd = -1;
 
-			plugin_log_msg("amdgpu_plugin: old_pgoff=0x%lx new_pgoff=0x%lx fd=%d\n", vma_md->old_pgoff,
-				       vma_md->new_pgoff, *updated_fd);
+			plugin_log_msg("old_pgoff=0x%lx new_pgoff=0x%lx fd=%d\n", vma_md->old_pgoff, vma_md->new_pgoff,
+				       *updated_fd);
 
 			return 1;
 		}
@@ -1924,7 +1922,7 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 	struct kfd_ioctl_criu_args args = { 0 };
 	int fd, ret = 0;
 
-	pr_info("amdgpu_plugin: Inside %s for target pid = %d\n", __func__, target_pid);
+	pr_info("Inside %s for target pid = %d\n", __func__, target_pid);
 
 	fd = open(AMDGPU_KFD_DEVICE, O_RDWR | O_CLOEXEC);
 	if (fd < 0) {
@@ -1934,7 +1932,7 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 
 	args.pid = target_pid;
 	args.op = KFD_CRIU_OP_RESUME;
-	pr_info("amdgpu_plugin: Calling IOCTL to start notifiers and queues\n");
+	pr_info("Calling IOCTL to start notifiers and queues\n");
 	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args) == -1) {
 		pr_perror("restore late ioctl failed");
 		ret = -1;
