@@ -15,7 +15,7 @@ add-apt-repository \
    $(lsb_release -cs) \
    stable test"
 
-./apt-install docker-ce
+./apt-install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 # shellcheck source=/dev/null
 . /etc/lsb-release
