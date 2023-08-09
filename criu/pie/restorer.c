@@ -56,6 +56,12 @@
  */
 #define MAX_GETGROUPS_CHECKED (512 / sizeof(unsigned int))
 
+/*
+ * Memory overhead limit for reading VMA when auto_dedup is enabled.
+ * An arbitrarily chosen trade-off point between speed and memory usage.
+ */
+#define AUTO_DEDUP_OVERHEAD_BYTES (128 << 20)
+
 #ifndef PR_SET_PDEATHSIG
 #define PR_SET_PDEATHSIG 1
 #endif
@@ -1478,6 +1484,40 @@ static int fd_poll(int inotify_fd)
 }
 
 /*
+ * Call preadv() but limit size of the read. Zero `max_to_read` skips the limit.
+ */
+static ssize_t preadv_limited(int fd, struct iovec *iovs, int nr, off_t offs, size_t max_to_read)
+{
+	size_t saved_last_iov_len = 0;
+	ssize_t ret;
+
+	if (max_to_read) {
+		for (int i = 0; i < nr; ++i) {
+			if (iovs[i].iov_len <= max_to_read) {
+				max_to_read -= iovs[i].iov_len;
+				continue;
+			}
+
+			if (!max_to_read) {
+				nr = i;
+				break;
+			}
+
+			saved_last_iov_len = iovs[i].iov_len;
+			iovs[i].iov_len = max_to_read;
+			nr = i + 1;
+			break;
+		}
+	}
+
+	ret = sys_preadv(fd, iovs, nr, offs);
+	if (saved_last_iov_len)
+		iovs[nr - 1].iov_len = saved_last_iov_len;
+
+	return ret;
+}
+
+/*
  * In the worst case buf size should be:
  *   sizeof(struct inotify_event) * 2 + PATH_MAX
  * See round_event_name_len() in kernel.
@@ -1724,7 +1764,12 @@ long __export_restore_task(struct task_restore_args *args)
 
 		while (nr) {
 			pr_debug("Preadv %lx:%d... (%d iovs)\n", (unsigned long)iovs->iov_base, (int)iovs->iov_len, nr);
-			r = sys_preadv(args->vma_ios_fd, iovs, nr, rio->off);
+			/*
+			 * If we're requested to punch holes in the file after reading we do
+			 * it to save memory. Limit the reads then to an arbitrary block size.
+			 */
+			r = preadv_limited(args->vma_ios_fd, iovs, nr, rio->off,
+					   args->auto_dedup ? AUTO_DEDUP_OVERHEAD_BYTES : 0);
 			if (r < 0) {
 				pr_err("Can't read pages data (%d)\n", (int)r);
 				goto core_restore_end;
