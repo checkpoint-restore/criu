@@ -22,6 +22,10 @@ message dump_stats_entry {
 	optional uint64			shpages_scanned		= 12;
 	optional uint64			shpages_skipped_parent	= 13;
 	optional uint64			shpages_written		= 14;
+
+        optional uint64                 secmempages_scanned     = 15;
+        optional uint64                 secmempages_skipped_parent = 16;
+        optional uint64                 secmempages_written     = 17;
 }
 
 message restore_stats_entry {
