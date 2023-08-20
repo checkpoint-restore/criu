@@ -1,0 +1,14 @@
+name: Remove labels
+on: [issue_comment, pull_request_review_comment]
+jobs:
+  remove-labels-on-comments:
+    name: Remove labels on comments
+    if: github.event_name == 'issue_comment'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mondeja/remove-labels-gh-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          labels: |
+            changes requested
+            awaiting reply
