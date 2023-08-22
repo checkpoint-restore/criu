@@ -1577,7 +1577,7 @@ int compel_stop_pie(pid_t pid, void *addr, bool no_bp)
 	int ret;
 
 	if (no_bp) {
-		pr_debug("Force no-breakpoints restore\n");
+		pr_debug("Force no-breakpoints restore of %d\n", pid);
 		ret = 0;
 	} else
 		ret = ptrace_set_breakpoint(pid, addr);
