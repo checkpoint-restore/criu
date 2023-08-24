@@ -1417,17 +1417,20 @@ static bool kerndat_has_clone3_set_tid(void)
 	 */
 	pid = syscall(__NR_clone3, &args, sizeof(args));
 
-	if (pid == -1 && (errno == ENOSYS || errno == E2BIG)) {
-		kdat.has_clone3_set_tid = false;
-		return 0;
-	}
-	if (pid == -1 && errno == EINVAL) {
-		kdat.has_clone3_set_tid = true;
-	} else {
-		pr_perror("Unexpected error from clone3");
+	if (pid != -1) {
+		pr_err("Unexpected success: clone3() returned %d\n", pid);
 		return -1;
 	}
 
+	if (errno == ENOSYS || errno == E2BIG)
+		return 0;
+
+	if (errno != EINVAL) {
+		pr_pwarn("Unexpected error from clone3");
+		return 0;
+	}
+
+	kdat.has_clone3_set_tid = true;
 	return 0;
 }
 
