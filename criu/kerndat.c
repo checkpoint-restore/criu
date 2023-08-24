@@ -1400,12 +1400,13 @@ static bool kerndat_has_clone3_set_tid(void)
 	pid_t pid;
 	struct _clone_args args = {};
 
+	kdat.has_clone3_set_tid = false;
+
 #if defined(CONFIG_MIPS)
 	/*
 	 * Currently the CRIU PIE assembler clone3() wrapper is
 	 * not implemented for MIPS.
 	 */
-	kdat.has_clone3_set_tid = false;
 	return 0;
 #endif
 
@@ -1427,7 +1428,7 @@ static bool kerndat_has_clone3_set_tid(void)
 	if (errno == ENOSYS || errno == E2BIG)
 		return 0;
 
-	if (errno != EINVAL) {
+	if (errno != EINVAL && errno != EPERM) {
 		pr_pwarn("Unexpected error from clone3");
 		return 0;
 	}
