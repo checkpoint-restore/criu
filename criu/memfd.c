@@ -331,14 +331,11 @@ int memfd_open(struct file_desc *d, u32 *fdflags)
 	mfi = container_of(d, struct memfd_info, d);
 	mfe = mfi->mfe;
 
-	if (inherited_fd(d, &fd))
-		return fd;
-
 	pr_info("Restoring memfd id=%d\n", mfe->id);
 
 	fd = memfd_open_inode(mfi->inode);
 	if (fd < 0)
-		goto err;
+		return -1;
 
 	/* Reopen the fd with original permissions */
 	flags = fdflags ? *fdflags : mfe->flags;
@@ -348,38 +345,41 @@ int memfd_open(struct file_desc *d, u32 *fdflags)
 	 * important though.
 	 */
 	_fd = __open_proc(PROC_SELF, 0, flags, "fd/%d", fd);
-	if (_fd < 0) {
+	if (_fd < 0)
 		pr_perror("Can't reopen memfd id=%d", mfe->id);
-		goto err;
-	}
+
 	close(fd);
-	fd = _fd;
+	return _fd;
+}
+
+static int memfd_open_fe_fd(struct file_desc *d, int *new_fd)
+{
+	MemfdFileEntry *mfe;
+	int fd;
+
+	if (inherited_fd(d, new_fd))
+		return 0;
+
+	fd = memfd_open(d, NULL);
+	if (fd < 0)
+		return -1;
+
+	mfe = container_of(d, struct memfd_info, d)->mfe;
 
 	if (restore_fown(fd, mfe->fown) < 0)
 		goto err;
 
 	if (lseek(fd, mfe->pos, SEEK_SET) < 0) {
-		pr_perror("Can't restore file position of memfd id=%d", mfe->id);
+		pr_perror("Can't restore file position of %d for memfd id=%d", fd, mfe->id);
 		goto err;
 	}
 
-	return fd;
+	*new_fd = fd;
+	return 0;
 
 err:
-	if (fd >= 0)
-		close(fd);
+	close(fd);
 	return -1;
-}
-
-static int memfd_open_fe_fd(struct file_desc *fd, int *new_fd)
-{
-	int tmp;
-
-	tmp = memfd_open(fd, NULL);
-	if (tmp < 0)
-		return -1;
-	*new_fd = tmp;
-	return 0;
 }
 
 static char *memfd_d_name(struct file_desc *d, char *buf, size_t s)

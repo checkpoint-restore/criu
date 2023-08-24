@@ -2508,7 +2508,8 @@ static int open_filemap(int pid, struct vma_area *vma)
 			 */
 			ret = dup(plugin_fd);
 		} else if (vma->e->status & VMA_AREA_MEMFD) {
-			ret = memfd_open(vma->vmfd, &flags);
+			if (!inherited_fd(vma->vmfd, &ret))
+				ret = memfd_open(vma->vmfd, &flags);
 		} else {
 			ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
 		}
