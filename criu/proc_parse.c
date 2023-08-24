@@ -841,6 +841,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t du
 			goto err;
 		}
 
+		pr_debug("Handling VMA with the following smaps entry: %s\n", str);
 		if (handle_vma(pid, vma_area, str + path_off, map_files_dir, &vfi, &prev_vfi, &vm_file_fd))
 			goto err;
 
