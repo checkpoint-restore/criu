@@ -55,10 +55,11 @@
 #include "util-caps.h"
 
 struct kerndat_s kdat = {};
+volatile int dummy_var;
 
 static int check_pagemap(void)
 {
-	int ret, fd;
+	int ret, fd, retry;
 	u64 pfn = 0;
 
 	fd = __open_proc(PROC_SELF, EPERM, O_RDONLY, "pagemap");
@@ -72,11 +73,24 @@ static int check_pagemap(void)
 		return -1;
 	}
 
-	/* Get the PFN of some present page. Stack is here, so try it :) */
-	ret = pread(fd, &pfn, sizeof(pfn), (((unsigned long)&ret) / page_size()) * sizeof(pfn));
-	if (ret != sizeof(pfn)) {
-		pr_perror("Can't read pagemap");
-		return -1;
+	retry = 3;
+	while (retry--) {
+		++dummy_var;
+		/* Get the PFN of a page likely to be present. */
+		ret = pread(fd, &pfn, sizeof(pfn), PAGE_PFN((uintptr_t)&dummy_var) * sizeof(pfn));
+		if (ret != sizeof(pfn)) {
+			pr_perror("Can't read pagemap");
+			return -1;
+		}
+		/* The page can be swapped out by the time the read occurs,
+		 * in which case the rest of the bits are a swap offset,
+		 * and can't be used to determine whether PFNs are visible.
+		 * Retry if this happens. */
+		if (pfn & PME_PRESENT)
+			break;
+		pr_warn("got non-present PFN %#lx for the dummy data page; %s\n", (unsigned long)pfn,
+			retry ? "retrying" : "giving up");
+		pfn = 0;
 	}
 
 	close(fd);
