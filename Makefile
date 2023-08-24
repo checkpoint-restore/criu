@@ -432,6 +432,7 @@ lint:
 	flake8 --config=scripts/flake8.cfg crit/setup.py
 	flake8 --config=scripts/flake8.cfg scripts/uninstall_module.py
 	flake8 --config=scripts/flake8.cfg coredump/ coredump/coredump
+	flake8 --config=scripts/flake8.cfg scripts/github-indent-warnings.py
 	shellcheck --version
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install

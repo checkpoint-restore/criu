@@ -26,15 +26,15 @@ jobs:
       run: make lint
 
     - name: Run make indent
-      run: >
+      continue-on-error: true
+      run: |
         if [ -z "${{github.base_ref}}" ]; then
-          git fetch --deepen=1 &&
-          if ! make indent OPTS=--diff; then
-            exit 1
-          fi
+          git fetch --deepen=1
+          make indent
         else
-          git fetch origin ${{github.base_ref}} &&
-          if ! make indent OPTS=--diff BASE=origin/${{github.base_ref}}; then
-            exit 1
-          fi
+          git fetch origin ${{github.base_ref}}
+          make indent BASE=origin/${{github.base_ref}}
         fi
+    - name: Raise in-line make indent warnings
+      run: |
+        git diff | ./scripts/github-indent-warnings.py
