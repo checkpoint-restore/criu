@@ -338,7 +338,7 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 	fd = open(fname, O_RDONLY);
 	if (fd < 0) {
 		pr_perror("Can't open mapped [%s]", fname);
-		goto returnerr;
+		return -1;
 	}
 
 	if (vma_stat(vma, fd)) {
@@ -379,7 +379,6 @@ errmsg:
 	pr_err("Failed to resolve mapping %lx filename\n", (unsigned long)vma->e->start);
 closefd:
 	close(fd);
-returnerr:
 	return -1;
 }
 
