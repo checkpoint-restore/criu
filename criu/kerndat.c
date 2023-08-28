@@ -84,8 +84,8 @@ static int check_pagemap(void)
 			return -1;
 		}
 		/* The page can be swapped out by the time the read occurs,
-		 * in which case the rest of the bits are a swap offset,
-		 * and can't be used to determine whether PFNs are visible.
+		 * in which case the rest of the bits are a swap type + offset
+		 * (which could be zero even if not hidden).
 		 * Retry if this happens. */
 		if (pfn & PME_PRESENT)
 			break;
