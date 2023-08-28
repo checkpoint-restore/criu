@@ -80,6 +80,7 @@ static int check_pagemap(void)
 		ret = pread(fd, &pfn, sizeof(pfn), PAGE_PFN((uintptr_t)&dummy_var) * sizeof(pfn));
 		if (ret != sizeof(pfn)) {
 			pr_perror("Can't read pagemap");
+			close(fd);
 			return -1;
 		}
 		/* The page can be swapped out by the time the read occurs,
