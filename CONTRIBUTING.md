@@ -48,11 +48,16 @@ This should create the `./criu/criu` executable.
 
 When you change the source code, please keep in mind the following code conventions:
 
+* code is written to be read, so the code readability is the most important thing you need to have in mind when preparing patches
 * we prefer tabs and indentations to be 8 characters width
-* CRIU mostly follows [Linux kernel coding style](https://www.kernel.org/doc/Documentation/process/coding-style.rst), but we are less strict than the kernel community.
+* we prefer line length of 80 characters or less, more is allowed if it helps with code readability
+* CRIU mostly follows [Linux kernel coding style](https://www.kernel.org/doc/Documentation/process/coding-style.rst), but we are less strict than the kernel community
 
-Other conventions can be learned from the source code itself. In short, make sure your new code
-looks similar to what is already there.
+Other conventions can be learned from the source code itself. In short, make sure your new code looks similar to what is already there.
+
+## Automatic tools to fix coding-style
+
+Important: These tools are there to advise you, but should not be considered as a "source of truth", as tools also make nasty mistakes from time to time which can completely break code readability.
 
 The following command can be used to automatically run a code linter for Python files (flake8), Shell scripts (shellcheck),
 text spelling (codespell), and a number of CRIU-specific checks (usage of print macros and EOL whitespace for C files).
@@ -83,6 +88,41 @@ to check the last *N* commits for formatting errors, without applying the change
 
 Note that for pull requests, the "Run code linter" workflow runs these checks for all commits. If a clang-format error is detected
 we need to review the suggested changes and decide if they should be fixed before merging.
+
+Here are some bad examples of clang-format-ing:
+
+* if clang-format tries to force 120 characters and breaks readability - it is wrong:
+
+```
+@@ -58,8 +59,7 @@ static int register_membarriers(void)
+         }
+ 
+         if (!all_ok) {
+-                fail("can't register membarrier()s - tried %#x, kernel %#x",
+-                     barriers_registered, barriers_supported);
++                fail("can't register membarrier()s - tried %#x, kernel %#x", barriers_registered, barriers_supported);
+                 return -1;
+         }
+```
+
+* if clang-format breaks your beautiful readability friendly alignment in structures, comments or defines - it is wrong:
+
+```
+--- a/test/zdtm/static/membarrier.c
++++ b/test/zdtm/static/membarrier.c
+@@ -27,9 +27,10 @@ static const struct {
+        int register_cmd;
+        int execute_cmd;
+ } membarrier_cmds[] = {
+-       { "",           MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED,           MEMBARRIER_CMD_PRIVATE_EXPEDITED },
+-       { "_SYNC_CORE", MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE, MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE },
+-       { "_RSEQ",      MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_RSEQ,      MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ },
++       { "", MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED, MEMBARRIER_CMD_PRIVATE_EXPEDITED },
++       { "_SYNC_CORE", MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE,
++         MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE },
++       { "_RSEQ", MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_RSEQ, MEMBARRIER_CMD_PRIVATE_EXPEDITED_RSEQ },
+ };
+```
 
 ## Test your changes
 
