@@ -46,12 +46,6 @@ This should create the `./criu/criu` executable.
 
 ## Edit the source code
 
-If you use ctags, you can generate the ctags file by running
-
-```
-        make tags
-```
-
 When you change the source code, please keep in mind the following code conventions:
 
 * we prefer tabs and indentations to be 8 characters width
