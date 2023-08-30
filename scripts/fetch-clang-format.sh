@@ -8,7 +8,7 @@ URL="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/.c
 curl -s "${URL}" | sed -e "
 	s,^\( *\)#\([A-Z]\),\1\2,g;
 	s,ControlStatements,ControlStatementsExceptForEachMacros,g;
-	s,ColumnLimit: 80,ColumnLimit: 120,g;
+	s,ColumnLimit: 80,ColumnLimit: 0,g;
 	s,Intended for clang-format >= 4,Intended for clang-format >= 11,g;
 	s,ForEachMacros:,ForEachMacros:\n  - 'for_each_bit',g;
 	s,ForEachMacros:,ForEachMacros:\n  - 'for_each_pstree_item',g;
