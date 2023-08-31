@@ -11,6 +11,7 @@
 #include "log.h"
 #include "common/bug.h"
 #include "common/page.h"
+#include "common/err.h"
 #include "infect.h"
 #include "infect-priv.h"
 
@@ -303,33 +304,58 @@ out_free:
 	return -1; /* still failing the checkpoint */
 }
 
-static int __get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
-{
-	pr_info("Dumping GP/FPU registers for %d\n", pid);
+/*
+ * This is inspired by kernel function check_syscall_restart in
+ * arch/powerpc/kernel/signal.c
+ */
 
-	/*
-	 * This is inspired by kernel function check_syscall_restart in
-	 * arch/powerpc/kernel/signal.c
-	 */
 #ifndef TRAP
 #define TRAP(r) ((r).trap & ~0xF)
 #endif
 
-	if (TRAP(*regs) == 0x0C00 && regs->ccr & 0x10000000) {
-		/* Restart the system call */
-		switch (regs->gpr[3]) {
-		case ERESTARTNOHAND:
-		case ERESTARTSYS:
-		case ERESTARTNOINTR:
-			regs->gpr[3] = regs->orig_gpr3;
-			regs->nip -= 4;
-			break;
-		case ERESTART_RESTARTBLOCK:
-			pr_warn("Will restore %d with interrupted system call\n", pid);
-			regs->gpr[3] = EINTR;
-			break;
-		}
+static bool trap_is_scv(user_regs_struct_t *regs)
+{
+	return TRAP(*regs) == 0x3000;
+}
+
+static bool trap_is_syscall(user_regs_struct_t *regs)
+{
+	return trap_is_scv(regs) || TRAP(*regs) == 0x0C00;
+}
+
+static void handle_syscall(pid_t pid, user_regs_struct_t *regs)
+{
+	unsigned long ret = regs->gpr[3];
+
+	if (trap_is_scv(regs)) {
+		if (!IS_ERR_VALUE(ret))
+			return;
+		ret = -ret;
+	} else if (!(regs->ccr & 0x10000000)) {
+		return;
 	}
+
+	/* Restart or interrupt the system call */
+	switch (ret) {
+	case ERESTARTNOHAND:
+	case ERESTARTSYS:
+	case ERESTARTNOINTR:
+		regs->gpr[3] = regs->orig_gpr3;
+		regs->nip -= 4;
+		break;
+	case ERESTART_RESTARTBLOCK:
+		pr_warn("Will restore %d with interrupted system call\n", pid);
+		regs->gpr[3] = trap_is_scv(regs) ? -EINTR : EINTR;
+		break;
+	}
+}
+
+static int __get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+{
+	pr_info("Dumping GP/FPU registers for %d\n", pid);
+
+	if (trap_is_syscall(regs))
+		handle_syscall(pid, regs);
 
 	/* Resetting trap since we are now coming from user space. */
 	regs->trap = 0;
