@@ -46,6 +46,7 @@
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
 #include "images/mnt.pb-c.h"
+#include "images/pidfd.pb-c.h"
 #include "plugin.h"
 
 #include <stdlib.h>
@@ -2156,6 +2157,24 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 			ret = parse_bpfmap(&f, str, bpf);
 			if (ret)
 				goto parse_err;
+
+			entry_met = true;
+			continue;
+		}
+		if (fdinfo_field(str, "Pid") || fdinfo_field(str, "NSpid")) {
+			unsigned long long val;
+			PidfdEntry *pfd = arg;
+
+			if (type != FD_TYPES__PIDFD)
+				continue;
+			ret = sscanf(str, "%*s %lli", &val);
+			if (ret != 1)
+				goto parse_err;
+
+			if (fdinfo_field(str, "Pid"))
+				pfd->pid = val;
+			else if (fdinfo_field(str, "NSpid"))
+				pfd->nspid = val;
 
 			entry_met = true;
 			continue;
