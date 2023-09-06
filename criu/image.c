@@ -31,14 +31,12 @@ int check_img_inventory(bool restore)
 	int ret = -1;
 	struct cr_img *img;
 	InventoryEntry *he;
-	int loaded;
 
 	img = open_image(CR_FD_INVENTORY, O_RSTR);
 	if (!img)
 		return -1;
 
-	loaded = pb_read_one(img, &he, PB_INVENTORY);
-	if (loaded < 0)
+	if (pb_read_one(img, &he, PB_INVENTORY) < 0)
 		goto out_close;
 
 	if (!he->has_fdinfo_per_id || !he->fdinfo_per_id) {
