@@ -246,6 +246,27 @@ static int get_membarrier_registration_mask(int cmd_bit)
 #define MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED	      3
 #define MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_SYNC_CORE 5
 #define MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_RSEQ      7
+#define MEMBARRIER_CMDBIT_GET_REGISTRATIONS	      9
+
+static int dump_membarrier_compat(int *membarrier_registration_mask)
+{
+	int ret;
+
+	*membarrier_registration_mask = 0;
+	ret = get_membarrier_registration_mask(MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED);
+	if (ret < 0)
+		return -1;
+	*membarrier_registration_mask |= ret;
+	ret = get_membarrier_registration_mask(MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_SYNC_CORE);
+	if (ret < 0)
+		return -1;
+	*membarrier_registration_mask |= ret;
+	ret = get_membarrier_registration_mask(MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_RSEQ);
+	if (ret < 0)
+		return -1;
+	*membarrier_registration_mask |= ret;
+	return 0;
+}
 
 static int dump_misc(struct parasite_dump_misc *args)
 {
@@ -261,19 +282,18 @@ static int dump_misc(struct parasite_dump_misc *args)
 	args->dumpable = sys_prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
 	args->thp_disabled = sys_prctl(PR_GET_THP_DISABLE, 0, 0, 0, 0);
 
-	args->membarrier_registration_mask = 0;
-	ret = get_membarrier_registration_mask(MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED);
-	if (ret < 0)
-		return -1;
-	args->membarrier_registration_mask |= ret;
-	ret = get_membarrier_registration_mask(MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_SYNC_CORE);
-	if (ret < 0)
-		return -1;
-	args->membarrier_registration_mask |= ret;
-	ret = get_membarrier_registration_mask(MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_RSEQ);
-	if (ret < 0)
-		return -1;
-	args->membarrier_registration_mask |= ret;
+	if (args->has_membarrier_get_registrations) {
+		ret = sys_membarrier(1 << MEMBARRIER_CMDBIT_GET_REGISTRATIONS, 0, 0);
+		if (ret < 0) {
+			pr_err("membarrier(1 << %d) returned %d\n", MEMBARRIER_CMDBIT_GET_REGISTRATIONS, ret);
+			return -1;
+		}
+		args->membarrier_registration_mask = ret;
+	} else {
+		ret = dump_membarrier_compat(&args->membarrier_registration_mask);
+		if (ret)
+			return ret;
+	}
 
 	ret = sys_prctl(PR_GET_CHILD_SUBREAPER, (unsigned long)&args->child_subreaper, 0, 0, 0);
 	if (ret)
