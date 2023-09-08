@@ -118,6 +118,8 @@ static inline int posix_timers_dump_size(int timer_n)
  */
 
 struct parasite_dump_misc {
+	bool has_membarrier_get_registrations; /* this is sent from criu to parasite. */
+
 	unsigned long brk;
 
 	u32 pid;
