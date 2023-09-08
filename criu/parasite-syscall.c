@@ -433,6 +433,7 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 	struct parasite_dump_misc *ma;
 
 	ma = compel_parasite_args(ctl, struct parasite_dump_misc);
+	ma->has_membarrier_get_registrations = kdat.has_membarrier_get_registrations;
 	if (compel_rpc_call_sync(PARASITE_CMD_DUMP_MISC, ctl) < 0)
 		return -1;
 
