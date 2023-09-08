@@ -30,3 +30,5 @@ To clean up previously installed CRIU instance one can type
 and everything should be removed. Note though that if some variable (**DESTDIR**, **BINDIR**
 and such) has been used during installation procedure, the same *must* be passed with
 uninstall action.
+
+
