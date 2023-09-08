@@ -17,6 +17,7 @@
 #include <sys/inotify.h>
 #include <sched.h>
 #include <sys/mount.h>
+#include <linux/membarrier.h>
 
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 #include <nftables/libnftables.h>
@@ -1636,6 +1637,24 @@ static int kerndat_has_ipv6_freebind(void)
 	return ret;
 }
 
+#define MEMBARRIER_CMDBIT_GET_REGISTRATIONS 9
+
+static int kerndat_has_membarrier_get_registrations(void)
+{
+	int ret = syscall(__NR_membarrier, 1 << MEMBARRIER_CMDBIT_GET_REGISTRATIONS, 0);
+	if (ret < 0) {
+		if (errno != EINVAL) {
+			return ret;
+		}
+
+		kdat.has_membarrier_get_registrations = false;
+	} else {
+		kdat.has_membarrier_get_registrations = true;
+	}
+
+	return 0;
+}
+
 /*
  * Some features depend on resource that can be dynamically changed
  * at the OS runtime. There are cases that we cannot determine the
@@ -1877,6 +1896,10 @@ int kerndat_init(void)
 	}
 	if (!ret && (kerndat_has_ipv6_freebind() < 0)) {
 		pr_err("kerndat_has_ipv6_freebind failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_membarrier_get_registrations()) {
+		pr_err("kerndat_has_membarrier_get_registrations failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
