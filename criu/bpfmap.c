@@ -2,11 +2,13 @@
 #include <bpf/bpf.h>
 
 #include "common/compiler.h"
+#include "cr_options.h"
 #include "imgset.h"
 #include "bpfmap.h"
 #include "fdinfo.h"
 #include "image.h"
 #include "util.h"
+#include "tls.h"
 #include "log.h"
 
 #include "protobuf.h"
@@ -155,6 +157,7 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 	BpfmapDataEntry bde = BPFMAP_DATA_ENTRY__INIT;
 	LIBBPF_OPTS(bpf_map_batch_opts, bpfmap_opts);
 	int ret;
+	chacha20_poly1305_t cipher_data;
 
 	key_size = bpf->key_size;
 	value_size = bpf->value_size;
@@ -194,9 +197,29 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 	if (pb_write_one(img, &bde, PB_BPFMAP_DATA))
 		goto err;
 
+	if (opts.encrypt) {
+		/* Encrypt buffer data using ChaCha20-Poly1305 */
+		if (tls_encrypt_data(map_memory, total_size, cipher_data.tag, cipher_data.nonce)) {
+			pr_err("Can't encrypt BPF map's keys and values\n");
+			goto err;
+		}
+	}
+
 	if (write(img_raw_fd(img), map_memory, total_size) != total_size) {
 		pr_perror("Can't write BPF map's keys and values");
 		goto err;
+	}
+
+	if (opts.encrypt) {
+		/* Write ChaCha20-Poly1305 tag data */
+		if (write(img_raw_fd(img), cipher_data.tag, sizeof(cipher_data.tag)) != sizeof(cipher_data.tag)) {
+			pr_perror("Can't write BPF map's tag data");
+			goto err;
+		}
+		if (write(img_raw_fd(img), cipher_data.nonce, sizeof(cipher_data.nonce)) != sizeof(cipher_data.nonce)) {
+			pr_perror("Can't write BPF map's nonce data");
+			goto err;
+		}
 	}
 
 	munmap(map_memory, total_size);
