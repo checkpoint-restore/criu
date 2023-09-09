@@ -70,7 +70,7 @@ int restore_bpfmap_data(int map_fd, uint32_t map_id, struct bpfmap_data_rst **bp
 	void *keys = NULL;
 	void *values = NULL;
 	unsigned int count;
-	LIBBPF_OPTS(bpf_map_batch_opts, opts);
+	LIBBPF_OPTS(bpf_map_batch_opts, bpfmap_opts);
 
 	for (map_data = bpf_hash_table[map_id & BPFMAP_DATA_HASH_MASK]; map_data != NULL; map_data = map_data->next) {
 		if (map_data->bde->map_id == map_id)
@@ -99,7 +99,7 @@ int restore_bpfmap_data(int map_fd, uint32_t map_id, struct bpfmap_data_rst **bp
 	}
 	memcpy(values, map_data->data + bde->keys_bytes, bde->values_bytes);
 
-	if (bpf_map_update_batch(map_fd, keys, values, &count, &opts)) {
+	if (bpf_map_update_batch(map_fd, keys, values, &count, &bpfmap_opts)) {
 		pr_perror("Can't load key-value pairs to BPF map");
 		goto err;
 	}
@@ -153,7 +153,7 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 	void *keys = NULL, *values = NULL;
 	void *in_batch = NULL, *out_batch = NULL;
 	BpfmapDataEntry bde = BPFMAP_DATA_ENTRY__INIT;
-	LIBBPF_OPTS(bpf_map_batch_opts, opts);
+	LIBBPF_OPTS(bpf_map_batch_opts, bpfmap_opts);
 	int ret;
 
 	key_size = bpf->key_size;
@@ -179,7 +179,7 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 		goto err;
 	}
 
-	ret = bpf_map_lookup_batch(lfd, in_batch, out_batch, keys, values, &count, &opts);
+	ret = bpf_map_lookup_batch(lfd, in_batch, out_batch, keys, values, &count, &bpfmap_opts);
 	if (ret && errno != ENOENT) {
 		pr_perror("Can't perform a batch lookup on BPF map");
 		goto err;
