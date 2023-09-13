@@ -631,7 +631,7 @@ static int kerndat_iptables_has_xtlocks(void)
 	}
 
 	kdat.has_xtlocks = 1;
-	if (cr_system(fd, fd, fd, "sh", argv, CRS_CAN_FAIL) == -1)
+	if (cr_system(fd, fd, fd, "sh", argv, CRS_CAN_FAIL, TLS_MODE_NONE) == -1)
 		kdat.has_xtlocks = 0;
 
 	close_safe(&fd);

@@ -164,8 +164,14 @@ extern int is_anon_link_type(char *link, char *type);
 
 #define CRS_CAN_FAIL 0x1 /* cmd can validly exit with non zero code */
 
-extern int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned flags);
-extern int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int userns_pid);
+/* TLS modes for cr_system() */
+#define TLS_MODE_NONE	 0
+#define TLS_MODE_ENCRYPT 1
+#define TLS_MODE_DECRYPT 2
+
+extern int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int tls_mode);
+extern int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int userns_pid,
+			    int tls_mode);
 extern pid_t fork_and_ptrace_attach(int (*child_setup)(void));
 extern int cr_daemon(int nochdir, int noclose, int close_fd);
 extern int status_ready(void);

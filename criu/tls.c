@@ -1055,3 +1055,163 @@ int tls_decrypt_file_data(int fd_in, int fd_out, size_t data_size)
 err:
 	return exit_code;
 }
+
+/**
+ * tls_encryption_pipe creates a pipe and forks a child process that
+ * encrypts data read from the pipe and writes the encrypted data to
+ * the output_fd. The parent process returns the write end of the pipe.
+ */
+int tls_encryption_pipe(int output_file_fd, int pipe_read_fd)
+{
+	pid_t child_pid;
+	int status;
+	char buffer[4096];
+	ssize_t bytes_read;
+	chacha20_poly1305_t cipher_data;
+
+	child_pid = fork();
+	if (child_pid == -1) {
+		pr_perror("Failed to fork");
+		return -1;
+	}
+
+	if (child_pid > 0) {
+		if (waitpid(child_pid, &status, 0) == -1) {
+			pr_perror("waitpid() failed");
+			return -1;
+		}
+		return 0;
+	}
+
+	child_pid = fork();
+	if (child_pid == -1) {
+		pr_perror("Failed to double fork");
+		exit(1);
+	}
+
+	if (child_pid > 0) {
+		exit(0);
+	}
+
+	while (1) {
+		bytes_read = read(pipe_read_fd, buffer, sizeof(buffer));
+		if (bytes_read == -1) {
+			pr_perror("Failed to read data from pipe");
+			exit(1);
+		}
+
+		if (bytes_read == 0)
+			break; /* EOF */
+
+		if (tls_encrypt_data(buffer, bytes_read, cipher_data.tag, cipher_data.nonce) < 0) {
+			pr_err("Failed to encrypt buffer data\n");
+			exit(1);
+		}
+
+		if (write(output_file_fd, cipher_data.tag, sizeof(cipher_data.tag)) != sizeof(cipher_data.tag)) {
+			pr_perror("Failed to write tag data");
+			exit(1);
+		}
+
+		if (write(output_file_fd, cipher_data.nonce, sizeof(cipher_data.nonce)) != sizeof(cipher_data.nonce)) {
+			pr_perror("Failed to write nonce data");
+			exit(1);
+		}
+
+		if (write(output_file_fd, &bytes_read, sizeof(bytes_read)) != sizeof(bytes_read)) {
+			pr_perror("Failed to write data size");
+			exit(1);
+		}
+
+		if (write(output_file_fd, buffer, bytes_read) != bytes_read) {
+			pr_perror("Failed to write encrypted data");
+			exit(1);
+		}
+	}
+	exit(0);
+}
+
+/**
+ * tls_decryption_pipe creates a pipe and forks a child process that
+ * reads encrypted data from the input_fd, decrypts the data, and
+ * writes the decrypted data to the pipe. The parent process returns
+ * the read end of the pipe.
+ */
+int tls_decryption_pipe(int intput_file_fd, int pipe_write_fd)
+{
+	pid_t child_pid;
+	int ret, status;
+	char buffer[4096];
+	ssize_t bytes;
+	chacha20_poly1305_t cipher_data;
+
+	child_pid = fork();
+	if (child_pid == -1) {
+		pr_perror("Failed to fork");
+		return -1;
+	}
+
+	if (child_pid > 0) {
+		/* Parent process */
+		if (waitpid(child_pid, &status, 0) == -1) {
+			pr_perror("waitpid() failed");
+			return -1;
+		}
+		return 0;
+	}
+
+	while (1) {
+		ssize_t bytes_read = 0;
+
+		/* Read tag data */
+		ret = read(intput_file_fd, cipher_data.tag, sizeof(cipher_data.tag));
+		if (ret == 0)
+			break; /* EOF */
+
+		if (ret != sizeof(cipher_data.tag)) {
+			pr_err("Failed to read tag data\n");
+			exit(1);
+		}
+
+		/* Read nonce data */
+		if (read(intput_file_fd, cipher_data.nonce, sizeof(cipher_data.nonce)) != sizeof(cipher_data.nonce)) {
+			pr_err("Failed to read nonce data\n");
+			exit(1);
+		}
+
+		/* Read data size */
+		if (read(intput_file_fd, &bytes, sizeof(bytes)) != sizeof(bytes)) {
+			pr_err("Failed to read data size\n");
+			exit(1);
+		}
+
+		while (bytes > bytes_read) {
+			ret = read(intput_file_fd, buffer + bytes_read, bytes - bytes_read);
+			if (ret < 0) {
+				pr_perror("Failed to read encrypted data");
+				exit(1);
+			}
+
+			if (ret == 0)
+				break; /* EOF */
+
+			bytes_read += ret;
+		}
+
+		if (bytes != bytes_read) {
+			pr_err("Failed to read all encrypted data (%ld != %ld)\n", bytes, bytes_read);
+			exit(1);
+		}
+
+		if (tls_decrypt_data(buffer, bytes_read, cipher_data.tag, cipher_data.nonce) < 0) {
+			pr_err("Failed to decrypt buffer data\n");
+			exit(1);
+		}
+
+		if (write(pipe_write_fd, buffer, bytes_read) == -1) {
+			pr_perror("Failed to write decrypted data");
+			exit(1);
+		}
+	}
+	exit(0);
+}

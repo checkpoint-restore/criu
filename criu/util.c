@@ -41,6 +41,7 @@
 #include "criu-log.h"
 #include "syscall.h"
 #include "util-caps.h"
+#include "tls.h"
 
 #include "clone-noasan.h"
 #include "cr_options.h"
@@ -513,9 +514,9 @@ int is_anon_link_type(char *link, char *type)
  * If "in" is negative, stdin will be closed.
  * If "out" or "err" are negative, a log file descriptor will be used.
  */
-int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned flags)
+int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int tls_mode)
 {
-	return cr_system_userns(in, out, err, cmd, argv, flags, -1);
+	return cr_system_userns(in, out, err, cmd, argv, flags, -1, tls_mode);
 }
 
 static int close_fds(int minfd)
@@ -552,10 +553,15 @@ static int close_fds(int minfd)
 	return 0;
 }
 
-int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int userns_pid)
+#define READ_END  0
+#define WRITE_END 1
+
+int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int userns_pid,
+		     int tls_mode)
 {
 	sigset_t blockmask, oldmask;
 	int ret = -1, status;
+	int pipe_fds[2];
 	pid_t pid;
 
 	sigemptyset(&blockmask);
@@ -582,6 +588,31 @@ int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], un
 			if (setuid(0) || setgid(0)) {
 				pr_perror("Unable to set uid or gid");
 				goto out_chld;
+			}
+		}
+
+		if (opts.encrypt) {
+			if (tls_mode != TLS_MODE_NONE) {
+				if (pipe(pipe_fds)) {
+					pr_perror("Failed to create pipe");
+					return -1;
+				}
+			}
+
+			if (tls_mode == TLS_MODE_ENCRYPT) {
+				if (tls_encryption_pipe(out, pipe_fds[READ_END]) < 0) {
+					pr_err("Unable to create encryption pipe\n");
+					goto out_chld;
+				}
+				close(pipe_fds[READ_END]);
+				out = pipe_fds[WRITE_END];
+			} else if (tls_mode == TLS_MODE_DECRYPT) {
+				if (tls_decryption_pipe(in, pipe_fds[WRITE_END]) < 0) {
+					pr_err("Unable to create decryption pipe\n");
+					goto out_chld;
+				}
+				close(pipe_fds[WRITE_END]);
+				in = pipe_fds[READ_END];
 			}
 		}
 
@@ -1648,7 +1679,7 @@ static int is_iptables_nft(char *bin)
 		goto err;
 	}
 
-	ret = cr_system(-1, pfd[1], -1, cmd[0], cmd, CRS_CAN_FAIL);
+	ret = cr_system(-1, pfd[1], -1, cmd[0], cmd, CRS_CAN_FAIL, TLS_MODE_NONE);
 	if (ret) {
 		pr_err("%s -V failed\n", cmd[0]);
 		goto err;
