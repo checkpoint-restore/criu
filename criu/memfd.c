@@ -323,7 +323,7 @@ static int memfd_open_inode(struct memfd_restore_inode *inode)
 	return fd;
 }
 
-int memfd_open(struct file_desc *d, u32 *fdflags)
+int memfd_open(struct file_desc *d, u32 *fdflags, bool filemap)
 {
 	struct memfd_info *mfi;
 	MemfdFileEntry *mfe;
@@ -341,6 +341,9 @@ int memfd_open(struct file_desc *d, u32 *fdflags)
 
 	/* Reopen the fd with original permissions */
 	flags = fdflags ? *fdflags : mfe->flags;
+
+	if (filemap && (flags & O_ACCMODE) == O_RDWR)
+		return fd;
 
 	if (!mfi->inode->was_opened_rw && (flags & O_ACCMODE) == O_RDWR) {
 		/*
@@ -367,7 +370,7 @@ int memfd_open(struct file_desc *d, u32 *fdflags)
 	_fd = __open_proc(PROC_SELF, 0, flags, "fd/%d", fd);
 	if (_fd < 0)
 		pr_perror("Can't reopen memfd id=%d", mfe->id);
-	else if ((flags & O_ACCMODE) == O_RDWR)
+	else if (!filemap && (flags & O_ACCMODE) == O_RDWR)
 		pr_warn("execveat(fd=%d, ..., AT_EMPTY_PATH) might fail after restore; memfd id=%d\n", _fd, mfe->id);
 
 	close(fd);
@@ -382,7 +385,7 @@ static int memfd_open_fe_fd(struct file_desc *d, int *new_fd)
 	if (inherited_fd(d, new_fd))
 		return 0;
 
-	fd = memfd_open(d, NULL);
+	fd = memfd_open(d, NULL, false);
 	if (fd < 0)
 		return -1;
 
