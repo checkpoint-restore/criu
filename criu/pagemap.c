@@ -13,6 +13,7 @@
 #include "restorer.h"
 #include "rst-malloc.h"
 #include "page-xfer.h"
+#include "tls.h"
 
 #include "fault-injection.h"
 #include "xmalloc.h"
@@ -259,6 +260,15 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr, unsigned l
 		curr += ret;
 		if (curr == len)
 			break;
+	}
+
+	if (opts.encrypt) {
+		for (int i = 0; i < len; i += PAGE_SIZE) {
+			if (tls_block_cipher_decrypt_data(buf + i, PAGE_SIZE)) {
+				pr_err("Failed to decrypt data\n");
+				return -1;
+			}
+		}
 	}
 
 	if (opts.auto_dedup) {
@@ -557,6 +567,17 @@ static int process_async_reads(struct page_read *pr)
 			pr_err("Can't read async pr bytes (%zd / %ju read, %ju off, %d iovs)\n", ret,
 			       piov->end - piov->from, piov->from, piov->nr);
 			return -1;
+		}
+
+		if (opts.encrypt) {
+			for (int i = 0; i < piov->nr; i++) {
+				for (int j = 0; j < piov->to[i].iov_len; j += PAGE_SIZE) {
+					if (tls_block_cipher_decrypt_data(piov->to[i].iov_base + j, PAGE_SIZE)) {
+						pr_err("Failed to decrypt data\n");
+						exit(1);
+					}
+				}
+			}
 		}
 
 		if (opts.auto_dedup && punch_hole(pr, piov->from, ret, false))

@@ -257,19 +257,52 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 	ssize_t ret;
 	ssize_t curr = 0;
 
-	while (1) {
-		ret = splice(p, NULL, img_raw_fd(xfer->pi), NULL, len - curr, SPLICE_F_MOVE);
-		if (ret == -1) {
-			pr_perror("Unable to spice data");
-			return -1;
+	if (opts.encrypt) {
+		uint8_t buf[PAGE_SIZE];
+
+		/* We encrypt each page separately to enable decryption
+		 * of arbitrary pages during restore. This is required
+		 * for auto-deduplication and incremental checkpointing.
+		 */
+		BUG_ON((len % PAGE_SIZE) != 0);
+
+		for (curr = 0; curr < len; curr += PAGE_SIZE) {
+			ret = read(p, buf, PAGE_SIZE);
+			if (ret < 0) {
+				pr_perror("Unable to read data");
+				return -1;
+			}
+			if (ret == 0) {
+				pr_err("A pipe was closed unexpectedly\n");
+				return -1;
+			}
+			BUG_ON(ret != PAGE_SIZE);
+
+			if (tls_block_cipher_encrypt_data(buf, PAGE_SIZE)) {
+				pr_err("Failed to encrypt data\n");
+				return -1;
+			}
+			ret = write(img_raw_fd(xfer->pi), buf, PAGE_SIZE);
+			if (ret != PAGE_SIZE) {
+				pr_perror("Unable to write data %zd", ret);
+				return -1;
+			}
 		}
-		if (ret == 0) {
-			pr_err("A pipe was closed unexpectedly\n");
-			return -1;
+	} else {
+		while (1) {
+			ret = splice(p, NULL, img_raw_fd(xfer->pi), NULL, len - curr, SPLICE_F_MOVE);
+			if (ret == -1) {
+				pr_perror("Unable to spice data");
+				return -1;
+			}
+			if (ret == 0) {
+				pr_err("A pipe was closed unexpectedly\n");
+				return -1;
+			}
+			curr += ret;
+			if (curr == len)
+				break;
 		}
-		curr += ret;
-		if (curr == len)
-			break;
 	}
 
 	return 0;
