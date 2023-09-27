@@ -2404,6 +2404,7 @@ def run_tests(opts):
                 "Specify --criu-image-streamer-dir or modify PATH to provide an alternate location")
                 .format(streamer_dir))
 
+    usernsIsSupported = criu.check("userns")
     launcher = Launcher(opts, len(torun))
     try:
         for t in torun:
@@ -2473,7 +2474,7 @@ def run_tests(opts):
                 run_flavs = set(test_flavs) & set(opts_flavs)
             else:
                 run_flavs = set([test_flavs.pop()])
-            if not criu.check("userns"):
+            if not usernsIsSupported:
                 run_flavs -= set(['uns'])
             if opts['user']:
                 # FIXME -- probably uns will make sense
