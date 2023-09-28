@@ -1,4 +1,5 @@
 #include <linux/memfd.h>
+#include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -73,20 +74,46 @@ static const size_t script_len = sizeof(script) - 1;
 
 int main(int argc, char *argv[])
 {
+#ifdef MEMFD05
+	char path[PATH_MAX];
+	char *addr_p, *addr_s;
+	int rofd;
+#endif
 	int fd;
 
 	test_init(argc, argv);
 
 	fd = _memfd_create("somename", 0);
 	if (fd < 0) {
-		fail("memfd_create()");
+		pr_perror("memfd_create()");
 		return 1;
 	}
-
+	if (ftruncate(fd, script_len) == -1) {
+		pr_perror("ftruncate");
+		return 1;
+	}
 	if (write(fd, script, script_len) != script_len) {
-		fail("write(memfd)");
+		pr_perror("write(memfd)");
 		return 1;
 	}
+#ifdef MEMFD05
+	snprintf(path, PATH_MAX - 1, "/proc/self/fd/%d", fd);
+	rofd = open(path, O_RDONLY);
+	if (rofd < 0) {
+		pr_perror("unable to open read-only memfd");
+		return 1;
+	}
+	addr_p = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_FILE | MAP_PRIVATE, rofd, 0);
+	if (addr_p == MAP_FAILED) {
+		pr_perror("mmap");
+		return 1;
+	}
+	addr_s = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_FILE | MAP_SHARED, fd, 0);
+	if (addr_s == MAP_FAILED) {
+		pr_perror("mmap");
+		return 1;
+	}
+#endif
 
 	if (!test_exec_fd(fd))
 		return 1;
