@@ -29,7 +29,7 @@
 
 /*
  * The magic-s below correspond to coordinates
- * of various Russian towns in the NNNNEEEE form.
+ * of various towns in the NNNNEEEE form.
  */
 
 #define INVENTORY_MAGIC	     0x58313116 /* Veliky Novgorod */
