@@ -165,6 +165,7 @@ FILE *open_img_file(char *path, bool write, size_t *size)
 	fp = fdopen(fd, write ? "w" : "r");
 	if (!fp) {
 		pr_perror("%s: Failed get pointer for %s", path, write ? "write" : "read");
+		close(fd);
 		return NULL;
 	}
 
