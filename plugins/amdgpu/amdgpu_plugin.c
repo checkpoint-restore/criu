@@ -1955,10 +1955,15 @@ int amdgpu_plugin_update_vmamap(const char *in_path, const uint64_t addr, const 
 		if (addr == vma_md->vma_entry && old_offset == vma_md->old_pgoff) {
 			*new_offset = vma_md->new_pgoff;
 
-			if (is_renderD)
-				*updated_fd = vma_md->fd;
-			else
-				*updated_fd = -1;
+			*updated_fd = -1;
+			if (is_renderD) {
+				int fd = dup(vma_md->fd);
+				if (fd == -1) {
+					pr_perror("unable to duplicate the render fd");
+					return -1;
+				}
+				*updated_fd = fd;
+			}
 
 			plugin_log_msg("old_pgoff=0x%lx new_pgoff=0x%lx fd=%d\n", vma_md->old_pgoff, vma_md->new_pgoff,
 				       *updated_fd);

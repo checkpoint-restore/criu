@@ -2506,7 +2506,7 @@ static int open_filemap(int pid, struct vma_area *vma)
 			 * using dup because dup returns a reference to the same struct file inside kernel, but we
 			 * cannot open a new FD.
 			 */
-			ret = dup(plugin_fd);
+			ret = plugin_fd;
 		} else if (vma->e->status & VMA_AREA_MEMFD) {
 			if (!inherited_fd(vma->vmfd, &ret))
 				ret = memfd_open(vma->vmfd, &flags);
