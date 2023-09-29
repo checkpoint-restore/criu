@@ -1796,7 +1796,12 @@ int amdgpu_plugin_restore_file(int id)
 		 * copy of the fd. CRIU core owns the duplicated returned fd, and amdgpu_plugin owns the fd stored in
 		 * tp_node.
 		 */
-		return dup(fd);
+		fd = dup(fd);
+		if (fd == -1) {
+			pr_perror("unable to duplicate the render fd");
+			return -1;
+		}
+		return fd;
 	}
 
 	fd = open(AMDGPU_KFD_DEVICE, O_RDWR | O_CLOEXEC);
