@@ -6,7 +6,7 @@ CI_PKGS=(protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
 		libnl-route-3-dev time flake8 libbsd-dev python3-yaml
 		libperl-dev pkg-config python3-protobuf python3-pip
-		python3-importlib-metadata python3-junit.xml)
+		python3-importlib-metadata python3-junit.xml libdrm-dev)
 
 X86_64_PKGS=(gcc-multilib)
 
@@ -326,3 +326,8 @@ make -C test/others/action-script run
 
 # compel testing
 make -C compel/test
+
+# amdgpu_plugin testing
+make amdgpu_plugin
+make -C plugins/amdgpu/ test_topology_remap
+./plugins/amdgpu/test_topology_remap
