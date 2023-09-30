@@ -23,6 +23,7 @@ RUN apk update && apk add \
 	python3 \
 	sudo \
 	libcap-utils \
+	libdrm-dev \
 	util-linux
 
 COPY . /criu
