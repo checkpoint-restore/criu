@@ -915,7 +915,7 @@ void *dump_bo_contents(void *_thread_data)
 	int num_bos = 0;
 	int i, ret = 0;
 	FILE *bo_contents_fp = NULL;
-	void *buffer;
+	void *buffer = NULL;
 	char img_path[40];
 
 	pr_info("Thread[0x%x] started\n", thread_data->gpu_id);
@@ -1004,7 +1004,7 @@ void *restore_bo_contents(void *_thread_data)
 	uint64_t max_copy_size;
 	uint32_t major, minor;
 	FILE *bo_contents_fp = NULL;
-	void *buffer;
+	void *buffer = NULL;
 	char img_path[40];
 	int num_bos = 0;
 	int i, ret = 0;
