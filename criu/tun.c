@@ -455,27 +455,26 @@ int dump_tun_link(NetDeviceEntry *nde, struct cr_imgset *fds, struct nlattr **in
 	TunLinkEntry tle = TUN_LINK_ENTRY__INIT;
 	char spath[64];
 	char buf[64];
-	int ret = 0;
 	struct tun_link *tl;
 
 	sprintf(spath, "class/net/%s/tun_flags", nde->name);
-	ret |= read_ns_sys_file(spath, buf, sizeof(buf));
+	if (read_ns_sys_file(spath, buf, sizeof(buf)) < 0)
+		return -1;
 	tle.flags = strtol(buf, NULL, 0);
 
 	sprintf(spath, "class/net/%s/owner", nde->name);
-	ret |= read_ns_sys_file(spath, buf, sizeof(buf));
+	if (read_ns_sys_file(spath, buf, sizeof(buf)) < 0)
+		return -1;
 	tle.owner = strtol(buf, NULL, 10);
 
 	sprintf(spath, "class/net/%s/group", nde->name);
-	ret |= read_ns_sys_file(spath, buf, sizeof(buf));
+	if (read_ns_sys_file(spath, buf, sizeof(buf)) < 0)
+		return -1;
 	tle.group = strtol(buf, NULL, 10);
-
-	if (ret < 0)
-		return ret;
 
 	tl = get_tun_link_fd(nde->name, nde->peer_nsid, tle.flags);
 	if (!tl)
-		return ret;
+		return -1;
 
 	tle.vnethdr = tl->dmp.vnethdr;
 	tle.sndbuf = tl->dmp.sndbuf;

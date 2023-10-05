@@ -111,15 +111,18 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	}
 
 	rlen = read(fd, buf, len);
+	if (rlen == -1)
+		pr_perror("Can't read ns' %s", path);
 	close(fd);
 
 	if (rlen == len) {
+		buf[0] = '\0';
 		pr_err("Too small buffer to read ns sys file %s\n", path);
 		return -1;
 	}
 
-	if (rlen > 0)
-		buf[rlen - 1] = '\0';
+	if (rlen >= 0)
+		buf[rlen] = '\0';
 
 	return rlen;
 }
