@@ -81,6 +81,7 @@ enum {
 	PB_SK_QUEUES,
 	PB_IPCNS_MSG,
 	PB_IPCNS_MSG_ENT,
+	PB_PIDFD,
 
 	PB_MAX,
 };

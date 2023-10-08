@@ -8,6 +8,7 @@
 #include "images/signalfd.pb-c.h"
 #include "images/fsnotify.pb-c.h"
 #include "images/timerfd.pb-c.h"
+#include "images/pidfd.pb-c.h"
 
 struct fdinfo_common {
 	off64_t pos;
