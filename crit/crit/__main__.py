@@ -5,6 +5,7 @@ import json
 import os
 
 import pycriu
+from . import __version__
 
 
 def inf(opts):
@@ -41,9 +42,9 @@ def decode(opts):
     try:
         img = pycriu.images.load(inf(opts), opts['pretty'], opts['nopl'])
     except pycriu.images.MagicException as exc:
-        print("Unknown magic %#x.\n"\
-          "Maybe you are feeding me an image with "\
-          "raw data(i.e. pages.img)?" % exc.magic, file=sys.stderr)
+        print("Unknown magic %#x.\n"
+              "Maybe you are feeding me an image with "
+              "raw data(i.e. pages.img)?" % exc.magic, file=sys.stderr)
         sys.exit(1)
 
     if opts['pretty']:
@@ -59,9 +60,9 @@ def encode(opts):
     try:
         img = json.load(inf(opts))
     except UnicodeDecodeError:
-        print("Cannot read JSON.\n"\
-          "Maybe you are feeding me an image with protobuf data? "\
-          "Encode expects JSON input.", file=sys.stderr)
+        print("Cannot read JSON.\n"
+              "Maybe you are feeding me an image with protobuf data? "
+              "Encode expects JSON input.", file=sys.stderr)
         sys.exit(1)
     pycriu.images.dump(img, outf(opts, False))
 
@@ -131,7 +132,7 @@ def ftype_find_in_files(opts, ft, fid):
     if files_img is None:
         try:
             files_img = pycriu.images.load(dinf(opts, "files.img"))['entries']
-        except:
+        except Exception:
             files_img = []
 
     if len(files_img) == 0:
@@ -364,7 +365,7 @@ def main():
     desc = 'CRiu Image Tool'
     parser = argparse.ArgumentParser(
         description=desc, formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--version', action='version', version=pycriu.__version__)
+    parser.add_argument('--version', action='version', version=__version__)
 
     subparsers = parser.add_subparsers(
         help='Use crit CMD --help for command-specific help')
@@ -374,8 +375,7 @@ def main():
         'decode', help='convert criu image from binary type to json')
     decode_parser.add_argument(
         '--pretty',
-        help=
-        'Multiline with indents and some numerical fields in field-specific format',
+        help='Multiline with indents and some numerical fields in field-specific format',
         action='store_true')
     decode_parser.add_argument(
         '-i',
