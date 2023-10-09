@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
+import setuptools
 
-from pycriu import cli
 
 if __name__ == '__main__':
-        cli.main()
+    setuptools.setup()
