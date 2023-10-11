@@ -1650,21 +1650,9 @@ static int get_build_id_64(Elf64_Ehdr *file_header, unsigned char **build_id, co
  */
 static int get_build_id(const int fd, const struct stat *fd_status, unsigned char **build_id)
 {
-	char buf[SELFMAG + 1];
-	void *start_addr;
+	char *start_addr;
 	size_t mapped_size;
 	int ret = -1;
-
-	if (read(fd, buf, SELFMAG + 1) != SELFMAG + 1)
-		return -1;
-
-	/*
-	 * The first 4 bytes contain a magic number identifying the file as an
-	 * ELF file. They should contain the characters ‘\x7f’, ‘E’, ‘L’, and
-	 * ‘F’, respectively. These characters are together defined as ELFMAG.
-	 */
-	if (strncmp(buf, ELFMAG, SELFMAG))
-		return -1;
 
 	/*
 	 * If the build-id exists, then it will most likely be present in the
@@ -1673,16 +1661,25 @@ static int get_build_id(const int fd, const struct stat *fd_status, unsigned cha
 	 */
 	mapped_size = min_t(size_t, fd_status->st_size, BUILD_ID_MAP_SIZE);
 	start_addr = mmap(0, mapped_size, PROT_READ, MAP_PRIVATE | MAP_FILE, fd, 0);
-	if (start_addr == MAP_FAILED) {
+	if ((void*)start_addr == MAP_FAILED) {
 		pr_warn("Couldn't mmap file with fd %d\n", fd);
 		return -1;
 	}
 
-	if (buf[EI_CLASS] == ELFCLASS32)
-		ret = get_build_id_32(start_addr, build_id, fd, mapped_size);
-	if (buf[EI_CLASS] == ELFCLASS64)
-		ret = get_build_id_64(start_addr, build_id, fd, mapped_size);
+	/*
+	 * The first 4 bytes contain a magic number identifying the file as an
+	 * ELF file. They should contain the characters ‘\x7f’, ‘E’, ‘L’, and
+	 * ‘F’, respectively. These characters are together defined as ELFMAG.
+	 */
+	if (memcmp(start_addr, ELFMAG, SELFMAG))
+		goto out;
 
+	if (start_addr[EI_CLASS] == ELFCLASS32)
+		ret = get_build_id_32((Elf32_Ehdr *)start_addr, build_id, fd, mapped_size);
+	if (start_addr[EI_CLASS] == ELFCLASS64)
+		ret = get_build_id_64((Elf64_Ehdr *)start_addr, build_id, fd, mapped_size);
+
+out:
 	munmap(start_addr, mapped_size);
 	return ret;
 }
