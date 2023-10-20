@@ -35,18 +35,18 @@ ifeq ($(ARCH),arm)
         ARMV		:= $(shell echo $(SUBARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
 
         ifeq ($(ARMV),6)
-                USERCFLAGS += -march=armv6
+                ARCHCFLAGS += -march=armv6
         endif
 
         ifeq ($(ARMV),7)
-                USERCFLAGS += -march=armv7-a+fp
+                ARCHCFLAGS += -march=armv7-a+fp
         endif
 
         ifeq ($(ARMV),8)
                 # Running 'setarch linux32 uname -m' returns armv8l on travis aarch64.
                 # This tells CRIU to handle armv8l just as armv7hf. Right now this is
                 # only used for compile testing. No further verification of armv8l exists.
-                USERCFLAGS += -march=armv7-a
+                ARCHCFLAGS += -march=armv7-a
                 ARMV := 7
         endif
 
@@ -159,7 +159,7 @@ export GMON GMONLDOPT
 endif
 
 AFLAGS			+= -D__ASSEMBLY__
-CFLAGS			+= $(USERCFLAGS) $(WARNINGS) $(DEFINES) -iquote include/
+CFLAGS			+= $(USERCFLAGS) $(ARCHCFLAGS) $(WARNINGS) $(DEFINES) -iquote include/
 HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
 export AFLAGS CFLAGS USERCLFAGS HOSTCFLAGS
 

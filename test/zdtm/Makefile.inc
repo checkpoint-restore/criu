@@ -23,12 +23,12 @@ ifeq ($(ARCH),arm)
         ARMV := $(shell echo $(SUBARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
 
         ifeq ($(ARMV),6)
-                USERCFLAGS += -march=armv6
+                ARCHCFLAGS += -march=armv6
         else ifeq ($(ARMV),7)
-                USERCFLAGS += -march=armv7-a+fp
+                ARCHCFLAGS += -march=armv7-a+fp
         else ifeq ($(ARMV),8)
                 # To build aarch32 on armv8 Travis-CI (see criu Makefile)
-                USERCFLAGS += -march=armv7-a
+                ARCHCFLAGS += -march=armv7-a
                 ARMV := 7
         endif
 endif
@@ -40,7 +40,7 @@ endif
 PKG_CONFIG ?= pkg-config
 CFLAGS	+= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS	+= -Wdeclaration-after-statement -Wstrict-prototypes
-CFLAGS	+= $(USERCFLAGS)
+CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS)
 CFLAGS	+= -D_GNU_SOURCE
 CPPFLAGS += -iquote $(LIBDIR)/arch/$(ARCH)/include
 
