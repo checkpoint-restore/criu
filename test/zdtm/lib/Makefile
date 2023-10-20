@@ -1,6 +1,6 @@
 LIBDIR	:= .
 
-CFLAGS	+= $(USERCFLAGS)
+CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS)
 
 LIB	:= libzdtmtst.a
 
