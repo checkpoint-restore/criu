@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 
 #include "page.h"
 #include "pagemap-cache.h"
@@ -21,6 +22,8 @@
 #define PMC_SIZE_GAP (PMC_SIZE / 4)
 
 #define PAGEMAP_LEN(addr) (PAGE_PFN(addr) * sizeof(u64))
+
+#define PAGE_REGIONS_MAX_NR 32768
 
 /*
  * It's a workaround for a kernel bug. In the 3.19 kernel when pagemap are read
@@ -50,10 +53,23 @@ int pmc_init(pmc_t *pmc, pid_t pid, const struct list_head *vma_head, size_t siz
 	pmc->pid = pid;
 	pmc->map_len = PAGEMAP_LEN(map_size);
 	pmc->vma_head = vma_head;
+	pmc->regs_max_len = PAGE_PFN(map_size);
+	if (pmc->regs_max_len > PAGE_REGIONS_MAX_NR)
+		pmc->regs_max_len = PAGE_REGIONS_MAX_NR;
+	pmc->regs_len = 0;
+	pmc->regs_idx = 0;
+	pmc->regs = NULL;
+	pmc->map = NULL;
 
-	pmc->map = xmalloc(pmc->map_len);
-	if (!pmc->map)
-		goto err;
+	if (kdat.has_pagemap_scan) {
+		pmc->regs = xmalloc(pmc->regs_max_len * sizeof(struct page_region));
+		if (!pmc->regs)
+			goto err;
+	} else {
+		pmc->map = xmalloc(pmc->map_len);
+		if (!pmc->map)
+			goto err;
+	}
 
 	if (pagemap_cache_disabled)
 		pr_warn_once("The pagemap cache is disabled\n");
@@ -87,17 +103,11 @@ err:
 	return -1;
 }
 
-static inline u64 *__pmc_get_map(pmc_t *pmc, unsigned long addr)
-{
-	return &pmc->map[PAGE_PFN(addr - pmc->start)];
-}
-
 static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 {
 	unsigned long low = vma->e->start & PMC_MASK;
 	unsigned long high = low + PMC_SIZE;
 	size_t len = vma_area_len(vma);
-	size_t size_map;
 
 	if (high > kdat.task_size)
 		high = kdat.task_size;
@@ -149,39 +159,79 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 			pr_debug("\t%d: simple mode [l:%lx h:%lx]\n", pmc->pid, pmc->start, pmc->end);
 	}
 
+	return pmc_fill(pmc, pmc->start, pmc->end);
+}
+
+int pmc_fill(pmc_t *pmc, u64 start, u64 end)
+{
+	size_t size_map;
+
+	pmc->start = start;
+	pmc->end = end;
+
 	size_map = PAGEMAP_LEN(pmc->end - pmc->start);
 	BUG_ON(pmc->map_len < size_map);
 	BUG_ON(pmc->fd < 0);
 
-	if (pread(pmc->fd, pmc->map, size_map, PAGEMAP_PFN_OFF(pmc->start)) != size_map) {
-		pmc_zap(pmc);
-		pr_perror("Can't read %d's pagemap file", pmc->pid);
-		return -1;
+	if (pmc->regs) {
+		struct pm_scan_arg args = {
+			.size = sizeof(struct pm_scan_arg),
+			.flags = 0,
+			.start = pmc->start,
+			.end = pmc->end,
+			.vec = (long)pmc->regs,
+			.vec_len = pmc->regs_max_len,
+			.max_pages = 0,
+			/*
+			 * Request pages that are in  RAM or swap, excluding
+			 * zero-filled and file-backed pages.
+			 */
+			.category_inverted = PAGE_IS_PFNZERO | PAGE_IS_FILE,
+			.category_mask = PAGE_IS_PFNZERO | PAGE_IS_FILE,
+			.category_anyof_mask = PAGE_IS_PRESENT | PAGE_IS_SWAPPED,
+			.return_mask = PAGE_IS_PRESENT | PAGE_IS_SWAPPED | PAGE_IS_SOFT_DIRTY,
+		};
+		long ret;
+
+		ret = ioctl(pmc->fd, PAGEMAP_SCAN, &args);
+		if (ret == -1) {
+			pr_perror("PAGEMAP_SCAN");
+			pmc_zap(pmc);
+			return -1;
+		}
+		pmc->regs_len = ret;
+		pmc->regs_idx = 0;
+		pmc->end = args.walk_end;
+	} else {
+		if (pread(pmc->fd, pmc->map, size_map, PAGEMAP_PFN_OFF(pmc->start)) != size_map) {
+			pmc_zap(pmc);
+			pr_perror("Can't read %d's pagemap file", pmc->pid);
+			return -1;
+		}
 	}
 
 	return 0;
 }
 
-u64 *pmc_get_map(pmc_t *pmc, const struct vma_area *vma)
+int pmc_get_map(pmc_t *pmc, const struct vma_area *vma)
 {
 	/* Hit */
 	if (likely(pmc->start <= vma->e->start && pmc->end >= vma->e->end))
-		return __pmc_get_map(pmc, vma->e->start);
+		return 0;
 
 	/* Miss, refill the cache */
 	if (pmc_fill_cache(pmc, vma)) {
 		pr_err("Failed to fill cache for %d (%lx-%lx)\n", pmc->pid, (long)vma->e->start, (long)vma->e->end);
-		return NULL;
+		return -1;
 	}
-
-	/* Hit for sure */
-	return __pmc_get_map(pmc, vma->e->start);
+	return 0;
 }
 
 void pmc_fini(pmc_t *pmc)
 {
 	close_safe(&pmc->fd);
 	xfree(pmc->map);
+	xfree(pmc->regs);
 	pmc_reset(pmc);
 }
 
