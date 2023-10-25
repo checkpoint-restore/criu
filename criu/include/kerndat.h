@@ -86,6 +86,7 @@ struct kerndat_s {
 	struct __ptrace_rseq_configuration libc_rseq_conf;
 	bool has_ipv6_freebind;
 	bool has_membarrier_get_registrations;
+	bool has_pagemap_scan;
 };
 
 extern struct kerndat_s kdat;

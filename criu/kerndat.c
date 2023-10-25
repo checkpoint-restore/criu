@@ -54,6 +54,7 @@
 #include "memfd.h"
 #include "mount-v2.h"
 #include "util-caps.h"
+#include "pagemap_scan.h"
 
 struct kerndat_s kdat = {};
 volatile int dummy_var;
@@ -72,6 +73,25 @@ static int check_pagemap(void)
 		}
 
 		return -1;
+	}
+
+	if (ioctl(fd, PAGEMAP_SCAN, NULL) == 0) {
+		pr_err("PAGEMAP_SCAN succeeded unexpectedly\n");
+		return -1;
+	} else {
+		switch (errno) {
+		case EFAULT:
+			pr_debug("PAGEMAP_SCAN is supported\n");
+			kdat.has_pagemap_scan = true;
+			break;
+		case EINVAL:
+		case ENOTTY:
+			pr_debug("PAGEMAP_SCAN isn't supported\n");
+			break;
+		default:
+			pr_perror("PAGEMAP_SCAN failed with unexpected errno");
+			return -1;
+		}
 	}
 
 	retry = 3;
