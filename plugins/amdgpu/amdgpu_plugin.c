@@ -68,6 +68,13 @@ struct vma_metadata {
 
 extern int fd_next;
 
+// FD of KFD device used to checkpoint
+// On a multi-process tree the order of
+// checkpointing goes from parent to child
+// and so on - so saving the FD will not
+// be overwritten
+int kfd_checkpoint_fd;
+
 static LIST_HEAD(update_vma_info_list);
 
 size_t kfd_max_buffer_size;
@@ -1008,6 +1015,10 @@ static int unpause_process(int fd)
 		goto exit;
 	}
 
+	// Reset the KFD FD
+	kfd_checkpoint_fd = -1;
+	sys_close_drm_render_devices(&src_topology);
+
 exit:
 	pr_info("Process unpaused %s (ret:%d)\n", ret ? "Failed" : "Ok", ret);
 
@@ -1199,44 +1210,26 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		return -1;
 	}
 
+	// Initialize number of device files that will be checkpointed */
+	init_gpu_count(&src_topology);
+
 	/* Check whether this plugin was called for kfd or render nodes */
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0) {
+
 		/* This is RenderD dumper plugin, for now just save renderD
 		 * minor number to be used during restore. In later phases this
 		 * needs to save more data for video decode etc.
 		 */
-
-		CriuRenderNode rd = CRIU_RENDER_NODE__INIT;
-		struct tp_node *tp_node;
-
-		pr_info("Dumper called for /dev/dri/renderD%d, FD = %d, ID = %d\n", minor(st.st_rdev), fd, id);
-
-		tp_node = sys_get_node_by_render_minor(&src_topology, minor(st.st_rdev));
-		if (!tp_node) {
-			pr_err("Failed to find a device with minor number = %d\n", minor(st.st_rdev));
-
-			return -ENODEV;
-		}
-
-		rd.gpu_id = maps_get_dest_gpu(&checkpoint_maps, tp_node->gpu_id);
-		if (!rd.gpu_id)
-			return -ENODEV;
-
-		len = criu_render_node__get_packed_size(&rd);
-		buf = xmalloc(len);
-		if (!buf)
-			return -ENOMEM;
-
-		criu_render_node__pack(&rd, buf);
-
-		snprintf(img_path, sizeof(img_path), IMG_DRM_FILE, id);
-		ret = write_img_file(img_path, buf, len);
-		if (ret) {
-			xfree(buf);
+		ret = amdgpu_plugin_drm_dump_file(fd, id, &st);
+		if (ret)
 			return ret;
+
+		/* Invoke unpause process if needed */
+		decrement_checkpoint_count();
+		if (checkpoint_is_complete()) {
+			ret = unpause_process(kfd_checkpoint_fd);
 		}
 
-		xfree(buf);
 		/* Need to return success here so that criu can call plugins for renderD nodes */
 		return ret;
 	}
@@ -1332,11 +1325,15 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	ret = write_img_file(img_path, buf, len);
 
 	xfree(buf);
-exit:
-	/* Restore all queues */
-	unpause_process(fd);
 
-	sys_close_drm_render_devices(&src_topology);
+exit:
+	/* Restore all queues if conditions permit */
+	kfd_checkpoint_fd = fd;
+	decrement_checkpoint_count();
+	if (checkpoint_is_complete()) {
+		ret = unpause_process(fd);
+	}
+
 	xfree((void *)args.devices);
 	xfree((void *)args.bos);
 	xfree((void *)args.priv_data);
