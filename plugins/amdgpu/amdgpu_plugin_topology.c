@@ -840,6 +840,9 @@ void topology_free(struct tp_system *sys)
 		list_del(&p2pgroup->listm_system);
 		xfree(p2pgroup);
 	}
+
+	/* Update Topology as being freed */
+	sys->parsed = false;
 }
 
 /**
@@ -1241,7 +1244,7 @@ static bool map_devices(struct tp_system *src_sys, struct tp_system *dest_sys, s
 				return true;
 			} else {
 				/* We could not map remaining nodes in the list. Add dest node back
-				 * to list and try to map next dest node in list to current src
+				 * to list and try to map next dest ndoe in list to current src
 				 * node.
 				 */
 				pr_debug("Nodes after [0x%04X -> 0x%04X] did not match, "
@@ -1461,3 +1464,15 @@ int set_restore_gpu_maps(struct tp_system *src_sys, struct tp_system *dest_sys, 
 
 	return ret;
 }
+
+int topology_gpu_count(struct tp_system *sys)
+{
+	struct tp_node *node;
+	int count = 0;
+
+	list_for_each_entry(node, &sys->nodes, listm_system)
+		if (NODE_IS_GPU(node))
+			count++;
+	return count;
+}
+
