@@ -5,7 +5,7 @@ message dev_iolink {
 	required uint32 node_to_id = 2;
 }
 
-message device_entry {
+message kfd_device_entry {
 	required uint32 node_id = 1;
 	required uint32 gpu_id = 2;
 	required uint32 cpu_cores_count = 3;
@@ -40,10 +40,10 @@ message device_entry {
 	repeated dev_iolink iolinks = 32;
 }
 
-message bo_entry {
-	required uint64	addr = 1;
-	required uint64	size = 2;
-	required uint64	offset = 3;
+message kfd_bo_entry {
+	required uint64 addr = 1;
+	required uint64 size = 2;
+	required uint64 offset = 3;
 	required uint32 alloc_flags = 4;
 	required uint32 gpu_id = 5;
 }
@@ -52,10 +52,10 @@ message criu_kfd {
 	required uint32 pid = 1;
 	required uint32 num_of_gpus = 2;
 	required uint32 num_of_cpus = 3;
-	repeated device_entry device_entries = 4;
-	required uint64	num_of_bos = 5;
-	repeated bo_entry bo_entries = 6;
-	required uint32	num_of_objects = 7;
+	repeated kfd_device_entry device_entries = 4;
+	required uint64 num_of_bos = 5;
+	repeated kfd_bo_entry bo_entries = 6;
+	required uint32 num_of_objects = 7;
 	required uint64 shared_mem_size = 8;
 	required uint32 shared_mem_magic = 9;
 	required bytes priv_data = 10;
