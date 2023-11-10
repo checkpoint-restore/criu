@@ -61,3 +61,41 @@ int amdgpu_plugin_drm_handle_device_vma(int fd, const struct stat *st)
 }
 
 
+int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
+{
+	CriuRenderNode rd = CRIU_RENDER_NODE__INIT;
+	struct tp_node *tp_node;
+	char path[PATH_MAX];
+	unsigned char *buf;
+	int minor;
+	int len;
+	int ret;
+
+	/* Get the topology node of the DRM device */
+	minor = minor(drm->st_rdev);
+	tp_node = sys_get_node_by_render_minor(&src_topology, minor);
+	if (!tp_node) {
+		pr_err("Failed to find a device with minor number = %d\n", minor);
+		return -ENODEV;
+	}
+
+	/* Get the GPU_ID of the DRM device */
+	rd.gpu_id = maps_get_dest_gpu(&checkpoint_maps, tp_node->gpu_id);
+	if (!rd.gpu_id) {
+		pr_err("Failed to find valid gpu_id for the device = %d\n", rd.gpu_id);
+		return -ENODEV;
+	}
+
+	len = criu_render_node__get_packed_size(&rd);
+	buf = xmalloc(len);
+	if (!buf)
+		return -ENOMEM;
+
+	criu_render_node__pack(&rd, buf);
+
+	snprintf(path, sizeof(path), IMG_DRM_FILE, id);
+	ret = write_img_file(path, buf, len);
+	xfree(buf);
+	return ret;
+}
+
