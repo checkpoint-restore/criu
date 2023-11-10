@@ -16,34 +16,10 @@
 
 #include "xmalloc.h"
 #include "kfd_ioctl.h"
+#include "amdgpu_plugin_util.h"
 #include "amdgpu_plugin_topology.h"
 
 #define TOPOLOGY_PATH "/sys/class/kfd/kfd/topology/nodes/"
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
-
-#ifdef COMPILE_TESTS
-#undef pr_err
-#define pr_err(format, arg...) fprintf(stdout, "%s:%d ERROR:" format, __FILE__, __LINE__, ##arg)
-#undef pr_info
-#define pr_info(format, arg...) fprintf(stdout, "%s:%d INFO:" format, __FILE__, __LINE__, ##arg)
-#undef pr_debug
-#define pr_debug(format, arg...) fprintf(stdout, "%s:%d DBG:" format, __FILE__, __LINE__, ##arg)
-
-#undef pr_perror
-#define pr_perror(format, arg...) \
-	fprintf(stdout, "%s:%d: " format " (errno = %d (%s))\n", __FILE__, __LINE__, ##arg, errno, strerror(errno))
-#endif
-
-#ifdef DEBUG
-#define plugin_log_msg(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
-#else
-#define plugin_log_msg(fmt, ...) \
-	{                        \
-	}
-#endif
 
 /* User override options */
 /* Skip firmware version check */
@@ -840,6 +816,9 @@ void topology_free(struct tp_system *sys)
 		list_del(&p2pgroup->listm_system);
 		xfree(p2pgroup);
 	}
+
+	/* Update Topology as being freed */
+	sys->parsed = false;
 }
 
 /**
@@ -1461,3 +1440,15 @@ int set_restore_gpu_maps(struct tp_system *src_sys, struct tp_system *dest_sys, 
 
 	return ret;
 }
+
+int topology_gpu_count(struct tp_system *sys)
+{
+	struct tp_node *node;
+	int count = 0;
+
+	list_for_each_entry(node, &sys->nodes, listm_system)
+		if (NODE_IS_GPU(node))
+			count++;
+	return count;
+}
+
