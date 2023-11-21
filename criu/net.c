@@ -3274,7 +3274,7 @@ int macvlan_ext_add(struct external *ext)
 /*
  * The setns() syscall (called by switch_ns()) can be extremely
  * slow. If we call it two or more times from the same task the
- * kernel will synchonously go on a very slow routine called
+ * kernel will synchronously go on a very slow routine called
  * synchronize_rcu() trying to put a reference on old namespaces.
  *
  * To avoid doing this more than once we pre-create all the

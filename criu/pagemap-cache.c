@@ -115,7 +115,7 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 	 * fit in solid manner, iow -- either the whole vma fits
 	 * the cache window, either plain read is used.
 	 *
-	 * The benefit (apart redusing the number of read() calls)
+	 * The benefit (apart reducing the number of read() calls)
 	 * is to walk page tables less.
 	 */
 	if (!pagemap_cache_disabled && len < PMC_SIZE && (vma->e->start - low) < PMC_SIZE_GAP) {
