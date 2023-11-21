@@ -365,7 +365,7 @@ def pb2dict(pb, pretty=False, is_hex=False):
 def _dict2pb_cast(field, value):
     # Not considering TYPE_MESSAGE here, as repeated
     # and non-repeated messages need special treatment
-    # in this case, and are hadled separately.
+    # in this case, and are handled separately.
     if field.type == FD.TYPE_BYTES:
         return get_bytes_dec(field)(value)
     elif field.type == FD.TYPE_ENUM:
