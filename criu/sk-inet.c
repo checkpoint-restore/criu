@@ -417,10 +417,12 @@ static int dump_ip_opts(int sk, int family, int type, int proto, IpOptsEntry *io
 		ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
 		ret |= dump_opt(sk, SOL_IP, IP_PKTINFO, &ioe->pktinfo);
 		ret |= dump_opt(sk, SOL_IP, IP_TOS, &ioe->tos);
+		ret |= dump_opt(sk, SOL_IP, IP_TTL, &ioe->ttl);
 	}
 	ioe->has_freebind = ioe->freebind;
 	ioe->has_pktinfo = !!ioe->pktinfo;
 	ioe->has_tos = !!ioe->tos;
+	ioe->has_ttl = !!ioe->ttl;
 
 	return ret;
 }
@@ -817,7 +819,10 @@ int restore_ip_opts(int sk, int family, int proto, IpOptsEntry *ioe)
 			ret |= restore_opt(sk, SOL_IP, IP_PKTINFO, &ioe->pktinfo);
 		if (ioe->has_tos)
 			ret |= restore_opt(sk, SOL_IP, IP_TOS, &ioe->tos);
-	}
+		if (ioe->has_ttl)
+			ret |= restore_opt(sk, SOL_IP, IP_TTL, &ioe->ttl);
+
+    }
 
 	if (ioe->raw)
 		ret |= restore_ip_raw_opts(sk, family, proto, ioe->raw);
