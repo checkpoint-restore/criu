@@ -9,7 +9,7 @@ prep
 ./test/zdtm.py run -t zdtm/static/maps00 --fault 3 --report report -f h || fail
 
 # FIXME: fhandles looks broken on btrfs
-grep -P "/.* / " /proc/self/mountinfo | grep -q btrfs || NOBTRFS=$?
+findmnt --noheadings --target . | grep -q btrfs || NOBTRFS=$?
 if [ $NOBTRFS -eq 1 ] ; then
 	./test/zdtm.py run -t zdtm/static/inotify_irmap --fault 128 --pre 2 -f uns || fail
 fi
