@@ -11,6 +11,7 @@
 #include "vma.h"
 #include "mem.h"
 #include "kerndat.h"
+#include "fault-injection.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "pagemap-cache: "
@@ -61,7 +62,7 @@ int pmc_init(pmc_t *pmc, pid_t pid, const struct list_head *vma_head, size_t siz
 	pmc->regs = NULL;
 	pmc->map = NULL;
 
-	if (kdat.has_pagemap_scan) {
+	if (kdat.has_pagemap_scan && !fault_injected(FI_DONT_USE_PAGEMAP_SCAN)) {
 		pmc->regs = xmalloc(pmc->regs_max_len * sizeof(struct page_region));
 		if (!pmc->regs)
 			goto err;
