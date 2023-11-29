@@ -87,6 +87,7 @@ struct kerndat_s {
 	bool has_ipv6_freebind;
 	bool has_membarrier_get_registrations;
 	bool has_pagemap_scan;
+	bool has_shstk;
 };
 
 extern struct kerndat_s kdat;
