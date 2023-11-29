@@ -1127,6 +1127,24 @@ static int kerndat_has_openat2(void)
 	return 0;
 }
 
+int __attribute__((weak)) kdat_has_shstk(void)
+{
+	return 0;
+}
+
+static int kerndat_has_shstk(void)
+{
+	int ret = kdat_has_shstk();
+
+	if (ret < 0) {
+		pr_err("kdat_has_shstk failed\n");
+		return ret;
+	}
+
+	kdat.has_shstk = !!ret;
+	return 0;
+}
+
 #define KERNDAT_CACHE_NAME "criu.kdat"
 #define KERNDAT_CACHE_FILE KDAT_RUNDIR "/" KERNDAT_CACHE_NAME
 
@@ -1681,6 +1699,12 @@ int kerndat_try_load_new(void)
 		return ret;
 	}
 
+	ret = kerndat_has_shstk();
+	if (ret < 0) {
+		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
+		return ret;
+	}
+
 	/* New information is found, we need to save to the cache */
 	if (ret)
 		kerndat_save_cache();
@@ -1900,6 +1924,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_membarrier_get_registrations()) {
 		pr_err("kerndat_has_membarrier_get_registrations failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_shstk()) {
+		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
