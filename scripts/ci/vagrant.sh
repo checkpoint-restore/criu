@@ -57,6 +57,11 @@ fedora-no-vdso() {
 }
 
 fedora-rawhide() {
+	# The 6.2 kernel of Fedora 38 in combination with rawhide userspace breaks
+	# zdtm/static/socket-tcp-nfconntrack. To activate the new kernel previously
+	# installed this reboots the VM.
+	vagrant reload
+	ssh default uname -a
 	#
 	# Workaround the problem:
 	# error running container: error from /usr/bin/crun creating container for [...]: sd-bus call: Transport endpoint is not connected
