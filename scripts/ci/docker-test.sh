@@ -15,10 +15,11 @@ add-apt-repository \
    $(lsb_release -cs) \
    stable test"
 
-./apt-install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-# shellcheck source=/dev/null
-. /etc/lsb-release
+# checkpoint/restore is broken in Docker Engine (Community) version 25.0.0-beta.1
+# https://github.com/moby/moby/discussions/46816
+# Downgrade to the latest stable version.
+VERSION_STRING=5:24.0.7-1~ubuntu.20.04~focal
+./apt-install docker-ce=$VERSION_STRING docker-ce-cli=$VERSION_STRING containerd.io docker-buildx-plugin docker-compose-plugin
 
 # docker checkpoint and restore is an experimental feature
 echo '{ "experimental": true }' > /etc/docker/daemon.json
