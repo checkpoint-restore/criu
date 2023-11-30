@@ -288,11 +288,16 @@ ip net add test
 
 # Rootless tests
 # Check if cap_checkpoint_restore is supported and also if unshare -c is supported.
-if capsh --supports=cap_checkpoint_restore && unshare -c /bin/true; then
+#
+# Do not run this test in a container (see https://github.com/checkpoint-restore/criu/issues/2312).
+# This is a temporary workaround until fixed in the kernel.
+# The kernel currently does not show correct device and inode numbers in /proc/pid/maps
+# for stackable file systems.
+if capsh --supports=cap_checkpoint_restore && unshare -c /bin/true && [ ! -e /run/.containerenv ]; then
 	make -C test/zdtm/ cleanout
 	rm -rf test/dump
 	setcap cap_checkpoint_restore,cap_sys_ptrace+eip criu/criu
-	if [ -d /sys/fs/selinux ]; then
+	if [ -d /sys/fs/selinux ] && command -v getenforce &>/dev/null; then
 		# Note: selinux in Enforcing mode prevents us from calling clone3() or writing to ns_last_pid on restore; hence set to Permissive for the test and then set back.
 		selinuxmode=$(getenforce)
 		setenforce Permissive
@@ -301,7 +306,7 @@ if capsh --supports=cap_checkpoint_restore && unshare -c /bin/true; then
 	# under those conditions. Note that the "... && true" part is necessary; we need at least one statement after the tests so that bash can reap zombies in the user namespace,
 	# otherwise it will exec the last statement and get replaced and nobody will be left to reap our zombies.
 	sudo --user=#65534 --group=#65534 unshare -Ucfpm --mount-proc -- bash -c "./test/zdtm.py run -t zdtm/static/maps00 -f h --rootless && true"
-	if [ -d /sys/fs/selinux ]; then
+	if [ -d /sys/fs/selinux ] && command -v getenforce &>/dev/null; then
 		setenforce "$selinuxmode"
 	fi
 	setcap -r criu/criu

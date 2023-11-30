@@ -70,6 +70,10 @@ fedora-rawhide() {
 	#
 	ssh default 'sudo dnf remove -y crun || true'
 	ssh default sudo dnf install -y podman runc
+	# Some tests in the container need selinux to be disabled.
+	# In the container it is not possible to change the state of selinux.
+	# Let's just disable it for this test run completely.
+	ssh default 'sudo setenforce Permissive'
 	ssh default 'cd /vagrant; tar xf criu.tar; cd criu; sudo -E make -C scripts/ci fedora-rawhide CONTAINER_RUNTIME=podman BUILD_OPTIONS="--security-opt seccomp=unconfined"'
 }
 
