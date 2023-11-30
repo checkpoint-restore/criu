@@ -18,6 +18,7 @@ dnf install -y \
 	libnet-devel \
 	libnl3-devel \
 	libbsd-devel \
+	libselinux-utils \
 	make \
 	procps-ng \
 	protobuf-c-devel \
