@@ -37,6 +37,9 @@ task:
     dnf config-manager --set-enabled crb # Same as CentOS 8 powertools
     dnf -y install epel-release epel-next-release
     dnf -y install --allowerasing asciidoc gcc git gnutls-devel libaio-devel libasan libcap-devel libnet-devel libnl3-devel libbsd-devel libselinux-devel make protobuf-c-devel protobuf-devel python-devel python-PyYAML python-protobuf python-junit_xml python3-importlib-metadata python-flake8 xmlto libdrm-devel
+    # The image has a too old version of nettle which does not work with gnutls.
+    # Just upgrade to the latest to make the error go away.
+    dnf -y upgrade nettle nettle-devel
     systemctl stop sssd
     # Even with selinux in permissive mode the selinux tests will be executed.
     # The Cirrus CI user runs as a service from selinux point of view and is
