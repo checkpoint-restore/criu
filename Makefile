@@ -127,7 +127,7 @@ WARNINGS		:= -rdynamic
 endif
 
 ifeq ($(ARCH),loongarch64)
-WARNINGS		:= -Wno-implicit-function-declaration
+WARNINGS		+= -Wno-implicit-function-declaration
 endif
 
 ifneq ($(GCOV),)
