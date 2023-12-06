@@ -57,6 +57,7 @@ fedora-no-vdso() {
 }
 
 fedora-rawhide() {
+	ssh default sudo grubby --update-kernel ALL --args="selinux=0"
 	# The 6.2 kernel of Fedora 38 in combination with rawhide userspace breaks
 	# zdtm/static/socket-tcp-nfconntrack. To activate the new kernel previously
 	# installed this reboots the VM.
