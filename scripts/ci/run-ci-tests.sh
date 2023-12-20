@@ -290,10 +290,16 @@ ip net add test
 # Check if cap_checkpoint_restore is supported and also if unshare -c is supported.
 #
 # Do not run this test in a container (see https://github.com/checkpoint-restore/criu/issues/2312).
-# This is a temporary workaround until fixed in the kernel.
-# The kernel currently does not show correct device and inode numbers in /proc/pid/maps
-# for stackable file systems.
-if capsh --supports=cap_checkpoint_restore && unshare -c /bin/true && [ ! -e /run/.containerenv ]; then
+# Before v6.8-rc1~215^2~6, the kernel currently did not show correct device and
+# inode numbers in /proc/pid/maps for stackable file systems.
+skip=0
+findmnt -no FSTYPE / | grep overlay && {
+	./criu/criu check --feature overlayfs_maps || skip=1
+}
+unshare -c /bin/true || skip=1
+capsh --supports=cap_checkpoint_restore || skip=1
+
+if [ "$skip" == 0 ]; then
 	make -C test/zdtm/ cleanout
 	rm -rf test/dump
 	setcap cap_checkpoint_restore,cap_sys_ptrace+eip criu/criu
