@@ -106,6 +106,7 @@ export PROTOUFIX DEFINES
 #
 # Independent options for all tools.
 DEFINES			+= -D_FILE_OFFSET_BITS=64
+DEFINES			+= -D_LARGEFILE64_SOURCE
 DEFINES			+= -D_GNU_SOURCE
 
 WARNINGS		:= -Wall -Wformat-security -Wdeclaration-after-statement -Wstrict-prototypes
