@@ -41,7 +41,7 @@ PKG_CONFIG ?= pkg-config
 CFLAGS	+= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS	+= -Wdeclaration-after-statement -Wstrict-prototypes
 CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS)
-CFLAGS	+= -D_GNU_SOURCE
+CFLAGS	+= -D_GNU_SOURCE -D_LARGEFILE64_SOURCE
 CPPFLAGS += -iquote $(LIBDIR)/arch/$(ARCH)/include
 
 ifeq ($(strip $(V)),)
