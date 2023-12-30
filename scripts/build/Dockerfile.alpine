@@ -33,6 +33,7 @@ RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 RUN apk add \
 	ip6tables \
 	iptables \
+	iptables-legacy \
 	nftables \
 	iproute2 \
 	tar \
