@@ -3178,19 +3178,53 @@ static inline int nftables_network_unlock(void)
 #endif
 }
 
+static int iptables_has_criu_jump_target(void)
+{
+	int fd, ret;
+	char *argv[4] = { "sh", "-c", "iptables -C INPUT -j CRIU", NULL };
+
+	fd = open("/dev/null", O_RDWR);
+	if (fd < 0) {
+		fd = -1;
+		pr_perror("failed to open /dev/null, using log fd");
+	}
+
+	ret = cr_system(fd, fd, fd, "sh", argv, CRS_CAN_FAIL);
+	close_safe(&fd);
+	return ret;
+}
+
 static int iptables_network_unlock_internal(void)
 {
-	char conf[] = "*filter\n"
-		      ":CRIU - [0:0]\n"
-		      "-D INPUT -j CRIU\n"
-		      "-D OUTPUT -j CRIU\n"
-		      "-X CRIU\n"
-		      "COMMIT\n";
+	char delete_jump_targets[] = "*filter\n"
+				     ":CRIU - [0:0]\n"
+				     "-D INPUT -j CRIU\n"
+				     "-D OUTPUT -j CRIU\n"
+				     "COMMIT\n";
+
+	char delete_criu_chain[] = "*filter\n"
+				   ":CRIU - [0:0]\n"
+				   "-X CRIU\n"
+				   "COMMIT\n";
+
 	int ret = 0;
 
-	ret |= iptables_restore(false, conf, sizeof(conf) - 1);
+	ret |= iptables_restore(false, delete_jump_targets, sizeof(delete_jump_targets) - 1);
 	if (kdat.ipv6)
-		ret |= iptables_restore(true, conf, sizeof(conf) - 1);
+		ret |= iptables_restore(true, delete_jump_targets, sizeof(delete_jump_targets) - 1);
+
+	/* For compatibility with iptables-nft backend, we need to make sure that all jump
+	 * targets have been removed before deleting the CRIU chain.
+	 */
+	if (!iptables_has_criu_jump_target()) {
+		ret |= iptables_restore(false, delete_jump_targets, sizeof(delete_jump_targets) - 1);
+		if (kdat.ipv6)
+			ret |= iptables_restore(true, delete_jump_targets, sizeof(delete_jump_targets) - 1);
+	}
+
+	ret |= iptables_restore(false, delete_criu_chain, sizeof(delete_criu_chain) - 1);
+	if (kdat.ipv6)
+		ret |= iptables_restore(true, delete_criu_chain, sizeof(delete_criu_chain) - 1);
 
 	return ret;
 }
