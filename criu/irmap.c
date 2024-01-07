@@ -67,6 +67,7 @@ static struct irmap hints[] = {
 		.path = "/var/log",
 		.nr_kids = -1,
 	},
+	{ .path = "/usr/share/dbus-1/services", .nr_kids = -1 },
 	{ .path = "/usr/share/dbus-1/system-services", .nr_kids = -1 },
 	{ .path = "/var/lib/polkit-1/localauthority", .nr_kids = -1 },
 	{ .path = "/usr/share/polkit-1/actions", .nr_kids = -1 },
