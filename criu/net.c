@@ -2438,27 +2438,39 @@ static inline int do_restore_nftables(struct cr_img *img)
 	off_t img_data_size;
 	char *buf;
 
-	if ((img_data_size = img_raw_size(img)) < 0)
+	if ((img_data_size = img_raw_size(img)) < 0) {
+		pr_err("image size mismatch\n");
 		goto out;
+	}
 
-	if (read_img_str(img, &buf, img_data_size) < 0)
+	if (read_img_str(img, &buf, img_data_size) < 0) {
+		pr_err("Failed to read nftables data\n");
 		goto out;
+	}
 
 	nft = nft_ctx_new(NFT_CTX_DEFAULT);
-	if (!nft)
+	if (!nft) {
+		pr_err("Failed to create nft context object\n");
 		goto buf_free_out;
-
-	if (nft_ctx_buffer_output(nft) || nft_ctx_buffer_error(nft) ||
-#if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
-	    nft_run_cmd_from_buffer(nft, buf, strlen(buf)))
-#elif defined(CONFIG_HAS_NFTABLES_LIB_API_1)
-	    nft_run_cmd_from_buffer(nft, buf))
-#else
-	{
-		BUILD_BUG_ON(1);
 	}
-#endif
+
+	if (nft_ctx_buffer_output(nft) || nft_ctx_buffer_error(nft)) {
+		pr_err("Failed to enable std/err output buffering\n");
 		goto nft_ctx_free_out;
+	}
+
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
+	if (nft_run_cmd_from_buffer(nft, buf, strlen(buf)))
+#elif defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	if (nft_run_cmd_from_buffer(nft, buf))
+#else
+	BUILD_BUG_ON(1);
+#endif
+	{
+		pr_err("nft command error:\n%s\n%s\n",
+		       nft_ctx_get_error_buffer(nft), buf);
+		goto nft_ctx_free_out;
+	}
 
 	exit_code = 0;
 
