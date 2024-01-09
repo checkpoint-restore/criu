@@ -1,0 +1,29 @@
+CRIU-KEYGEN(1)
+==============
+include::footer.txt[]
+
+NAME
+----
+criu-keygen - criu encryption key utility
+
+SYNOPSIS
+--------
+*criu-keygen* [<options>]
+
+DESCRIPTION
+-----------
+The *criu-keygen* command generates and manages encryption keys for CRIU.
+*criu-keygen* can create keys for use by CRIU. The type of key to be
+generated is specified with the *-t* option. If invoked without any arguments,
+*criu-keygen* will generate an RSA keys.
+
+A system administrator wishing to use CRIU with encryption, would run *criu-keygen*
+once to create a certficicate and private key in '/etc/pki/criu/'.
+
+SEE ALSO
+--------
+criu(8)
+
+AUTHOR
+------
+The CRIU team

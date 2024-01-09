@@ -449,6 +449,7 @@ ruff:
 		lib/pycriu/images/images.py \
 		scripts/criu-ns \
 		test/others/criu-ns/run.py \
+		scripts/criu-keygen \
 		crit/*.py \
 		crit/crit/*.py \
 		scripts/uninstall_module.py \
