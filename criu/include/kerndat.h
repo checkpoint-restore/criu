@@ -34,11 +34,13 @@ enum loginuid_func {
 struct kerndat_s {
 	u32 magic1, magic2;
 	dev_t shmem_dev;
+	dev_t secretmem_dev;
 	int last_cap;
 	u64 zero_page_pfn;
 	bool has_dirty_track;
 	bool has_memfd;
 	bool has_memfd_hugetlb;
+	bool has_memfd_secret;
 	bool has_fdinfo_lock;
 	unsigned long task_size;
 	bool ipv6;

@@ -49,6 +49,7 @@
 #include "kerndat.h"
 #include "fdstore.h"
 #include "bpfmap.h"
+#include "memfd-secret.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -563,6 +564,9 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 		/* TODO: Dump for hugetlb fd when memfd hugetlb is not supported */
 		if (is_memfd(p.stat.st_dev) || (kdat.has_memfd_hugetlb && is_hugetlb_dev(p.stat.st_dev, NULL)))
 			ops = &memfd_dump_ops;
+		/* memfd_secret */
+		else if (is_memfd_secret(p.stat.st_dev) && kdat.has_memfd_secret)
+			ops = &memfd_secret_dump_ops;
 		else if (link.name[1] == '/')
 			ops = &regfile_dump_ops;
 		else if (check_ns_proc(&link))
@@ -1777,6 +1781,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 		break;
 	case FD_TYPES__MEMFD:
 		ret = collect_one_file_entry(fe, fe->memfd->id, &fe->memfd->base, &memfd_cinfo);
+		break;
+	case FD_TYPES__MEMFD_SECRET:
+		ret = collect_one_file_entry(fe, fe->memfd_secret->id, &fe->memfd_secret->base, &memfd_secret_cinfo);
 		break;
 #ifdef CONFIG_HAS_LIBBPF
 	case FD_TYPES__BPFMAP:

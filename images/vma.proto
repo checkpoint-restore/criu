@@ -24,4 +24,7 @@ message vma_entry {
 
 	/* file status flags */
 	optional uint32		fdflags	= 10 [(criu).hex = true];
+
+        /* memfd_secret secretmem id */
+        optional uint64         secretmem_id = 11;
 }

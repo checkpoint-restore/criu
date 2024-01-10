@@ -1257,8 +1257,12 @@ class criu:
         with open(self.__stats_file("dump"), 'rb') as stfile:
             stats = crpc.images.load(stfile)
             stent = stats['entries'][0]['dump']
-            stats_written = int(stent['shpages_written']) + int(
-                stent['pages_written'])
+            if stent['secmempages_written']:
+                stats_written = int(stent['secmempages_written']) + int(
+                    stent['pages_written']) + 1
+            else:
+                stats_written = int(stent['shpages_written']) + int(
+                    stent['pages_written'])
 
         if self.__stream:
             self.spawn_criu_image_streamer("extract")

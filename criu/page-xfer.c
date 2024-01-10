@@ -62,6 +62,7 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 
 #define PS_TYPE_PID   (1)
 #define PS_TYPE_SHMEM (2)
+#define PS_TYPE_SECRETMEM (3)
 /*
  * XXX: When adding new types here check decode_pm for legacy
  * numbers that can be met from older CRIUs
@@ -73,6 +74,8 @@ static inline u64 encode_pm(int type, unsigned long id)
 		type = PS_TYPE_PID;
 	else if (type == CR_FD_SHMEM_PAGEMAP)
 		type = PS_TYPE_SHMEM;
+	else if (type == CR_FD_SECRETMEM_PAGEMAP)
+		type = PS_TYPE_SECRETMEM;
 	else {
 		BUG();
 		return 0;
@@ -110,6 +113,10 @@ static int decode_pm(u64 dst_id, unsigned long *id)
 	case PS_TYPE_SHMEM:
 		*id = dst_id >> PS_TYPE_BITS;
 		type = CR_FD_SHMEM_PAGEMAP;
+		break;
+	case PS_TYPE_SECRETMEM:
+		*id = dst_id >> PS_TYPE_BITS;
+		type = CR_FD_SECRETMEM_PAGEMAP;
 		break;
 	default:
 		type = -1;
@@ -382,10 +389,15 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, unsigned lo
 	 *    to exist in parent (either pagemap or hole)
 	 */
 	xfer->parent = NULL;
-	if (fd_type == CR_FD_PAGEMAP || fd_type == CR_FD_SHMEM_PAGEMAP) {
-		int ret;
-		int pfd;
-		int pr_flags = (fd_type == CR_FD_PAGEMAP) ? PR_TASK : PR_SHMEM;
+	if (fd_type == CR_FD_PAGEMAP || fd_type == CR_FD_SHMEM_PAGEMAP || fd_type == CR_FD_SECRETMEM_PAGEMAP) {
+		int ret, pfd, pr_flags;
+
+		if (fd_type == CR_FD_PAGEMAP)
+			pr_flags = PR_TASK;
+		else if (fd_type == CR_FD_SECRETMEM_PAGEMAP)
+			pr_flags = PR_SECRETMEM;
+		else
+			pr_flags = PR_SHMEM;
 
 		/* Image streaming lacks support for incremental images */
 		if (opts.stream)

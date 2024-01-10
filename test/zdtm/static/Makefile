@@ -260,6 +260,7 @@ TST_NOFILE	:=				\
 		memfd03				\
 		memfd04				\
 		memfd05				\
+		memfd-secret00                  \
 		shmemfd				\
 		shmemfd-priv			\
 		time				\

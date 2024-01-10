@@ -1875,7 +1875,7 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		unsigned long m;
 
 		vma_entry = args->vmas + i;
-		if (!vma_entry->has_madv || !vma_entry->madv)
+		if (!vma_entry->has_madv || !vma_entry->madv || vma_entry_is(vma_entry, VMA_AREA_MEMFD_SECRET))
 			continue;
 
 		for (m = 0; m < sizeof(vma_entry->madv) * 8; m++) {

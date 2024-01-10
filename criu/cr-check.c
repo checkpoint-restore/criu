@@ -1340,6 +1340,14 @@ static int check_memfd_hugetlb(void)
 	return 0;
 }
 
+static int check_memfd_secret(void)
+{
+	if (!kdat.has_memfd_secret)
+		return -1;
+
+	return 0;
+}
+
 static int check_network_lock_nftables(void)
 {
 	if (!kdat.has_nftables_concat) {
@@ -1502,6 +1510,7 @@ int cr_check(void)
 		ret |= check_openat2();
 		ret |= check_ptrace_get_rseq_conf();
 		ret |= check_ipv6_freebind();
+		ret |= check_memfd_secret();
 
 		if (kdat.lsm == LSMTYPE__APPARMOR)
 			ret |= check_apparmor_stacking();
@@ -1623,6 +1632,7 @@ static struct feature_list feature_list[] = {
 	{ "openat2", check_openat2 },
 	{ "get_rseq_conf", check_ptrace_get_rseq_conf },
 	{ "ipv6_freebind", check_ipv6_freebind },
+	{ "memfd_secret", check_memfd_secret },
 	{ NULL, NULL },
 };
 
