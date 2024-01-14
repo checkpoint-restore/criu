@@ -3,8 +3,10 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <string.h>
 #include <sys/syscall.h>
 #include <sys/prctl.h>
+#include <sys/uio.h>
 
 #include "types.h"
 #include "cr_options.h"
@@ -31,6 +33,7 @@
 #include "prctl.h"
 #include "compel/infect-util.h"
 #include "pidfd-store.h"
+#include "xmalloc.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -191,10 +194,32 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			 bool has_parent)
 {
 	unsigned long nr_scanned;
-	unsigned long pages[3] = {};
+	/* Counters for PAGES_SKIPPED_PARENT, PAGES_LAZY, PAGES_WRITTEN and SKIPPED_ZERO_PAGES */
+	unsigned long pages[4] = {};
 	unsigned long vaddr;
 	bool dump_all_pages;
 	int ret = 0;
+
+	static char *zero_page = NULL;
+	static char *remote_page = NULL;
+	int zero = 0;
+	struct iovec local[2];
+	struct iovec remote[1];
+	int nread = 0;
+	if (opts.skip_zero_pages && zero_page == NULL) {
+		zero_page = xmalloc(PAGE_SIZE);
+		remote_page = xmalloc(PAGE_SIZE);
+		if (zero_page == NULL || remote_page == NULL) {
+			pr_warn("Can't allocate memory - disabling --skip-zero-pages\n");
+			opts.skip_zero_pages = 0;
+		} else {
+			memzero(zero_page, PAGE_SIZE);
+			local[0].iov_base = remote_page;
+			local[0].iov_len = PAGE_SIZE;
+			remote[0].iov_base = (void *)0x0;
+			remote[0].iov_len = PAGE_SIZE;
+		}
+	}
 
 	dump_all_pages = should_dump_entire_vma(vma->e);
 
@@ -207,9 +232,25 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 
 		/* If dump_all_pages is true, should_dump_page is called to get pme. */
 		next = should_dump_page(pmc, vma->e, vaddr, &softdirty);
-		if (!dump_all_pages && next != vaddr) {
-			vaddr = next - PAGE_SIZE;
-			continue;
+		if (!dump_all_pages) {
+			if (next != vaddr) {
+				vaddr = next - PAGE_SIZE;
+				continue;
+			} else if (opts.skip_zero_pages) {
+				remote[0].iov_base = (void *)vaddr;
+				nread = process_vm_readv(item->pid->real, local, 1, remote, 1, 0);
+				if (nread == PAGE_SIZE) {
+					zero = memcmp(zero_page, remote_page, PAGE_SIZE);
+					/*
+                                         * If the page contains just zeros we can treat it like the zero page and skip it.
+                                         * At restore it will be replaced by a reference to the zero page and COWed if accessed.
+                                         */
+					if (zero == 0) {
+						pages[3]++;
+						continue;
+					}
+				}
+			}
 		}
 
 		if (vma_entry_can_be_lazy(vma->e) && !is_stack(item, vaddr))
@@ -247,8 +288,10 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	cnt_add(CNT_PAGES_SKIPPED_PARENT, pages[0]);
 	cnt_add(CNT_PAGES_LAZY, pages[1]);
 	cnt_add(CNT_PAGES_WRITTEN, pages[2]);
+	cnt_add(CNT_SKIPPED_ZERO_PAGES, pages[3]);
 
-	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes\n", pages[2] + pages[1], pages[1], pages[0]);
+	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes %lu skipped zero\n",
+		pages[2] + pages[1], pages[1], pages[0], pages[3]);
 	return ret;
 }
 

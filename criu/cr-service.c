@@ -541,6 +541,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_auto_dedup)
 		opts.auto_dedup = req->auto_dedup;
 
+	if (req->has_skip_zero_pages)
+		opts.skip_zero_pages = req->skip_zero_pages;
+
 	if (req->has_force_irmap)
 		opts.force_irmap = req->force_irmap;
 
