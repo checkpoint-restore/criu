@@ -358,7 +358,10 @@ def pb2dict(pb, pretty=False, is_hex=False):
         else:
             d_val = _pb2dict_cast(field, value, pretty, is_hex)
 
-        d[field.name] = d_val.decode() if type(d_val) == bytes else d_val
+        try:
+            d[field.name] = d_val.decode()
+        except (UnicodeDecodeError, AttributeError):
+            d[field.name] = d_val
     return d
 
 
