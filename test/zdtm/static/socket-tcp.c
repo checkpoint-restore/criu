@@ -92,7 +92,7 @@ int main(int argc, char **argv)
 
 	if (system("nft add table ip filter"))
 		return 1;
-	if (system("nft add chain ip filter INPUT"))
+	if (system("nft 'add chain ip filter INPUT { type filter hook input priority 0 ; }'"))
 		return 1;
 	if (system("nft add rule ip filter INPUT iifname \"lo\" ip protocol tcp ct state new,established counter accept"))
 		return 1;
