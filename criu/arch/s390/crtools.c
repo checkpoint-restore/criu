@@ -143,6 +143,29 @@ static void print_core_fp_regs(const char *msg, CoreEntry *core)
 }
 
 /*
+ * Allocate floating point registers
+ */
+static UserS390FpregsEntry *allocate_fp_regs(void)
+{
+	UserS390FpregsEntry *fpregs;
+
+	fpregs = xmalloc(sizeof(*fpregs));
+	if (!fpregs)
+		return NULL;
+	user_s390_fpregs_entry__init(fpregs);
+
+	fpregs->n_fprs = 16;
+	fpregs->fprs = xzalloc(16 * sizeof(uint64_t));
+	if (!fpregs->fprs)
+		goto fail_free_fpregs;
+	return fpregs;
+
+fail_free_fpregs:
+	xfree(fpregs);
+	return NULL;
+}
+
+/*
  * Allocate VxrsLow registers
  */
 static UserS390VxrsLowEntry *allocate_vxrs_low_regs(void)
@@ -294,7 +317,13 @@ int save_task_regs(pid_t pid, void *arg, user_regs_struct_t *u, user_fpregs_stru
 	CoreEntry *core = arg;
 
 	gpregs = CORE_THREAD_ARCH_INFO(core)->gpregs;
-	fpregs = CORE_THREAD_ARCH_INFO(core)->fpregs;
+	/*
+	 * We delay allocating this until now because checkpointing can fail earlier.
+	 * When it fails we need to know if we reached here or not so that the cleanup
+	 * code doesn't restore FPRs that were never saved in the first place.
+	 */
+	fpregs = allocate_fp_regs();
+	CORE_THREAD_ARCH_INFO(core)->fpregs = fpregs;
 
 	/* Vector registers */
 	if (f->flags & USER_FPREGS_VXRS) {
@@ -400,35 +429,14 @@ int restore_fpu(struct rt_sigframe *f, CoreEntry *core)
 }
 
 /*
- * Allocate floating point registers
- */
-static UserS390FpregsEntry *allocate_fp_regs(void)
-{
-	UserS390FpregsEntry *fpregs;
-
-	fpregs = xmalloc(sizeof(*fpregs));
-	if (!fpregs)
-		return NULL;
-	user_s390_fpregs_entry__init(fpregs);
-
-	fpregs->n_fprs = 16;
-	fpregs->fprs = xzalloc(16 * sizeof(uint64_t));
-	if (!fpregs->fprs)
-		goto fail_free_fpregs;
-	return fpregs;
-
-fail_free_fpregs:
-	xfree(fpregs);
-	return NULL;
-}
-
-/*
  * Free floating point registers
  */
 static void free_fp_regs(UserS390FpregsEntry *fpregs)
 {
-	xfree(fpregs->fprs);
-	xfree(fpregs);
+	if (fpregs) {
+		xfree(fpregs->fprs);
+		xfree(fpregs);
+	}
 }
 
 /*
@@ -487,15 +495,17 @@ int arch_alloc_thread_info(CoreEntry *core)
 	ti_s390->gpregs = allocate_gp_regs();
 	if (!ti_s390->gpregs)
 		goto fail_free_ti_s390;
-	ti_s390->fpregs = allocate_fp_regs();
-	if (!ti_s390->fpregs)
-		goto fail_free_gp_regs;
+
+	/*
+	 * Delay allocating space until needed. Checkpointing can fail before that
+	 * and the cleanup code needs to be able to tell if FPRs were saved or not
+	 * before trying to restore the register state.
+	 */
+	ti_s390->fpregs = NULL;
 
 	CORE_THREAD_ARCH_INFO(core) = ti_s390;
 	return 0;
 
-fail_free_gp_regs:
-	free_gp_regs(ti_s390->gpregs);
 fail_free_ti_s390:
 	xfree(ti_s390);
 	return -1;
@@ -678,14 +688,18 @@ static int set_task_regs(pid_t pid, CoreEntry *core)
 	user_fpregs_struct_t fpregs;
 
 	memset(&fpregs, 0, sizeof(fpregs));
-	/* Floating point registers */
+	/*
+	 * Floating point registers
+	 * Optional on checkpoint; checkpoint may have failed and we may reach here as part of cleanup
+	 * so there's no guarantee that we saved FPRs for this thread.
+	 */
 	cfpregs = CORE_THREAD_ARCH_INFO(core)->fpregs;
-	if (!cfpregs)
-		return -1;
-	fpregs.prfpreg.fpc = cfpregs->fpc;
-	memcpy(fpregs.prfpreg.fprs, cfpregs->fprs, sizeof(fpregs.prfpreg.fprs));
-	if (set_fp_regs(pid, &fpregs) < 0)
-		return -1;
+	if (cfpregs) {
+		fpregs.prfpreg.fpc = cfpregs->fpc;
+		memcpy(fpregs.prfpreg.fprs, cfpregs->fprs, sizeof(fpregs.prfpreg.fprs));
+		if (set_fp_regs(pid, &fpregs) < 0)
+			return -1;
+	}
 	/* Vector registers (optional) */
 	cvxrs_low = CORE_THREAD_ARCH_INFO(core)->vxrs_low;
 	if (cvxrs_low != NULL) {
