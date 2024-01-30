@@ -1999,7 +1999,10 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 	args.op = KFD_CRIU_OP_RESUME;
 	pr_info("Calling IOCTL to start notifiers and queues\n");
 	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args) == -1) {
-		pr_perror("restore late ioctl failed");
+		if (errno == ESRCH)
+			pr_info("Pid %d has no kfd process info\n", target_pid);
+		else
+			pr_perror("restore late ioctl failed");
 		ret = -1;
 	}
 
