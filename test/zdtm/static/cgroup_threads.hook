@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e
+
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
+tname=$(mktemp -d cgclean.XXXXXX)
+trap 'rmdir "${tname}"' EXIT
+
+mount -t cgroup none $tname -o "none,name=zdtmtst"
+trap 'umount "${tname}"; rmdir "${tname}"' EXIT
+
+echo "Cleaning $tname"
+
+rmdir "$tname/subcg_threads/subsubcg/" || true
+rmdir "$tname/subcg_threads/" || true
+
+echo "Left there is:"
+ls "$tname"
