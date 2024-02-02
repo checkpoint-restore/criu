@@ -427,10 +427,11 @@ static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd, const 
 		}
 
 		/*
-		 * Set the is_threaded flag if cgroup.type's value is threaded,
-		 * ignore all other values.
+		 * Set the is_threaded flag if cgroup.type's value is threaded
+		 * or it is a cgroup v1 (it has a 'tasks' property).
+		 * Ignore all other values.
 		 */
-		if (!strcmp("cgroup.type", prop->name) && !strcmp("threaded", prop->value))
+		if ((!strcmp("cgroup.type", prop->name) && !strcmp("threaded", prop->value)) || !strcmp("tasks", prop->name))
 			controller->is_threaded = true;
 
 		pr_info("Dumping value %s from %s/%s\n", prop->value, fpath, prop->name);
@@ -1922,7 +1923,7 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 			if (ctrl->cnames[0][0] == 0)
 				fstype = "cgroup2";
 
-			pr_debug("\tMaking controller dir %s (%s)\n", paux, opt);
+			pr_debug("\tMaking controller dir %s (%s), type %s\n", paux, opt, fstype);
 			if (mkdir(paux, 0700)) {
 				pr_perror("\tCan't make controller dir %s", paux);
 				return -1;
@@ -1985,6 +1986,7 @@ static int cgroupd(int sk)
 			CgMemberEntry *ce = cg_set_entry->ctls[i];
 			char aux[PATH_MAX];
 			CgControllerEntry *ctrl = NULL;
+			const char *format;
 
 			for (j = 0; j < n_controllers; j++) {
 				CgControllerEntry *cur = controllers[j];
@@ -2008,7 +2010,8 @@ static int cgroupd(int sk)
 				continue;
 
 			aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
-			snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/cgroup.threads", ce->path);
+			format = ctrl->cnames[0][0] ? "/%s/tasks" : "/%s/cgroup.threads";
+			snprintf(aux + aux_off, sizeof(aux) - aux_off, format, ce->path);
 
 			/*
 			 * Cgroupd runs outside of the namespaces so we don't
