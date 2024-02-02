@@ -402,6 +402,7 @@ TST_DIR		=				\
 		cgroup_ignore			\
 		cgroup_stray			\
 		cgroup_yard			\
+		cgroup_threads			\
 		unlink_fstat04			\
 		unlink_fstat041			\
 		mntns_remap			\
@@ -683,6 +684,8 @@ s390x_regs_check:	LDFLAGS += -pthread
 s390x_gs_threads:	LDFLAGS += -pthread
 
 thread_different_uid_gid:	LDLIBS += -pthread -lcap
+
+cgroup_threads:		LDFLAGS += -pthread
 
 bpf_hash:		LDLIBS += -lbpf
 bpf_array:		LDLIBS += -lbpf
