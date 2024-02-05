@@ -30,25 +30,13 @@
 #include "files.h"
 
 #include "common/list.h"
+#include "amdgpu_plugin_drm.h"
+#include "amdgpu_plugin_util.h"
 #include "amdgpu_plugin_topology.h"
 
 #include "img-streamer.h"
 #include "image.h"
 #include "cr_options.h"
-
-#define AMDGPU_KFD_DEVICE "/dev/kfd"
-#define PROCPIDMEM	  "/proc/%d/mem"
-#define HSAKMT_SHM_PATH	  "/dev/shm/hsakmt_shared_mem"
-#define HSAKMT_SHM	  "/hsakmt_shared_mem"
-#define HSAKMT_SEM_PATH	  "/dev/shm/sem.hsakmt_semaphore"
-#define HSAKMT_SEM	  "hsakmt_semaphore"
-
-#define KFD_IOCTL_MAJOR_VERSION	    1
-#define MIN_KFD_IOCTL_MINOR_VERSION 8
-
-#define IMG_KFD_FILE	 "amdgpu-kfd-%d.img"
-#define IMG_RENDERD_FILE "amdgpu-renderD-%d.img"
-#define IMG_PAGES_FILE	 "amdgpu-pages-%d-%04x.img"
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
@@ -67,18 +55,6 @@
 	}
 #endif
 
-#define SDMA_PACKET(op, sub_op, e) ((((e)&0xFFFF) << 16) | (((sub_op)&0xFF) << 8) | (((op)&0xFF) << 0))
-
-#define SDMA_OPCODE_COPY	    1
-#define SDMA_COPY_SUB_OPCODE_LINEAR 0
-#define SDMA_NOP		    0
-#define SDMA_LINEAR_COPY_MAX_SIZE   (1ULL << 21)
-
-enum sdma_op_type {
-	SDMA_OP_VRAM_READ,
-	SDMA_OP_VRAM_WRITE,
-};
-
 struct vma_metadata {
 	struct list_head list;
 	uint64_t old_pgoff;
@@ -89,142 +65,21 @@ struct vma_metadata {
 };
 
 /************************************ Global Variables ********************************************/
-struct tp_system src_topology;
-struct tp_system dest_topology;
-
-struct device_maps checkpoint_maps;
-struct device_maps restore_maps;
 
 extern int fd_next;
 
-static LIST_HEAD(update_vma_info_list);
+// FD of KFD device used to checkpoint
+// On a multi-process tree the order of
+// checkpointing goes from parent to child
+// and so on - so saving the FD will not
+// be overwritten
+int kfd_checkpoint_fd;
 
-extern bool kfd_fw_version_check;
-extern bool kfd_sdma_fw_version_check;
-extern bool kfd_caches_count_check;
-extern bool kfd_num_gws_check;
-extern bool kfd_vram_size_check;
-extern bool kfd_numa_check;
-extern bool kfd_capability_check;
+static LIST_HEAD(update_vma_info_list);
 
 size_t kfd_max_buffer_size;
 
 /**************************************************************************************************/
-
-int write_fp(FILE *fp, const void *buf, const size_t buf_len)
-{
-	size_t len_write;
-
-	len_write = fwrite(buf, 1, buf_len, fp);
-	if (len_write != buf_len) {
-		pr_perror("Unable to write file (wrote:%ld buf_len:%ld)", len_write, buf_len);
-		return -EIO;
-	}
-	return 0;
-}
-
-int read_fp(FILE *fp, void *buf, const size_t buf_len)
-{
-	size_t len_read;
-
-	len_read = fread(buf, 1, buf_len, fp);
-	if (len_read != buf_len) {
-		pr_perror("Unable to read file (read:%ld buf_len:%ld)", len_read, buf_len);
-		return -EIO;
-	}
-	return 0;
-}
-
-/**
- * @brief Open an image file
- *
- * We store the size of the actual contents in the first 8-bytes of the file. This allows us to
- * determine the file size when using criu_image_streamer when fseek and fstat are not available.
- * The FILE * returned is already at the location of the first actual contents.
- *
- * @param path The file path
- * @param write False for read, true for write
- * @param size Size of actual contents
- * @return FILE *if successful, NULL if failed
- */
-FILE *open_img_file(char *path, bool write, size_t *size)
-{
-	FILE *fp = NULL;
-	int fd, ret;
-
-	if (opts.stream)
-		fd = img_streamer_open(path, write ? O_DUMP : O_RSTR);
-	else
-		fd = openat(criu_get_image_dir(), path, write ? (O_WRONLY | O_CREAT) : O_RDONLY, 0600);
-
-	if (fd < 0) {
-		pr_perror("%s: Failed to open for %s", path, write ? "write" : "read");
-		return NULL;
-	}
-
-	fp = fdopen(fd, write ? "w" : "r");
-	if (!fp) {
-		pr_perror("%s: Failed get pointer for %s", path, write ? "write" : "read");
-		close(fd);
-		return NULL;
-	}
-
-	if (write)
-		ret = write_fp(fp, size, sizeof(*size));
-	else
-		ret = read_fp(fp, size, sizeof(*size));
-
-	if (ret) {
-		pr_perror("%s:Failed to access file size", path);
-		fclose(fp);
-		return NULL;
-	}
-
-	pr_debug("%s:Opened file for %s with size:%ld\n", path, write ? "write" : "read", *size);
-	return fp;
-}
-
-/**
- * @brief Write an image file
- *
- * We store the size of the actual contents in the first 8-bytes of the file. This allows us to
- * determine the file size when using criu_image_streamer when fseek and fstat are not available.
- *
- * @param path The file path
- * @param buf pointer to data to be written
- * @param buf_len size of buf
- * @return 0 if successful. -errno on failure
- */
-int write_img_file(char *path, const void *buf, const size_t buf_len)
-{
-	int ret;
-	FILE *fp;
-	size_t len = buf_len;
-
-	fp = open_img_file(path, true, &len);
-	if (!fp)
-		return -errno;
-
-	ret = write_fp(fp, buf, buf_len);
-	fclose(fp); /* this will also close fd */
-	return ret;
-}
-
-int read_file(const char *file_path, void *buf, const size_t buf_len)
-{
-	int ret;
-	FILE *fp;
-
-	fp = fopen(file_path, "r");
-	if (!fp) {
-		pr_perror("Cannot fopen %s", file_path);
-		return -errno;
-	}
-
-	ret = read_fp(fp, buf, buf_len);
-	fclose(fp); /* this will also close fd */
-	return ret;
-}
 
 /* Call ioctl, restarting if it is interrupted */
 int kmtIoctl(int fd, unsigned long request, void *arg)
@@ -263,21 +118,21 @@ static void free_e(CriuKfd *e)
 
 static int allocate_device_entries(CriuKfd *e, int num_of_devices)
 {
-	e->device_entries = xmalloc(sizeof(DeviceEntry *) * num_of_devices);
+	e->device_entries = xmalloc(sizeof(KfdDeviceEntry *) * num_of_devices);
 	if (!e->device_entries) {
 		pr_err("Failed to allocate device_entries\n");
 		return -ENOMEM;
 	}
 
 	for (int i = 0; i < num_of_devices; i++) {
-		DeviceEntry *entry = xzalloc(sizeof(*entry));
+		KfdDeviceEntry *entry = xzalloc(sizeof(*entry));
 
 		if (!entry) {
 			pr_err("Failed to allocate entry\n");
 			return -ENOMEM;
 		}
 
-		device_entry__init(entry);
+		kfd_device_entry__init(entry);
 
 		e->device_entries[i] = entry;
 		e->n_device_entries++;
@@ -287,21 +142,21 @@ static int allocate_device_entries(CriuKfd *e, int num_of_devices)
 
 static int allocate_bo_entries(CriuKfd *e, int num_bos, struct kfd_criu_bo_bucket *bo_bucket_ptr)
 {
-	e->bo_entries = xmalloc(sizeof(BoEntry *) * num_bos);
+	e->bo_entries = xmalloc(sizeof(KfdBoEntry *) * num_bos);
 	if (!e->bo_entries) {
 		pr_err("Failed to allocate bo_info\n");
 		return -ENOMEM;
 	}
 
 	for (int i = 0; i < num_bos; i++) {
-		BoEntry *entry = xzalloc(sizeof(*entry));
+		KfdBoEntry *entry = xzalloc(sizeof(*entry));
 
 		if (!entry) {
 			pr_err("Failed to allocate botest\n");
 			return -ENOMEM;
 		}
 
-		bo_entry__init(entry);
+		kfd_bo_entry__init(entry);
 
 		e->bo_entries[i] = entry;
 		e->n_bo_entries++;
@@ -309,13 +164,13 @@ static int allocate_bo_entries(CriuKfd *e, int num_bos, struct kfd_criu_bo_bucke
 	return 0;
 }
 
-int topology_to_devinfo(struct tp_system *sys, struct device_maps *maps, DeviceEntry **deviceEntries)
+int topology_to_devinfo(struct tp_system *sys, struct device_maps *maps, KfdDeviceEntry **deviceEntries)
 {
 	uint32_t devinfo_index = 0;
 	struct tp_node *node;
 
 	list_for_each_entry(node, &sys->nodes, listm_system) {
-		DeviceEntry *devinfo = deviceEntries[devinfo_index++];
+		KfdDeviceEntry *devinfo = deviceEntries[devinfo_index++];
 
 		devinfo->node_id = node->id;
 
@@ -383,11 +238,11 @@ int topology_to_devinfo(struct tp_system *sys, struct device_maps *maps, DeviceE
 	return 0;
 }
 
-int devinfo_to_topology(DeviceEntry *devinfos[], uint32_t num_devices, struct tp_system *sys)
+int devinfo_to_topology(KfdDeviceEntry *devinfos[], uint32_t num_devices, struct tp_system *sys)
 {
 	for (int i = 0; i < num_devices; i++) {
 		struct tp_node *node;
-		DeviceEntry *devinfo = devinfos[i];
+		KfdDeviceEntry *devinfo = devinfos[i];
 
 		node = sys_add_node(sys, devinfo->node_id, devinfo->gpu_id);
 		if (!node)
@@ -549,7 +404,7 @@ struct thread_data {
 	uint32_t gpu_id;
 	pid_t pid;
 	struct kfd_criu_bo_bucket *bo_buckets;
-	BoEntry **bo_entries;
+	KfdBoEntry **bo_entries;
 	int drm_fd;
 	int ret;
 	int id; /* File ID used by CRIU to identify KFD image for this process */
@@ -557,8 +412,7 @@ struct thread_data {
 
 int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 {
-	struct stat st_kfd, st_dri_min;
-	char img_path[128];
+	struct stat st_kfd;
 	int ret = 0;
 
 	pr_debug("Enter %s\n", __func__);
@@ -568,27 +422,18 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 		return ret;
 	}
 
-	snprintf(img_path, sizeof(img_path), "/dev/dri/renderD%d", DRM_FIRST_RENDER_NODE);
-
-	ret = stat(img_path, &st_dri_min);
-	if (ret == -1) {
-		pr_perror("stat error for %s", img_path);
-		return ret;
-	}
-
-	if (major(st_buf->st_rdev) == major(st_kfd.st_rdev) || ((major(st_buf->st_rdev) == major(st_dri_min.st_rdev)) &&
-								(minor(st_buf->st_rdev) >= minor(st_dri_min.st_rdev) &&
-								 minor(st_buf->st_rdev) >= DRM_FIRST_RENDER_NODE))) {
+	/* If input device is KFD return device as supported */
+	if (major(st_buf->st_rdev) == major(st_kfd.st_rdev)) {
 		pr_debug("Known non-regular mapping, kfd-renderD%d -> OK\n", minor(st_buf->st_rdev));
-		pr_debug("AMD KFD(maj) = %d, DRI(maj,min) = %d:%d VMA Device fd(maj,min) = %d:%d\n",
-			 major(st_kfd.st_rdev), major(st_dri_min.st_rdev), minor(st_dri_min.st_rdev),
-			 major(st_buf->st_rdev), minor(st_buf->st_rdev));
-		/* VMA belongs to kfd */
 		return 0;
 	}
 
-	pr_perror("Can't handle the VMA mapping");
-	return -ENOTSUP;
+	/* Determine if input is a DRM device and therefore is supported */
+	ret = amdgpu_plugin_drm_handle_device_vma(fd, st_buf);
+	if (ret)
+		pr_perror("%s(), Can't handle VMAs of input device\n", __func__);
+
+	return ret;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__HANDLE_DEVICE_VMA, amdgpu_plugin_handle_device_vma)
 
@@ -954,7 +799,7 @@ void *dump_bo_contents(void *_thread_data)
 		goto exit;
 	}
 
-	snprintf(img_path, sizeof(img_path), IMG_PAGES_FILE, thread_data->id, thread_data->gpu_id);
+	snprintf(img_path, sizeof(img_path), IMG_KFD_PAGES_FILE, thread_data->id, thread_data->gpu_id);
 	bo_contents_fp = open_img_file(img_path, true, &image_size);
 	if (!bo_contents_fp) {
 		pr_perror("Cannot fopen %s", img_path);
@@ -1027,7 +872,7 @@ void *restore_bo_contents(void *_thread_data)
 	max_copy_size = (gpu_info.family_id >= AMDGPU_FAMILY_AI) ? SDMA_LINEAR_COPY_MAX_SIZE :
 								   SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
-	snprintf(img_path, sizeof(img_path), IMG_PAGES_FILE, thread_data->id, thread_data->gpu_id);
+	snprintf(img_path, sizeof(img_path), IMG_KFD_PAGES_FILE, thread_data->id, thread_data->gpu_id);
 	bo_contents_fp = open_img_file(img_path, false, &image_size);
 	if (!bo_contents_fp) {
 		pr_perror("Cannot fopen %s", img_path);
@@ -1170,6 +1015,10 @@ static int unpause_process(int fd)
 		goto exit;
 	}
 
+	// Reset the KFD FD
+	kfd_checkpoint_fd = -1;
+	sys_close_drm_render_devices(&src_topology);
+
 exit:
 	pr_info("Process unpaused %s (ret:%d)\n", ret ? "Failed" : "Ok", ret);
 
@@ -1234,7 +1083,7 @@ static int save_bos(int id, int fd, struct kfd_ioctl_criu_args *args, struct kfd
 
 	for (i = 0; i < e->num_of_bos; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
-		BoEntry *boinfo = e->bo_entries[i];
+		KfdBoEntry *boinfo = e->bo_entries[i];
 
 		boinfo->gpu_id = bo_bucket->gpu_id;
 		boinfo->addr = bo_bucket->addr;
@@ -1361,44 +1210,26 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		return -1;
 	}
 
+	// Initialize number of device files that will be checkpointed */
+	init_gpu_count(&src_topology);
+
 	/* Check whether this plugin was called for kfd or render nodes */
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0) {
+
 		/* This is RenderD dumper plugin, for now just save renderD
 		 * minor number to be used during restore. In later phases this
 		 * needs to save more data for video decode etc.
 		 */
-
-		CriuRenderNode rd = CRIU_RENDER_NODE__INIT;
-		struct tp_node *tp_node;
-
-		pr_info("Dumper called for /dev/dri/renderD%d, FD = %d, ID = %d\n", minor(st.st_rdev), fd, id);
-
-		tp_node = sys_get_node_by_render_minor(&src_topology, minor(st.st_rdev));
-		if (!tp_node) {
-			pr_err("Failed to find a device with minor number = %d\n", minor(st.st_rdev));
-
-			return -ENODEV;
-		}
-
-		rd.gpu_id = maps_get_dest_gpu(&checkpoint_maps, tp_node->gpu_id);
-		if (!rd.gpu_id)
-			return -ENODEV;
-
-		len = criu_render_node__get_packed_size(&rd);
-		buf = xmalloc(len);
-		if (!buf)
-			return -ENOMEM;
-
-		criu_render_node__pack(&rd, buf);
-
-		snprintf(img_path, sizeof(img_path), IMG_RENDERD_FILE, id);
-		ret = write_img_file(img_path, buf, len);
-		if (ret) {
-			xfree(buf);
+		ret = amdgpu_plugin_drm_dump_file(fd, id, &st);
+		if (ret)
 			return ret;
+
+		/* Invoke unpause process if needed */
+		decrement_checkpoint_count();
+		if (checkpoint_is_complete()) {
+			ret = unpause_process(kfd_checkpoint_fd);
 		}
 
-		xfree(buf);
 		/* Need to return success here so that criu can call plugins for renderD nodes */
 		return ret;
 	}
@@ -1494,11 +1325,15 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	ret = write_img_file(img_path, buf, len);
 
 	xfree(buf);
-exit:
-	/* Restore all queues */
-	unpause_process(fd);
 
-	sys_close_drm_render_devices(&src_topology);
+exit:
+	/* Restore all queues if conditions permit */
+	kfd_checkpoint_fd = fd;
+	decrement_checkpoint_count();
+	if (checkpoint_is_complete()) {
+		ret = unpause_process(fd);
+	}
+
 	xfree((void *)args.devices);
 	xfree((void *)args.bos);
 	xfree((void *)args.priv_data);
@@ -1531,7 +1366,7 @@ static int restore_devices(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 
 	for (int entries_i = 0; entries_i < e->num_of_cpus + e->num_of_gpus; entries_i++) {
 		struct kfd_criu_device_bucket *device_bucket;
-		DeviceEntry *devinfo = e->device_entries[entries_i];
+		KfdDeviceEntry *devinfo = e->device_entries[entries_i];
 		struct tp_node *tp_node;
 
 		if (!devinfo->gpu_id)
@@ -1581,7 +1416,7 @@ static int restore_bos(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 
 	for (int i = 0; i < args->num_bos; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
-		BoEntry *bo_entry = e->bo_entries[i];
+		KfdBoEntry *bo_entry = e->bo_entries[i];
 
 		bo_bucket->gpu_id = bo_entry->gpu_id;
 		bo_bucket->addr = bo_entry->addr;
@@ -1736,7 +1571,7 @@ int amdgpu_plugin_restore_file(int id)
 		 * TODO: Currently, this code will only work if this function is called for /dev/kfd
 		 * first as we assume restore_maps is already filled. Need to fix this later.
 		 */
-		snprintf(img_path, sizeof(img_path), IMG_RENDERD_FILE, id);
+		snprintf(img_path, sizeof(img_path), IMG_DRM_FILE, id);
 		pr_info("Restoring RenderD %s\n", img_path);
 
 		img_fp = open_img_file(img_path, false, &img_size);
