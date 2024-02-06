@@ -821,8 +821,7 @@ int restore_ip_opts(int sk, int family, int proto, IpOptsEntry *ioe)
 			ret |= restore_opt(sk, SOL_IP, IP_TOS, &ioe->tos);
 		if (ioe->has_ttl)
 			ret |= restore_opt(sk, SOL_IP, IP_TTL, &ioe->ttl);
-
-    }
+	}
 
 	if (ioe->raw)
 		ret |= restore_ip_raw_opts(sk, family, proto, ioe->raw);
