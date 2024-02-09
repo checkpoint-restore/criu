@@ -59,7 +59,7 @@ Other conventions can be learned from the source code itself. In short, make sur
 
 Important: These tools are there to advise you, but should not be considered as a "source of truth", as tools also make nasty mistakes from time to time which can completely break code readability.
 
-The following command can be used to automatically run a code linter for Python files (flake8), Shell scripts (shellcheck),
+The following command can be used to automatically run a code linter for Python files (ruff), Shell scripts (shellcheck),
 text spelling (codespell), and a number of CRIU-specific checks (usage of print macros and EOL whitespace for C files).
 
 ```
