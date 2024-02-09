@@ -65,7 +65,7 @@ void init_gpu_count(struct tp_system *topo)
 		return;
 
 	/* We add ONE to include checkpointing of KFD device */
-	dev_file_cnt = 1 + topology_gpu_count(topo); 
+	dev_file_cnt = 1 + topology_gpu_count(topo);
 }
 
 int read_fp(FILE *fp, void *buf, const size_t buf_len)
@@ -74,7 +74,7 @@ int read_fp(FILE *fp, void *buf, const size_t buf_len)
 
 	len_read = fread(buf, 1, buf_len, fp);
 	if (len_read != buf_len) {
-		pr_err("Unable to read file (read:%ld buf_len:%ld)", len_read, buf_len);
+		pr_err("Unable to read file (read:%ld buf_len:%ld)\n", len_read, buf_len);
 		return -EIO;
 	}
 	return 0;
@@ -86,7 +86,7 @@ int write_fp(FILE *fp, const void *buf, const size_t buf_len)
 
 	len_write = fwrite(buf, 1, buf_len, fp);
 	if (len_write != buf_len) {
-		pr_err("Unable to write file (wrote:%ld buf_len:%ld)", len_write, buf_len);
+		pr_err("Unable to write file (wrote:%ld buf_len:%ld)\n", len_write, buf_len);
 		return -EIO;
 	}
 	return 0;
@@ -117,13 +117,13 @@ FILE *open_img_file(char *path, bool write, size_t *size)
 		fd = openat(criu_get_image_dir(), path, write ? (O_WRONLY | O_CREAT) : O_RDONLY, 0600);
 
 	if (fd < 0) {
-		pr_err("%s: Failed to open for %s", path, write ? "write" : "read");
+		pr_err("%s: Failed to open for %s\n", path, write ? "write" : "read");
 		return NULL;
 	}
 
 	fp = fdopen(fd, write ? "w" : "r");
 	if (!fp) {
-		pr_err("%s: Failed get pointer for %s", path, write ? "write" : "read");
+		pr_err("%s: Failed get pointer for %s\n", path, write ? "write" : "read");
 		return NULL;
 	}
 
@@ -133,7 +133,7 @@ FILE *open_img_file(char *path, bool write, size_t *size)
 		ret = read_fp(fp, size, sizeof(*size));
 
 	if (ret) {
-		pr_err("%s:Failed to access file size", path);
+		pr_err("%s:Failed to access file size\n", path);
 		fclose(fp);
 		return NULL;
 	}
@@ -149,7 +149,7 @@ int read_file(const char *file_path, void *buf, const size_t buf_len)
 
 	fp = fopen(file_path, "r");
 	if (!fp) {
-		pr_err("Cannot fopen %s", file_path);
+		pr_err("Cannot fopen %s\n", file_path);
 		return -errno;
 	}
 
@@ -204,5 +204,3 @@ void print_kfd_bo_stat(int bo_cnt, struct kfd_criu_bo_bucket *bo_list)
 	}
 	pr_info("\n");
 }
-
-
