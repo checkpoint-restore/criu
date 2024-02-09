@@ -412,7 +412,7 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 	/* Determine if input is a DRM device and therefore is supported */
 	ret = amdgpu_plugin_drm_handle_device_vma(fd, st_buf);
 	if (ret)
-		pr_perror("%s(), Can't handle VMAs of input device\n", __func__);
+		pr_perror("%s(), Can't handle VMAs of input device", __func__);
 
 	return ret;
 }

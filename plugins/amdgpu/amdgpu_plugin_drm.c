@@ -42,7 +42,7 @@ int amdgpu_plugin_drm_handle_device_vma(int fd, const struct stat *st)
 	snprintf(path, sizeof(path), AMDGPU_DRM_DEVICE, DRM_FIRST_RENDER_NODE);
 	ret = stat(path, &drm);
 	if (ret == -1) {
-		pr_err("Error in getting stat for: %s", path);
+		pr_err("Error in getting stat for: %s\n", path);
 		return ret;
 	}
 
@@ -98,4 +98,3 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	xfree(buf);
 	return ret;
 }
-
