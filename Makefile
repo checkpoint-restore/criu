@@ -426,20 +426,23 @@ help:
 	@echo '      amdgpu_plugin   - Make AMD GPU plugin'
 .PHONY: help
 
-lint:
-	flake8 --version
-	flake8 --config=scripts/flake8.cfg test/zdtm.py
-	flake8 --config=scripts/flake8.cfg test/inhfd/*.py
-	flake8 --config=scripts/flake8.cfg test/others/rpc/config_file.py
-	flake8 --config=scripts/flake8.cfg lib/pycriu/images/pb2dict.py
-	flake8 --config=scripts/flake8.cfg lib/pycriu/images/images.py
-	flake8 --config=scripts/flake8.cfg scripts/criu-ns
-	flake8 --config=scripts/flake8.cfg test/others/criu-ns/run.py
-	flake8 --config=scripts/flake8.cfg crit/*.py
-	flake8 --config=scripts/flake8.cfg crit/crit/*.py
-	flake8 --config=scripts/flake8.cfg scripts/uninstall_module.py
-	flake8 --config=scripts/flake8.cfg coredump/ coredump/coredump
-	flake8 --config=scripts/flake8.cfg scripts/github-indent-warnings.py
+ruff:
+	@ruff --version
+	ruff ${RUFF_FLAGS} --config=scripts/ruff.toml \
+		test/zdtm.py \
+		test/inhfd/*.py \
+		test/others/rpc/config_file.py \
+		lib/pycriu/images/pb2dict.py \
+		lib/pycriu/images/images.py \
+		scripts/criu-ns \
+		test/others/criu-ns/run.py \
+		crit/*.py \
+		crit/crit/*.py \
+		scripts/uninstall_module.py \
+		coredump/ coredump/coredump \
+		scripts/github-indent-warnings.py
+
+shellcheck:
 	shellcheck --version
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
@@ -448,7 +451,11 @@ lint:
 	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh
 	shellcheck -x test/others/config-file/*.sh
 	shellcheck -x test/others/action-script/*.sh
+
+codespell:
 	codespell -S tags
+
+lint: ruff shellcheck codespell
 	# Do not append \n to pr_perror, pr_pwarn or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|pr_pwarn|fail)\>.*\\n"'
 	# Do not use %m with pr_* or fail
@@ -459,7 +466,7 @@ lint:
 	! git --no-pager grep -En '^\s*\<pr_(err|warn|msg|info|debug)\>.*);$$' | grep -v '\\n'
 	# No EOL whitespace for C files
 	! git --no-pager grep -E '\s+$$' \*.c \*.h
-.PHONY: lint
+.PHONY: lint ruff shellcheck codespell
 
 codecov: SHELL := $(shell which bash)
 codecov:

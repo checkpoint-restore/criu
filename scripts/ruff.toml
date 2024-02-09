@@ -1,0 +1,4 @@
+# Ignore `E401` (import violations) in all `__init__.py` files
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
