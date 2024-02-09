@@ -23,7 +23,6 @@ dnf install -y \
 	procps-ng \
 	protobuf-c-devel \
 	protobuf-devel \
-	python3-flake8 \
 	python3-PyYAML \
 	python3-protobuf \
 	python3-junit_xml \
