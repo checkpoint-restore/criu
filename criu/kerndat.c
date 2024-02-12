@@ -63,6 +63,14 @@ static int check_pagemap(void)
 {
 	int ret, fd, retry;
 	u64 pfn = 0;
+	struct pm_scan_arg args = {
+		.size = sizeof(struct pm_scan_arg),
+		.flags = 0,
+		.category_inverted = PAGE_IS_PFNZERO | PAGE_IS_FILE,
+		.category_mask = PAGE_IS_PFNZERO | PAGE_IS_FILE,
+		.category_anyof_mask = PAGE_IS_PRESENT | PAGE_IS_SWAPPED,
+		.return_mask = PAGE_IS_PRESENT | PAGE_IS_SWAPPED | PAGE_IS_SOFT_DIRTY,
+	};
 
 	fd = __open_proc(PROC_SELF, EPERM, O_RDONLY, "pagemap");
 	if (fd < 0) {
@@ -75,15 +83,11 @@ static int check_pagemap(void)
 		return -1;
 	}
 
-	if (ioctl(fd, PAGEMAP_SCAN, NULL) == 0) {
-		pr_err("PAGEMAP_SCAN succeeded unexpectedly\n");
-		return -1;
+	if (ioctl(fd, PAGEMAP_SCAN, &args) == 0) {
+		pr_debug("PAGEMAP_SCAN is supported\n");
+		kdat.has_pagemap_scan = true;
 	} else {
 		switch (errno) {
-		case EFAULT:
-			pr_debug("PAGEMAP_SCAN is supported\n");
-			kdat.has_pagemap_scan = true;
-			break;
 		case EINVAL:
 		case ENOTTY:
 			pr_debug("PAGEMAP_SCAN isn't supported\n");
