@@ -86,6 +86,7 @@
 #include "pidfd-store.h"
 #include "apparmor.h"
 #include "asm/dump.h"
+#include "tls.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -1929,6 +1930,12 @@ int cr_pre_dump_tasks(pid_t pid)
 		opts.final_state = TASK_ALIVE;
 	}
 
+	if (tls_initialize_cipher())
+		goto err;
+
+	if (write_img_cipher())
+		goto err;
+
 	if (init_stats(DUMP_STATS))
 		goto err;
 
@@ -2132,6 +2139,13 @@ int cr_dump_tasks(pid_t pid)
 		pr_err("Pre dump script failed with %d!\n", pre_dump_ret);
 		goto err;
 	}
+
+	if (tls_initialize_cipher())
+		goto err;
+
+	if (write_img_cipher())
+		goto err;
+
 	if (init_stats(DUMP_STATS))
 		goto err;
 

@@ -72,6 +72,42 @@ test_stream() {
 	./test/zdtm.py run --stream -p 2 --keep-going -a "${STREAM_TEST_EXCLUDE[@]}" "${ZDTM_OPTS[@]}"
 }
 
+test_encrypted_images() {
+	# Running tests with encrypted images
+	TEST_EXCLUDE=(
+		-x zdtm/static/cgroup01 \
+		-x zdtm/static/cgroup02 \
+		-x zdtm/static/file_lease00 \
+		-x zdtm/static/file_lease01 \
+		-x zdtm/static/mountpoints \
+		-x zdtm/static/autofs \
+		-x zdtm/static/bind-mount \
+		-x zdtm/static/cr_veth \
+		-x zdtm/static/dumpable02 \
+		-x zdtm/static/ghost_on_rofs \
+		-x zdtm/static/inotify00 \
+		-x zdtm/static/mntns_overmount \
+		-x zdtm/static/mntns_shared_bind \
+		-x zdtm/static/mntns_shared_bind02 \
+		-x zdtm/static/mntns_shared_vs_private \
+		-x zdtm/static/non_uniform_share_propagation \
+		-x zdtm/static/overmount_sock \
+		-x zdtm/static/overmount_with_shared_parent \
+		-x zdtm/static/pipe01 \
+		-x zdtm/static/private_bind_propagation \
+		-x zdtm/static/pty00 \
+		-x zdtm/static/shared_mount_propagation \
+		-x zdtm/static/shared_slave_mount_children \
+		-x zdtm/static/socket-tcp-reuseport \
+		-x zdtm/static/tempfs \
+		-x zdtm/static/tempfs_overmounted \
+		-x zdtm/static/unbindable \
+		-x zdtm/static/unlink_regular00 \
+		-x zdtm/static/session01 \
+	)
+	./test/zdtm.py run -a --keep-going --encrypt "${TEST_EXCLUDE[@]}" "${ZDTM_OPTS[@]}"
+}
+
 print_header() {
 	echo "############### $1 ###############"
 }
@@ -210,6 +246,11 @@ chmod 0777 test/zdtm/transition
 if [ "${STREAM_TEST}" = "1" ]; then
 	./scripts/install-criu-image-streamer.sh
 	test_stream
+	exit 0
+fi
+
+if [ "${ENCRYPTED_IMAGES_TEST}" = "1" ]; then
+	test_encrypted_images
 	exit 0
 fi
 

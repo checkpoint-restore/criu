@@ -93,7 +93,7 @@ static int dump_ipc_sem_set(struct cr_img *img, const IpcSemEntry *sem)
 	pr_info_ipc_sem_array(sem->nsems, values);
 
 	memzero((void *)values + size, rounded - size);
-	ret = write_img_buf(img, values, rounded);
+	ret = write_img_buf(img, values, rounded, true);
 	if (ret < 0) {
 		pr_err("Failed to write IPC message data\n");
 		goto out;
@@ -214,7 +214,7 @@ static int dump_ipc_msg_queue_messages(struct cr_img *img, const IpcMsgEntry *ms
 
 		rounded = round_up(msg.msize, sizeof(u64));
 		memzero(((void *)message->mtext + msg.msize), rounded - msg.msize);
-		ret = write_img_buf(img, message->mtext, rounded);
+		ret = write_img_buf(img, message->mtext, rounded, true);
 		if (ret < 0) {
 			pr_err("Failed to write IPC message data\n");
 			break;

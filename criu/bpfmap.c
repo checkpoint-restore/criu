@@ -2,11 +2,13 @@
 #include <bpf/bpf.h>
 
 #include "common/compiler.h"
+#include "cr_options.h"
 #include "imgset.h"
 #include "bpfmap.h"
 #include "fdinfo.h"
 #include "image.h"
 #include "util.h"
+#include "tls.h"
 #include "log.h"
 
 #include "protobuf.h"
@@ -70,7 +72,7 @@ int restore_bpfmap_data(int map_fd, uint32_t map_id, struct bpfmap_data_rst **bp
 	void *keys = NULL;
 	void *values = NULL;
 	unsigned int count;
-	LIBBPF_OPTS(bpf_map_batch_opts, opts);
+	LIBBPF_OPTS(bpf_map_batch_opts, bpfmap_opts);
 
 	for (map_data = bpf_hash_table[map_id & BPFMAP_DATA_HASH_MASK]; map_data != NULL; map_data = map_data->next) {
 		if (map_data->bde->map_id == map_id)
@@ -99,7 +101,7 @@ int restore_bpfmap_data(int map_fd, uint32_t map_id, struct bpfmap_data_rst **bp
 	}
 	memcpy(values, map_data->data + bde->keys_bytes, bde->values_bytes);
 
-	if (bpf_map_update_batch(map_fd, keys, values, &count, &opts)) {
+	if (bpf_map_update_batch(map_fd, keys, values, &count, &bpfmap_opts)) {
 		pr_perror("Can't load key-value pairs to BPF map");
 		goto err;
 	}
@@ -149,29 +151,29 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 	 */
 
 	struct cr_img *img;
-	uint32_t key_size, value_size, max_entries, count;
-	void *keys = NULL, *values = NULL;
+	uint32_t key_size, value_size, total_size, max_entries, count;
+	void *keys = NULL, *values = NULL, *map_memory = NULL;
 	void *in_batch = NULL, *out_batch = NULL;
 	BpfmapDataEntry bde = BPFMAP_DATA_ENTRY__INIT;
-	LIBBPF_OPTS(bpf_map_batch_opts, opts);
+	LIBBPF_OPTS(bpf_map_batch_opts, bpfmap_opts);
 	int ret;
+	chacha20_poly1305_t cipher_data;
 
 	key_size = bpf->key_size;
 	value_size = bpf->value_size;
 	max_entries = bpf->max_entries;
 	count = max_entries;
 
-	keys = mmap(NULL, key_size * max_entries, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	if (keys == MAP_FAILED) {
-		pr_perror("Can't map memory for BPF map keys");
+	/* To enable in-place encryption, we use single memory map for both keys and values */
+	total_size = (key_size + value_size) * max_entries;
+	map_memory = mmap(NULL, total_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	if (map_memory == MAP_FAILED) {
+		pr_perror("Can't map memory for BPF map keys and values");
 		goto err;
 	}
 
-	values = mmap(NULL, value_size * max_entries, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	if (values == MAP_FAILED) {
-		pr_perror("Can't map memory for BPF map values");
-		goto err;
-	}
+	keys = map_memory;
+	values = map_memory + (key_size * max_entries);
 
 	out_batch = mmap(NULL, key_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (out_batch == MAP_FAILED) {
@@ -179,7 +181,7 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 		goto err;
 	}
 
-	ret = bpf_map_lookup_batch(lfd, in_batch, out_batch, keys, values, &count, &opts);
+	ret = bpf_map_lookup_batch(lfd, in_batch, out_batch, keys, values, &count, &bpfmap_opts);
 	if (ret && errno != ENOENT) {
 		pr_perror("Can't perform a batch lookup on BPF map");
 		goto err;
@@ -195,23 +197,37 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 	if (pb_write_one(img, &bde, PB_BPFMAP_DATA))
 		goto err;
 
-	if (write(img_raw_fd(img), keys, key_size * count) != (key_size * count)) {
-		pr_perror("Can't write BPF map's keys");
-		goto err;
+	if (opts.encrypt) {
+		/* Encrypt buffer data using ChaCha20-Poly1305 */
+		if (tls_encrypt_data(map_memory, total_size, cipher_data.tag, cipher_data.nonce)) {
+			pr_err("Can't encrypt BPF map's keys and values\n");
+			goto err;
+		}
 	}
-	if (write(img_raw_fd(img), values, value_size * count) != (value_size * count)) {
-		pr_perror("Can't write BPF map's values");
+
+	if (write(img_raw_fd(img), map_memory, total_size) != total_size) {
+		pr_perror("Can't write BPF map's keys and values");
 		goto err;
 	}
 
-	munmap(keys, key_size * max_entries);
-	munmap(values, value_size * max_entries);
+	if (opts.encrypt) {
+		/* Write ChaCha20-Poly1305 tag data */
+		if (write(img_raw_fd(img), cipher_data.tag, sizeof(cipher_data.tag)) != sizeof(cipher_data.tag)) {
+			pr_perror("Can't write BPF map's tag data");
+			goto err;
+		}
+		if (write(img_raw_fd(img), cipher_data.nonce, sizeof(cipher_data.nonce)) != sizeof(cipher_data.nonce)) {
+			pr_perror("Can't write BPF map's nonce data");
+			goto err;
+		}
+	}
+
+	munmap(map_memory, total_size);
 	munmap(out_batch, key_size);
 	return 0;
 
 err:
-	munmap(keys, key_size * max_entries);
-	munmap(values, value_size * max_entries);
+	munmap(map_memory, total_size);
 	munmap(out_batch, key_size);
 	return -1;
 }

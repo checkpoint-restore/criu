@@ -947,7 +947,15 @@ static int dump_one_nf(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 	if (lazy_image(img) && open_image_lazy(img))
 		return -1;
 
-	if (write_img_buf(img, hdr, hdr->nlmsg_len))
+	/* During restore we first read the value of nlmsg_len to determine
+	 * the message payload length. Then we read the payload itself.
+	 * To support encryption we need to encrypt (write) the length of
+	 * the payload first, and then the payload itself.
+	 */
+	if (write_img_buf(img, hdr, sizeof(struct nlmsghdr), true))
+		return -1;
+
+	if (write_img_buf(img, hdr + 1, hdr->nlmsg_len - sizeof(struct nlmsghdr), true))
 		return -1;
 
 	return 0;
@@ -1962,7 +1970,8 @@ static int run_ip_tool(char *arg1, char *arg2, char *arg3, char *arg4, int fdin,
 	if (!ip_tool_cmd)
 		ip_tool_cmd = "ip";
 
-	ret = cr_system(fdin, fdout, -1, ip_tool_cmd, (char *[]){ "ip", arg1, arg2, arg3, arg4, NULL }, flags);
+	ret = cr_system(fdin, fdout, -1, ip_tool_cmd, (char *[]){ "ip", arg1, arg2, arg3, arg4, NULL }, flags,
+			TLS_MODE_NONE);
 	if (ret) {
 		if (!(flags & CRS_CAN_FAIL))
 			pr_err("IP tool failed on %s %s %s %s\n", arg1, arg2, arg3 ?: "", arg4 ?: "");
@@ -1981,7 +1990,7 @@ static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
 	if (!cmd)
 		cmd = def_cmd;
 	pr_debug("\tRunning %s for %s\n", cmd, def_cmd);
-	ret = cr_system(fdin, fdout, -1, "sh", (char *[]){ "sh", "-c", cmd, NULL }, 0);
+	ret = cr_system(fdin, fdout, -1, "sh", (char *[]){ "sh", "-c", cmd, NULL }, 0, TLS_MODE_NONE);
 	if (ret)
 		pr_err("%s failed\n", def_cmd);
 
@@ -3058,7 +3067,7 @@ static int iptables_restore(bool ipv6, char *buf, int size)
 	}
 	close_safe(&pfd[1]);
 
-	ret = cr_system(pfd[0], -1, -1, cmd[0], cmd, 0);
+	ret = cr_system(pfd[0], -1, -1, cmd[0], cmd, 0, TLS_MODE_NONE);
 err:
 	close_safe(&pfd[1]);
 	close_safe(&pfd[0]);

@@ -27,6 +27,8 @@ dnf install -y \
 	python3-PyYAML \
 	python3-protobuf \
 	python3-junit_xml \
+	python3-cryptography \
+	python3-wheel \
 	python3-pip \
 	python3-importlib-metadata \
 	python-unversioned-command \
