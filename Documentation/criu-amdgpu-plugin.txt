@@ -100,8 +100,8 @@ executing criu command.
 *KFD_MAX_BUFFER_SIZE*::
     On some systems, VRAM sizes may exceed RAM sizes, and so buffers for dumping
     and restoring VRAM may be unable to fit. Set to a nonzero value (in bytes)
-    to set a limit on the plugin's memory usage.
-    Default:0 (Disabled)
+    to set a limit on the plugin's memory usage. Set to 0 to disable.
+    Default:4 Gigabytes
 
     E.g:
     KFD_MAX_BUFFER_SIZE="2G"
