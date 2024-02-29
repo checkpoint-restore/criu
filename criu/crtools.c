@@ -394,6 +394,8 @@ usage:
 	       "  -d|--restore-detached detach after restore\n"
 	       "  -S|--restore-sibling  restore root task as sibling\n"
 	       "  -s|--leave-stopped    leave tasks in stopped state after checkpoint\n"
+	       "     --no-resume-on-error\n"
+	       "                        don't resume tasks on dump failure if they were stopped\n"
 	       "  -R|--leave-running    leave tasks in running state after checkpoint\n"
 	       "  -D|--images-dir DIR   directory for image files\n"
 	       "     --pidfile FILE     write root task, service or page-server pid to FILE\n"

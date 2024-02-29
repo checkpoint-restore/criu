@@ -1055,6 +1055,7 @@ class criu:
         self.__user = bool(opts['user'])
         self.__rootless = bool(opts['rootless'])
         self.__leave_stopped = bool(opts['stop'])
+        self.__stop_on_error = bool(opts['stop_on_error'])
         self.__stream = bool(opts['stream'])
         self.__show_stats = bool(opts['show_stats'])
         self.__lazy_pages_p = None
@@ -1390,6 +1391,8 @@ class criu:
 
         if self.__leave_stopped:
             a_opts += ['--leave-stopped']
+        if self.__stop_on_error:
+            a_opts += ['--no-resume-on-error']
         if self.__empty_ns:
             a_opts += ['--empty-ns', 'net']
         if self.__pre_dump_mode:
@@ -1399,9 +1402,16 @@ class criu:
         if self.__lazy_migrate and action == "dump":
             a_opts += ["--lazy-pages", "--port", "12345"] + self.__tls
             nowait = True
-        self.__dump_process = self.__criu_act(action,
-                                              opts=a_opts + opts,
-                                              nowait=nowait)
+        try:
+            self.__dump_process = self.__criu_act(action,
+                                                  opts=a_opts + opts,
+                                                  nowait=nowait)
+        except test_fail_expected_exc:
+            if self.__stop_on_error:
+                pstree_check_stopped(self.__test.getpid(), "--no-resume-on-error")
+                pstree_signal(self.__test.getpid(), signal.SIGKILL)
+            raise
+
         if self.__stream:
             ret = self.wait_for_criu_image_streamer()
             if ret:
@@ -1888,10 +1898,10 @@ def is_proc_stopped(pid):
     return True
 
 
-def pstree_check_stopped(root_pid):
+def pstree_check_stopped(root_pid, test_flag="--leave_stopped"):
     for pid in pstree_each_pid(root_pid):
         if not is_proc_stopped(pid):
-            raise test_fail_exc("CRIU --leave-stopped %s" % pid)
+            raise test_fail_exc("CRIU %s %s" % (test_flag, pid))
 
 
 def pstree_signal(root_pid, signal):
@@ -2083,7 +2093,7 @@ class Launcher:
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode',
-              'rootless')
+              'rootless', 'stop_on_error')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
         if self.__use_log:
@@ -2705,6 +2715,9 @@ def get_cli_args():
                     action='store_true')
     rp.add_argument("--stop",
                     help="Check that --leave-stopped option stops ps tree.",
+                    action='store_true')
+    rp.add_argument("--stop-on-error",
+                    help="Check that --no-resume-on-error stops ps tree on dump error.",
                     action='store_true')
     rp.add_argument("--iters",
                     help="Do CR cycle several times before check (n[:pause])")

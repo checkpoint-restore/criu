@@ -412,6 +412,7 @@ void init_opts(void)
 
 	/* Default options */
 	opts.final_state = TASK_DEAD;
+	opts.resume_on_dump_error = true;
 	INIT_LIST_HEAD(&opts.ext_mounts);
 	INIT_LIST_HEAD(&opts.inherit_fds);
 	INIT_LIST_HEAD(&opts.external);
@@ -622,6 +623,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "tree", required_argument, 0, 't' },
 		{ "leave-stopped", no_argument, 0, 's' },
 		{ "leave-running", no_argument, 0, 'R' },
+		BOOL_OPT("resume-on-error", &opts.resume_on_dump_error),
 		BOOL_OPT("restore-detached", &opts.restore_detach),
 		BOOL_OPT("restore-sibling", &opts.restore_sibling),
 		BOOL_OPT("daemon", &opts.restore_detach),

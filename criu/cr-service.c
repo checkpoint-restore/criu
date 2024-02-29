@@ -483,6 +483,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_leave_stopped && req->leave_stopped)
 		opts.final_state = TASK_STOPPED;
 
+	if (req->has_resume_on_dump_error)
+		opts.resume_on_dump_error = req->resume_on_dump_error;
+
 	if (!req->has_pid) {
 		req->has_pid = true;
 		req->pid = ids.pid;
