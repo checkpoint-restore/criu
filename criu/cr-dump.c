@@ -86,6 +86,7 @@
 #include "pidfd-store.h"
 #include "apparmor.h"
 #include "asm/dump.h"
+#include "timer.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
