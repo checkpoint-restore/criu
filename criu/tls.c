@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <linux/limits.h>
 
 #include <gnutls/gnutls.h>
@@ -11,6 +12,7 @@
 #include <gnutls/crypto.h>
 #include <gnutls/abstract.h>
 
+#include "types.h"
 #include "page.h"
 #include "imgset.h"
 #include "images/cipher.pb-c.h"
@@ -68,6 +70,55 @@ static gnutls_datum_t aes_xts_key, aes_xts_iv;
 static unsigned int cipher_block_size;
 static const gnutls_cipher_algorithm_t block_cipher_algorithm = GNUTLS_CIPHER_AES_256_XTS;
 
+#define HMAC_SIZE 32  /* SHA256 */
+#define HMAC_ALGO GNUTLS_MAC_SHA256
+/* We use shared memory to compute HMAC during restore
+ * as some pages are decrypted in a child (helper) process.
+ * See tls_vma_io_pipe().
+ */
+static uint8_t checkpoint_hmac_digest[HMAC_SIZE];
+static uint8_t *restore_hmac_digest;
+static gnutls_hmac_hd_t hmac_ctx;
+
+struct hmac_metadata_t {
+	uint64_t vma_vaddr;
+	pid_t pid;
+};
+static struct hmac_metadata_t hmac_metadata;
+
+void tls_increment_hmac_vma_metadata(uint64_t n)
+{
+	if (opts.encrypt)
+		hmac_metadata.vma_vaddr += n;
+}
+
+void tls_set_hmac_vma_metadata(uint64_t vma_vaddr)
+{
+	if (opts.encrypt)
+		hmac_metadata.vma_vaddr = vma_vaddr;
+}
+
+void tls_set_hmac_pid_metadata(pid_t pid)
+{
+	if (opts.encrypt)
+		hmac_metadata.pid = pid;
+}
+
+static void tls_hmac_init(void)
+{
+	gnutls_hmac_init(&hmac_ctx, HMAC_ALGO, token, sizeof(token));
+}
+
+static inline void pr_digest(const char *prefix, const void *_str)
+{
+	const char *str = _str;
+	char output[HMAC_SIZE + 1];
+
+	for (int i = 0; i < HMAC_SIZE; i++) {
+		snprintf(output + i, 4, "%02x ", (str[i] & 0xFF));
+	}
+	pr_debug("%s: %s\n", prefix, output);
+}
 
 void tls_terminate_session(bool async)
 {
@@ -541,6 +592,8 @@ int tls_initialize_cipher(void)
 		return -1;
 	}
 
+	tls_hmac_init();
+
 	gnutls_x509_crt_deinit(crt);
 
 	return 0;
@@ -652,7 +705,7 @@ err:
  */
 int tls_initialize_cipher_from_image(void)
 {
-	int ret;
+	int ret = -1;
 	char *privkey_file_path = CRIU_KEY;
 	struct cr_img *img;
 	CipherEntry *ce;
@@ -722,6 +775,31 @@ int tls_initialize_cipher_from_image(void)
 
 	if (memcpy(token, decrypted_token.data, sizeof(token)) != token) {
 		pr_perror("Failed to copy token data");
+		goto out_close;
+	}
+
+	pr_debug("Loading HMAC from cipher image\n");
+
+	if (ce->has_hmac_digest == false) {
+		pr_err("Missing HMAC digest\n");
+		goto out_close;
+	}
+
+	if (ce->hmac_digest.len != HMAC_SIZE) {
+		pr_err("Invalid HMAC size (%lu)\n", ce->hmac_digest.len);
+		goto out_close;
+	}
+
+	memcpy(checkpoint_hmac_digest, ce->hmac_digest.data, HMAC_SIZE);
+	tls_hmac_init();
+
+	/* Since part of the decryption during restore happens within a helper process
+	 * created with tls_vma_io_pipe(), we use shared memory to compute a commulative
+	 * HMAC digest value.
+	 */
+	restore_hmac_digest = mmap(NULL, HMAC_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (restore_hmac_digest == MAP_FAILED) {
+		pr_perror("Can't allocate shared mem for HMAC");
 		goto out_close;
 	}
 
@@ -808,7 +886,9 @@ static int _encrypt_data_with_pubkey(gnutls_datum_t *plaintext, gnutls_datum_t *
 
 /**
  * write_img_cipher encrypts the token with RSA public key and writes
- * it to cipher.img.
+ * it to cipher.img. It also writes HMAC digest of all encrypted memory
+ * pages. This function should be called after all memory pages have
+ * been encrypted.
  */
 int write_img_cipher(void)
 {
@@ -848,6 +928,13 @@ int write_img_cipher(void)
 	ce.has_aes_iv = true;
 	ce.aes_iv.len = aes_xts_iv.size;
 	ce.aes_iv.data = aes_xts_iv.data;
+
+	/* Save HMAC digest */
+	ce.has_hmac_digest = true;
+	ce.hmac_digest.len = HMAC_SIZE;
+	ce.hmac_digest.data = checkpoint_hmac_digest;
+
+	gnutls_hmac_deinit(hmac_ctx, NULL);
 
 	pr_debug("Writing cipher image\n");
 	img = open_image(CR_FD_CIPHER, O_DUMP);
@@ -1225,21 +1312,73 @@ int tls_decryption_pipe(int input_fd, int pipe_write_fd)
 	return 0;
 }
 
+static inline void hmac_xor(uint8_t *dest, const uint8_t *src, size_t n)
+{
+	for (size_t i = 0; i < n; ++i) {
+		dest[i] ^= src[i];
+	}
+}
+
 int tls_block_cipher_encrypt_data(void *ptext, size_t ptext_len)
 {
 	int ret;
+	uint8_t digest[HMAC_SIZE];
 
 	ret = gnutls_cipher_encrypt2(block_cipher_handle, ptext, ptext_len, (void *)ptext, ptext_len);
 	if (ret < 0) {
 		tls_perror("Failed to encrypt data", ret);
 		return -1;
 	}
+
+	ret = gnutls_hmac(hmac_ctx, ptext, ptext_len);
+	if (ret < 0) {
+		tls_perror("Failed to compute HMAC", ret);
+		return -1;
+	}
+
+	ret = gnutls_hmac(hmac_ctx, &(hmac_metadata.vma_vaddr), sizeof(uint64_t));
+	if (ret < 0) {
+		tls_perror("Failed to compute HMAC of VMA address", ret);
+		return -1;
+	}
+
+	ret = gnutls_hmac(hmac_ctx, &(hmac_metadata.pid), sizeof(pid_t));
+	if (ret < 0) {
+		tls_perror("Failed to compute HMAC of PID", ret);
+		return -1;
+	}
+
+	gnutls_hmac_output(hmac_ctx, digest);
+	hmac_xor(checkpoint_hmac_digest, digest, sizeof(digest));
+
 	return 0;
 }
 
 int tls_block_cipher_decrypt_data(void *ctext, size_t ctext_len)
 {
 	int ret;
+	uint8_t digest[HMAC_SIZE];
+
+	ret = gnutls_hmac(hmac_ctx, ctext, ctext_len);
+	if (ret < 0) {
+		tls_perror("Failed to compute HMAC", ret);
+		return -1;
+	}
+
+	ret = gnutls_hmac(hmac_ctx, &(hmac_metadata.vma_vaddr), sizeof(uint64_t));
+	if (ret < 0) {
+		tls_perror("Failed to compute HMAC of metadata", ret);
+		return -1;
+	}
+
+	ret = gnutls_hmac(hmac_ctx, &(hmac_metadata.pid), sizeof(pid_t));
+	if (ret < 0) {
+		tls_perror("Failed to compute HMAC of PID", ret);
+		return -1;
+	}
+
+	gnutls_hmac_output(hmac_ctx, digest);
+	hmac_xor(restore_hmac_digest, digest, sizeof(digest));
 
 	ret = gnutls_cipher_decrypt2(block_cipher_handle, ctext, ctext_len, (void *)ctext, ctext_len);
 	if (ret < 0) {
@@ -1359,11 +1498,15 @@ int tls_vma_io_pipe(int pages_img_fd, int pipe_fds[2][2])
 
 		/* Decrypt content of images */
 		for (int i = 0; i < nr; i++) {
+			/* Set vma address used to compute HMAC value */
+			tls_set_hmac_vma_metadata(encode_pointer(remote_iovs[i].iov_base));
+
 			for (int j = 0; j < local_iovs[i].iov_len; j += PAGE_SIZE) {
 				if (tls_block_cipher_decrypt_data(local_iovs[i].iov_base + j, PAGE_SIZE)) {
 					pr_err("Failed to decrypt data\n");
 					exit(1);
 				}
+				tls_increment_hmac_vma_metadata(PAGE_SIZE);
 			}
 		}
 
@@ -1391,4 +1534,24 @@ int tls_vma_io_pipe(int pages_img_fd, int pipe_fds[2][2])
 	}
 
 	exit(0);
+}
+
+bool tls_verify_hmac(void)
+{
+	bool exit_val = true;
+
+	if (opts.encrypt) {
+		gnutls_hmac_deinit(hmac_ctx, NULL);
+		if (!gnutls_memcmp(restore_hmac_digest, checkpoint_hmac_digest, HMAC_SIZE)) {
+			pr_debug("HMAC verification successful\n");
+		} else {
+			pr_err("HMAC mismatch\n");
+			pr_digest("HMAC of restored memory", restore_hmac_digest);
+			pr_digest("Expected HMAC", checkpoint_hmac_digest);
+			exit_val = false;
+		}
+		munmap(restore_hmac_digest, HMAC_SIZE);
+	}
+
+	return exit_val;
 }

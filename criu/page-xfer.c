@@ -282,6 +282,11 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 				pr_err("Failed to encrypt data\n");
 				return -1;
 			}
+
+			/* The incremented VMA address will be used to compute
+			 * HMAC in next iteration */
+			tls_increment_hmac_vma_metadata(PAGE_SIZE);
+
 			ret = write(img_raw_fd(xfer->pi), buf, PAGE_SIZE);
 			if (ret != PAGE_SIZE) {
 				pr_perror("Unable to write data %zd", ret);
@@ -889,6 +894,9 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 			if (xfer->write_pagemap(xfer, &iov, flags))
 				goto err;
 
+			/* Set vma address used to compute HMAC value */
+			tls_set_hmac_vma_metadata(encode_pointer(iov.iov_base));
+
 			if (xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
 				goto err;
 		}
@@ -936,6 +944,10 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 
 			if (xfer->write_pagemap(xfer, &iov, flags))
 				return -1;
+
+			/* Set vma address used to compute HMAC value */
+			tls_set_hmac_vma_metadata(encode_pointer(iov.iov_base));
+
 			if ((flags & PE_PRESENT) && xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
 				return -1;
 		}

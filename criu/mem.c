@@ -1155,7 +1155,7 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 					BUG();
 				}
 
-				if (pagemap_enqueue_iovec(pr, (void *)va, len, vma_io))
+				if (pagemap_enqueue_iovec(pr, (void *)va, va, len, vma_io))
 					return -1;
 
 				pr->skip_pages(pr, len);

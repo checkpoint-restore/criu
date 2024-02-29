@@ -105,7 +105,7 @@ extern int open_page_read_at(int dfd, unsigned long id, struct page_read *pr, in
 
 struct task_restore_args;
 
-int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, struct list_head *to);
+int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long vaddr, unsigned long len, struct list_head *to);
 int pagemap_render_iovec(struct list_head *from, struct task_restore_args *ta);
 
 /*

@@ -39,6 +39,10 @@ int tls_decryption_pipe(int intput_file_fd, int pipe_write_fd);
 int tls_block_cipher_encrypt_data(void *ptext, size_t ptext_len);
 int tls_block_cipher_decrypt_data(void *ctext, size_t ctext_len);
 int tls_vma_io_pipe(int pages_img_fd, int pipe_fds[2][2]);
+bool tls_verify_hmac(void);
+void tls_set_hmac_vma_metadata(uint64_t vma_addr);
+void tls_increment_hmac_vma_metadata(uint64_t n);
+void tls_set_hmac_pid_metadata(pid_t pid);
 
 #else /* CONFIG_GNUTLS */
 
@@ -61,6 +65,10 @@ int tls_vma_io_pipe(int pages_img_fd, int pipe_fds[2][2]);
 #define tls_block_cipher_decrypt_data(ctext, ctext_len)		(-1)
 #define tls_vma_io_pipe(pages_img_fd, pipe_fds) (-1)
 #define write_img_cipher() (0)
+#define tls_verify_hmac() (true)
+#define tls_set_hmac_vma_metadata(vma_addr)
+#define tls_increment_hmac_vma_metadata(n)
+#define tls_set_hmac_pid_metadata(pid)
 
 #endif /* CONFIG_HAS_GNUTLS */
 

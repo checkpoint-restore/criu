@@ -6,4 +6,5 @@ message cipher_entry {
 	required bytes	token	= 1;
 	optional bytes	aes_key	= 2;
 	optional bytes	aes_iv	= 3;
+	optional bytes	hmac_digest	= 4;
 }

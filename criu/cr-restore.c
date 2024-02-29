@@ -2176,6 +2176,10 @@ skip_ns_bouncing:
 		goto out_kill;
 	}
 
+	/* Verify the integrity of encrypted memory pages */
+	if (!tls_verify_hmac())
+		goto out_kill_network_unlocked;
+
 	/*
 	 * There is no need to call try_clean_remaps() after this point,
 	 * as restore went OK and all ghosts were removed by the openers.
