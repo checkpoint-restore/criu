@@ -177,6 +177,24 @@ static inline void rt_sigframe_erase_sigset(struct rt_sigframe *sigframe)
 #define USER32_CS 0x23
 
 /* clang-format off */
+/*
+ * rst_sigreturn in resorer is noninline call which adds an entry to the
+ * shadow stack above the sigframe token;
+ * if shadow stack is enabled, increment the shadow stack pointer to remove
+ * that entry
+ */
+#define ARCH_SHSTK_POP()						\
+	asm volatile(							\
+		     "xor %%rax, %%rax\n"				\
+		     "rdsspq %%rax\n"					\
+		     "cmpq $0, %%rax\n"					\
+		     "jz 1f\n"						\
+		     "movq $1, %%rax\n"					\
+		     "incsspq %%rax\n"					\
+		     "1:\n"						\
+		     : :						\
+		     : "rax")
+
 #define ARCH_RT_SIGRETURN_NATIVE(new_sp)				\
 	asm volatile(							\
 		     "movq %0, %%rax				    \n"	\
@@ -203,10 +221,19 @@ static inline void rt_sigframe_erase_sigset(struct rt_sigframe *sigframe)
 		: "rdi"(new_sp)						\
 		: "eax", "r8", "r9", "r10", "r11", "memory")
 
-#define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
+#define ARCH_RT_SIGRETURN_RST(new_sp, rt_sigframe)			\
+do {									\
+	if ((rt_sigframe)->is_native) {					\
+		ARCH_SHSTK_POP();					\
+		ARCH_RT_SIGRETURN_NATIVE(new_sp);			\
+	} else								\
+		ARCH_RT_SIGRETURN_COMPAT(new_sp);			\
+} while (0)
+
+#define ARCH_RT_SIGRETURN_DUMP(new_sp, rt_sigframe)			\
 do {									\
 	if ((rt_sigframe)->is_native)					\
-		ARCH_RT_SIGRETURN_NATIVE(new_sp);			\
+		return new_sp;						\
 	else								\
 		ARCH_RT_SIGRETURN_COMPAT(new_sp);			\
 } while (0)

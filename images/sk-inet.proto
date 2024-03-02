@@ -20,6 +20,7 @@ message ip_opts_entry {
 
 	optional bool			pktinfo		= 5;
 	optional uint32			tos		= 6;
+	optional uint32			ttl		= 7;
 }
 
 message inet_sk_entry {

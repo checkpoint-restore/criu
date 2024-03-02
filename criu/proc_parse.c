@@ -118,7 +118,8 @@ bool handle_vma_plugin(int *fd, struct stat *stat)
 	return true;
 }
 
-static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
+static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf,
+			    int *shstk)
 {
 	char *tok;
 
@@ -162,6 +163,9 @@ static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
 		if (_vmflag_match(tok, "io") || _vmflag_match(tok, "pf"))
 			*io_pf = 1;
 
+		if (_vmflag_match(tok, "ss"))
+			*shstk = 1;
+
 		/*
 		 * Anything else is just ignored.
 		 */
@@ -172,14 +176,21 @@ static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
 
 void parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
 {
-	__parse_vmflags(buf, flags, madv, io_pf);
+	int shstk = 0;
+
+	__parse_vmflags(buf, flags, madv, io_pf, &shstk);
 }
 
 static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
 {
 	int io_pf = 0;
+	int shstk = 0;
 
-	__parse_vmflags(buf, &vma_area->e->flags, &vma_area->e->madv, &io_pf);
+	__parse_vmflags(buf, &vma_area->e->flags, &vma_area->e->madv, &io_pf,
+			&shstk);
+
+	if (shstk)
+		vma_area->e->status |= VMA_AREA_SHSTK;
 
 	/*
 	 * vmsplice doesn't work for VM_IO and VM_PFNMAP mappings, the
@@ -338,7 +349,7 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 	fd = open(fname, O_RDONLY);
 	if (fd < 0) {
 		pr_perror("Can't open mapped [%s]", fname);
-		goto returnerr;
+		return -1;
 	}
 
 	if (vma_stat(vma, fd)) {
@@ -379,7 +390,6 @@ errmsg:
 	pr_err("Failed to resolve mapping %lx filename\n", (unsigned long)vma->e->start);
 closefd:
 	close(fd);
-returnerr:
 	return -1;
 }
 
@@ -842,6 +852,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t du
 			goto err;
 		}
 
+		pr_debug("Handling VMA with the following smaps entry: %s\n", str);
 		if (handle_vma(pid, vma_area, str + path_off, map_files_dir, &vfi, &prev_vfi, &vm_file_fd))
 			goto err;
 
@@ -1972,10 +1983,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				     " pos:%lli ino:%lx sdev:%x",
 				     &e->tfd, &e->events, (long long *)&e->data, (long long *)&e->pos,
 				     (long *)&e->inode, &e->dev);
-			if (ret < 3 || ret > 6) {
-				eventpoll_tfd_entry__free_unpacked(e, NULL);
-				goto parse_err;
-			} else if (ret == 3) {
+			if (ret == 3) {
 				e->has_dev = false;
 				e->has_inode = false;
 				e->has_pos = false;
@@ -1983,7 +1991,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				e->has_dev = true;
 				e->has_inode = true;
 				e->has_pos = true;
-			} else if (ret < 6) {
+			} else {
 				eventpoll_tfd_entry__free_unpacked(e, NULL);
 				goto parse_err;
 			}

@@ -111,15 +111,18 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	}
 
 	rlen = read(fd, buf, len);
+	if (rlen == -1)
+		pr_perror("Can't read ns' %s", path);
 	close(fd);
 
 	if (rlen == len) {
+		buf[0] = '\0';
 		pr_err("Too small buffer to read ns sys file %s\n", path);
 		return -1;
 	}
 
-	if (rlen > 0)
-		buf[rlen - 1] = '\0';
+	if (rlen >= 0)
+		buf[rlen] = '\0';
 
 	return rlen;
 }
@@ -2435,27 +2438,39 @@ static inline int do_restore_nftables(struct cr_img *img)
 	off_t img_data_size;
 	char *buf;
 
-	if ((img_data_size = img_raw_size(img)) < 0)
+	if ((img_data_size = img_raw_size(img)) < 0) {
+		pr_err("image size mismatch\n");
 		goto out;
+	}
 
-	if (read_img_str(img, &buf, img_data_size) < 0)
+	if (read_img_str(img, &buf, img_data_size) < 0) {
+		pr_err("Failed to read nftables data\n");
 		goto out;
+	}
 
 	nft = nft_ctx_new(NFT_CTX_DEFAULT);
-	if (!nft)
+	if (!nft) {
+		pr_err("Failed to create nft context object\n");
 		goto buf_free_out;
-
-	if (nft_ctx_buffer_output(nft) || nft_ctx_buffer_error(nft) ||
-#if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
-	    nft_run_cmd_from_buffer(nft, buf, strlen(buf)))
-#elif defined(CONFIG_HAS_NFTABLES_LIB_API_1)
-	    nft_run_cmd_from_buffer(nft, buf))
-#else
-	{
-		BUILD_BUG_ON(1);
 	}
-#endif
+
+	if (nft_ctx_buffer_output(nft) || nft_ctx_buffer_error(nft)) {
+		pr_err("Failed to enable std/err output buffering\n");
 		goto nft_ctx_free_out;
+	}
+
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
+	if (nft_run_cmd_from_buffer(nft, buf, strlen(buf)))
+#elif defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	if (nft_run_cmd_from_buffer(nft, buf))
+#else
+	BUILD_BUG_ON(1);
+#endif
+	{
+		pr_err("nft command error:\n%s\n%s\n",
+		       nft_ctx_get_error_buffer(nft), buf);
+		goto nft_ctx_free_out;
+	}
 
 	exit_code = 0;
 
@@ -3175,19 +3190,53 @@ static inline int nftables_network_unlock(void)
 #endif
 }
 
+static bool iptables_has_criu_jump_target(void)
+{
+	int fd, ret;
+	char *argv[4] = { "sh", "-c", "iptables -C INPUT -j CRIU", NULL };
+
+	fd = open("/dev/null", O_RDWR);
+	if (fd < 0) {
+		fd = -1;
+		pr_perror("failed to open /dev/null, using log fd");
+	}
+
+	ret = cr_system(fd, fd, fd, "sh", argv, CRS_CAN_FAIL);
+	close_safe(&fd);
+	return !ret;
+}
+
 static int iptables_network_unlock_internal(void)
 {
-	char conf[] = "*filter\n"
-		      ":CRIU - [0:0]\n"
-		      "-D INPUT -j CRIU\n"
-		      "-D OUTPUT -j CRIU\n"
-		      "-X CRIU\n"
-		      "COMMIT\n";
+	char delete_jump_targets[] = "*filter\n"
+				     ":CRIU - [0:0]\n"
+				     "-D INPUT -j CRIU\n"
+				     "-D OUTPUT -j CRIU\n"
+				     "COMMIT\n";
+
+	char delete_criu_chain[] = "*filter\n"
+				   ":CRIU - [0:0]\n"
+				   "-X CRIU\n"
+				   "COMMIT\n";
+
 	int ret = 0;
 
-	ret |= iptables_restore(false, conf, sizeof(conf) - 1);
+	ret |= iptables_restore(false, delete_jump_targets, sizeof(delete_jump_targets) - 1);
 	if (kdat.ipv6)
-		ret |= iptables_restore(true, conf, sizeof(conf) - 1);
+		ret |= iptables_restore(true, delete_jump_targets, sizeof(delete_jump_targets) - 1);
+
+	/* For compatibility with iptables-nft backend, we need to make sure that all jump
+	 * targets have been removed before deleting the CRIU chain.
+	 */
+	if (iptables_has_criu_jump_target()) {
+		ret |= iptables_restore(false, delete_jump_targets, sizeof(delete_jump_targets) - 1);
+		if (kdat.ipv6)
+			ret |= iptables_restore(true, delete_jump_targets, sizeof(delete_jump_targets) - 1);
+	}
+
+	ret |= iptables_restore(false, delete_criu_chain, sizeof(delete_criu_chain) - 1);
+	if (kdat.ipv6)
+		ret |= iptables_restore(true, delete_criu_chain, sizeof(delete_criu_chain) - 1);
 
 	return ret;
 }
@@ -3271,7 +3320,7 @@ int macvlan_ext_add(struct external *ext)
 /*
  * The setns() syscall (called by switch_ns()) can be extremely
  * slow. If we call it two or more times from the same task the
- * kernel will synchonously go on a very slow routine called
+ * kernel will synchronously go on a very slow routine called
  * synchronize_rcu() trying to put a reference on old namespaces.
  *
  * To avoid doing this more than once we pre-create all the

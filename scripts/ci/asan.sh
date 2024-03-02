@@ -4,6 +4,9 @@ set -x
 
 cat /proc/self/mountinfo
 
+time make ASAN=1 -j 4 V=1
+time make -j4 -C test/zdtm V=1
+
 chmod 0777 test
 chmod 0777 test/zdtm/transition/
 chmod 0777 test/zdtm/static

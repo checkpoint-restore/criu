@@ -17,6 +17,7 @@
 #include <sys/inotify.h>
 #include <sched.h>
 #include <sys/mount.h>
+#include <linux/membarrier.h>
 
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 #include <nftables/libnftables.h>
@@ -53,13 +54,23 @@
 #include "memfd.h"
 #include "mount-v2.h"
 #include "util-caps.h"
+#include "pagemap_scan.h"
 
 struct kerndat_s kdat = {};
+volatile int dummy_var;
 
 static int check_pagemap(void)
 {
-	int ret, fd;
+	int ret, fd, retry;
 	u64 pfn = 0;
+	struct pm_scan_arg args = {
+		.size = sizeof(struct pm_scan_arg),
+		.flags = 0,
+		.category_inverted = PAGE_IS_PFNZERO | PAGE_IS_FILE,
+		.category_mask = PAGE_IS_PFNZERO | PAGE_IS_FILE,
+		.category_anyof_mask = PAGE_IS_PRESENT | PAGE_IS_SWAPPED,
+		.return_mask = PAGE_IS_PRESENT | PAGE_IS_SWAPPED | PAGE_IS_SOFT_DIRTY,
+	};
 
 	fd = __open_proc(PROC_SELF, EPERM, O_RDONLY, "pagemap");
 	if (fd < 0) {
@@ -72,11 +83,40 @@ static int check_pagemap(void)
 		return -1;
 	}
 
-	/* Get the PFN of some present page. Stack is here, so try it :) */
-	ret = pread(fd, &pfn, sizeof(pfn), (((unsigned long)&ret) / page_size()) * sizeof(pfn));
-	if (ret != sizeof(pfn)) {
-		pr_perror("Can't read pagemap");
-		return -1;
+	if (ioctl(fd, PAGEMAP_SCAN, &args) == 0) {
+		pr_debug("PAGEMAP_SCAN is supported\n");
+		kdat.has_pagemap_scan = true;
+	} else {
+		switch (errno) {
+		case EINVAL:
+		case ENOTTY:
+			pr_debug("PAGEMAP_SCAN isn't supported\n");
+			break;
+		default:
+			pr_perror("PAGEMAP_SCAN failed with unexpected errno");
+			return -1;
+		}
+	}
+
+	retry = 3;
+	while (retry--) {
+		++dummy_var;
+		/* Get the PFN of a page likely to be present. */
+		ret = pread(fd, &pfn, sizeof(pfn), PAGE_PFN((uintptr_t)&dummy_var) * sizeof(pfn));
+		if (ret != sizeof(pfn)) {
+			pr_perror("Can't read pagemap");
+			close(fd);
+			return -1;
+		}
+		/* The page can be swapped out by the time the read occurs,
+		 * in which case the rest of the bits are a swap type + offset
+		 * (which could be zero even if not hidden).
+		 * Retry if this happens. */
+		if (pfn & PME_PRESENT)
+			break;
+		pr_warn("got non-present PFN %#lx for the dummy data page; %s\n", (unsigned long)pfn,
+			retry ? "retrying" : "giving up");
+		pfn = 0;
 	}
 
 	close(fd);
@@ -1111,6 +1151,24 @@ static int kerndat_has_openat2(void)
 	return 0;
 }
 
+int __attribute__((weak)) kdat_has_shstk(void)
+{
+	return 0;
+}
+
+static int kerndat_has_shstk(void)
+{
+	int ret = kdat_has_shstk();
+
+	if (ret < 0) {
+		pr_err("kdat_has_shstk failed\n");
+		return ret;
+	}
+
+	kdat.has_shstk = !!ret;
+	return 0;
+}
+
 #define KERNDAT_CACHE_NAME "criu.kdat"
 #define KERNDAT_CACHE_FILE KDAT_RUNDIR "/" KERNDAT_CACHE_NAME
 
@@ -1403,17 +1461,20 @@ static bool kerndat_has_clone3_set_tid(void)
 	 */
 	pid = syscall(__NR_clone3, &args, sizeof(args));
 
-	if (pid == -1 && (errno == ENOSYS || errno == E2BIG)) {
-		kdat.has_clone3_set_tid = false;
-		return 0;
-	}
-	if (pid == -1 && errno == EINVAL) {
-		kdat.has_clone3_set_tid = true;
-	} else {
-		pr_perror("Unexpected error from clone3");
+	if (pid != -1) {
+		pr_err("Unexpected success: clone3() returned %d\n", pid);
 		return -1;
 	}
 
+	if (errno == ENOSYS || errno == E2BIG)
+		return 0;
+
+	if (errno != EINVAL) {
+		pr_pwarn("Unexpected error from clone3");
+		return 0;
+	}
+
+	kdat.has_clone3_set_tid = true;
 	return 0;
 }
 
@@ -1618,6 +1679,24 @@ static int kerndat_has_ipv6_freebind(void)
 	return ret;
 }
 
+#define MEMBARRIER_CMDBIT_GET_REGISTRATIONS 9
+
+static int kerndat_has_membarrier_get_registrations(void)
+{
+	int ret = syscall(__NR_membarrier, 1 << MEMBARRIER_CMDBIT_GET_REGISTRATIONS, 0);
+	if (ret < 0) {
+		if (errno != EINVAL) {
+			return ret;
+		}
+
+		kdat.has_membarrier_get_registrations = false;
+	} else {
+		kdat.has_membarrier_get_registrations = true;
+	}
+
+	return 0;
+}
+
 /*
  * Some features depend on resource that can be dynamically changed
  * at the OS runtime. There are cases that we cannot determine the
@@ -1641,6 +1720,12 @@ int kerndat_try_load_new(void)
 	ret = kerndat_has_ptrace_get_rseq_conf();
 	if (ret < 0) {
 		pr_err("kerndat_has_ptrace_get_rseq_conf failed when initializing kerndat.\n");
+		return ret;
+	}
+
+	ret = kerndat_has_shstk();
+	if (ret < 0) {
+		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
 		return ret;
 	}
 
@@ -1859,6 +1944,14 @@ int kerndat_init(void)
 	}
 	if (!ret && (kerndat_has_ipv6_freebind() < 0)) {
 		pr_err("kerndat_has_ipv6_freebind failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_membarrier_get_registrations()) {
+		pr_err("kerndat_has_membarrier_get_registrations failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_shstk()) {
+		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
 		ret = -1;
 	}
 

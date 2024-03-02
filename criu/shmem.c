@@ -206,23 +206,28 @@ static int expand_shmem(struct shmem_info *si, unsigned long new_size)
 	return 0;
 }
 
-static void update_shmem_pmaps(struct shmem_info *si, u64 *map, VmaEntry *vma)
+static void update_shmem_pmaps(struct shmem_info *si, pmc_t *pmc, VmaEntry *vma)
 {
 	unsigned long shmem_pfn, vma_pfn, vma_pgcnt;
+	u64 vaddr;
 
 	if (!is_shmem_tracking_en())
 		return;
 
 	vma_pgcnt = DIV_ROUND_UP(si->size - vma->pgoff, PAGE_SIZE);
-	for (vma_pfn = 0; vma_pfn < vma_pgcnt; ++vma_pfn) {
-		if (!should_dump_page(vma, map[vma_pfn]))
+	for (vma_pfn = 0, vaddr = vma->start; vma_pfn < vma_pgcnt; ++vma_pfn, vaddr += PAGE_SIZE) {
+		bool softdirty = false;
+		u64 next;
+
+		next = should_dump_page(pmc, vma, vaddr, &softdirty);
+		if (next != vaddr) {
+			vaddr = next - PAGE_SIZE;
 			continue;
+		}
 
 		shmem_pfn = vma_pfn + DIV_ROUND_UP(vma->pgoff, PAGE_SIZE);
-		if (map[vma_pfn] & PME_SOFT_DIRTY)
+		if (softdirty)
 			set_pstate(si->pstate_map, shmem_pfn, PST_DIRTY);
-		else if (page_is_zero(map[vma_pfn]))
-			set_pstate(si->pstate_map, shmem_pfn, PST_ZERO);
 		else
 			set_pstate(si->pstate_map, shmem_pfn, PST_DUMP);
 	}
@@ -648,7 +653,7 @@ err:
 	return -1;
 }
 
-int add_shmem_area(pid_t pid, VmaEntry *vma, u64 *map)
+int add_shmem_area(pid_t pid, VmaEntry *vma, pmc_t *pmc)
 {
 	struct shmem_info *si;
 	unsigned long size = vma->pgoff + (vma->end - vma->start);
@@ -662,7 +667,7 @@ int add_shmem_area(pid_t pid, VmaEntry *vma, u64 *map)
 			if (expand_shmem(si, size))
 				return -1;
 		}
-		update_shmem_pmaps(si, map, vma);
+		update_shmem_pmaps(si, pmc, vma);
 
 		return 0;
 	}
@@ -679,7 +684,7 @@ int add_shmem_area(pid_t pid, VmaEntry *vma, u64 *map)
 
 	if (expand_shmem(si, size))
 		return -1;
-	update_shmem_pmaps(si, map, vma);
+	update_shmem_pmaps(si, pmc, vma);
 
 	return 0;
 }

@@ -817,8 +817,26 @@ static int do_restore_tty_parms(void *arg, int fd, pid_t pid)
 	 * on termios too. Just to be on the safe side.
 	 */
 
-	if ((p->has & HAS_TERMIOS_L) && ioctl(fd, TIOCSLCKTRMIOS, &p->tl) < 0)
-		goto err;
+	if ((p->has & HAS_TERMIOS_L) && ioctl(fd, TIOCSLCKTRMIOS, &p->tl) < 0) {
+		struct termios t;
+
+		if (errno != EPERM)
+			goto err;
+
+		memzero(&t, sizeof(t));
+		if (ioctl(fd, TIOCGLCKTRMIOS, &t) < 0) {
+			pr_perror("Can't get tty locked params on %#x", p->tty_id);
+			goto err;
+		}
+
+		/*
+		 * The ioctl(TIOCSLCKTRMIOS) requires a CRIU process to be privileged
+		 * in the init_user_ns, but if the current "termios_locked" value equal
+		 * to the "termios_locked" value from the image, we can safely skip setting it.
+		 */
+		if (memcmp(&t, &p->tl, sizeof(struct termios)) != 0)
+			goto err;
+	}
 
 	if ((p->has & HAS_TERMIOS) && ioctl(fd, TCSETS, &p->t) < 0)
 		goto err;

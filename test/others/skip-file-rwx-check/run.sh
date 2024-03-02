@@ -10,11 +10,11 @@ source ../env.sh
 make clean
 touch testfile
 chmod +w testfile
-tail --follow testfile &
-tailpid=$!
-if ! "$criu" dump --tree=$tailpid --shell-job --verbosity=4 --log-file=dump.log
+bash -c 'exec 3<testfile; while :; do sleep 1; done' &
+testpid=$!
+if ! "$criu" dump --tree=$testpid --shell-job --verbosity=4 --log-file=dump.log
 then
-    kill $tailpid
+    kill $testpid
     echo "Failed to dump process as expected"
     echo FAIL
     exit 1
@@ -22,7 +22,7 @@ fi
 chmod -w testfile
 if "$criu" restore --restore-detached --shell-job --verbosity=4 --log-file=restore-expected-fail.log
 then
-    kill $tailpid
+    kill $testpid
     echo "Unexpectedly restored process with reference to a file who's r/w/x perms changed when --skip-file-rwx-check option was not used"
     echo FAIL
     exit 1
@@ -33,5 +33,5 @@ then
     echo FAIL
     exit 1
 fi
-kill $tailpid
+kill $testpid
 echo PASS

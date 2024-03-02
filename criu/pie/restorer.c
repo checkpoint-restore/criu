@@ -56,6 +56,12 @@
  */
 #define MAX_GETGROUPS_CHECKED (512 / sizeof(unsigned int))
 
+/*
+ * Memory overhead limit for reading VMA when auto_dedup is enabled.
+ * An arbitrarily chosen trade-off point between speed and memory usage.
+ */
+#define AUTO_DEDUP_OVERHEAD_BYTES (128 << 20)
+
 #ifndef PR_SET_PDEATHSIG
 #define PR_SET_PDEATHSIG 1
 #endif
@@ -70,6 +76,10 @@
 
 #ifndef FALLOC_FL_PUNCH_HOLE
 #define FALLOC_FL_PUNCH_HOLE 0x02
+#endif
+
+#ifndef ARCH_RT_SIGRETURN_RST
+#define ARCH_RT_SIGRETURN_RST ARCH_RT_SIGRETURN
 #endif
 
 #define sys_prctl_safe(opcode, val1, val2, val3)                                \
@@ -98,7 +108,7 @@ bool fault_injected(enum faults f)
  * Hint: compel on aarch64 shall learn relocs for that.
  */
 static unsigned __page_size;
-unsigned page_size(void)
+unsigned long page_size(void)
 {
 	return __page_size;
 }
@@ -625,7 +635,7 @@ static int restore_thread_common(struct thread_restore_args *args)
 
 static void noinline rst_sigreturn(unsigned long new_sp, struct rt_sigframe *sigframe)
 {
-	ARCH_RT_SIGRETURN(new_sp, sigframe);
+	ARCH_RT_SIGRETURN_RST(new_sp, sigframe);
 }
 
 static int send_cg_set(int sk, int cg_set)
@@ -729,7 +739,7 @@ static int recv_cg_set_restore_ack(int sk)
  * Threads restoration via sigreturn. Note it's locked
  * routine and calls for unlock at the end.
  */
-long __export_restore_thread(struct thread_restore_args *args)
+__visible long __export_restore_thread(struct thread_restore_args *args)
 {
 	struct rt_sigframe *rt_sigframe;
 	k_rtsigset_t to_block;
@@ -741,6 +751,10 @@ long __export_restore_thread(struct thread_restore_args *args)
 		pr_err("Thread pid mismatch %d/%d\n", my_pid, args->pid);
 		goto core_restore_end;
 	}
+
+	/* restore original shadow stack */
+	if (arch_shstk_restore(&args->shstk))
+		goto core_restore_end;
 
 	/* All signals must be handled by thread leader */
 	ksigfillset(&to_block);
@@ -1270,7 +1284,7 @@ unsigned long vdso_rt_size = 0;
 void *bootstrap_start = NULL;
 unsigned int bootstrap_len = 0;
 
-void __export_unmap(void)
+__visible void __export_unmap(void)
 {
 	sys_munmap(bootstrap_start, bootstrap_len - vdso_rt_size);
 }
@@ -1478,6 +1492,40 @@ static int fd_poll(int inotify_fd)
 }
 
 /*
+ * Call preadv() but limit size of the read. Zero `max_to_read` skips the limit.
+ */
+static ssize_t preadv_limited(int fd, struct iovec *iovs, int nr, off_t offs, size_t max_to_read)
+{
+	size_t saved_last_iov_len = 0;
+	ssize_t ret;
+
+	if (max_to_read) {
+		for (int i = 0; i < nr; ++i) {
+			if (iovs[i].iov_len <= max_to_read) {
+				max_to_read -= iovs[i].iov_len;
+				continue;
+			}
+
+			if (!max_to_read) {
+				nr = i;
+				break;
+			}
+
+			saved_last_iov_len = iovs[i].iov_len;
+			iovs[i].iov_len = max_to_read;
+			nr = i + 1;
+			break;
+		}
+	}
+
+	ret = sys_preadv(fd, iovs, nr, offs);
+	if (saved_last_iov_len)
+		iovs[nr - 1].iov_len = saved_last_iov_len;
+
+	return ret;
+}
+
+/*
  * In the worst case buf size should be:
  *   sizeof(struct inotify_event) * 2 + PATH_MAX
  * See round_event_name_len() in kernel.
@@ -1538,13 +1586,37 @@ int cleanup_current_inotify_events(struct task_restore_args *task_args)
 }
 
 /*
+ * Restore membarrier() registrations.
+ */
+static int restore_membarrier_registrations(int mask)
+{
+	unsigned long bitmap[1] = { mask };
+	int i, err, ret = 0;
+
+	if (!mask)
+		return 0;
+
+	pr_info("Restoring membarrier() registrations %x\n", mask);
+
+	for_each_bit(i, bitmap) {
+		err = sys_membarrier(1 << i, 0, 0);
+		if (!err)
+			continue;
+		pr_err("Can't restore membarrier(1 << %d) registration: %d\n", i, err);
+		ret = -1;
+	}
+
+	return ret;
+}
+
+/*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
  * but use sigreturn facility to restore core registers
  * and jump execution to some predefined ip read from
  * core file.
  */
-long __export_restore_task(struct task_restore_args *args)
+__visible long __export_restore_task(struct task_restore_args *args)
 {
 	long ret = -1;
 	int i;
@@ -1604,6 +1676,9 @@ long __export_restore_task(struct task_restore_args *args)
 		pr_debug("lazy-pages: uffd %d\n", args->uffd);
 	}
 
+	if (arch_shstk_switch_to_restorer(&args->shstk))
+		goto core_restore_end;
+
 	/*
 	 * Park vdso/vvar in a safe place if architecture doesn't support
 	 * mapping them with arch_prctl().
@@ -1655,6 +1730,13 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vma_entry->start > vma_entry->shmid)
 			break;
 
+		/*
+		 * shadow stack VMAs cannot be remapped, they must be
+		 * recreated with map_shadow_stack system call
+		 */
+		if (vma_entry_is(vma_entry, VMA_AREA_SHSTK))
+			continue;
+
 		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
 	}
@@ -1671,6 +1753,13 @@ long __export_restore_task(struct task_restore_args *args)
 
 		if (vma_entry->start < vma_entry->shmid)
 			break;
+
+		/*
+		 * shadow stack VMAs cannot be remapped, they must be
+		 * recreated with map_shadow_stack system call
+		 */
+		if (vma_entry_is(vma_entry, VMA_AREA_SHSTK))
+			continue;
 
 		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
@@ -1724,7 +1813,12 @@ long __export_restore_task(struct task_restore_args *args)
 
 		while (nr) {
 			pr_debug("Preadv %lx:%d... (%d iovs)\n", (unsigned long)iovs->iov_base, (int)iovs->iov_len, nr);
-			r = sys_preadv(args->vma_ios_fd, iovs, nr, rio->off);
+			/*
+			 * If we're requested to punch holes in the file after reading we do
+			 * it to save memory. Limit the reads then to an arbitrary block size.
+			 */
+			r = preadv_limited(args->vma_ios_fd, iovs, nr, rio->off,
+					   args->auto_dedup ? AUTO_DEDUP_OVERHEAD_BYTES : 0);
 			if (r < 0) {
 				pr_err("Can't read pages data (%d)\n", (int)r);
 				goto core_restore_end;
@@ -2023,6 +2117,9 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 	}
 
+	if (restore_membarrier_registrations(args->membarrier_registration_mask) < 0)
+		goto core_restore_end;
+
 	pr_info("%ld: Restored\n", sys_getpid());
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE);
@@ -2089,6 +2186,14 @@ long __export_restore_task(struct task_restore_args *args)
 	ret = ret || restore_child_subreaper(args->child_subreaper);
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
+
+	/*
+	 * Shadow stack of the leader can be locked only after all other
+	 * threads were cloned, otherwise they may start with read-only
+	 * shadow stack.
+	 */
+	if (arch_shstk_restore(&args->shstk))
+		goto core_restore_end;
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_CREDS);
 

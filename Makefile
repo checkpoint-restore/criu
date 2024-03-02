@@ -35,18 +35,18 @@ ifeq ($(ARCH),arm)
         ARMV		:= $(shell echo $(SUBARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
 
         ifeq ($(ARMV),6)
-                USERCFLAGS += -march=armv6
+                ARCHCFLAGS += -march=armv6
         endif
 
         ifeq ($(ARMV),7)
-                USERCFLAGS += -march=armv7-a+fp
+                ARCHCFLAGS += -march=armv7-a+fp
         endif
 
         ifeq ($(ARMV),8)
                 # Running 'setarch linux32 uname -m' returns armv8l on travis aarch64.
                 # This tells CRIU to handle armv8l just as armv7hf. Right now this is
                 # only used for compile testing. No further verification of armv8l exists.
-                USERCFLAGS += -march=armv7-a
+                ARCHCFLAGS += -march=armv7-a
                 ARMV := 7
         endif
 
@@ -110,6 +110,7 @@ export PROTOUFIX DEFINES
 #
 # Independent options for all tools.
 DEFINES			+= -D_FILE_OFFSET_BITS=64
+DEFINES			+= -D_LARGEFILE64_SOURCE
 DEFINES			+= -D_GNU_SOURCE
 
 WARNINGS		:= -Wall -Wformat-security -Wdeclaration-after-statement -Wstrict-prototypes
@@ -131,7 +132,7 @@ WARNINGS		:= -rdynamic
 endif
 
 ifeq ($(ARCH),loongarch64)
-WARNINGS		:= -Wno-implicit-function-declaration
+WARNINGS		+= -Wno-implicit-function-declaration
 endif
 
 ifneq ($(GCOV),)
@@ -163,12 +164,12 @@ export GMON GMONLDOPT
 endif
 
 AFLAGS			+= -D__ASSEMBLY__
-CFLAGS			+= $(USERCFLAGS) $(WARNINGS) $(DEFINES) -iquote include/
+CFLAGS			+= $(USERCFLAGS) $(ARCHCFLAGS) $(WARNINGS) $(DEFINES) -iquote include/
 HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
 export AFLAGS CFLAGS USERCLFAGS HOSTCFLAGS
 
 # Default target
-all: flog criu lib
+all: flog criu lib crit
 .PHONY: all
 
 #
@@ -302,9 +303,9 @@ clean mrproper:
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=soccr $@
 	$(Q) $(MAKE) $(build)=lib $@
+	$(Q) $(MAKE) $(build)=crit $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
-	$(Q) $(MAKE) $(build)=lib $@
 .PHONY: clean mrproper
 
 clean-amdgpu_plugin:
@@ -350,6 +351,10 @@ test: zdtm
 amdgpu_plugin: criu
 	$(Q) $(MAKE) -C plugins/amdgpu all
 .PHONY: amdgpu_plugin
+
+crit: lib
+	$(Q) $(MAKE) -C crit
+.PHONY: crit
 
 #
 # Generating tar requires tag matched CRIU_VERSION.
@@ -416,6 +421,7 @@ help:
 	@echo '    Targets:'
 	@echo '      all             - Build all [*] targets'
 	@echo '    * criu            - Build criu'
+	@echo '    * crit            - Build crit'
 	@echo '      zdtm            - Build zdtm test-suite'
 	@echo '      docs            - Build documentation'
 	@echo '      install         - Install CRIU (see INSTALL.md)'
@@ -434,18 +440,23 @@ help:
 	@echo '      amdgpu_plugin   - Make AMD GPU plugin'
 .PHONY: help
 
-lint:
-	flake8 --version
-	flake8 --config=scripts/flake8.cfg test/zdtm.py
-	flake8 --config=scripts/flake8.cfg test/inhfd/*.py
-	flake8 --config=scripts/flake8.cfg test/others/rpc/config_file.py
-	flake8 --config=scripts/flake8.cfg lib/py/images/pb2dict.py
-	flake8 --config=scripts/flake8.cfg lib/py/images/images.py
-	flake8 --config=scripts/flake8.cfg scripts/criu-ns
-	flake8 --config=scripts/flake8.cfg test/others/criu-ns/run.py
-	flake8 --config=scripts/flake8.cfg crit/setup.py
-	flake8 --config=scripts/flake8.cfg scripts/uninstall_module.py
-	flake8 --config=scripts/flake8.cfg coredump/ coredump/coredump
+ruff:
+	@ruff --version
+	ruff ${RUFF_FLAGS} --config=scripts/ruff.toml \
+		test/zdtm.py \
+		test/inhfd/*.py \
+		test/others/rpc/config_file.py \
+		lib/pycriu/images/pb2dict.py \
+		lib/pycriu/images/images.py \
+		scripts/criu-ns \
+		test/others/criu-ns/run.py \
+		crit/*.py \
+		crit/crit/*.py \
+		scripts/uninstall_module.py \
+		coredump/ coredump/coredump \
+		scripts/github-indent-warnings.py
+
+shellcheck:
 	shellcheck --version
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
@@ -453,7 +464,12 @@ lint:
 	shellcheck -x test/others/libcriu/*.sh
 	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh
 	shellcheck -x test/others/config-file/*.sh
+	shellcheck -x test/others/action-script/*.sh
+
+codespell:
 	codespell -S tags
+
+lint: ruff shellcheck codespell
 	# Do not append \n to pr_perror, pr_pwarn or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|pr_pwarn|fail)\>.*\\n"'
 	# Do not use %m with pr_* or fail
@@ -464,7 +480,7 @@ lint:
 	! git --no-pager grep -En '^\s*\<pr_(err|warn|msg|info|debug)\>.*);$$' | grep -v '\\n'
 	# No EOL whitespace for C files
 	! git --no-pager grep -E '\s+$$' \*.c \*.h
-.PHONY: lint
+.PHONY: lint ruff shellcheck codespell
 
 codecov: SHELL := $(shell which bash)
 codecov:

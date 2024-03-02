@@ -24,7 +24,6 @@
 #include <sys/resource.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
 #include <sched.h>
 #include <ftw.h>
 #include <time.h>
@@ -662,38 +661,52 @@ out:
 	return ret;
 }
 
+struct child_args {
+	int *sk_pair;
+	int (*child_setup)(void);
+};
+
+static int child_func(void *_args)
+{
+	struct child_args *args = _args;
+	int sk, *sk_pair = args->sk_pair;
+	char c = 0;
+
+	sk = sk_pair[1];
+	close(sk_pair[0]);
+
+	if (args->child_setup && args->child_setup() != 0)
+		exit(1);
+
+	if (write(sk, &c, 1) != 1) {
+		pr_perror("write");
+		exit(1);
+	}
+
+	while (1)
+		sleep(1000);
+	exit(1);
+}
+
 pid_t fork_and_ptrace_attach(int (*child_setup)(void))
 {
 	pid_t pid;
 	int sk_pair[2], sk;
 	char c = 0;
+	struct child_args cargs = {
+		.sk_pair = sk_pair,
+		.child_setup = child_setup,
+	};
 
 	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sk_pair)) {
 		pr_perror("socketpair");
 		return -1;
 	}
 
-	pid = fork();
+	pid = clone_noasan(child_func, CLONE_UNTRACED | SIGCHLD, &cargs);
 	if (pid < 0) {
 		pr_perror("fork");
 		return -1;
-	}
-
-	if (pid == 0) {
-		sk = sk_pair[1];
-		close(sk_pair[0]);
-
-		if (child_setup && child_setup() != 0)
-			exit(1);
-
-		if (write(sk, &c, 1) != 1) {
-			pr_perror("write");
-			exit(1);
-		}
-
-		while (1)
-			sleep(1000);
-		exit(1);
 	}
 
 	sk = sk_pair[0];
@@ -1153,20 +1166,6 @@ const char *ns_to_string(unsigned int ns)
 	default:
 		return NULL;
 	}
-}
-
-void tcp_cork(int sk, bool on)
-{
-	int val = on ? 1 : 0;
-	if (setsockopt(sk, SOL_TCP, TCP_CORK, &val, sizeof(val)))
-		pr_pwarn("Unable to restore TCP_CORK (%d)", val);
-}
-
-void tcp_nodelay(int sk, bool on)
-{
-	int val = on ? 1 : 0;
-	if (setsockopt(sk, SOL_TCP, TCP_NODELAY, &val, sizeof(val)))
-		pr_pwarn("Unable to restore TCP_NODELAY (%d)", val);
 }
 
 static int get_sockaddr_in(struct sockaddr_storage *addr, char *host, unsigned short port)

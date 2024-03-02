@@ -62,6 +62,7 @@ TST_NOFILE	:=				\
 		pthread_timers			\
 		pthread_timers_h		\
 		rseq00				\
+		membarrier			\
 		vdso00				\
 		vdso01				\
 		vdso02				\
@@ -84,7 +85,8 @@ TST_NOFILE	:=				\
 		socket-tcp4v6			\
 		socket-tcp-local		\
 		socket-tcp-reuseport		\
-		socket-tcp-nfconntrack		\
+		socket-tcp-ipt-nfconntrack	\
+		socket-tcp-nft-nfconntrack	\
 		socket-tcp6-local		\
 		socket-tcp4v6-local		\
 		socket-tcpbuf			\
@@ -257,6 +259,8 @@ TST_NOFILE	:=				\
 		memfd02				\
 		memfd02-hugetlb			\
 		memfd03				\
+		memfd04				\
+		memfd05				\
 		shmemfd				\
 		shmemfd-priv			\
 		time				\
@@ -266,6 +270,7 @@ TST_NOFILE	:=				\
 		sigtrap				\
 		sigtrap01			\
 		change_mnt_context		\
+		fd_offset			\
 #		jobctl00			\
 
 PKG_CONFIG ?= pkg-config
@@ -273,7 +278,7 @@ pkg-config-check = $(shell sh -c '$(PKG_CONFIG) $(1) && echo y')
 ifeq ($(call pkg-config-check,libbpf),y)
 TST_NOFILE	+=				\
 		bpf_hash			\
-		bpf_array			
+		bpf_array
 endif
 
 ifneq ($(ARCH),arm)
@@ -397,6 +402,7 @@ TST_DIR		=				\
 		cgroup_ignore			\
 		cgroup_stray			\
 		cgroup_yard			\
+		cgroup_threads			\
 		unlink_fstat04			\
 		unlink_fstat041			\
 		mntns_remap			\
@@ -594,7 +600,8 @@ socket-tcpbuf6-local:	CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
 socket-tcp6-local:	CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
 socket-tcp4v6-local:	CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV4V6
 socket-tcp-local:	CFLAGS += -D ZDTM_TCP_LOCAL
-socket-tcp-nfconntrack: CFLAGS += -D ZDTM_TCP_LOCAL -DZDTM_CONNTRACK
+socket-tcp-ipt-nfconntrack: CFLAGS += -D ZDTM_TCP_LOCAL -DZDTM_IPT_CONNTRACK
+socket-tcp-nft-nfconntrack: CFLAGS += -D ZDTM_TCP_LOCAL -DZDTM_NFT_CONNTRACK
 socket_listen6:		CFLAGS += -D ZDTM_IPV6
 socket_listen4v6:	CFLAGS += -D ZDTM_IPV4V6
 socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV6
@@ -654,6 +661,7 @@ socket-tcp6-unconn:	CFLAGS += -D ZDTM_IPV6
 socket-tcp4v6-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK -D ZDTM_IPV4V6
 socket-tcp4v6-closing:	CFLAGS += -D ZDTM_IPV4V6
 memfd02-hugetlb:	CFLAGS += -D ZDTM_HUGETLB
+memfd05:		CFLAGS += -D ZDTM_MEMFD05
 
 sockets00-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
 sockets01-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
@@ -676,6 +684,8 @@ s390x_regs_check:	LDFLAGS += -pthread
 s390x_gs_threads:	LDFLAGS += -pthread
 
 thread_different_uid_gid:	LDLIBS += -pthread -lcap
+
+cgroup_threads:		LDFLAGS += -pthread
 
 bpf_hash:		LDLIBS += -lbpf
 bpf_array:		LDLIBS += -lbpf

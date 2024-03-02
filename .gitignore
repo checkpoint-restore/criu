@@ -25,12 +25,6 @@ images/google/protobuf/*.h
 .gitid
 criu/criu
 criu/unittest/unittest
-criu/arch/*/sys-exec-tbl*.c
-# x86 syscalls-table is not generated
-!criu/arch/x86/sys-exec-tbl.c
-criu/arch/*/syscalls*.S
-criu/include/syscall-codes*.h
-criu/include/syscall*.h
 criu/include/version.h
 criu/pie/restorer-blob.h
 criu/pie/parasite-blob.h

@@ -106,6 +106,7 @@ static inline bool vma_entry_is_private(VmaEntry *entry, unsigned long task_size
 	return (vma_entry_is(entry, VMA_AREA_REGULAR) &&
 		(vma_entry_is(entry, VMA_ANON_PRIVATE) || vma_entry_is(entry, VMA_FILE_PRIVATE)) &&
 		(entry->end <= task_size)) ||
+	       vma_entry_is(entry, VMA_AREA_SHSTK) ||
 	       vma_entry_is(entry, VMA_AREA_AIORING);
 }
 
@@ -122,8 +123,8 @@ static inline struct vma_area *vma_next(struct vma_area *vma)
 static inline bool vma_entry_can_be_lazy(VmaEntry *e)
 {
 	return ((e->flags & MAP_ANONYMOUS) && (e->flags & MAP_PRIVATE) && !(e->flags & MAP_LOCKED) &&
-		!(vma_entry_is(e, VMA_AREA_VDSO)) && !(vma_entry_is(e, VMA_AREA_VSYSCALL)) &&
-		!(e->flags & MAP_HUGETLB));
+		!(vma_entry_is(e, VMA_AREA_VDSO)) && !(vma_entry_is(e, VMA_AREA_VVAR)) &&
+		!(vma_entry_is(e, VMA_AREA_VSYSCALL)) && !(e->flags & MAP_HUGETLB));
 }
 
 #endif /* __CR_VMA_H__ */

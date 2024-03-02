@@ -10,7 +10,7 @@
 static unsigned __page_size;
 static unsigned __page_shift;
 
-static inline unsigned page_size(void)
+static inline unsigned long page_size(void)
 {
 	if (!__page_size)
 		__page_size = sysconf(_SC_PAGESIZE);
@@ -31,7 +31,7 @@ static inline unsigned page_shift(void)
 #define PAGE_PFN(addr) ((addr) / PAGE_SIZE)
 #else /* CR_NOGLIBC */
 
-extern unsigned page_size(void);
+extern unsigned long page_size(void);
 #define PAGE_SIZE page_size()
 
 #endif /* CR_NOGLIBC */

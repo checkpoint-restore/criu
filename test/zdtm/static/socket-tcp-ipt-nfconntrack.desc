@@ -1,0 +1,6 @@
+{
+    'feature': 'has_ipt_legacy',
+    'flavor': 'h',
+    'opts': '--tcp-established',
+    'flags': 'suid'
+}

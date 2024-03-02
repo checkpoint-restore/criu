@@ -107,6 +107,8 @@ int topology_parse(struct tp_system *topology, const char *msg);
 int topology_determine_iolinks(struct tp_system *sys);
 void topology_print(const struct tp_system *sys, const char *msg);
 
+int topology_gpu_count(struct tp_system *topology);
+
 struct id_map *maps_add_gpu_entry(struct device_maps *maps, const uint32_t src_id, const uint32_t dest_id);
 
 struct tp_node *sys_add_node(struct tp_system *sys, uint32_t id, uint32_t gpu_id);

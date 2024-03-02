@@ -863,6 +863,9 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc, struct task_restore_a
 	if (tc->has_child_subreaper)
 		args->child_subreaper = tc->child_subreaper;
 
+	if (tc->has_membarrier_registration_mask)
+		args->membarrier_registration_mask = tc->membarrier_registration_mask;
+
 	/* loginuid value is critical to restore */
 	if (kdat.luid == LUID_FULL && tc->has_loginuid && tc->loginuid != INVALID_UID) {
 		ret = prepare_loginuid(tc->loginuid);
@@ -970,6 +973,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (setup_uffd(pid, ta))
+		return -1;
+
+	if (arch_shstk_prepare(current, core, ta))
 		return -1;
 
 	return sigreturn_restore(pid, ta, args_len, core);
@@ -1492,6 +1498,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 		pr_debug("PID: real %d virt %d\n", item->pid->real, vpid(item));
 	}
 
+	arch_shstk_unlock(item, ca.core, pid);
+
 err_unlock:
 	if (!(ca.clone_flags & CLONE_NEWPID))
 		unlock_last_pid();
@@ -1758,7 +1766,7 @@ static int create_children_and_session(void)
 	return 0;
 }
 
-static int restore_task_with_children(void *_arg)
+static int __restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
 	pid_t pid;
@@ -1948,6 +1956,16 @@ err:
 	if (current->parent == NULL)
 		futex_abort_and_wake(&task_entries->nr_in_progress);
 	exit(1);
+}
+
+static int restore_task_with_children(void *_arg)
+{
+	struct cr_clone_arg *arg = _arg;
+	struct pstree_item *item = arg->item;
+	CoreEntry *core = arg->core;
+
+	return arch_shstk_trampoline(item, core, __restore_task_with_children,
+				     arg);
 }
 
 static int attach_to_tasks(bool root_seized)

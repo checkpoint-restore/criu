@@ -15,7 +15,7 @@ while true; do
 	if [ "${install_retry_counter}" -gt "${max_apt_retries}" ]; then
 		exit 1
 	fi
-	apt-get clean -qqy && apt-get update -qqy && apt-get install -qqy --no-install-recommends "$@" && break
+	apt-get update -y && apt-get install -y --no-install-recommends "$@" && break
 
 	# In case it is a network error let's wait a bit.
 	echo "Retrying attempt ${install_retry_counter}"

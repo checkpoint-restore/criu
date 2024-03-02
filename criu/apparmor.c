@@ -207,8 +207,6 @@ static int by_time(const struct dirent **de1, const struct dirent **de2)
 	} else {
 		if (sb1.st_mtim.tv_sec < sb2.st_mtim.tv_sec)
 			return -1;
-		if (sb1.st_mtim.tv_sec == sb2.st_mtim.tv_sec)
-			return 0;
 		return 1;
 	}
 }
@@ -551,8 +549,8 @@ static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrit
 			goto fail;
 	}
 
-	ret = snprintf(path + offset + my_offset, sizeof(path) - offset - my_offset, "/.replace");
-	if (ret < 0 || ret >= sizeof(path) - offset - my_offset) {
+	ret = snprintf(path + offset + my_offset, PATH_MAX - offset - my_offset, "/.replace");
+	if (ret < 0 || ret >= PATH_MAX - offset - my_offset) {
 		pr_err("snprintf failed\n");
 		goto fail;
 	}

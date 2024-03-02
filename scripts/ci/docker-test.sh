@@ -15,10 +15,11 @@ add-apt-repository \
    $(lsb_release -cs) \
    stable test"
 
-./apt-install docker-ce
-
-# shellcheck source=/dev/null
-. /etc/lsb-release
+# checkpoint/restore is broken in Docker Engine (Community) version 25.0.0-beta.1
+# https://github.com/moby/moby/discussions/46816
+# Downgrade to the latest stable version.
+VERSION_STRING=5:24.0.7-1~ubuntu.20.04~focal
+./apt-install docker-ce=$VERSION_STRING docker-ce-cli=$VERSION_STRING containerd.io docker-buildx-plugin docker-compose-plugin
 
 # docker checkpoint and restore is an experimental feature
 echo '{ "experimental": true }' > /etc/docker/daemon.json
@@ -87,27 +88,25 @@ print_logs () {
 }
 
 declare -i max_restore_container_tries=3
-current_iteration=
 
 restore_container () {
 	CHECKPOINT_NAME=$1
 
-	docker start --checkpoint "$CHECKPOINT_NAME" cr 2>&1 | tee log || {
+	for i in $(seq $max_restore_container_tries); do
+		docker start --checkpoint "$CHECKPOINT_NAME" cr 2>&1 | tee log && break
+
 		# FIXME: There is a race condition in docker/containerd that causes
 		# docker to occasionally fail when starting a container from a
 		# checkpoint immediately after the checkpoint has been created.
 		# https://github.com/moby/moby/issues/42900
-		if [ "$current_iteration" -gt "$max_restore_container_tries" ]; then
+		if grep -Eq '^Error response from daemon: failed to upload checkpoint to containerd: commit failed: content sha256:.*: already exists$' log; then
+			echo "Retry container restore: $i/$max_restore_container_tries"
+			sleep 1;
+		else
 			print_logs
 		fi
-		grep -Eq '^Error response from daemon: failed to upload checkpoint to containerd: commit failed: content sha256:.*: already exists$' log && {
-			((current_iteration+=1))
-			echo "Retry container restore: $current_iteration"
-			sleep 1;
-			restore_container "$CHECKPOINT_NAME"
-		} ||
-		print_logs
-	} && current_iteration=0
+
+	done
 }
 
 # Scenario: Create multiple containers and checkpoint and restore them once

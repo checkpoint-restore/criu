@@ -41,6 +41,11 @@ message user_x86_regs_entry {
 	optional user_x86_regs_mode	mode		= 28 [default = NATIVE];
 }
 
+message user_x86_cet_entry {
+	required uint64			cet		=  1[(criu).hex = true];
+	required uint64			ssp		=  2[(criu).hex = true];
+}
+
 message user_x86_xsave_entry {
 	/* standard xsave features */
 	required uint64			xstate_bv	=  1;
@@ -59,6 +64,9 @@ message user_x86_xsave_entry {
 
 	/* Protected keys */
 	repeated uint32			pkru		=  8;
+
+	/* CET */
+	optional user_x86_cet_entry	cet		=  9;
 
 	/*
 	 * Processor trace (PT) and hardware duty cycling (HDC)

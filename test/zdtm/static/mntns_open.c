@@ -17,7 +17,7 @@
 #define CLONE_NEWNS 0x00020000
 #endif
 
-const char *test_doc = "Check that mnt_id is repsected";
+const char *test_doc = "Check that mnt_id is respected";
 const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 #define MPTS_FILE "F"

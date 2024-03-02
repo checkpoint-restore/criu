@@ -2,6 +2,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/falloc.h>
+#include <netinet/tcp.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -155,6 +156,20 @@ static inline int send_psi_flags(int sk, struct page_server_iov *pi, int flags)
 static inline int send_psi(int sk, struct page_server_iov *pi)
 {
 	return send_psi_flags(sk, pi, 0);
+}
+
+static void tcp_cork(int sk, bool on)
+{
+	int val = on ? 1 : 0;
+	if (setsockopt(sk, SOL_TCP, TCP_CORK, &val, sizeof(val)))
+		pr_pwarn("Unable to set TCP_CORK=%d", val);
+}
+
+static void tcp_nodelay(int sk, bool on)
+{
+	int val = on ? 1 : 0;
+	if (setsockopt(sk, SOL_TCP, TCP_NODELAY, &val, sizeof(val)))
+		pr_pwarn("Unable to set TCP_NODELAY=%d", val);
 }
 
 /* page-server xfer */

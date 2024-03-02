@@ -1382,6 +1382,14 @@ static int check_ipv6_freebind(void)
 	return 0;
 }
 
+static int check_pagemap_scan(void)
+{
+	if (!kdat.has_pagemap_scan)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1502,6 +1510,7 @@ int cr_check(void)
 		ret |= check_openat2();
 		ret |= check_ptrace_get_rseq_conf();
 		ret |= check_ipv6_freebind();
+		ret |= check_pagemap_scan();
 
 		if (kdat.lsm == LSMTYPE__APPARMOR)
 			ret |= check_apparmor_stacking();
@@ -1623,6 +1632,7 @@ static struct feature_list feature_list[] = {
 	{ "openat2", check_openat2 },
 	{ "get_rseq_conf", check_ptrace_get_rseq_conf },
 	{ "ipv6_freebind", check_ipv6_freebind },
+	{ "pagemap_scan", check_pagemap_scan },
 	{ NULL, NULL },
 };
 

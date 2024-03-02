@@ -23,6 +23,7 @@ RUN apk update && apk add \
 	python3 \
 	sudo \
 	libcap-utils \
+	libdrm-dev \
 	util-linux
 
 COPY . /criu
@@ -32,6 +33,7 @@ RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 RUN apk add \
 	ip6tables \
 	iptables \
+	iptables-legacy \
 	nftables \
 	iproute2 \
 	tar \
@@ -39,13 +41,12 @@ RUN apk add \
 	go \
 	e2fsprogs \
 	py-yaml \
-	py3-flake8 \
 	py3-importlib-metadata \
 	asciidoctor
 
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 -D test
 
-RUN pip3 install junit_xml
+RUN pip3 install junit_xml --break-system-packages
 
 RUN make -C test/zdtm

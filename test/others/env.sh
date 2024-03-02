@@ -1,8 +1,13 @@
 #!/bin/sh
 
-CRIU=$(readlink -f `dirname ${BASH_SOURCE[0]}`/../../criu/criu)
+BASE_DIR="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/../../")"
+
+CRIU="${BASE_DIR}/criu/criu"
 criu=$CRIU
-CRIT=$(readlink -f `dirname ${BASH_SOURCE[0]}`/../../crit/crit)
+
+export PYTHONPATH="${BASE_DIR}/lib:${BASE_DIR}/crit:${PYTHONPATH-}"
+CRIT="python3 -m crit"
 crit=$CRIT
-CRIU_COREDUMP=$(readlink -f `dirname ${BASH_SOURCE[0]}`/../../coredump/coredump)
+
+CRIU_COREDUMP="${BASE_DIR}/coredump/coredump"
 criu_coredump=$CRIU_COREDUMP

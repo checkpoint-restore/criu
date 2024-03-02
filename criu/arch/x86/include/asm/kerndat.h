@@ -4,5 +4,6 @@
 extern int kdat_compatible_cr(void);
 extern int kdat_can_map_vdso(void);
 extern int kdat_x86_has_ptrace_fpu_xsave_bug(void);
+extern int kdat_has_shstk(void);
 
 #endif /* __CR_ASM_KERNDAT_H__ */

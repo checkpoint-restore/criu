@@ -14,7 +14,7 @@ jobs:
       image: registry.fedoraproject.org/fedora:latest
     steps:
     - name: Install tools
-      run: sudo dnf -y install git make python3-flake8 xz clang-tools-extra which codespell git-clang-format ShellCheck
+      run: sudo dnf -y install git make ruff xz clang-tools-extra which codespell git-clang-format ShellCheck
 
     - uses: actions/checkout@v2
 
@@ -26,15 +26,15 @@ jobs:
       run: make lint
 
     - name: Run make indent
-      run: >
+      continue-on-error: true
+      run: |
         if [ -z "${{github.base_ref}}" ]; then
-          git fetch --deepen=1 &&
-          if ! make indent OPTS=--diff; then
-            exit 1
-          fi
+          git fetch --deepen=1
+          make indent
         else
-          git fetch origin ${{github.base_ref}} &&
-          if ! make indent OPTS=--diff BASE=origin/${{github.base_ref}}; then
-            exit 1
-          fi
+          git fetch origin ${{github.base_ref}}
+          make indent BASE=origin/${{github.base_ref}}
         fi
+    - name: Raise in-line make indent warnings
+      run: |
+        git diff | ./scripts/github-indent-warnings.py

@@ -130,7 +130,7 @@ int main(int argc, char **argv)
 	ret = syscall(SYS_setresgid, maingroup, maingroup, maingroup);
 	if (ret >= 0) {
 		ret = syscall(SYS_setresuid, mainuser, mainuser, mainuser);
-	} else if (ret < 0) {
+	} else {
 		pr_perror("Failed to drop privileges");
 		exit(1);
 	}

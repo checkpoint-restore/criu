@@ -34,7 +34,21 @@ END(__export_parasite_head_start_compat)
 .code64
 #endif
 
+/*
+ * When parasite_service() runs in the daemon mode it will return the stack
+ * pointer for the sigreturn frame in %rax and we call sigreturn directly
+ * from here.
+ * Since a valid stack pointer is positive, it is safe to presume that
+ * return value <= 0 means that parasite_service() called parasite_trap_cmd()
+ * in non-daemon mode, and the parasite should stop at int3.
+ */
 ENTRY(__export_parasite_head_start)
 	call	parasite_service
+	cmp	$0, %rax
+	jle	1f
+	movq	%rax, %rsp
+	movq	$15, %rax
+	syscall
+1:
 	int	$0x03
 END(__export_parasite_head_start)

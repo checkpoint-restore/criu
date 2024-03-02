@@ -30,6 +30,17 @@
 #define __always_unused __attribute__((unused))
 #define __must_check	__attribute__((__warn_unused_result__))
 
+#ifndef __has_attribute
+#define __has_attribute(x) 0
+#endif
+
+/* Not supported by clang */
+#if __has_attribute(__externally_visible__)
+#define __visible __attribute__((__externally_visible__))
+#else
+#define __visible
+#endif
+
 #define __section(S) __attribute__((__section__(#S)))
 
 #ifndef __always_inline
@@ -78,6 +89,7 @@
 #define round_down(x, y)   ((x) & ~__round_mask(x, y))
 #define DIV_ROUND_UP(n, d) (((n) + (d)-1) / (d))
 #define ALIGN(x, a)	   (((x) + (a)-1) & ~((a)-1))
+#define ALIGN_DOWN(x, a)   ALIGN((x) - ((a) - 1), (a))
 
 #define min(x, y)                              \
 	({                                     \

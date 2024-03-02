@@ -28,17 +28,17 @@ lib-a: lib/c/$(CRIU_A)
 
 #
 # Python bindings.
-lib/py/Makefile: ;
-lib/py/%: .FORCE
+lib/pycriu/Makefile: ;
+lib/pycriu/%: .FORCE
 	$(call msg-gen, $@)
-	$(Q) $(MAKE) $(build)=lib/py $@
+	$(Q) $(MAKE) $(build)=lib/pycriu $@
 lib-py:
-	$(Q) $(MAKE) $(build)=lib/py all
+	$(Q) $(MAKE) $(build)=lib/pycriu all
 .PHONY: lib-py
 
 clean-lib:
 	$(Q) $(MAKE) $(build)=lib/c clean
-	$(Q) $(MAKE) $(build)=lib/py clean
+	$(Q) $(MAKE) $(build)=lib/pycriu clean
 .PHONY: clean-lib
 clean: clean-lib
 cleanup-y	+= lib/c/$(CRIU_SO) lib/c/$(CRIU_A) lib/c/criu.pc
@@ -59,17 +59,15 @@ install: lib-c lib-a lib-py lib/c/criu.pc.in
 	$(Q) install -m 644 lib/c/criu.pc $(DESTDIR)$(LIBDIR)/pkgconfig
 ifeq ($(PYTHON_EXTERNALLY_MANAGED),1)
 ifeq ($(PIP_BREAK_SYSTEM_PACKAGES),0)
-	$(E) "  SKIP INSTALL crit: Externally managed python environment (See PEP 668 for more information)"
+	$(E) "  SKIP INSTALL pycriu: Externally managed python environment (See PEP 668 for more information)"
 	$(E) "  Consider using PIP_BREAK_SYSTEM_PACKAGES=1 make install"
 else
-	$(E) "  INSTALL " crit
-	$(Q) $(PYTHON) -m pip install -r ./crit/requirements.txt
-	$(Q) $(PYTHON) -m pip install --no-build-isolation --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./crit
+	$(E) "  INSTALL " pycriu
+	$(Q) $(PYTHON) -m pip install --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./lib
 endif
 else
-	$(E) "  INSTALL " crit
-	$(Q) $(PYTHON) -m pip install -r ./crit/requirements.txt
-	$(Q) $(PYTHON) -m pip install --no-build-isolation --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./crit
+	$(E) "  INSTALL " pycriu
+	$(Q) $(PYTHON) -m pip install --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./lib
 endif
 .PHONY: install
 
@@ -84,14 +82,14 @@ uninstall:
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/pkgconfig/,criu.pc)
 ifeq ($(PYTHON_EXTERNALLY_MANAGED),1)
 ifeq ($(PIP_BREAK_SYSTEM_PACKAGES),0)
-	$(E) " SKIP UNINSTALL crit: Externally managed python environment (See PEP 668 for more information)"
+	$(E) " SKIP UNINSTALL pycriu: Externally managed python environment (See PEP 668 for more information)"
 	$(E) " Consider using PIP_BREAK_SYSTEM_PACKAGES=1 make uninstall"
 else
-	$(E) " UNINSTALL" crit
-	$(Q) $(PYTHON) ./scripts/uninstall_module.py --prefix=$(DESTDIR)$(PREFIX) crit
+	$(E) " UNINSTALL" pycriu
+	$(Q) $(PYTHON) ./scripts/uninstall_module.py --prefix=$(DESTDIR)$(PREFIX) pycriu
 endif
 else
-	$(E) " UNINSTALL" crit
-	$(Q) $(PYTHON) ./scripts/uninstall_module.py --prefix=$(DESTDIR)$(PREFIX) crit
+	$(E) " UNINSTALL" pycriu
+	$(Q) $(PYTHON) ./scripts/uninstall_module.py --prefix=$(DESTDIR)$(PREFIX) pycriu
 endif
 .PHONY: uninstall

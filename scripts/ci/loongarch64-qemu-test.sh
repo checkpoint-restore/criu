@@ -65,5 +65,5 @@ sshpass -p $PASSWORD scp -o StrictHostKeyChecking=no -P $PORT criu.tar $USER@127
 
 # build and test
 run 'cd /root; tar -xf criu.tar'
-run 'cd /root/criu; make -j4'
+run 'cd /root/criu; make -j4 && make -j4 -C test/zdtm'
 run "cd /root/criu; ./test/zdtm.py run -t zdtm/static/maps02 -t zdtm/static/maps05 -t zdtm/static/maps06 -t zdtm/static/maps10 -t zdtm/static/maps_file_prot -t zdtm/static/memfd00 -t zdtm/transition/fork -t zdtm/transition/fork2 -t zdtm/transition/shmem -f h"

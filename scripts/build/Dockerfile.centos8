@@ -26,7 +26,6 @@ RUN yum install -y --allowerasing \
 	protobuf-c-devel \
 	protobuf-devel \
 	python3-devel \
-	python3-flake8 \
 	python3-PyYAML \
 	python3-protobuf \
 	python3-pip \

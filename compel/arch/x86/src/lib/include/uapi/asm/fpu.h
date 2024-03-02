@@ -246,6 +246,14 @@ struct pkru_state {
 } __packed;
 
 /*
+ * State component 11 is Control-flow Enforcement user states
+ */
+struct cet_user_state {
+	uint64_t cet;			/* user control-flow settings */
+	uint64_t ssp;			/* user shadow stack pointer */
+};
+
+/*
  * This is our most modern FPU state format, as saved by the XSAVE
  * and restored by the XRSTOR instructions.
  *
@@ -260,7 +268,7 @@ struct pkru_state {
  * Of course it was not ;-) Now using four pages...
  *
  */
-#define EXTENDED_STATE_AREA_SIZE (XSAVE_SIZE - sizeof(struct i387_fxsave_struct) - sizeof(struct xsave_hdr_struct))
+#define EXTENDED_STATE_AREA_SIZE (XSAVE_SIZE - sizeof(struct i387_fxsave_struct) - sizeof(struct xsave_hdr_struct) - sizeof(struct cet_user_state))
 
 /*
  * cpu requires it to be 64 byte aligned
@@ -276,6 +284,7 @@ struct xsave_struct {
 		struct ymmh_struct ymmh;
 		uint8_t extended_state_area[EXTENDED_STATE_AREA_SIZE];
 	};
+	struct cet_user_state cet;
 } __aligned(FP_MIN_ALIGN_BYTES) __packed;
 
 struct xsave_struct_ia32 {

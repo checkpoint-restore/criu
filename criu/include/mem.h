@@ -7,6 +7,7 @@
 #include "pid.h"
 #include "proc_parse.h"
 #include "inventory.pb-c.h"
+#include "pagemap-cache.h"
 
 struct parasite_ctl;
 struct vm_area_list;
@@ -47,5 +48,6 @@ int open_vmas(struct pstree_item *t);
 int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta);
 int unmap_guard_pages(struct pstree_item *t);
 int prepare_mappings(struct pstree_item *t);
-bool should_dump_page(VmaEntry *vmae, u64 pme);
+
+u64 should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, bool *softdirty);
 #endif /* __CR_MEM_H__ */

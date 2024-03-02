@@ -17,6 +17,7 @@
 
 #include "asm/compat.h"
 #include "asm/dump.h"
+#include "asm/shstk.h"
 
 int kdat_can_map_vdso(void)
 {
@@ -250,4 +251,30 @@ out_kill:
 		pr_perror("Failed wait for a dead child");
 
 	return ret;
+}
+
+/*
+ * Unlike most kerndat knobs, this does not check for availability of the
+ * shadow stack in the kernel, but rather checks if criu runs with shadow
+ * stack enabled.
+ *
+ * This depends on hardware availability, kernel and glibc support, compiler
+ * options and glibc tunables.
+ */
+int kdat_has_shstk(void)
+{
+	unsigned long features;
+
+	if (!compel_cpu_has_feature(X86_FEATURE_SHSTK))
+		return 0;
+
+	if (syscall(__NR_arch_prctl, ARCH_SHSTK_STATUS, &features)) {
+		/* kernels that don't support shadow stack return -EINVAL */
+		if (errno == EINVAL)
+			return 0;
+		pr_perror("Cannot get shadow stack status");
+		return 1;
+	}
+
+	return !!(features & ARCH_SHSTK_SHSTK);
 }

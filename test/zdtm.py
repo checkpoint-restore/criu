@@ -507,8 +507,15 @@ class zdtm_test:
         self.__freezer.thaw()
         if self.__pid:
             print("Send the %d signal to  %s" % (sig, self.__pid))
-            os.kill(int(self.__pid), sig)
-            self.gone(sig == signal.SIGKILL)
+            try:
+                os.kill(int(self.__pid), sig)
+            except ProcessLookupError:
+                if sig != signal.SIGKILL:
+                    raise
+                print("The process %s doesn't exist" % self.__pid)
+                self.gone(True)
+            else:
+                self.gone(sig == signal.SIGKILL)
 
         self.__flavor.fini()
 
@@ -2003,12 +2010,20 @@ class Launcher:
                   file=self.__file_report)
             print(u"# ", file=self.__file_report)
             print(u"1.." + str(nr_tests), file=self.__file_report)
-        with open("/proc/sys/kernel/tainted") as taintfd:
-            self.__taint = taintfd.read()
+        self.__taint = self.__read_kernel_tainted()
         if int(self.__taint, 0) != 0:
-            print("The kernel is tainted: %r" % self.__taint)
-            if not opts["ignore_taint"] and os.getenv("ZDTM_IGNORE_TAINT") != '1':
-                raise Exception("The kernel is tainted: %r" % self.__taint)
+            self.__report_kernel_taint("The kernel is tainted: %r" % self.__taint)
+
+    @staticmethod
+    def __read_kernel_tainted():
+        with open("/proc/sys/kernel/tainted") as taintfd:
+            return taintfd.read().strip()
+
+    @staticmethod
+    def __report_kernel_taint(msg):
+        print(msg)
+        if not opts["ignore_taint"] and os.getenv("ZDTM_IGNORE_TAINT") != "1":
+            raise Exception(msg)
 
     def __show_progress(self, msg):
         perc = int(self.__nr * 16 / self.__total)
@@ -2034,11 +2049,12 @@ class Launcher:
         if len(self.__subs) >= self.__max:
             self.wait()
 
-        with open("/proc/sys/kernel/tainted") as taintfd:
-            taint = taintfd.read()
+        taint = self.__read_kernel_tainted()
         if self.__taint != taint:
-            raise Exception("The kernel is tainted: %r (%r)" %
-                            (taint, self.__taint))
+            prev_taint = self.__taint
+            self.__taint = taint
+            self.__report_kernel_taint(
+                "The kernel is tainted: %r (was %r)" % (taint, prev_taint))
 
         '''
         The option --link-remap allows criu to hardlink open files back to the
@@ -2388,6 +2404,7 @@ def run_tests(opts):
                 "Specify --criu-image-streamer-dir or modify PATH to provide an alternate location")
                 .format(streamer_dir))
 
+    usernsIsSupported = criu.check("userns")
     launcher = Launcher(opts, len(torun))
     try:
         for t in torun:
@@ -2457,7 +2474,7 @@ def run_tests(opts):
                 run_flavs = set(test_flavs) & set(opts_flavs)
             else:
                 run_flavs = set([test_flavs.pop()])
-            if not criu.check("userns"):
+            if not usernsIsSupported:
                 run_flavs -= set(['uns'])
             if opts['user']:
                 # FIXME -- probably uns will make sense

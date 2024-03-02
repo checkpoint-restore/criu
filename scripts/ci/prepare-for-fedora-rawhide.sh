@@ -18,11 +18,11 @@ dnf install -y \
 	libnet-devel \
 	libnl3-devel \
 	libbsd-devel \
+	libselinux-utils \
 	make \
 	procps-ng \
 	protobuf-c-devel \
 	protobuf-devel \
-	python3-flake8 \
 	python3-PyYAML \
 	python3-protobuf \
 	python3-junit_xml \
@@ -35,6 +35,7 @@ dnf install -y \
 	which \
 	e2fsprogs \
 	rubygem-asciidoctor \
+	libdrm-devel \
 	kmod
 
 # /tmp is no longer 755 in the rawhide container image and breaks CI - fix it

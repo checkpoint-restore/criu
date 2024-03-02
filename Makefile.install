@@ -37,6 +37,10 @@ install-lib: lib
 	$(Q) $(MAKE) $(build)=lib install
 .PHONY: install-lib
 
+install-crit: lib
+	$(Q) $(MAKE) $(build)=crit install
+.PHONY: install-crit
+
 install-criu: criu
 	$(Q) $(MAKE) $(build)=criu install
 .PHONY: install-criu
@@ -50,12 +54,13 @@ install-compel: $(compel-install-targets)
 	$(Q) $(MAKE) $(build)=compel/plugins install
 .PHONY: install-compel
 
-install: install-man install-lib install-criu install-compel install-amdgpu_plugin ;
+install: install-man install-lib install-crit install-criu install-compel install-amdgpu_plugin ;
 .PHONY: install
 
 uninstall:
 	$(Q) $(MAKE) -C Documentation $@
 	$(Q) $(MAKE) $(build)=lib $@
+	$(Q) $(MAKE) $(build)=crit $@
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@

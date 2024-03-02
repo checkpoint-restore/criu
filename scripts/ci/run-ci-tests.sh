@@ -4,9 +4,9 @@ set -x -e
 CI_PKGS=(protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
-		libnl-route-3-dev time flake8 libbsd-dev python3-yaml
+		libnl-route-3-dev time libbsd-dev python3-yaml
 		libperl-dev pkg-config python3-protobuf python3-pip
-		python3-importlib-metadata python3-junit.xml)
+		python3-importlib-metadata python3-junit.xml libdrm-dev)
 
 X86_64_PKGS=(gcc-multilib)
 
@@ -288,14 +288,27 @@ ip net add test
 
 # Rootless tests
 # Check if cap_checkpoint_restore is supported and also if unshare -c is supported.
-if capsh --supports=cap_checkpoint_restore && unshare -c /bin/true; then
+#
+# Do not run this test in a container (see https://github.com/checkpoint-restore/criu/issues/2312).
+# This is a temporary workaround until fixed in the kernel.
+# The kernel currently does not show correct device and inode numbers in /proc/pid/maps
+# for stackable file systems.
+if capsh --supports=cap_checkpoint_restore && unshare -c /bin/true && [ ! -e /run/.containerenv ]; then
 	make -C test/zdtm/ cleanout
 	rm -rf test/dump
 	setcap cap_checkpoint_restore,cap_sys_ptrace+eip criu/criu
+	if [ -d /sys/fs/selinux ] && command -v getenforce &>/dev/null; then
+		# Note: selinux in Enforcing mode prevents us from calling clone3() or writing to ns_last_pid on restore; hence set to Permissive for the test and then set back.
+		selinuxmode=$(getenforce)
+		setenforce Permissive
+	fi
 	# Run it as non-root in a user namespace. Since CAP_CHECKPOINT_RESTORE behaves differently in non-user namespaces (e.g. no access to map_files) this tests that we can dump and restore
 	# under those conditions. Note that the "... && true" part is necessary; we need at least one statement after the tests so that bash can reap zombies in the user namespace,
 	# otherwise it will exec the last statement and get replaced and nobody will be left to reap our zombies.
 	sudo --user=#65534 --group=#65534 unshare -Ucfpm --mount-proc -- bash -c "./test/zdtm.py run -t zdtm/static/maps00 -f h --rootless && true"
+	if [ -d /sys/fs/selinux ] && command -v getenforce &>/dev/null; then
+		setenforce "$selinuxmode"
+	fi
 	setcap -r criu/criu
 else
 	echo "Skipping unprivileged mode tests"
@@ -316,6 +329,9 @@ make -C test/others/ns_ext run
 # config file parser and parameter testing
 make -C test/others/config-file run
 
+# action script testing
+make -C test/others/action-script run
+
 # Skip all further tests when running with GCOV=1
 # The one test which currently cannot handle GCOV testing is compel/test
 # Probably because the GCOV Makefile infrastructure does not exist in compel
@@ -323,3 +339,8 @@ make -C test/others/config-file run
 
 # compel testing
 make -C compel/test
+
+# amdgpu_plugin testing
+make amdgpu_plugin
+make -C plugins/amdgpu/ test_topology_remap
+./plugins/amdgpu/test_topology_remap

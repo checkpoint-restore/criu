@@ -102,6 +102,8 @@ mmap_status_map = [
     ('VMA_AREA_SOCKET', 1 << 11),
     ('VMA_AREA_VVAR', 1 << 12),
     ('VMA_AREA_AIORING', 1 << 13),
+    ('VMA_AREA_MEMFD', 1 << 14),
+    ('VMA_AREA_SHSTK', 1 << 15),
     ('VMA_UNSUPP', 1 << 31),
 ]
 
@@ -357,14 +359,17 @@ def pb2dict(pb, pretty=False, is_hex=False):
         else:
             d_val = _pb2dict_cast(field, value, pretty, is_hex)
 
-        d[field.name] = d_val.decode() if type(d_val) == bytes else d_val
+        try:
+            d[field.name] = d_val.decode()
+        except (UnicodeDecodeError, AttributeError):
+            d[field.name] = d_val
     return d
 
 
 def _dict2pb_cast(field, value):
     # Not considering TYPE_MESSAGE here, as repeated
     # and non-repeated messages need special treatment
-    # in this case, and are hadled separately.
+    # in this case, and are handled separately.
     if field.type == FD.TYPE_BYTES:
         return get_bytes_dec(field)(value)
     elif field.type == FD.TYPE_ENUM:

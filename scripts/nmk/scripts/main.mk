@@ -1,7 +1,7 @@
 ifndef ____nmk_defined__main
 
 #
-# Genaral inclusion statement
+# General inclusion statement
 
 ifndef ____nmk_defined__include
         include $(__nmk_dir)include.mk

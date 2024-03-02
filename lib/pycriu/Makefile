@@ -1,4 +1,4 @@
-all-y	+= libpy-images rpc_pb2.py
+all-y	+= libpy-images rpc_pb2.py version.py
 
 $(obj)/images/Makefile: ;
 $(obj)/images/%: .FORCE
@@ -11,7 +11,10 @@ libpy-images:
 rpc_pb2.py:
 	$(Q) protoc -I=images/ --python_out=$(obj) images/$(@:_pb2.py=.proto)
 
-cleanup-y	+= $(addprefix $(obj)/,rpc_pb2.py *.pyc)
+version.py:
+	$(Q) echo "__version__ = '${CRIU_VERSION}'" > $(obj)/$@
+
+cleanup-y	+= $(addprefix $(obj)/,rpc_pb2.py *.pyc version.py)
 
 clean-lib-py:
 	$(Q) $(MAKE) $(build)=$(obj)/images clean

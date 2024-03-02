@@ -6,9 +6,9 @@
 set -e
 set -x
 
-VAGRANT_VERSION=2.2.19
-FEDORA_VERSION=37
-FEDORA_BOX_VERSION=37.20221105.0
+VAGRANT_VERSION=2.3.7
+FEDORA_VERSION=38
+FEDORA_BOX_VERSION=38.20230413.1
 
 setup() {
 	if [ -n "$TRAVIS" ]; then
@@ -19,7 +19,7 @@ setup() {
 	# Tar up the git checkout to have vagrant rsync it to the VM
 	tar cf criu.tar ../../../criu
 	# Cirrus has problems with the following certificate.
-	wget --no-check-certificate https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_"$(uname -m)".deb -O /tmp/vagrant.deb && \
+	wget --no-check-certificate https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}-1_"$(dpkg --print-architecture)".deb -O /tmp/vagrant.deb && \
 		dpkg -i /tmp/vagrant.deb
 
 	./apt-install libvirt-clients libvirt-daemon-system libvirt-dev qemu-utils qemu \
@@ -38,8 +38,8 @@ setup() {
 	ssh default sudo dnf upgrade -y
 	ssh default sudo dnf install -y gcc git gnutls-devel nftables-devel libaio-devel \
 		libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make protobuf-c-devel \
-		protobuf-devel python3-flake8 python3-protobuf python3-importlib-metadata \
-		python3-junit_xml rubygem-asciidoctor iptables libselinux-devel libbpf-devel
+		protobuf-devel python3-protobuf python3-importlib-metadata python3-junit_xml \
+		rubygem-asciidoctor iptables libselinux-devel libbpf-devel
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	ssh default sudo systemctl mask sssd
 	ssh default cat /proc/cmdline
@@ -57,6 +57,11 @@ fedora-no-vdso() {
 }
 
 fedora-rawhide() {
+	# The 6.2 kernel of Fedora 38 in combination with rawhide userspace breaks
+	# zdtm/static/socket-tcp-nfconntrack. To activate the new kernel previously
+	# installed this reboots the VM.
+	vagrant reload
+	ssh default uname -a
 	#
 	# Workaround the problem:
 	# error running container: error from /usr/bin/crun creating container for [...]: sd-bus call: Transport endpoint is not connected
@@ -65,6 +70,10 @@ fedora-rawhide() {
 	#
 	ssh default 'sudo dnf remove -y crun || true'
 	ssh default sudo dnf install -y podman runc
+	# Some tests in the container need selinux to be disabled.
+	# In the container it is not possible to change the state of selinux.
+	# Let's just disable it for this test run completely.
+	ssh default 'sudo setenforce Permissive'
 	ssh default 'cd /vagrant; tar xf criu.tar; cd criu; sudo -E make -C scripts/ci fedora-rawhide CONTAINER_RUNTIME=podman BUILD_OPTIONS="--security-opt seccomp=unconfined"'
 }
 

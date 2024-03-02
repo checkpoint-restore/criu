@@ -182,4 +182,21 @@ void compel_set_thread_ip(struct parasite_thread_ctl *tctl, uint64_t v);
 
 extern void compel_get_stack(struct parasite_ctl *ctl, void **rstack, void **r_thread_stack);
 
+#ifndef compel_shstk_enabled
+static inline bool compel_shstk_enabled(user_fpregs_struct_t *ext_regs)
+{
+	return false;
+}
+#define compel_shstk_enabled
+#endif
+
+#ifndef parasite_setup_shstk
+static inline int parasite_setup_shstk(struct parasite_ctl *ctl,
+				       user_fpregs_struct_t *ext_regs)
+{
+	return 0;
+}
+#define parasite_setup_shstk parasite_setup_shstk
+#endif
+
 #endif
