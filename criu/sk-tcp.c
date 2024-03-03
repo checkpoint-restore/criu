@@ -205,6 +205,14 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 		tse.cork = true;
 	}
 
+	if (dump_opt(sk->rfd, SOL_TCP, TCP_QUICKACK, &aux))
+		goto err_opt;
+
+	if (aux) {
+		tse.has_quickack = true;
+		tse.quickack = true;
+	}
+
 	/*
 	 * Push the stuff to image
 	 */
@@ -406,6 +414,12 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	if (tse->has_cork && tse->cork) {
 		aux = 1;
 		if (restore_opt(sk, SOL_TCP, TCP_CORK, &aux))
+			goto err_c;
+	}
+
+	if (tse->has_quickack && tse->quickack) {
+		aux = 1;
+		if (restore_opt(sk, SOL_TCP, TCP_QUICKACK, &aux))
 			goto err_c;
 	}
 
