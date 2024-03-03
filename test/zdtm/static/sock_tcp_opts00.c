@@ -27,6 +27,7 @@ struct sk_opt {
 struct sk_opt tcp_sk_opts[] = {
 	{ SOL_TCP, TCP_CORK, TCP_OPT_VAL },
 	{ SOL_TCP, TCP_NODELAY, TCP_OPT_VAL },
+	{ SOL_TCP, TCP_QUICKACK, TCP_OPT_VAL },
 };
 
 struct sk_conf {
