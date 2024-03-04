@@ -3057,7 +3057,7 @@ static int validate_sched_parm(struct rst_sched_param *sp)
 	if ((sp->nice < -20) || (sp->nice > 19))
 		return 0;
 
-	switch (sp->policy) {
+	switch (sp->policy & ~SCHED_RESET_ON_FORK) {
 	case SCHED_RR:
 	case SCHED_FIFO:
 		return ((sp->prio > 0) && (sp->prio < 100));
