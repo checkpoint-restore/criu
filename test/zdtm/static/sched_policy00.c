@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 	}
 
 	p.sched_priority = param;
-	if (sched_setscheduler(pid, SCHED_RR, &p)) {
+	if (sched_setscheduler(pid, SCHED_RR | SCHED_RESET_ON_FORK, &p)) {
 		pr_perror("Can't set policy");
 		kill(pid, SIGKILL);
 		return -1;
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	ret = sched_getscheduler(pid);
-	if (ret != SCHED_RR) {
+	if (ret != (SCHED_RR | SCHED_RESET_ON_FORK)) {
 		fail("Broken/No policy");
 		err++;
 	}
