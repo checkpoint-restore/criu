@@ -87,6 +87,7 @@
 #include "apparmor.h"
 #include "asm/dump.h"
 #include "timer.h"
+#include "sigact.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
