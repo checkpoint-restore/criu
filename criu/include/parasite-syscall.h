@@ -21,8 +21,6 @@ struct rt_sigframe;
 struct parasite_ctl;
 struct parasite_thread_ctl;
 
-extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct pstree_item *);
-
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
 extern int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce);
 extern int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEntry *core);
