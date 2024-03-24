@@ -1057,7 +1057,7 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 			do {
 				if (pr->pe->vaddr + pr->pe->nr_pages * PAGE_SIZE <= vma->e->start)
 					continue;
-				if (pr->pe->vaddr > vma->e->end)
+				if (pr->pe->vaddr >= vma->e->end)
 					vma->e->status |= VMA_NO_PROT_WRITE;
 				break;
 			} while (pr->advance(pr));
