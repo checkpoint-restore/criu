@@ -2,25 +2,6 @@
 
 set -x -e -o pipefail
 
-./apt-install \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    software-properties-common
-
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-
-add-apt-repository \
-   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-   $(lsb_release -cs) \
-   stable test"
-
-# checkpoint/restore is broken in Docker Engine (Community) version 25.0.0-beta.1
-# https://github.com/moby/moby/discussions/46816
-# Downgrade to the latest stable version.
-VERSION_STRING=5:24.0.7-1~ubuntu.20.04~focal
-./apt-install docker-ce=$VERSION_STRING docker-ce-cli=$VERSION_STRING containerd.io docker-buildx-plugin docker-compose-plugin
-
 # docker checkpoint and restore is an experimental feature
 echo '{ "experimental": true }' > /etc/docker/daemon.json
 service docker restart
