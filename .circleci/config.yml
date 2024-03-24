@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   test-local-gcc:
     machine:
-      image: ubuntu-2004:202010-01
+      image: default
     working_directory: ~/criu
     steps:
       - checkout
@@ -11,7 +11,7 @@ jobs:
           command: sudo -E make -C scripts/ci local
   test-local-clang:
     machine:
-      image: ubuntu-2004:202010-01
+      image: default
     working_directory: ~/criu
     steps:
       - checkout
