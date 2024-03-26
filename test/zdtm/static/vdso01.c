@@ -372,7 +372,7 @@ static int vdso_time_handler(void *func)
 	t1 = time(NULL);
 	t2 = vdso_time(NULL);
 
-	test_msg("time: %li vdso_time: %li\n", (long)t1, (long)t1);
+	test_msg("time: %li vdso_time: %li\n", (long)t1, (long)t2);
 
 	if (labs(t1 - t2) > TIME_DELTA_SEC) {
 		pr_perror("Delta is too big");
