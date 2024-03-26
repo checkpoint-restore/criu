@@ -16,7 +16,7 @@ jobs:
     - name: Install tools
       run: sudo dnf -y install git make ruff xz clang-tools-extra which codespell git-clang-format ShellCheck
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set git safe directory
       # https://github.com/actions/checkout/issues/760

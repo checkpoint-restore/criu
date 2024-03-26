@@ -15,6 +15,6 @@ jobs:
         target: [GCC=1, CLANG=1]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Run Alpine ${{ matrix.target }} Test
       run: sudo -E make -C scripts/ci alpine ${{ matrix.target }}
