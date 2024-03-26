@@ -1052,6 +1052,7 @@ class criu:
         self.__sat = bool(opts['sat'])
         self.__dedup = bool(opts['dedup'])
         self.__mdedup = bool(opts['noauto_dedup'])
+        self.__skip_zero_pages = bool(opts['skip_zero_pages'])
         self.__user = bool(opts['user'])
         self.__rootless = bool(opts['rootless'])
         self.__leave_stopped = bool(opts['stop'])
@@ -1380,6 +1381,9 @@ class criu:
 
         if self.__dedup:
             a_opts += ["--auto-dedup"]
+
+        if self.__skip_zero_pages:
+            a_opts += ["--skip-zero-pages"]
 
         a_opts += ["--timeout", "10"]
 
@@ -2083,7 +2087,7 @@ class Launcher:
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode',
-              'rootless')
+              'rootless', 'skip_zero_pages')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
         if self.__use_log:
@@ -2696,6 +2700,9 @@ def get_cli_args():
                     action='store_true')
     rp.add_argument("--noauto-dedup",
                     help="Manual deduplicate images on iterations",
+                    action='store_true')
+    rp.add_argument("--skip-zero-pages",
+                    help="Don't dump pages containing only zero bytes",
                     action='store_true')
     rp.add_argument("--nocr",
                     help="Do not CR anything, just check test works",

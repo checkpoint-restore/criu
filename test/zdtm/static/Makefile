@@ -271,6 +271,7 @@ TST_NOFILE	:=				\
 		sigtrap01			\
 		change_mnt_context		\
 		fd_offset			\
+		zero_pages			\
 #		jobctl00			\
 
 PKG_CONFIG ?= pkg-config

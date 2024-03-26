@@ -369,6 +369,14 @@ mount -t cgroup -o devices,freezer none devices,freezer
     Deduplicate "old" data in pages images of previous *dump*. This option
     implies incremental *dump* mode (see the *pre-dump* command).
 
+*--skip-zero-pages*::
+    Don't dump pages containing only zero bytes. This is a
+    potentially expensive operation because it checks for
+    every single process page if it contains only zeros, but
+    it can significantly decrease the image size and improve the
+    startup-time if many such pages exist. It effectively
+    replaces such pages which the kernel's zero-page on restore.
+
 *-l*, *--file-locks*::
     Dump file locks. It is necessary to make sure that all file lock users
     are taken into dump, so it is only safe to use this for enclosed containers

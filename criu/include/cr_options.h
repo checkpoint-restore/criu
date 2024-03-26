@@ -157,6 +157,7 @@ struct cr_options {
 	int track_mem;
 	char *img_parent;
 	int auto_dedup;
+	int skip_zero_pages;
 	unsigned int cpu_cap;
 	int force_irmap;
 	char **exec_cmd;

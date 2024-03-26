@@ -112,7 +112,7 @@ public class CheckpointRestore {
 		String pid;
 		int exitCode;
 
-		System.out.println("======= Testing " + testName + " ========");
+		System.out.println("======= Testing " + testName + " " + checkpointOpt + " ========");
 
 		testSetup(testName);
 

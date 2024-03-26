@@ -387,6 +387,17 @@ void criu_set_auto_dedup(bool auto_dedup)
 	criu_local_set_auto_dedup(global_opts, auto_dedup);
 }
 
+void criu_local_set_skip_zero_pages(criu_opts *opts, bool skip_zero_pages)
+{
+	opts->rpc->has_skip_zero_pages = true;
+	opts->rpc->skip_zero_pages = skip_zero_pages;
+}
+
+void criu_set_skip_zero_pages(bool skip_zero_pages)
+{
+	criu_local_set_skip_zero_pages(global_opts, skip_zero_pages);
+}
+
 void criu_local_set_force_irmap(criu_opts *opts, bool force_irmap)
 {
 	opts->rpc->has_force_irmap = true;
