@@ -26,4 +26,6 @@ message tcp_stream_entry {
 	optional uint32		max_window	= 15;
 	optional uint32		rcv_wnd		= 16;
 	optional uint32		rcv_wup		= 17;
+
+	optional bool		quickack	= 18;
 }
