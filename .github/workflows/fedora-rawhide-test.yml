@@ -9,10 +9,10 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Run Fedora Rawhide Test
       # We need to pass environment variables from the CI environment to
       # distinguish between CI environments. However, we need to make sure that

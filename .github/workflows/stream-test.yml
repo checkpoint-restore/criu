@@ -9,9 +9,9 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Run CRIU Image Streamer Test
       run: sudo -E make -C scripts/ci local STREAM_TEST=1
