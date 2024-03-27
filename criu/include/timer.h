@@ -13,5 +13,5 @@ extern int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry
 
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *item);
 extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, struct parasite_ctl *ctl,
-				      struct pstree_item *item);
+					     struct pstree_item *item);
 #endif
