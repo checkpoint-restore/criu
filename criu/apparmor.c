@@ -622,13 +622,14 @@ static int do_suspend(bool suspend)
 int suspend_aa(void)
 {
 	int ret;
-	if (!mkdtemp(policydir)) {
+	char *tempdirname;
+	if (!(tempdirname = mkdtemp(policydir))) {
 		pr_perror("failed to make AA policy dir");
 		return -1;
 	}
 
 	ret = do_suspend(true);
-	if (rmrf(policydir) < 0)
+	if (rmrf(tempdirname) < 0)
 		pr_err("failed removing policy dir %s\n", policydir);
 
 	return ret;
