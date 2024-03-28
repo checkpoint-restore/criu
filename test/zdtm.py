@@ -899,6 +899,10 @@ class criu_cli:
             return cr
         return cr.wait(timeout=timeout)
 
+    @staticmethod
+    def exit_signal(ret):
+        return ret < 0
+
 
 class criu_rpc_process:
     def wait(self):
@@ -1018,8 +1022,11 @@ class criu_rpc:
             else:
                 raise test_fail_exc('RPC for %s required' % action)
         except crpc.CRIUExceptionExternal as e:
-            print("Fail", e)
-            ret = -1
+            if e.typ != e.resp_typ:
+                ret = -2
+            else:
+                print("Fail", e)
+                ret = -1
         else:
             ret = 0
 
@@ -1031,6 +1038,10 @@ class criu_rpc:
             return p
 
         return ret
+
+    @staticmethod
+    def exit_signal(ret):
+        return ret == -2
 
 
 class criu:
@@ -1233,8 +1244,8 @@ class criu:
                     return
             rst_succeeded = os.access(
                 os.path.join(__ddir, "restore-succeeded"), os.F_OK)
-            if self.__test.blocking() or (self.__sat and action == 'restore' and
-                                          rst_succeeded):
+            if (self.__test.blocking() and not self.__criu.exit_signal(ret)) or \
+               (self.__sat and action == 'restore' and rst_succeeded):
                 raise test_fail_expected_exc(action)
             else:
                 raise test_fail_exc("CRIU %s" % action)
