@@ -41,3 +41,7 @@ class criu_config:
         if nowait:
             return cr
         return cr.wait()
+
+    @staticmethod
+    def exit_signal(ret):
+        return ret < 0
