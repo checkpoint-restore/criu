@@ -86,6 +86,7 @@
 #include "pidfd-store.h"
 #include "apparmor.h"
 #include "asm/dump.h"
+#include "timer.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -157,6 +158,11 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 	tc->has_sched_policy = true;
 	tc->sched_policy = ret;
 
+	/* The reset-on-fork flag might be used in combination
+	 * with SCHED_FIFO or SCHED_RR to reset the scheduling
+	 * policy/priority in child processes.
+	 */
+	ret &= ~SCHED_RESET_ON_FORK;
 	if ((ret == SCHED_RR) || (ret == SCHED_FIFO)) {
 		ret = syscall(__NR_sched_getparam, pid, &sp);
 		if (ret < 0) {
