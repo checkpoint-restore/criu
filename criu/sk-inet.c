@@ -581,6 +581,11 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 
 	switch (proto) {
 	case IPPROTO_TCP:
+		TcpOptsEntry tcpopts = TCP_OPTS_ENTRY__INIT;
+		ie.tcp_opts = &tcpopts;
+		if (dump_tcp_opts(lfd, &tcpopts))
+			goto err;
+
 		err = (type != SOCK_RAW) ? dump_one_tcp(lfd, sk, &skopts) : 0;
 		if (sk->shutdown)
 			sk_encode_shutdown(&ie, sk->shutdown);
@@ -937,6 +942,9 @@ done:
 		goto err;
 
 	if (restore_socket_opts(sk, ie->opts))
+		goto err;
+
+	if (ie->proto == IPPROTO_TCP && restore_tcp_opts(sk, ie->tcp_opts))
 		goto err;
 
 	if (ie->has_shutdown &&

@@ -4,6 +4,15 @@ syntax = "proto2";
 
 import "opts.proto";
 
+message tcp_opts_entry {
+	optional bool		cork		= 1;
+	optional bool		nodelay		= 2;
+	optional bool		quickack	= 3;
+	optional uint32		keepcnt		= 4;
+	optional uint32		keepidle	= 5;
+	optional uint32		keepintvl	= 6;
+}
+
 message tcp_stream_entry {
 	required uint32		inq_len		= 1;
 	required uint32		inq_seq		= 2;
@@ -16,9 +25,6 @@ message tcp_stream_entry {
 	optional uint32		rcv_wscale	= 8;
 	optional uint32		timestamp	= 9;
 
-	optional bool		cork		= 10;
-	optional bool		nodelay		= 11;
-
 	optional uint32		unsq_len	= 12; /* unsent data in the send queue */
 
 	optional uint32		snd_wl1		= 13;
@@ -26,6 +32,4 @@ message tcp_stream_entry {
 	optional uint32		max_window	= 15;
 	optional uint32		rcv_wnd		= 16;
 	optional uint32		rcv_wup		= 17;
-
-	optional bool		quickack	= 18;
 }

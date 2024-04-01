@@ -135,7 +135,7 @@ void cpt_unlock_tcp_connections(void)
 static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 {
 	struct libsoccr_sk *socr = sk->priv;
-	int ret, aux;
+	int ret;
 	struct cr_img *img;
 	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
 	char *buf;
@@ -186,34 +186,6 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	}
 
 	/*
-	 * TCP socket options
-	 */
-
-	if (dump_opt(sk->rfd, SOL_TCP, TCP_NODELAY, &aux))
-		goto err_opt;
-
-	if (aux) {
-		tse.has_nodelay = true;
-		tse.nodelay = true;
-	}
-
-	if (dump_opt(sk->rfd, SOL_TCP, TCP_CORK, &aux))
-		goto err_opt;
-
-	if (aux) {
-		tse.has_cork = true;
-		tse.cork = true;
-	}
-
-	if (dump_opt(sk->rfd, SOL_TCP, TCP_QUICKACK, &aux))
-		goto err_opt;
-
-	if (aux) {
-		tse.has_quickack = true;
-		tse.quickack = true;
-	}
-
-	/*
 	 * Push the stuff to image
 	 */
 
@@ -247,31 +219,12 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 err_iw:
 	close_image(img);
 err_img:
-err_opt:
 err_r:
 	return ret;
 }
 
 int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
 {
-	soe->has_tcp_keepcnt = true;
-	if (dump_opt(fd, SOL_TCP, TCP_KEEPCNT, &soe->tcp_keepcnt)) {
-		pr_perror("Can't read TCP_KEEPCNT");
-		return -1;
-	}
-
-	soe->has_tcp_keepidle = true;
-	if (dump_opt(fd, SOL_TCP, TCP_KEEPIDLE, &soe->tcp_keepidle)) {
-		pr_perror("Can't read TCP_KEEPIDLE");
-		return -1;
-	}
-
-	soe->has_tcp_keepintvl = true;
-	if (dump_opt(fd, SOL_TCP, TCP_KEEPINTVL, &soe->tcp_keepintvl)) {
-		pr_perror("Can't read TCP_KEEPINTVL");
-		return -1;
-	}
-
 	if (sk->dst_port == 0)
 		return 0;
 
@@ -291,6 +244,61 @@ int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
 	 * Socket is left in repair mode, so that at the end it's just
 	 * closed and the connection is silently terminated
 	 */
+	return 0;
+}
+
+int dump_tcp_opts(int fd, TcpOptsEntry *toe)
+{
+	int aux;
+
+	toe->has_keepcnt = true;
+	if (dump_opt(fd, SOL_TCP, TCP_KEEPCNT, &toe->keepcnt)) {
+		pr_perror("Can't read TCP_KEEPCNT");
+		return -1;
+	}
+
+	toe->has_keepidle = true;
+	if (dump_opt(fd, SOL_TCP, TCP_KEEPIDLE, &toe->keepidle)) {
+		pr_perror("Can't read TCP_KEEPIDLE");
+		return -1;
+	}
+
+	toe->has_keepintvl = true;
+	if (dump_opt(fd, SOL_TCP, TCP_KEEPINTVL, &toe->keepintvl)) {
+		pr_perror("Can't read TCP_KEEPINTVL");
+		return -1;
+	}
+
+	if (dump_opt(fd, SOL_TCP, TCP_NODELAY, &aux)) {
+		pr_perror("Can't read TCP_NODELAY");
+		return -1;
+	}
+
+	if (aux) {
+		toe->has_nodelay = true;
+		toe->nodelay = true;
+	}
+
+	if (dump_opt(fd, SOL_TCP, TCP_CORK, &aux)) {
+		pr_perror("Can't read TCP_CORK");
+		return -1;
+	}
+
+	if (aux) {
+		toe->has_cork = true;
+		toe->cork = true;
+	}
+
+	if (dump_opt(fd, SOL_TCP, TCP_QUICKACK, &aux)) {
+		pr_perror("Can't read TCP_QUICKACK");
+		return -1;
+	}
+
+	if (aux) {
+		toe->has_quickack = true;
+		toe->quickack = true;
+	}
+
 	return 0;
 }
 
@@ -329,7 +337,6 @@ static int read_tcp_queues(struct libsoccr_sk *sk, struct libsoccr_sk_data *data
 
 static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_sk_info *ii)
 {
-	int aux;
 	struct cr_img *img;
 	TcpStreamEntry *tse;
 	struct libsoccr_sk_data data = {};
@@ -405,24 +412,6 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	if (libsoccr_restore(socr, &data, sizeof(data)))
 		goto err_c;
 
-	if (tse->has_nodelay && tse->nodelay) {
-		aux = 1;
-		if (restore_opt(sk, SOL_TCP, TCP_NODELAY, &aux))
-			goto err_c;
-	}
-
-	if (tse->has_cork && tse->cork) {
-		aux = 1;
-		if (restore_opt(sk, SOL_TCP, TCP_CORK, &aux))
-			goto err_c;
-	}
-
-	if (tse->has_quickack && tse->quickack) {
-		aux = 1;
-		if (restore_opt(sk, SOL_TCP, TCP_QUICKACK, &aux))
-			goto err_c;
-	}
-
 	tcp_stream_entry__free_unpacked(tse, NULL);
 	close_image(img);
 	return 0;
@@ -460,6 +449,46 @@ int prepare_tcp_socks(struct task_restore_args *ta)
 		ta->tcp_socks_n++;
 	}
 
+	return 0;
+}
+
+int restore_tcp_opts(int sk, TcpOptsEntry *toe)
+{
+	int aux;
+
+	if (toe->has_nodelay && toe->nodelay) {
+		aux = 1;
+		if (restore_opt(sk, SOL_TCP, TCP_NODELAY, &aux))
+			return -1;
+	}
+
+	if (toe->has_cork && toe->cork) {
+		aux = 1;
+		if (restore_opt(sk, SOL_TCP, TCP_CORK, &aux))
+			return -1;
+	}
+
+	if (toe->has_quickack && toe->quickack) {
+		aux = 1;
+		if (restore_opt(sk, SOL_TCP, TCP_QUICKACK, &aux))
+			return -1;
+	}
+
+	if (toe->has_keepcnt) {
+		pr_debug("\tset keepcnt for socket\n");
+		if (restore_opt(sk, SOL_TCP, TCP_KEEPCNT, &toe->keepcnt))
+			return -1;
+	}
+	if (toe->has_keepidle) {
+		pr_debug("\tset keepidle for socket\n");
+		if (restore_opt(sk, SOL_TCP, TCP_KEEPIDLE, &toe->keepidle))
+			return -1;
+	}
+	if (toe->has_keepintvl) {
+		pr_debug("\tset keepintvl for socket\n");
+		if (restore_opt(sk, SOL_TCP, TCP_KEEPINTVL, &toe->keepintvl))
+			return -1;
+	}
 	return 0;
 }
 
