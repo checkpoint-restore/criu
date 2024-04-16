@@ -135,6 +135,7 @@ void cpt_unlock_tcp_connections(void)
 static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 {
 	struct libsoccr_sk *socr = sk->priv;
+	int exit_code = -1;
 	int ret, aux;
 	struct cr_img *img;
 	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
@@ -144,11 +145,11 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	ret = libsoccr_save(socr, &data, sizeof(data));
 	if (ret < 0) {
 		pr_err("libsoccr_save() failed with %d\n", ret);
-		goto err_r;
+		goto err;
 	}
 	if (ret != sizeof(data)) {
 		pr_err("This libsocr is not supported (%d vs %d)\n", ret, (int)sizeof(data));
-		goto err_r;
+		goto err;
 	}
 
 	sk->state = data.state;
@@ -190,7 +191,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	 */
 
 	if (dump_opt(sk->rfd, SOL_TCP, TCP_NODELAY, &aux))
-		goto err_opt;
+		goto err;
 
 	if (aux) {
 		tse.has_nodelay = true;
@@ -198,7 +199,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	}
 
 	if (dump_opt(sk->rfd, SOL_TCP, TCP_CORK, &aux))
-		goto err_opt;
+		goto err;
 
 	if (aux) {
 		tse.has_cork = true;
@@ -208,20 +209,19 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	/*
 	 * Push the stuff to image
 	 */
-
 	img = open_image(CR_FD_TCP_STREAM, O_DUMP, sk->sd.ino);
 	if (!img)
-		goto err_img;
+		goto err;
 
 	ret = pb_write_one(img, &tse, PB_TCP_STREAM);
 	if (ret < 0)
-		goto err_iw;
+		goto err_close;
 
 	buf = libsoccr_get_queue_bytes(socr, TCP_RECV_QUEUE, SOCCR_MEM_EXCL);
 	if (buf) {
 		ret = write_img_buf(img, buf, tse.inq_len);
 		if (ret < 0)
-			goto err_iw;
+			goto err_close;
 
 		xfree(buf);
 	}
@@ -230,18 +230,17 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	if (buf) {
 		ret = write_img_buf(img, buf, tse.outq_len);
 		if (ret < 0)
-			goto err_iw;
+			goto err_close;
 
 		xfree(buf);
 	}
 
 	pr_info("Done\n");
-err_iw:
+	exit_code = 0;
+err_close:
 	close_image(img);
-err_img:
-err_opt:
-err_r:
-	return ret;
+err:
+	return exit_code;
 }
 
 int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
