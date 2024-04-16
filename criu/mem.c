@@ -1087,6 +1087,7 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 	unsigned int nr_shared = 0;
 	unsigned int nr_dropped = 0;
 	unsigned int nr_compared = 0;
+	unsigned int nr_enqueued = 0;
 	unsigned int nr_lazy = 0;
 	unsigned long va;
 
@@ -1162,7 +1163,8 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 				len >>= PAGE_SHIFT;
 				nr_restored += len;
 				i += len - 1;
-				pr_debug("Enqueue page-read\n");
+
+				nr_enqueued++;
 				continue;
 			}
 
@@ -1258,7 +1260,8 @@ err_read:
 
 	pr_info("nr_restored_pages: %d\n", nr_restored);
 	pr_info("nr_shared_pages:   %d\n", nr_shared);
-	pr_info("nr_dropped_pages:   %d\n", nr_dropped);
+	pr_info("nr_dropped_pages:  %d\n", nr_dropped);
+	pr_info("nr_enqueued:       %d\n", nr_enqueued);
 	pr_info("nr_lazy:           %d\n", nr_lazy);
 
 	return 0;
