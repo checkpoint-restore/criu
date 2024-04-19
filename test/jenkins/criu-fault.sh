@@ -39,3 +39,7 @@ fi
 ./test/zdtm.py run -t zdtm/static/fpu03 --fault 134 -f h --norst || fail
 # also check for the main thread corruption
 ./test/zdtm.py run -t zdtm/static/fpu00 --fault 134 -f h --norst || fail
+
+if ./test/zdtm.py run -t zdtm/static/vfork00 --fault 136 --report report -f h ; then
+	fail
+fi
