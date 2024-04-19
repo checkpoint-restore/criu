@@ -2101,6 +2101,10 @@ static int cr_dump_finish(int ret)
 	close_image_dir();
 
 	if (ret || post_dump_ret) {
+		if (fault_injected(FI_DUMP_CRASH)) {
+			pr_info("fault: CRIU dump crashed!\n");
+			abort();
+		}
 		pr_err("Dumping FAILED.\n");
 	} else {
 		write_stats(DUMP_STATS);
