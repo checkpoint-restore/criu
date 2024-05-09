@@ -1602,7 +1602,9 @@ static int __has_nftables_concat(void *arg)
 		return 1;
 
 	if (NFT_RUN_CMD(nft, "create table inet CRIU")) {
-		pr_err("Can't create nftables table\n");
+		pr_warn("Can't create nftables table\n");
+		*has = false; /* kdat.has_nftables_concat = false */
+		ret = 0;
 		goto nft_ctx_free_out;
 	}
 
