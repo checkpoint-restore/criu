@@ -136,7 +136,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 {
 	struct libsoccr_sk *socr = sk->priv;
 	int exit_code = -1;
-	int ret, aux;
+	int ret;
 	struct cr_img *img;
 	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
 	char *buf;
@@ -187,26 +187,6 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	}
 
 	/*
-	 * TCP socket options
-	 */
-
-	if (dump_opt(sk->rfd, SOL_TCP, TCP_NODELAY, &aux))
-		goto err;
-
-	if (aux) {
-		tse.has_nodelay = true;
-		tse.nodelay = true;
-	}
-
-	if (dump_opt(sk->rfd, SOL_TCP, TCP_CORK, &aux))
-		goto err;
-
-	if (aux) {
-		tse.has_cork = true;
-		tse.cork = true;
-	}
-
-	/*
 	 * Push the stuff to image
 	 */
 	img = open_image(CR_FD_TCP_STREAM, O_DUMP, sk->sd.ino);
@@ -241,6 +221,19 @@ err_close:
 	close_image(img);
 err:
 	return exit_code;
+}
+
+int dump_tcp_opts(int fd, TcpOptsEntry *toe)
+{
+	int ret = 0;
+
+	ret |= dump_opt(fd, SOL_TCP, TCP_NODELAY, &toe->nodelay);
+	ret |= dump_opt(fd, SOL_TCP, TCP_CORK, &toe->cork);
+
+	toe->has_nodelay = !!toe->nodelay;
+	toe->has_cork = !!toe->cork;
+
+	return ret;
 }
 
 int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
@@ -396,6 +389,11 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	if (libsoccr_restore(socr, &data, sizeof(data)))
 		goto err_c;
 
+	/*
+	 * Restoring TCP socket options in TcpStreamEntry is
+	 * for backward compatibility only, newer versions
+	 * of CRIU use TcpOptsEntry.
+	 */
 	if (tse->has_nodelay && tse->nodelay) {
 		aux = 1;
 		if (restore_opt(sk, SOL_TCP, TCP_NODELAY, &aux))
@@ -446,6 +444,21 @@ int prepare_tcp_socks(struct task_restore_args *ta)
 	}
 
 	return 0;
+}
+
+int restore_tcp_opts(int sk, TcpOptsEntry *toe)
+{
+	int ret = 0;
+
+	if(!toe)
+		return ret;
+
+	if (toe->has_nodelay)
+		ret |= restore_opt(sk, SOL_TCP, TCP_NODELAY, &toe->nodelay);
+	if (toe->has_cork)
+		ret |= restore_opt(sk, SOL_TCP, TCP_CORK, &toe->cork);
+
+	return ret;
 }
 
 int restore_one_tcp(int fd, struct inet_sk_info *ii)
