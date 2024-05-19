@@ -585,6 +585,12 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 		pr_debug("\tset keepalive for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_KEEPALIVE, &val);
 	}
+
+	/*
+	 * Restoring TCP socket options in SkOptsEntry is
+	 * for backward compatibility only, newer versions
+	 * of CRIU use TcpOptsEntry.
+	 */
 	if (soe->has_tcp_keepcnt) {
 		pr_debug("\tset keepcnt for socket\n");
 		ret |= restore_opt(sk, SOL_TCP, TCP_KEEPCNT, &soe->tcp_keepcnt);
