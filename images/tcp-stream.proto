@@ -7,6 +7,9 @@ import "opts.proto";
 message tcp_opts_entry {
 	optional bool		cork		= 1;
 	optional bool		nodelay		= 2;
+	optional uint32		keepcnt		= 3;
+	optional uint32		keepidle	= 4;
+	optional uint32		keepintvl	= 5;
 }
 
 message tcp_stream_entry {
