@@ -229,33 +229,21 @@ int dump_tcp_opts(int fd, TcpOptsEntry *toe)
 
 	ret |= dump_opt(fd, SOL_TCP, TCP_NODELAY, &toe->nodelay);
 	ret |= dump_opt(fd, SOL_TCP, TCP_CORK, &toe->cork);
+	ret |= dump_opt(fd, SOL_TCP, TCP_KEEPCNT, &toe->keepcnt);
+	ret |= dump_opt(fd, SOL_TCP, TCP_KEEPIDLE, &toe->keepidle);
+	ret |= dump_opt(fd, SOL_TCP, TCP_KEEPINTVL, &toe->keepintvl);
 
 	toe->has_nodelay = !!toe->nodelay;
 	toe->has_cork = !!toe->cork;
+	toe->has_keepcnt = !!toe->keepcnt;
+	toe->has_keepidle = !!toe->keepidle;
+	toe->has_keepintvl = !!toe->keepintvl;
 
 	return ret;
 }
 
 int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
 {
-	soe->has_tcp_keepcnt = true;
-	if (dump_opt(fd, SOL_TCP, TCP_KEEPCNT, &soe->tcp_keepcnt)) {
-		pr_perror("Can't read TCP_KEEPCNT");
-		return -1;
-	}
-
-	soe->has_tcp_keepidle = true;
-	if (dump_opt(fd, SOL_TCP, TCP_KEEPIDLE, &soe->tcp_keepidle)) {
-		pr_perror("Can't read TCP_KEEPIDLE");
-		return -1;
-	}
-
-	soe->has_tcp_keepintvl = true;
-	if (dump_opt(fd, SOL_TCP, TCP_KEEPINTVL, &soe->tcp_keepintvl)) {
-		pr_perror("Can't read TCP_KEEPINTVL");
-		return -1;
-	}
-
 	if (sk->dst_port == 0)
 		return 0;
 
@@ -457,6 +445,12 @@ int restore_tcp_opts(int sk, TcpOptsEntry *toe)
 		ret |= restore_opt(sk, SOL_TCP, TCP_NODELAY, &toe->nodelay);
 	if (toe->has_cork)
 		ret |= restore_opt(sk, SOL_TCP, TCP_CORK, &toe->cork);
+	if (toe->has_keepcnt)
+		ret |= restore_opt(sk, SOL_TCP, TCP_KEEPCNT, &toe->keepcnt);
+	if (toe->has_keepidle)
+		ret |= restore_opt(sk, SOL_TCP, TCP_KEEPIDLE, &toe->keepidle);
+	if (toe->has_keepintvl)
+		ret |= restore_opt(sk, SOL_TCP, TCP_KEEPINTVL, &toe->keepintvl);
 
 	return ret;
 }
