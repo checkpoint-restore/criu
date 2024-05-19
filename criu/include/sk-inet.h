@@ -87,6 +87,9 @@ extern void cpt_unlock_tcp_connections(void);
 extern int dump_one_tcp(int sk, struct inet_sk_desc *sd, SkOptsEntry *soe);
 extern int restore_one_tcp(int sk, struct inet_sk_info *si);
 
+extern int dump_tcp_opts(int sk, TcpOptsEntry *toe);
+extern int restore_tcp_opts(int sk, TcpOptsEntry *toe);
+
 #define SK_EST_PARAM	  "tcp-established"
 #define SK_INFLIGHT_PARAM "skip-in-flight"
 #define SK_CLOSE_PARAM	  "tcp-close"

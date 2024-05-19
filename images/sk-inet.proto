@@ -5,6 +5,7 @@ syntax = "proto2";
 import "opts.proto";
 import "fown.proto";
 import "sk-opts.proto";
+import "tcp-stream.proto";
 
 message ip_opts_raw_entry {
 	optional bool			hdrincl		= 1;
@@ -56,4 +57,5 @@ message inet_sk_entry {
 	optional string			ifname		= 17;
 	optional uint32			ns_id		= 18;
 	optional sk_shutdown		shutdown	= 19;
+	optional tcp_opts_entry		tcp_opts	= 20;
 }
