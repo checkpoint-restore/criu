@@ -454,6 +454,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	IpOptsEntry ipopts = IP_OPTS_ENTRY__INIT;
 	IpOptsRawEntry ipopts_raw = IP_OPTS_RAW_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
+	TcpOptsEntry tcpopts = TCP_OPTS_ENTRY__INIT;
 	int ret = -1, err = -1, proto, aux, type;
 
 	ret = do_dump_opt(lfd, SOL_SOCKET, SO_PROTOCOL, &proto, sizeof(proto));
@@ -521,6 +522,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	ie.opts = &skopts;
 	ie.ip_opts = &ipopts;
 	ie.ip_opts->raw = &ipopts_raw;
+	ie.tcp_opts = &tcpopts;
 
 	ie.n_src_addr = PB_ALEN_INET;
 	ie.n_dst_addr = PB_ALEN_INET;
@@ -581,9 +583,20 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 
 	switch (proto) {
 	case IPPROTO_TCP:
-		err = (type != SOCK_RAW) ? dump_one_tcp(lfd, sk, &skopts) : 0;
 		if (sk->shutdown)
 			sk_encode_shutdown(&ie, sk->shutdown);
+
+		if (type == SOCK_RAW) {
+			err = 0;
+		} else {
+			err = dump_tcp_opts(lfd, &tcpopts);
+			if (err < 0)
+				goto err;
+
+			err = dump_one_tcp(lfd, sk, &skopts);
+			if (err < 0)
+				goto err;
+		}
 		break;
 	case IPPROTO_UDP:
 	case IPPROTO_UDPLITE:
@@ -937,6 +950,9 @@ done:
 		goto err;
 
 	if (restore_socket_opts(sk, ie->opts))
+		goto err;
+
+	if (ie->proto == IPPROTO_TCP && restore_tcp_opts(sk, ie->tcp_opts))
 		goto err;
 
 	if (ie->has_shutdown &&
