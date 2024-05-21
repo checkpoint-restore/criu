@@ -45,10 +45,6 @@ zdtm-freezer:
 	./zdtm.py run --test zdtm/transition/thread-bomb --pre 3 --freezecg zdtm:f
 .PHONY: zdtm-freezer
 
-fault-injection:
-	$(MAKE) -C fault-injection
-.PHONY: fault-injection
-
 override CFLAGS += -D_GNU_SOURCE
 
 clean_root:
