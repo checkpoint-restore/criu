@@ -29,6 +29,29 @@ LIBDIR ?= $(PREFIX)/lib
 export PREFIX BINDIR SBINDIR MANDIR RUNDIR
 export LIBDIR INCLUDEDIR LIBEXECDIR PLUGINDIR
 
+# Detect externally managed Python environment (PEP 668).
+PYTHON_EXTERNALLY_MANAGED := $(shell $(PYTHON) -c 'import os, sysconfig; print(int(os.path.isfile(os.path.join(sysconfig.get_path("stdlib"), "EXTERNALLY-MANAGED"))))')
+PIP_BREAK_SYSTEM_PACKAGES ?= 0
+
+# If Python environment is externally managed and PIP_BREAK_SYSTEM_PACKAGES is not set, skip pip install.
+SKIP_PIP_INSTALL := 0
+ifeq ($(PYTHON_EXTERNALLY_MANAGED),1)
+ifeq ($(PIP_BREAK_SYSTEM_PACKAGES),0)
+
+SKIP_PIP_INSTALL := 1
+$(info Warn: Externally managed python environment)
+$(info Consider using PIP_BREAK_SYSTEM_PACKAGES=1)
+
+endif
+endif
+
+# Default flags for pip install:
+# --upgrade: Upgrade crit/pycriu packages
+# --ignore-installed: Ignore existing packages and reinstall them
+PIPFLAGS ?= --upgrade --ignore-installed
+
+export SKIP_PIP_INSTALL PIPFLAGS
+
 install-man:
 	$(Q) $(MAKE) -C Documentation install
 .PHONY: install-man
