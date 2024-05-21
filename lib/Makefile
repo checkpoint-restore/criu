@@ -4,9 +4,6 @@ UAPI_HEADERS		:= lib/c/criu.h images/rpc.proto images/rpc.pb-c.h criu/include/ve
 
 all-y	+= lib-c lib-a lib-py
 
-PYTHON_EXTERNALLY_MANAGED := $(shell $(PYTHON) -c 'import os, sysconfig; print(int(os.path.isfile(os.path.join(sysconfig.get_path("stdlib"), "EXTERNALLY-MANAGED"))))')
-PIP_BREAK_SYSTEM_PACKAGES := 0
-
 #
 # C language bindings.
 lib/c/Makefile: ;
@@ -57,17 +54,11 @@ install: lib-c lib-a lib-py lib/c/criu.pc.in
 	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
 	$(Q) sed -e 's,@version@,$(CRIU_VERSION),' -e 's,@libdir@,$(LIBDIR),' -e 's,@includedir@,$(dir $(INCLUDEDIR)/criu/),' lib/c/criu.pc.in > lib/c/criu.pc
 	$(Q) install -m 644 lib/c/criu.pc $(DESTDIR)$(LIBDIR)/pkgconfig
-ifeq ($(PYTHON_EXTERNALLY_MANAGED),1)
-ifeq ($(PIP_BREAK_SYSTEM_PACKAGES),0)
-	$(E) "  SKIP INSTALL pycriu: Externally managed python environment (See PEP 668 for more information)"
-	$(E) "  Consider using PIP_BREAK_SYSTEM_PACKAGES=1 make install"
-else
+ifeq ($(SKIP_PIP_INSTALL),0)
 	$(E) "  INSTALL " pycriu
-	$(Q) $(PYTHON) -m pip install --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./lib
-endif
+	$(Q) $(PYTHON) -m pip install $(PIPFLAGS) --prefix=$(DESTDIR)$(PREFIX) ./lib
 else
-	$(E) "  INSTALL " pycriu
-	$(Q) $(PYTHON) -m pip install --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./lib
+	$(E) " SKIP INSTALL pycriu"
 endif
 .PHONY: install
 
@@ -80,16 +71,10 @@ uninstall:
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/criu/,$(notdir $(UAPI_HEADERS)))
 	$(E) " UNINSTALL" pkgconfig/criu.pc
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/pkgconfig/,criu.pc)
-ifeq ($(PYTHON_EXTERNALLY_MANAGED),1)
-ifeq ($(PIP_BREAK_SYSTEM_PACKAGES),0)
-	$(E) " SKIP UNINSTALL pycriu: Externally managed python environment (See PEP 668 for more information)"
-	$(E) " Consider using PIP_BREAK_SYSTEM_PACKAGES=1 make uninstall"
-else
+ifeq ($(SKIP_PIP_INSTALL),0)
 	$(E) " UNINSTALL" pycriu
 	$(Q) $(PYTHON) ./scripts/uninstall_module.py --prefix=$(DESTDIR)$(PREFIX) pycriu
-endif
 else
-	$(E) " UNINSTALL" pycriu
-	$(Q) $(PYTHON) ./scripts/uninstall_module.py --prefix=$(DESTDIR)$(PREFIX) pycriu
+	$(E) " SKIP UNINSTALL pycriu"
 endif
 .PHONY: uninstall
