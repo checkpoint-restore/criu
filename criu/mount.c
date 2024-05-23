@@ -98,7 +98,7 @@ static char *ext_mount_lookup(char *key)
 	int len = strlen(key);
 	char mkey[len + 6];
 
-	sprintf(mkey, "mnt[%s]", key);
+	snprintf(mkey, sizeof(mkey), "mnt[%s]", key);
 	v = external_lookup_by_key(mkey);
 	if (IS_ERR(v))
 		v = NULL;
