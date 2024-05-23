@@ -165,7 +165,7 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 
 int pmc_fill(pmc_t *pmc, u64 start, u64 end)
 {
-	size_t size_map;
+	size_t size_map, off;
 
 	pmc->start = start;
 	pmc->end = end;
@@ -204,10 +204,17 @@ int pmc_fill(pmc_t *pmc, u64 start, u64 end)
 		pmc->regs_idx = 0;
 		pmc->end = args.walk_end;
 	} else {
-		if (pread(pmc->fd, pmc->map, size_map, PAGEMAP_PFN_OFF(pmc->start)) != size_map) {
-			pmc_zap(pmc);
-			pr_perror("Can't read %d's pagemap file", pmc->pid);
-			return -1;
+		for (off = 0; off != size_map;) {
+			ssize_t ret;
+			char *ptr = (char *)pmc->map;
+
+			ret = pread(pmc->fd, ptr + off, size_map - off, PAGEMAP_PFN_OFF(pmc->start) + off);
+			if (ret == -1) {
+				pmc_zap(pmc);
+				pr_perror("Can't read %d's pagemap file", pmc->pid);
+				return -1;
+			}
+			off += ret;
 		}
 	}
 
