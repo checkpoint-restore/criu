@@ -32,6 +32,14 @@ from zdtm.criu_config import criu_config
 # File to store content of streamed images
 STREAMED_IMG_FILE_NAME = "img.criu"
 
+# A library used to preload C functions to simulate
+# cases such as partial read with pread().
+LIBFAULT_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "libfault",
+    "libfault.so"
+)
+
 prev_line = None
 uuid = uuid.uuid4()
 
@@ -628,6 +636,8 @@ class zdtm_test:
                 ["make", "zdtm_ct"], env=dict(os.environ, MAKEFLAGS=""))
         if not os.access("zdtm/lib/libzdtmtst.a", os.F_OK):
             subprocess.check_call(["make", "-C", "zdtm/"])
+        if 'preload_libfault' in opts and opts['preload_libfault']:
+            subprocess.check_call(["make", "-C", "libfault/"])
         if 'rootless' in opts and opts['rootless']:
             return
         subprocess.check_call(
@@ -880,6 +890,7 @@ class criu_cli:
             fault=None,
             strace=[],
             preexec=None,
+            preload_libfault=False,
             nowait=False,
             timeout=60):
         env = dict(
@@ -889,6 +900,9 @@ class criu_cli:
         if fault:
             print("Forcing %s fault" % fault)
             env['CRIU_FAULT'] = fault
+
+        if preload_libfault:
+            env['LD_PRELOAD'] = LIBFAULT_PATH
 
         cr = subprocess.Popen(strace +
                               [criu_bin, action, "--no-default-config"] + args,
@@ -980,6 +994,7 @@ class criu_rpc:
             fault=None,
             strace=[],
             preexec=None,
+            preload_libfault=False,
             nowait=False,
             timeout=None):
         if fault:
@@ -1065,6 +1080,7 @@ class criu:
         self.__criu_bin = opts['criu_bin']
         self.__crit_bin = opts['crit_bin']
         self.__pre_dump_mode = opts['pre_dump_mode']
+        self.__preload_libfault = bool(opts['preload_libfault'])
         self.__mntns_compat_mode = bool(opts['mntns_compat_mode'])
 
         if opts['rpc']:
@@ -1192,8 +1208,10 @@ class criu:
         with open("/proc/sys/kernel/ns_last_pid") as ns_last_pid_fd:
             ns_last_pid = ns_last_pid_fd.read()
 
+        preload_libfault = self.__preload_libfault and action in ['dump', 'pre-dump', 'restore']
+
         ret = self.__criu.run(action, s_args, self.__criu_bin, self.__fault,
-                              strace, preexec, nowait)
+                              strace, preexec, preload_libfault, nowait)
 
         if nowait:
             os.close(status_fds[1])
@@ -2083,7 +2101,7 @@ class Launcher:
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode',
-              'rootless')
+              'rootless', 'preload_libfault')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
         if self.__use_log:
@@ -2788,6 +2806,7 @@ def get_cli_args():
                     help="Select tests for a shard <index> (0-based)")
     rp.add_argument("--test-shard-count", type=int, default=0,
                     help="Specify how many shards are being run (0=sharding disabled; must be the same for all shards)")
+    rp.add_argument("--preload-libfault", action="store_true", help="Run criu with library preload to simulate special cases")
 
     lp = sp.add_parser("list", help="List tests")
     lp.set_defaults(action=list_tests)
