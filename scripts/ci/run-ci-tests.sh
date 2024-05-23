@@ -262,6 +262,9 @@ make -C test/others/rpc/ run
 
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
 
+./test/zdtm.py run -t zdtm/static/maps00 --preload-libfault
+./test/zdtm.py run -t zdtm/static/maps02 --preload-libfault
+
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --dedup
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --noauto-dedup
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server
