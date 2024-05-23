@@ -11,6 +11,7 @@ class criu_config:
             fault=None,
             strace=[],
             preexec=None,
+            preload=False,
             nowait=False):
 
         config_path = tempfile.mktemp(".conf", "criu-%s-" % action)
