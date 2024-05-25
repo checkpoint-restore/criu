@@ -1,4 +1,4 @@
-FROM ubuntu:focal
+FROM ubuntu:24.04
 
 COPY scripts/ci/apt-install /bin/apt-install
 
