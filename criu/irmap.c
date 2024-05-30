@@ -500,7 +500,12 @@ int irmap_scan_path_add(char *path)
 		return -1;
 	}
 
-	o->ir->path = path;
+	o->ir->path = xstrdup(path);
+	if (!o->ir->path) {
+		xfree(o->ir);
+		xfree(o);
+		return -1;
+	}
 	o->ir->nr_kids = -1;
 	list_add_tail(&o->node, &opts.irmap_scan_paths);
 	return 0;
