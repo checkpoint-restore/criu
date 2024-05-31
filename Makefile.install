@@ -72,12 +72,16 @@ install-amdgpu_plugin: amdgpu_plugin
 	$(Q) $(MAKE) -C plugins/amdgpu install
 .PHONY: install-amdgpu_plugin
 
+install-cuda_plugin: cuda_plugin
+	$(Q) $(MAKE) -C plugins/cuda install
+.PHONY: install-cuda_plugin
+
 install-compel: $(compel-install-targets)
 	$(Q) $(MAKE) $(build)=compel install
 	$(Q) $(MAKE) $(build)=compel/plugins install
 .PHONY: install-compel
 
-install: install-man install-lib install-crit install-criu install-compel install-amdgpu_plugin ;
+install: install-man install-lib install-crit install-criu install-compel install-amdgpu_plugin install-cuda_plugin ;
 .PHONY: install
 
 uninstall:
@@ -88,4 +92,5 @@ uninstall:
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 	$(Q) $(MAKE) -C plugins/amdgpu $@
+	$(Q) $(MAKE) -C plugins/cuda $@
 .PHONY: uninstall
