@@ -16,6 +16,7 @@
 #include "pstree.h"
 #include "criu-log.h"
 #include <compel/ptrace.h>
+#include "plugin.h"
 #include "proc_parse.h"
 #include "seccomp.h"
 #include "seize.h"
@@ -637,6 +638,11 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
+		ret = run_plugins(PAUSE_DEVICES, pid);
+		if (ret < 0 && ret != -ENOTSUP) {
+			goto free;
+		}
+
 		if (!opts.freeze_cgroup)
 			/* fails when meets a zombie */
 			__ignore_value(compel_interrupt_task(pid));
@@ -966,6 +972,7 @@ int collect_pstree(void)
 	pid_t pid = root_item->pid->real;
 	int ret = -1;
 	struct proc_status_creds creds;
+	struct pstree_item *iter;
 
 	timing_start(TIME_FREEZING);
 
@@ -983,6 +990,11 @@ int collect_pstree(void)
 
 	if (opts.freeze_cgroup && freeze_processes())
 		goto err;
+
+	ret = run_plugins(PAUSE_DEVICES, pid);
+	if (ret < 0 && ret != -ENOTSUP) {
+		goto err;
+	}
 
 	if (!opts.freeze_cgroup && compel_interrupt_task(pid)) {
 		set_cr_errno(ESRCH);
@@ -1015,6 +1027,12 @@ int collect_pstree(void)
 	if (opts.freeze_cgroup && freezer_wait_processes()) {
 		ret = -1;
 		goto err;
+	}
+
+	for_each_pstree_item(iter) {
+		ret = run_plugins(CHECKPOINT_DEVICES, iter->pid->real);
+		if (ret < 0 && ret != -ENOTSUP)
+			goto err;
 	}
 
 	ret = 0;
