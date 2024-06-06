@@ -2224,6 +2224,11 @@ skip_ns_bouncing:
 	}
 
 	finalize_restore();
+
+	/* just before releasing threads we have to restore rseq_cs */
+	if (restore_rseq_cs())
+		pr_err("Unable to restore rseq_cs state\n");
+
 	/*
 	 * Some external devices such as GPUs might need a very late
 	 * trigger to kick-off some events, memory notifiers and for
@@ -2254,10 +2259,6 @@ skip_ns_bouncing:
 
 	if (restore_freezer_state())
 		pr_err("Unable to restore freezer state\n");
-
-	/* just before releasing threads we have to restore rseq_cs */
-	if (restore_rseq_cs())
-		pr_err("Unable to restore rseq_cs state\n");
 
 	/* Detaches from processes and they continue run through sigreturn. */
 	if (finalize_restore_detach())
