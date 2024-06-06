@@ -2035,7 +2035,6 @@ static int cr_dump_finish(int ret)
 	if (bfd_flush_images())
 		ret = -1;
 
-	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
 	cgp_fini();
 
 	if (!ret) {
@@ -2089,6 +2088,9 @@ static int cr_dump_finish(int ret)
 
 	if (arch_set_thread_regs(root_item, true) < 0)
 		return -1;
+
+	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
 	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
 	timing_stop(TIME_FROZEN);
 	free_pstree(root_item);
