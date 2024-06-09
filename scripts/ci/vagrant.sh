@@ -6,9 +6,9 @@
 set -e
 set -x
 
-VAGRANT_VERSION=2.3.7
-FEDORA_VERSION=38
-FEDORA_BOX_VERSION=38.20230413.1
+VAGRANT_VERSION=2.4.1
+FEDORA_VERSION=40
+FEDORA_BOX_VERSION=40.20240414.0
 
 setup() {
 	if [ -n "$TRAVIS" ]; then
@@ -39,7 +39,7 @@ setup() {
 	ssh default sudo dnf install -y gcc git gnutls-devel nftables-devel libaio-devel \
 		libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make protobuf-c-devel \
 		protobuf-devel python3-protobuf python3-importlib-metadata python3-junit_xml \
-		rubygem-asciidoctor iptables libselinux-devel libbpf-devel
+		rubygem-asciidoctor iptables libselinux-devel libbpf-devel python3-yaml
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	ssh default sudo systemctl mask sssd
 	ssh default cat /proc/cmdline
