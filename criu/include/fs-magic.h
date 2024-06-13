@@ -57,4 +57,8 @@
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
 #endif
 
+#ifndef PID_FS_MAGIC
+#define PID_FS_MAGIC 0x50494446
+#endif
+
 #endif /* __CR_FS_MAGIC_H__ */

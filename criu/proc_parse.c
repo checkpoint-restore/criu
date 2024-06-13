@@ -42,10 +42,12 @@
 #include "fault-injection.h"
 #include "memfd.h"
 #include "hugetlb.h"
+#include "pidfd.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
 #include "images/mnt.pb-c.h"
+#include "pidfd.pb-c.h"
 #include "plugin.h"
 
 #include <stdlib.h>
@@ -2164,6 +2166,33 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 			ret = parse_bpfmap(&f, str, bpf);
 			if (ret)
 				goto parse_err;
+
+			entry_met = true;
+			continue;
+		}
+		if (fdinfo_field(str, "ino") || fdinfo_field(str, "NSpid") || fdinfo_field(str, "Pid")) {
+			struct pidfd_dump_info *pidfd_info = arg;
+
+			if (type != FD_TYPES__PIDFD)
+				continue;
+
+			if (fdinfo_field(str, "ino")) {
+				ret = sscanf(str, "%*s %u", &pidfd_info->pidfe.ino);
+				if (ret != 1)
+					goto parse_err;
+			} else if (fdinfo_field(str, "Pid")) {
+				ret = sscanf(str, "%*s %d", &pidfd_info->pid);
+				if (ret != 1)
+					goto parse_err;
+			} else if (fdinfo_field(str, "NSpid")) {
+				char *last;
+
+				last = strrchr(str, '\t');
+				if (!last || sscanf(last, "%d", &pidfd_info->pidfe.nspid) != 1) {
+					pr_err("Unable to parse: %s\n", str);
+					goto parse_err;
+				}
+			}
 
 			entry_met = true;
 			continue;
