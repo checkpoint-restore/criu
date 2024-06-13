@@ -17,6 +17,7 @@ import "ext-file.proto";
 import "sk-unix.proto";
 import "fifo.proto";
 import "pipe.proto";
+import "pidfd.proto";
 import "tty.proto";
 import "memfd.proto";
 import "bpfmap-file.proto";
@@ -42,6 +43,7 @@ enum fd_types {
 	TIMERFD		= 17;
 	MEMFD		= 18;
 	BPFMAP		= 19;
+	PIDFD           = 20;
 
 	/* Any number above the real used. Not stored to image */
 	CTL_TTY		= 65534;
@@ -78,4 +80,5 @@ message file_entry {
 	optional tty_file_entry		tty	= 19;
 	optional memfd_file_entry	memfd	= 20;
 	optional bpfmap_file_entry	bpf	= 21;
+	optional pidfd_entry		pidfd   = 22;
 }
