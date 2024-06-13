@@ -79,6 +79,7 @@
 #include "timens.h"
 #include "bpfmap.h"
 #include "apparmor.h"
+#include "pidfd.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -280,7 +281,7 @@ static struct collect_image_info *cinfos_files[] = {
 	&unix_sk_cinfo,	      &fifo_cinfo,     &pipe_cinfo,    &nsfile_cinfo,	    &packet_sk_cinfo,
 	&netlink_sk_cinfo,    &eventfd_cinfo,  &epoll_cinfo,   &epoll_tfd_cinfo,    &signalfd_cinfo,
 	&tunfile_cinfo,	      &timerfd_cinfo,  &inotify_cinfo, &inotify_mark_cinfo, &fanotify_cinfo,
-	&fanotify_mark_cinfo, &ext_file_cinfo, &memfd_cinfo,
+	&fanotify_mark_cinfo, &ext_file_cinfo, &memfd_cinfo, &pidfd_cinfo
 };
 
 /* These images are required to restore namespaces */
