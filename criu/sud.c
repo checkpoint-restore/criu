@@ -164,3 +164,105 @@ cleanup_exit:
 
 	return ret;
 }
+
+/*
+ * Read SUD settings from the checkpoint image.
+ *
+ * Since the code here rips from seccomp, all of the settings
+ * for a process tree will be stored in one image entry.
+ *
+ * Compare this to something like file-lock.c:collect_one_file_lock,
+ * which reads FileLockEntries sequentially from protobuf and daisy-
+ * chains them into file_lock_list.
+ */
+int sud_read_image(void)
+{
+	struct cr_img *img;
+	int ret;
+
+	if (sud_img_entry)
+		return 0;
+
+	img = open_image(CR_FD_SYS_DISPATCH, O_RSTR);
+	if (!img)
+		return -1;
+
+	ret = pb_read_one_eof(img, &sud_img_entry, PB_SYS_DISPATCH);
+	close_image(img);
+	if (ret <= 0)
+		return 0; /* all threads had SYS_DISPATCH_OFF */
+
+	BUG_ON(!sud_img_entry);
+
+	return 0;
+}
+
+static int open_core(int pid, CoreEntry **pcore)
+{
+	struct cr_img *img;
+	int ret;
+
+	img = open_image(CR_FD_CORE, O_RSTR, pid);
+	if (!img) {
+		pr_err("Can't open core data for %d\n", pid);
+		return -1;
+	}
+	ret = pb_read_one(img, pcore, PB_CORE);
+	close_image(img);
+
+	return ret <= 0 ? -1 : 0;
+}
+
+/*
+ * Restore SUD directly from the image data, to
+ * avoid disable/enable shuffling in the restorer blob.
+ *
+ * I believe this is OK because this is called in
+ * cr-restore.c:finalize_restore_detach(), which happens
+ * a few lines before close_image_dir(), which closes the
+ * image streamer.
+ */
+int restore_sud_per_core(pid_t tid_real)
+{
+	sud_config_t config;
+	SysDispatchSetting *ss;
+	CoreEntry *core;
+	ThreadCoreEntry *tc;
+	int ret = 0;
+
+	sud_read_image();
+
+	core = xmalloc(sizeof(*core));
+	if (open_core(tid_real, &core) < 0) {
+		pr_perror("Cannot open core for tid %d", tid_real);
+		return -1;
+	}
+
+	tc = core->thread_core;
+
+	if (!tc->has_sud_mode)
+		goto cleanup_exit;
+
+	if (tc->sud_mode == SYS_DISPATCH_OFF)
+		goto cleanup_exit;
+
+	if (tc->sud_setting >= sud_img_entry->n_settings) {
+		ret = -1;
+		pr_err("Corrupted sud setting index on tid %d (%u > %zu)\n", tid_real,
+				tc->sud_setting, sud_img_entry->n_settings);
+		goto cleanup_exit;
+	}
+
+	ss = sud_img_entry->settings[tc->sud_setting];
+
+	config.mode = SYS_DISPATCH_ON;
+	config.selector = ss->selector;
+	config.offset = ss->offset;
+	config.len = ss->len;
+
+	ret = ptrace_set_sud(tid_real, &config);
+
+cleanup_exit:
+	xfree(core);
+	return ret;
+}
