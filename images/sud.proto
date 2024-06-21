@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+message sys_dispatch_setting {
+    required uint64 mode = 1;
+    required uint64 selector = 2;
+    required uint64 offset = 3;
+    required uint64 len = 4;
+}
+
+message sys_dispatch_entry {
+    repeated sys_dispatch_setting    settings = 1;
+}

@@ -91,6 +91,7 @@
 #define CPUINFO_MAGIC	     0x61404013 /* Nyandoma */
 #define USERNS_MAGIC	     0x55474906 /* Kazan */
 #define SECCOMP_MAGIC	     0x64413049 /* Kostomuksha */
+#define SYS_DISPATCH_MAGIC	 0x61383094 /* Valaam */
 #define BINFMT_MISC_MAGIC    0x67343323 /* Apatity */
 #define AUTOFS_MAGIC	     0x49353943 /* Sochi */
 #define FILES_MAGIC	     0x56303138 /* Toropets */
