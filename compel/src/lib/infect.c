@@ -44,6 +44,10 @@
 #define SECCOMP_MODE_DISABLED 0
 #endif
 
+#ifndef SYS_DISPATCH_OFF
+#define SYS_DISPATCH_OFF 0
+#endif
+
 static int prepare_thread(int pid, struct thread_ctx *ctx);
 
 static inline void close_safe(int *pfd)
@@ -227,6 +231,7 @@ int compel_wait_task(int pid, int ppid, int (*get_status)(int pid, struct seize_
 		     void *data)
 {
 	siginfo_t si;
+	sud_config_t sud;
 	int status, nr_stopsig;
 	int ret = 0, ret2, wait_errno = 0;
 
@@ -250,6 +255,16 @@ try_again:
 		 */
 		wait_errno = errno;
 	}
+
+	/*
+	 * Must read SUD mode from a ptrace poke.
+	 * Doing it here rather than adding an extra header to proc_parse.c.
+	 */
+	ret2 = ptrace_get_sud(pid, &sud);
+	if (ret2)
+		goto err;
+	
+	ss->sud_mode = sud.mode;
 
 	ret2 = get_status(pid, ss, data);
 	if (ret2)
@@ -304,10 +319,31 @@ try_again:
 		goto try_again;
 	}
 
+	/*
+	 * Syscall dispatch SIGSYS may be pending, but not delivered yet --
+	 * check for it and handle herein. If the target process is aggressively
+	 * triggering SIGSYS, then we may not be able to progress past this
+	 * stage of the checkpoint, and timeout will occur.
+	 */
+	if ((ss->sigpnd | ss->shdpnd) & (1 << (SIGSYS - 1))) {
+		ret = ptrace(PTRACE_CONT, pid, 0, 0);
+		if (ret) {
+			pr_perror("Unable to start process");
+			return -1;
+		}
+
+		if (free_status)
+			free_status(pid, ss, data);
+		goto try_again;
+	}
+
 	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_TRACESYSGOOD)) {
 		pr_perror("Unable to set PTRACE_O_TRACESYSGOOD for %d", pid);
 		return -1;
 	}
+
+	if (ss->sud_mode != SYS_DISPATCH_OFF && ptrace_suspend_sud(pid) < 0)
+		goto err;
 
 	if (ss->seccomp_mode != SECCOMP_MODE_DISABLED && ptrace_suspend_seccomp(pid) < 0)
 		goto err;

@@ -23,6 +23,7 @@ struct seize_task_status {
 	int vpid;
 	int ppid;
 	int seccomp_mode;
+	int sud_mode;
 };
 
 extern int __must_check compel_wait_task(int pid, int ppid,
