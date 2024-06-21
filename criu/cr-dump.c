@@ -76,6 +76,7 @@
 #include "aio.h"
 #include "lsm.h"
 #include "seccomp.h"
+#include "sud.h"
 #include "seize.h"
 #include "fault-injection.h"
 #include "dump.h"
@@ -742,6 +743,8 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 	}
 	if (!ret)
 		ret = seccomp_dump_thread(pid, tc);
+	if (!ret)
+		ret = dump_sud_per_core(pid, tc);
 
 	/*
 	 * We are dumping rseq() in the dump_thread_rseq() function,
@@ -2205,6 +2208,9 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (seccomp_collect_dump_filters() < 0)
+		goto err;
+
+	if (dump_sud() < 0)
 		goto err;
 
 	/* Errors handled later in detect_pid_reuse */
