@@ -61,6 +61,7 @@ obj-y			+= pstree.o
 obj-y			+= rbtree.o
 obj-y			+= rst-malloc.o
 obj-y			+= seccomp.o
+obj-y			+= sud.o
 obj-y			+= seize.o
 obj-y			+= shmem.o
 obj-y			+= sigframe.o
