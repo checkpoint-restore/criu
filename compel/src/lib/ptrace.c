@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -13,6 +14,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
+#include <sys/prctl.h>
 
 #include "common/compiler.h"
 
@@ -20,6 +22,36 @@
 #include "ptrace.h"
 
 #include "log.h"
+
+int ptrace_get_sud(pid_t tid, sud_config_t *cfg)
+{
+	if (ptrace(PTRACE_GET_SYSCALL_USER_DISPATCH_CONFIG, tid, (void *)sizeof(*cfg), cfg)) {
+		pr_perror("getting SUD config failed");
+		return -1;
+	}
+	return 0;
+}
+
+int ptrace_set_sud(pid_t tid, sud_config_t *set)
+{
+	if (ptrace(PTRACE_SET_SYSCALL_USER_DISPATCH_CONFIG, tid, (void *)sizeof(*set), set)) {
+		pr_perror("setting SUD config failed");
+		return -1;
+	}
+	return 0;
+}
+
+int ptrace_suspend_sud(pid_t tid)
+{
+	sud_config_t disable;
+
+	/* Setup SUD-disable struct */
+	memset(&disable, 0, sizeof(disable));
+	disable.mode = PR_SYS_DISPATCH_OFF;
+
+	/* Disable SUD for this thread */
+	return ptrace_set_sud(tid, &disable);
+}
 
 int ptrace_suspend_seccomp(pid_t pid)
 {
