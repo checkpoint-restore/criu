@@ -18,6 +18,7 @@
 #include <compel/ptrace.h>
 #include "proc_parse.h"
 #include "seccomp.h"
+#include "sud.h"
 #include "seize.h"
 #include "stats.h"
 #include "string.h"
@@ -602,6 +603,13 @@ static inline bool child_collected(struct pstree_item *i, pid_t pid)
 	return false;
 }
 
+static int parse_pid_status_and_sud(pid_t pid, struct seize_task_status *ss, void *data)
+{
+	if (sud_collect_entry(pid))
+		pr_perror("Collecting SUD entry for %d failed", pid);
+	return parse_pid_status(pid, ss, data);
+}
+
 static int collect_task(struct pstree_item *item);
 static int collect_children(struct pstree_item *item)
 {
@@ -641,7 +649,7 @@ static int collect_children(struct pstree_item *item)
 			/* fails when meets a zombie */
 			__ignore_value(compel_interrupt_task(pid));
 
-		ret = compel_wait_task(pid, item->pid->real, parse_pid_status, NULL, &creds.s, NULL);
+		ret = compel_wait_task(pid, item->pid->real, parse_pid_status_and_sud, NULL, &creds.s, NULL);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_children() and seize(),
@@ -828,7 +836,7 @@ static int collect_threads(struct pstree_item *item)
 		if (!opts.freeze_cgroup && compel_interrupt_task(pid))
 			continue;
 
-		ret = compel_wait_task(pid, item_ppid(item), parse_pid_status, NULL, &t_creds.s, NULL);
+		ret = compel_wait_task(pid, item_ppid(item), parse_pid_status_and_sud, NULL, &t_creds.s, NULL);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_threads() and seize(),
@@ -989,7 +997,7 @@ int collect_pstree(void)
 		goto err;
 	}
 
-	ret = compel_wait_task(pid, -1, parse_pid_status, NULL, &creds.s, NULL);
+	ret = compel_wait_task(pid, -1, parse_pid_status_and_sud, NULL, &creds.s, NULL);
 	if (ret < 0)
 		goto err;
 
