@@ -106,10 +106,13 @@ message thread_core_entry {
 	optional seccomp_mode		seccomp_mode	= 11;
 	optional uint32			seccomp_filter	= 12;
 
-	optional string			comm		= 13;
-	optional uint64			blk_sigset_extended	= 14;
-	optional rseq_entry		rseq_entry	= 15;
-	optional uint32			cg_set		= 16;
+	optional uint32 		sud_mode	= 13;
+	optional uint32			sud_setting = 14;
+
+	optional string			comm		= 15;
+	optional uint64			blk_sigset_extended	= 16;
+	optional rseq_entry		rseq_entry	= 17;
+	optional uint32			cg_set		= 18;
 }
 
 message task_rlimits_entry {

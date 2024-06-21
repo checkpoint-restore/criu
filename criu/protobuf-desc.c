@@ -62,6 +62,7 @@
 #include "images/cpuinfo.pb-c.h"
 #include "images/userns.pb-c.h"
 #include "images/seccomp.pb-c.h"
+#include "images/sud.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
 #include "images/autofs.pb-c.h"
 #include "images/img-streamer.pb-c.h"
