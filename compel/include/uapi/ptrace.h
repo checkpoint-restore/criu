@@ -55,6 +55,14 @@
 #define PTRACE_SECCOMP_GET_METADATA 0x420d
 #endif /* PTRACE_SECCOMP_GET_METADATA */
 
+#ifndef PTRACE_SET_SYSCALL_USER_DISPATCH_CONFIG
+#define PTRACE_SET_SYSCALL_USER_DISPATCH_CONFIG 0x4210
+#endif /* PTRACE_SET_SYSCALL_USER_DISPATCH_CONFIG */
+
+#ifndef PTRACE_GET_SYSCALL_USER_DISPATCH_CONFIG
+#define PTRACE_GET_SYSCALL_USER_DISPATCH_CONFIG 0x4211
+#endif /* PTRACE_GET_SYSCALL_USER_DISPATCH_CONFIG */
+
 /*
  * struct seccomp_metadata is not yet
  * settled down well in headers so use
@@ -64,6 +72,17 @@ typedef struct {
 	uint64_t filter_off; /* Input: which filter */
 	uint64_t flags;	     /* Output: filter's flags */
 } seccomp_metadata_t;
+
+/*
+ * Similarly, use duplicate definition
+ * for `struct ptrace_sud_config`.
+ */
+typedef struct {
+	uint64_t mode;
+	uint64_t selector;
+	uint64_t offset;
+	uint64_t len;
+} sud_config_t;
 
 #ifndef PTRACE_GET_RSEQ_CONFIGURATION
 #define PTRACE_GET_RSEQ_CONFIGURATION 0x420f
@@ -85,6 +104,10 @@ struct __ptrace_rseq_configuration {
 #ifndef PTRACE_EVENT_STOP
 #define PTRACE_EVENT_STOP 128
 #endif
+
+extern int ptrace_get_sud(pid_t pid, sud_config_t *cfg);
+extern int ptrace_set_sud(pid_t pid, sud_config_t *cfg);
+extern int ptrace_suspend_sud(pid_t pid);
 
 extern int ptrace_suspend_seccomp(pid_t pid);
 
