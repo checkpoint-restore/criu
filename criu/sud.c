@@ -90,3 +90,78 @@ int sud_collect_entry(pid_t tid_real)
 	pr_debug("Collected tid_real %d, SUD mode %lx\n", tid_real, config.mode);
 	return 0;
 }
+
+int dump_sud_per_core(pid_t tid_real, ThreadCoreEntry *tc)
+{
+	struct sys_dispatch_entry *entry = sud_find_entry(tid_real);
+	if (!entry) {
+		pr_err("Can't dump thread core on tid_real %d\n", tid_real);
+		return -1;
+	}
+
+	if (entry->mode == SYS_DISPATCH_ON) {
+		tc->has_sud_mode = true;
+		tc->sud_mode = entry->mode;
+		tc->has_sud_setting = true;
+		tc->sud_setting = entry->img_setting_pos;
+	}
+
+	return 0;
+}
+
+/* Traverse the nodes from collect_entry, and write data to protobuf */
+int dump_sud(void)
+{
+	SysDispatchEntry se = SYS_DISPATCH_ENTRY__INIT;
+	SysDispatchSetting *settings = NULL;
+	struct sys_dispatch_entry *entry = NULL;
+	size_t img_setting_pos = 0, nr_settings = 0, i;
+	struct rb_node *node;
+	int ret = -1;
+
+	/* Get the number of entries in the collect ring buffer */
+	for (node = rb_first(&sud_tid_rb_root); node; node = rb_next(node)) {
+		entry = rb_entry(node, struct sys_dispatch_entry, node);
+		nr_settings += 1;
+	}
+
+	/* Allocate space for dumping the thread settings */
+	se.n_settings = nr_settings;
+	if (nr_settings) {
+		se.settings = xmalloc(sizeof(*se.settings) * nr_settings);
+		if (!se.settings)
+			goto cleanup_exit;
+		settings = xmalloc(sizeof(*settings) * nr_settings);
+		if (!settings)
+			goto cleanup_exit;
+		/*
+		 * Fill the list of pointers with setting addresses,
+		 * initializing the protobuf structs on the way
+		 */
+		for (i = 0; i < nr_settings; ++i) {
+			sys_dispatch_setting__init(&settings[i]);
+			se.settings[i] = &settings[i];
+		}
+	}
+
+	/* Traverse again, this time writing the settings to img format */
+	for (node = rb_first(&sud_tid_rb_root); node; node = rb_next(node)) {
+		entry = rb_entry(node, struct sys_dispatch_entry, node);
+
+		if (entry->mode == SYS_DISPATCH_ON) {
+			se.settings[img_setting_pos]->selector = entry->selector;
+			se.settings[img_setting_pos]->offset = entry->offset;
+			se.settings[img_setting_pos]->len = entry->len;
+			entry->img_setting_pos = img_setting_pos++;
+		}
+	}
+
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_SYS_DISPATCH), &se, PB_SYS_DISPATCH);
+
+cleanup_exit:
+	/* Once saved to disk, we don't need to keep the data structures allocated */
+	xfree(se.settings);
+	xfree(settings);
+
+	return ret;
+}
