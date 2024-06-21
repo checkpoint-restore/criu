@@ -70,6 +70,7 @@
 #include "aio.h"
 #include "lsm.h"
 #include "seccomp.h"
+#include "sud.h"
 #include "fault-injection.h"
 #include "sk-queue.h"
 #include "sigframe.h"
@@ -318,6 +319,9 @@ static int root_prepare_shared(void)
 		return -1;
 
 	if (seccomp_read_image())
+		return -1;
+	
+	if (sud_read_image())
 		return -1;
 
 	if (collect_images(cinfos, ARRAY_SIZE(cinfos)))
@@ -804,13 +808,17 @@ static int open_cores(int pid, CoreEntry *leader_core)
 	 * Otherwise any criu code which might use same syscall
 	 * if present inside a filter chain would take filter
 	 * action and might break restore procedure.
+	 *
+	 * Save the syscall user dispatch setting as well.
 	 */
 	for (i = 0; i < current->nr_threads; i++) {
 		ThreadCoreEntry *thread_core = cores[i]->thread_core;
-		if (thread_core->seccomp_mode != SECCOMP_MODE_DISABLED) {
+
+		if (thread_core->seccomp_mode != SECCOMP_MODE_DISABLED)
 			rsti(current)->has_seccomp = true;
-			break;
-		}
+
+		if (thread_core->sud_mode != SYS_DISPATCH_OFF)
+			rsti(current)->has_sud = true;
 	}
 
 	for (i = 0; i < current->nr_threads; i++) {
@@ -1377,13 +1385,14 @@ static inline int fork_with_pid(struct pstree_item *item)
 		}
 
 		/*
-		 * By default we assume that seccomp is not
+		 * By default we assume that neither seccomp nor SUD is
 		 * used at all (especially on dead task). Later
 		 * we will walk over all threads and check in
 		 * details if filter is present setting up
 		 * this flag as appropriate.
 		 */
 		rsti(item)->has_seccomp = false;
+		rsti(item)->has_sud = false;
 
 		if (unlikely(item == root_item))
 			maybe_clone_parent(item, &ca);
@@ -2016,6 +2025,9 @@ static int attach_to_tasks(bool root_seized)
 			 */
 			if (rsti(item)->has_seccomp && ptrace_suspend_seccomp(pid) < 0)
 				pr_err("failed to suspend seccomp, restore will probably fail...\n");
+			/* Suspend SUD for similar reasons. */
+			if (rsti(item)->has_sud && ptrace_suspend_sud(pid) < 0)
+				pr_err("failed to suspend sud, restore may fail...\n");
 
 			if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
 				pr_perror("Unable to resume %d", pid);
@@ -2164,6 +2176,10 @@ static int finalize_restore_detach(void)
 
 			if (arch_set_thread_regs_nosigrt(&item->threads[i])) {
 				pr_perror("Restoring regs for %d failed", pid);
+				return -1;
+			}
+			if (restore_sud_per_core(pid)) {
+				pr_perror("Restoring syscall dispatch state for %d failed", pid);
 				return -1;
 			}
 			if (ptrace(PTRACE_DETACH, pid, NULL, 0)) {

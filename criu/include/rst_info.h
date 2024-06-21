@@ -72,6 +72,10 @@ struct rst_info {
 	 * are bound to group leader and we need to use tsync flag.
 	 */
 	bool has_old_seccomp_filter;
+	/*
+	 * We set a similar flag for syscall user dispatch.
+	 */
+	bool has_sud;
 
 	struct rst_rseq *rseqe;
 
