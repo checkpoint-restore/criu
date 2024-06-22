@@ -35,7 +35,7 @@ Pages worth starting with are:
 - [Installation instructions](http://criu.org/Installation)
 - [A simple example of usage](http://criu.org/Simple_loop)
 - [Examples of more advanced usage](https://criu.org/Category:HOWTO)
-- Troubleshooting can be hard, some help can be found [here](https://criu.org/When_C/R_fails), [here](https://criu.org/What_cannot_be_checkpointed) and [here](https://criu.org/FAQ)
+- Troubleshooting can be hard, some help can be found [here](https://criu.org/When_C/R_fails), [here](https://criu.org/What_cannot_be_checkpointed) and [here](https://criu.org/index.php?title=FAQ)
 
 ### Checkpoint and restore of simple loop process
 <p align="center"><a href="https://asciinema.org/a/232445"><img src="https://asciinema.org/a/232445.png" width="572px" height="412px"/></a></p>
