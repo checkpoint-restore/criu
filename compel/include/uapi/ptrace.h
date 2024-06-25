@@ -86,6 +86,19 @@ struct __ptrace_rseq_configuration {
 #define PTRACE_EVENT_STOP 128
 #endif
 
+/*
+ * Amazon Linux 2 uses glibc 2.26. PTRACE_ARCH_PRCTL was added in glibc 2.27.
+ * This allows CRIU to build on Amazon Linux 2.
+ *
+ * Note that in sys/ptrace.h, PTRACE_ARCH_PRCTL is an enum value so the
+ * preprocessor doesn't know about it. PT_ARCH_PRCTL is the preprocessor symbol
+ * that matches the value of PTRACE_ARCH_PRCTL. So look for PT_ARCH_PRCTL to
+ * decide if PTRACE_ARCH_PRCTL is available or not.
+ */
+#if defined(__x86_64__) && !defined(PT_ARCH_PRCTL)
+#define PTRACE_ARCH_PRCTL 30 /* From asm/ptrace-abi.h. */
+#endif
+
 extern int ptrace_suspend_seccomp(pid_t pid);
 
 extern int __must_check ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
