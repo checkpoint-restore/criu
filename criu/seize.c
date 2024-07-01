@@ -19,6 +19,7 @@
 #include "plugin.h"
 #include "proc_parse.h"
 #include "seccomp.h"
+#include "sud.h"
 #include "seize.h"
 #include "stats.h"
 #include "string.h"
@@ -674,6 +675,10 @@ static int collect_children(struct pstree_item *item)
 		c->pid->state = ret;
 		list_add_tail(&c->sibling, &item->children);
 
+		ret = sud_collect_entry(pid);
+		if (ret < 0)
+			goto free;
+
 		ret = seccomp_collect_entry(pid, creds.s.seccomp_mode);
 		if (ret < 0)
 			goto free;
@@ -862,6 +867,9 @@ static int collect_threads(struct pstree_item *item)
 			goto err;
 		}
 
+		if (sud_collect_entry(pid))
+			goto err;
+
 		if (seccomp_collect_entry(pid, t_creds.s.seccomp_mode))
 			goto err;
 
@@ -967,6 +975,13 @@ static int cgroup_version(void)
 	return -1;
 }
 
+static int parse_pid_status_and_collect_sud(pid_t pid, struct seize_task_status *ss, void *data)
+{
+	if (sud_collect_entry(pid))
+		return -1;
+	return parse_pid_status(pid, ss, data);
+}
+
 int collect_pstree(void)
 {
 	pid_t pid = root_item->pid->real;
@@ -1001,7 +1016,7 @@ int collect_pstree(void)
 		goto err;
 	}
 
-	ret = compel_wait_task(pid, -1, parse_pid_status, NULL, &creds.s, NULL);
+	ret = compel_wait_task(pid, -1, parse_pid_status_and_collect_sud, NULL, &creds.s, NULL);
 	if (ret < 0)
 		goto err;
 
