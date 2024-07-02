@@ -10,7 +10,6 @@ PLUGIN_INCLUDE  	+= -iquote../../
 
 COMPEL := ../../compel/compel-host
 
-CC := gcc
 PLUGIN_CFLAGS := -g -Wall -Werror -shared -nostartfiles -fPIC
 
 __nmk_dir ?= ../../scripts/nmk/scripts/
