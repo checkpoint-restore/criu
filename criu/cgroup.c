@@ -1947,6 +1947,21 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 	return 0;
 }
 
+static int cgroupd_unblock_sigterm(void)
+{
+	sigset_t unblockmask;
+
+	sigemptyset(&unblockmask);
+	sigaddset(&unblockmask, SIGTERM);
+
+	if (sigprocmask(SIG_UNBLOCK, &unblockmask, NULL)) {
+		pr_perror("cgroupd: can't unblock SIGTERM");
+		return -1;
+	}
+
+	return 0;
+}
+
 /*
  * If a thread is a different cgroup set than the main thread in process,
  * it means it is in a threaded controller. This daemon receives the cg_set
@@ -1955,6 +1970,14 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
  */
 static int cgroupd(int sk)
 {
+	/*
+	 * This pairs with SIGTERM in stop_cgroupd(), and ensures that cgroupd
+	 * will receive termination signal, regardless of which signal block
+	 * mask was inherited.
+	 */
+	if (cgroupd_unblock_sigterm())
+		return -1;
+
 	pr_info("cgroud: Daemon started\n");
 
 	while (1) {
