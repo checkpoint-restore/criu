@@ -469,6 +469,7 @@ static void *get_suspend_policy(char *name, off_t *len)
 	ret = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (ret == MAP_FAILED) {
 		pr_perror("mmap of %s failed", file);
+		ret = NULL;
 		goto out;
 	}
 
