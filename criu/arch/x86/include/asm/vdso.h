@@ -12,7 +12,7 @@
  * This is a minimal amount of symbols
  * we should support at the moment.
  */
-#define VDSO_SYMBOL_MAX	 6
+#define VDSO_SYMBOL_MAX	 7
 #define VDSO_SYMBOL_GTOD 2
 
 /*
@@ -42,11 +42,12 @@
 	const char *aarch_vdso_symbol3 = "__vdso_gettimeofday";  \
 	const char *aarch_vdso_symbol4 = "__vdso_time";          \
 	const char *aarch_vdso_symbol5 = "__kernel_sigreturn";   \
-	const char *aarch_vdso_symbol6 = "__kernel_rt_sigreturn";
+	const char *aarch_vdso_symbol6 = "__kernel_rt_sigreturn"; \
+	const char *aarch_vdso_symbol7 = "__vdso_clock_gettime64"; \
 
 #define ARCH_VDSO_SYMBOLS                                                                                   \
 	aarch_vdso_symbol1, aarch_vdso_symbol2, aarch_vdso_symbol3, aarch_vdso_symbol4, aarch_vdso_symbol5, \
-		aarch_vdso_symbol6
+		aarch_vdso_symbol6, aarch_vdso_symbol7
 
 /*	"__kernel_vsyscall",			*/
 
