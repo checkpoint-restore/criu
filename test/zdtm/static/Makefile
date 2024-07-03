@@ -218,6 +218,7 @@ TST_NOFILE	:=				\
 		seccomp_filter_threads			\
 		seccomp_filter_inheritance		\
 		seccomp_no_new_privs		\
+		sud						\
 		different_creds			\
 		vsx				\
 		bridge				\
