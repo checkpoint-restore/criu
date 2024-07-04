@@ -1,0 +1,52 @@
+name: Actuated aarch64 test
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: actuated-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    # Actuated runners are not available in all repositories.
+    if: ${{ github.repository == 'checkpoint-restore/criu' }}
+    # The memory size and the number of CPUs can be freely selected.
+    # 3GB and 4 CPUs seems to be enough according to the result from 'vmmeter'.
+    runs-on: actuated-arm64-4cpu-3gb
+    strategy:
+      matrix:
+        target: [GCC=1, CLANG=1]
+
+    steps:
+    # https://gist.github.com/alexellis/1f33e581c75e11e161fe613c46180771#file-metering-gha-md
+    # vmmeter start
+    - name: Prepare arkade
+      uses: alexellis/arkade-get@master
+      with:
+        crane: latest
+        print-summary: false
+
+    - name: Install vmmeter
+      run: |
+        crane export --platform linux/arm64 ghcr.io/openfaasltd/vmmeter:latest | sudo tar -xvf - -C /usr/local/bin
+
+    - name: Run vmmeter
+      uses: self-actuated/vmmeter-action@master
+    # vmmeter end
+
+    - uses: actions/checkout@v4
+    - name: Run Tests ${{ matrix.target }}
+      # Following tests are failing on the actuated VMs:
+      #  ./change_mnt_context --pidfile=change_mnt_context.pid --outfile=change_mnt_context.out
+      #   45: ERR: change_mnt_context.c:23: mount (errno = 22 (Invalid argument))
+      #
+      # In combination with '--remote-lazy-pages' following error occurs:
+      #  138: FAIL: maps05.c:84: Data corrupted at page 1639 (errno = 11 (Resource temporarily unavailable))
+      run: |
+        # The 'sched_policy00' needs the following:
+        sudo sysctl -w kernel.sched_rt_runtime_us=-1
+        # etc/hosts entry is needed for netns_lock_iptables
+        echo "127.0.0.1   localhost" | sudo tee -a /etc/hosts
+        sudo -E make -C scripts/ci local ${{ matrix.target }} RUN_TESTS=1 \
+          ZDTM_OPTS="-x zdtm/static/change_mnt_context -x zdtm/static/maps05"
