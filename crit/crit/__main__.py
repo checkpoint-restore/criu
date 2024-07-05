@@ -323,12 +323,12 @@ def explore_rss(opts):
         pvmi = -1
         for pm in pms[1:]:
             pstr = '\t%lx / %-8d' % (pm['vaddr'], pm['nr_pages'])
-            while vmas[vmi]['end'] <= pm['vaddr']:
+            while vmi < len(vmas) and vmas[vmi]['end'] <= pm['vaddr']:
                 vmi += 1
 
             pme = pm['vaddr'] + (pm['nr_pages'] << 12)
             vstr = ''
-            while vmas[vmi]['start'] < pme:
+            while vmi < len(vmas) and vmas[vmi]['start'] < pme:
                 vma = vmas[vmi]
                 if vmi == pvmi:
                     vstr += ' ~'
