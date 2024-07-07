@@ -1,4 +1,4 @@
-ARCHES := x86_64 fedora-asan fedora-rawhide centos7 armv7hf centos8
+ARCHES := x86_64 fedora-asan fedora-rawhide armv7hf centos8
 STABLE_CROSS_ARCHES := armv7-stable-cross aarch64-stable-cross ppc64-stable-cross mips64el-stable-cross
 UNSTABLE_CROSS_ARCHES := armv7-unstable-cross aarch64-unstable-cross ppc64-unstable-cross mips64el-unstable-cross
 NON_CLANG := $(UNSTABLE_CROSS_ARCHES) $(STABLE_CROSS_ARCHES)
