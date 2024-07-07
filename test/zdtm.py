@@ -40,6 +40,12 @@ LIBFAULT_PATH = os.path.join(
     "libfault.so"
 )
 
+# A directory that contains the CRIU plugins.
+PLUGINS_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "plugins"
+)
+
 prev_line = None
 uuid = uuid.uuid4()
 
@@ -672,6 +678,12 @@ class zdtm_test:
             subprocess.check_call(["make", "-C", "zdtm/"])
         if 'preload_libfault' in opts and opts['preload_libfault']:
             subprocess.check_call(["make", "-C", "libfault/"])
+
+        subprocess.check_call(["make", '--no-print-directory', "-C", "plugins/", "clean"])
+        if 'criu_plugin' in opts and opts['criu_plugin']:
+            for name in opts['criu_plugin']:
+                subprocess.check_call(["make", '--no-print-directory', "-C", "plugins/", f"{name}_plugin.so"])
+
         if 'rootless' in opts and opts['rootless']:
             return
         subprocess.check_call(
@@ -929,7 +941,9 @@ class criu_cli:
             timeout=60):
         env = dict(
             os.environ,
-            ASAN_OPTIONS="log_path=asan.log:disable_coredump=0:detect_leaks=0")
+            ASAN_OPTIONS="log_path=asan.log:disable_coredump=0:detect_leaks=0",
+            CRIU_LIBS_DIR=PLUGINS_DIR
+        )
 
         if fault:
             print("Forcing %s fault" % fault)
@@ -2852,6 +2866,11 @@ def get_cli_args():
     rp.add_argument("--test-shard-count", type=int, default=0,
                     help="Specify how many shards are being run (0=sharding disabled; must be the same for all shards)")
     rp.add_argument("--preload-libfault", action="store_true", help="Run criu with library preload to simulate special cases")
+    rp.add_argument("--criu-plugin",
+                    help="Run tests with CRIU plugin",
+                    choices=['amdgpu', 'cuda'],
+                    nargs='+',
+                    default=None)
 
     lp = sp.add_parser("list", help="List tests")
     lp.set_defaults(action=list_tests)
