@@ -24,6 +24,9 @@ podman info
 
 podman run --name cr -d docker.io/library/alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
 
+# Show criu logs in case of error
+trap 'cat /var/lib/containers/storage/overlay-containers/*/userdata/*.log' EXIT
+
 sleep 1
 for i in $(seq 20); do
 	echo "Test $i for podman container checkpoint"
@@ -64,3 +67,5 @@ for i in $(seq 20); do
 	podman ps -a
 	rm -f /tmp/chkpt.tar.gz
 done
+
+trap 'echo PASS' EXIT
