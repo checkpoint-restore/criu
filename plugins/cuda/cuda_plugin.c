@@ -45,7 +45,7 @@ struct pid_info {
 /* Used to track which PID's we've paused CUDA operations on so far so we can
  * release them after we're done with the DUMP
  */
-struct list_head cuda_pids;
+static LIST_HEAD(cuda_pids);
 
 static void dealloc_pid_buffer(struct list_head *pid_buf)
 {
@@ -91,7 +91,7 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 {
 #define READ  0
 #define WRITE 1
-	int fd[2];
+	int fd[2], buf_off;
 
 	if (pipe(fd) != 0) {
 		pr_err("Couldn't create pipes for reading cuda-checkpoint output\n");
@@ -110,68 +110,103 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 
 	if (child_pid == 0) { // child
 		if (dup2(fd[WRITE], STDOUT_FILENO) == -1) {
-			return -1;
+			pr_perror("unable to clone fd %d->%d", fd[WRITE], STDOUT_FILENO);
+			_exit(EXIT_FAILURE);
 		}
 		if (dup2(fd[WRITE], STDERR_FILENO) == -1) {
-			return -1;
+			pr_perror("unable to clone fd %d->%d", fd[WRITE], STDERR_FILENO);
+			_exit(EXIT_FAILURE);
 		}
+		close(fd[READ]);
 
 		close_fds(STDERR_FILENO + 1);
 
-		return execvp(args[0], (char **)args);
-	} else { // parent
-		close(fd[WRITE]);
+		execvp(args[0], (char **)args);
 
-		int bytes_read = read(fd[READ], buf, buf_size);
-		if (bytes_read > 0) {
-			buf[bytes_read - 1] = '\0';
-		}
+		/* We can't use pr_error() as log file fd is closed. */
+		fprintf(stderr, "execvp(\"%s\") failed: %s\n", args[0], strerror(errno));
 
-		// Clear out any of the remaining output in the pipe in case the buffer wasn't large enough
-		struct pollfd read_poll = { .fd = fd[READ], .events = POLLIN | POLLHUP };
-		while (true) {
-			int poll_status = poll(&read_poll, 1, -1);
-			if (poll_status == -1) {
-				close(fd[READ]);
-				pr_err("Unexpected error when clearing cuda-checkpoint output buffer\n");
-				return -1;
-			}
-			if (read_poll.revents & POLLHUP) {
-				break;
-			}
-			// POLLIN, read into scratch buffer to flush things out
-			char scratch[64];
-			bytes_read = read(fd[READ], scratch, sizeof(scratch));
-		}
-
-		int status;
-		if (waitpid(child_pid, &status, 0) == -1 || !WIFEXITED(status)) {
-			pr_err("cuda-checkpoint exited improperly, couldn't complete operation\n");
-			close(fd[READ]);
-			return -1;
-		}
-
-		close(fd[READ]);
-
-		return WEXITSTATUS(status);
+		_exit(EXIT_FAILURE);
 	}
+
+	close(fd[WRITE]);
+	buf_off = 0;
+	/* Reserve one byte for the null charracter. */
+	buf_size--;
+	while (buf_off < buf_size) {
+		int bytes_read;
+		bytes_read = read(fd[READ], buf + buf_off, buf_size - buf_off);
+		if (bytes_read == -1) {
+			pr_perror("Unable to read output of cuda-checkpoint");
+			goto err;
+		}
+		if (bytes_read == 0)
+			break;
+		buf_off += bytes_read;
+	}
+	buf[buf_off] = '\0';
+
+	/* Clear out any of the remaining output in the pipe in case the buffer wasn't large enough */
+	while (true) {
+		char scratch[1024];
+		int bytes_read;
+		bytes_read = read(fd[READ], scratch, sizeof(scratch));
+		if (bytes_read == -1) {
+			pr_perror("Unable to read output of cuda-checkpoint");
+			goto err;
+		}
+		if (bytes_read == 0)
+			break;
+	}
+	close(fd[READ]);
+
+	int status, exit_code = -1;
+	if (waitpid(child_pid, &status, 0) == -1) {
+		pr_perror("Unable to wait for the cuda-checkpoint process %d", child_pid);
+		goto err;
+	}
+	if (WIFSIGNALED(status)) {
+		int sig = WTERMSIG(status);
+
+		pr_err("cuda-checkpoint unexpectedly signaled with %d: %s\n", sig, strsignal(sig));
+	} else if (WIFEXITED(status)) {
+		exit_code = WEXITSTATUS(status);
+	} else {
+		pr_err("cuda-checkpoint exited improperly: %u\n", status);
+	}
+
+	if (exit_code != EXIT_SUCCESS)
+		pr_debug("cuda-checkpoint output ===>\n%s\n"
+			 "<=== cuda-checkpoint output\n",
+			 buf);
+
+	return exit_code;
+err:
+	kill(child_pid, SIGKILL);
+	waitpid(child_pid, NULL, 0);
+	return -1;
 }
 
-static bool cuda_checkpoint_supports_flag(const char *flag)
+/**
+ * Checks if a given flag is supported by the cuda-checkpoint utility
+ *
+ * Returns:
+ *  1 if the flag is supported,
+ *  0 if the flag is not supported,
+ *  -1 if there was an error launching the cuda-checkpoint utility.
+ */
+static int cuda_checkpoint_supports_flag(const char *flag)
 {
 	char msg_buf[2048];
 	const char *args[] = { CUDA_CHECKPOINT, "-h", NULL };
-	int ret = launch_cuda_checkpoint(args, msg_buf, sizeof(msg_buf));
-	if (ret != 0) {
-		pr_err("Failed to launch cuda-checkpoint utility, check that the utility is present in your $PATH\n");
-		return false;
-	}
 
-	if (strstr(msg_buf, flag) == NULL) {
-		return false;
-	}
+	if (launch_cuda_checkpoint(args, msg_buf, sizeof(msg_buf)) != 0)
+		return -1;
 
-	return true;
+	if (strstr(msg_buf, flag) == NULL)
+		return 0;
+
+	return 1;
 }
 
 /* Retrieve the cuda restore thread TID from the root pid */
@@ -419,7 +454,15 @@ CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, cuda_plugin_resume_
 
 int cuda_plugin_init(int stage)
 {
-	if (!cuda_checkpoint_supports_flag("--action")) {
+	int ret = cuda_checkpoint_supports_flag("--action");
+
+	if (ret == -1) {
+		pr_warn("check that %s is present in $PATH\n", CUDA_CHECKPOINT);
+		plugin_disabled = true;
+		return 0;
+	}
+
+	if (ret == 0) {
 		pr_warn("cuda-checkpoint --action flag not supported, an r555 or higher version driver is required. Disabling CUDA plugin\n");
 		plugin_disabled = true;
 		return 0;
