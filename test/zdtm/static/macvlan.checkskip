@@ -1,0 +1,38 @@
+#!/bin/bash
+
+FAIL=0
+
+create_macvlan_device() {
+	if ! ip link add test_mvlan1 type veth >/dev/null 2>&1; then
+		FAIL=1
+	fi
+	if ! ip link add mymacvlan1 link test_mvlan1 type macvlan >/dev/null 2>&1; then
+		FAIL=1
+	fi
+
+	return "${FAIL}"
+}
+
+cleanup() {
+	ip link del test_mvlan1 >/dev/null 2>&1
+	ip link del mymacvlan1 >/dev/null 2>&1
+}
+
+trap "cleanup" QUIT TERM INT HUP EXIT
+
+# Test once without loading the module
+if create_macvlan_device; then
+	exit 0
+fi
+
+# Test once more with explicitly loading the module
+if ! modprobe macvlan >/dev/null 2>&1; then
+	exit 1
+fi
+create_macvlan_device
+
+if [ "${FAIL}" == "1" ]; then
+	exit 1
+fi
+
+exit 0
