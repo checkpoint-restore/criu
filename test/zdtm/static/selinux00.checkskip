@@ -2,6 +2,19 @@
 
 test -d /sys/fs/selinux || exit 1
 
+# check if necessary commands are installed
+if ! command -v setenforce &>/dev/null; then
+	exit 1
+fi
+
+if ! command -v setsebool &>/dev/null; then
+	exit 1
+fi
+
+if ! command -v getsebool &>/dev/null; then
+	exit 1
+fi
+
 # See selinux00.hook for details
 
 getsebool unconfined_dyntrans_all > /dev/null 2>&1
