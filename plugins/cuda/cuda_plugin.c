@@ -115,7 +115,9 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 		if (dup2(fd[WRITE], STDERR_FILENO) == -1) {
 			return -1;
 		}
-		close(fd[READ]);
+
+		close_fds(STDERR_FILENO + 1);
+
 		return execvp(args[0], (char **)args);
 	} else { // parent
 		close(fd[WRITE]);
