@@ -55,6 +55,7 @@ TST_NOFILE	:=				\
 		ptrace_sig			\
 		pidfd_self			\
 		pidfd_child			\
+		pidfd_kill			\
 		pipe00				\
 		pipe01				\
 		pipe02				\
