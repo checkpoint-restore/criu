@@ -170,6 +170,7 @@ extern pid_t fork_and_ptrace_attach(int (*child_setup)(void));
 extern int cr_daemon(int nochdir, int noclose, int close_fd);
 extern int status_ready(void);
 extern int is_root_user(void);
+extern int close_fds(int minfd);
 
 extern int set_proc_self_fd(int fd);
 
