@@ -2,6 +2,11 @@
 
 set -x
 
+if ! ../../zdtm/static/macvlan.checkskip; then
+	echo "No macvlan support. Skipping"
+	exit 0
+fi
+
 if [[ "$1" == "pid" ]]; then
 	NS=pid
 else
