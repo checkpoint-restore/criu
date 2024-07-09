@@ -1699,6 +1699,27 @@ static int kerndat_has_membarrier_get_registrations(void)
 	return 0;
 }
 
+static int kerndat_has_close_range(void)
+{
+	/* fd is greater than max_fd, so close_range should return EINVAL. */
+	if (cr_close_range(2, 1, 0) == 0) {
+		pr_err("close_range succeeded unexpectedly\n");
+		return -1;
+	}
+
+	if (errno == ENOSYS) {
+		pr_debug("close_range isn't supported\n");
+		return 0;
+	}
+	if (errno != EINVAL) {
+		pr_perror("close_range returned unexpected error code");
+		return -1;
+	}
+
+	kdat.has_close_range = true;
+	return 0;
+}
+
 /*
  * Some features depend on resource that can be dynamically changed
  * at the OS runtime. There are cases that we cannot determine the
@@ -1954,6 +1975,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_shstk()) {
 		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_close_range()) {
+		pr_err("kerndat_has_close_range has failed when initializing kerndat.\n");
 		ret = -1;
 	}
 

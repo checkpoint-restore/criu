@@ -88,6 +88,7 @@ struct kerndat_s {
 	bool has_membarrier_get_registrations;
 	bool has_pagemap_scan;
 	bool has_shstk;
+	bool has_close_range;
 };
 
 extern struct kerndat_s kdat;
