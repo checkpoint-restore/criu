@@ -27,14 +27,10 @@ to criu to allow Checkpoint / Restore with ROCm.
 
 
 Dependencies
-~~~~~~~~~~~~~~
+------------
 *amdkfd support*::
     In order to snapshot the *VRAM* and other *GPU* device states, we require
-    an updated version of amdkfd(amdgpu) driver. The kernel patches are under
-    review currently.
-
-*criu 3.16*::
-    This work is rebased on latest criu release available at this time.
+    an updated version of amdkfd(amdgpu) driver.
 
 OPTIONS
 -------
