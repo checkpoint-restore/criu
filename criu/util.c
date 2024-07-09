@@ -54,6 +54,7 @@
 #include "action-scripts.h"
 
 #include "compel/infect-util.h"
+#include <compel/plugins/std/syscall-codes.h>
 
 #define VMA_OPT_LEN 128
 
@@ -518,11 +519,24 @@ int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned 
 	return cr_system_userns(in, out, err, cmd, argv, flags, -1);
 }
 
+int cr_close_range(unsigned int fd, unsigned int max_fd, unsigned int flags)
+{
+	return syscall(__NR_close_range, fd, max_fd, flags);
+}
+
 static int close_fds(int minfd)
 {
 	DIR *dir;
 	struct dirent *de;
 	int fd, ret, dfd;
+
+	if (kdat.has_close_range) {
+		if (cr_close_range(minfd, ~0, 0)) {
+			pr_perror("close_range failed");
+			return -1;
+		}
+		return 0;
+	}
 
 	dir = opendir("/proc/self/fd");
 	if (dir == NULL) {
