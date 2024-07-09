@@ -411,4 +411,6 @@ extern void util_init(void);
 
 extern char *resolve_mountpoint(char *path);
 
+extern int cr_close_range(unsigned int fd, unsigned int max_fd, unsigned int flags);
+
 #endif /* __CR_UTIL_H__ */
