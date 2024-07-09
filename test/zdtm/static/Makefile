@@ -53,6 +53,7 @@ TST_NOFILE	:=				\
 		shm				\
 		shm-mp				\
 		ptrace_sig			\
+		pidfd_self			\
 		pipe00				\
 		pipe01				\
 		pipe02				\
