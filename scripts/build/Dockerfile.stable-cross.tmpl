@@ -21,7 +21,8 @@ RUN apt-install \
 	libprotobuf-c-dev:${DEBIAN_ARCH}	\
 	libcap-dev:${DEBIAN_ARCH}		\
 	libaio-dev:${DEBIAN_ARCH}		\
-	libnl-route-3-dev:${DEBIAN_ARCH}
+	libnl-route-3-dev:${DEBIAN_ARCH} \
+	libdrm-dev:${DEBIAN_ARCH}
 
 ENV CROSS_COMPILE=${CROSS_TRIPLET}-				\
 	CROSS_ROOT=/usr/${CROSS_TRIPLET}			\
@@ -39,4 +40,10 @@ ENV PATH="${PATH}:${CROSS_ROOT}/bin"				\
 COPY . /criu
 WORKDIR /criu
 
-RUN	make mrproper && date && make -j $(nproc) zdtm && date
+# amdgpu_plugin with armv7 is not supported
+RUN	make mrproper && date && \
+	make -j $(nproc) && \
+	if [ "$SUBARCH" != "armv7" ]; then \
+		make -j $(nproc) amdgpu_plugin; \
+	fi && \
+	make -j $(nproc) zdtm && date
