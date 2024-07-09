@@ -54,6 +54,7 @@ TST_NOFILE	:=				\
 		shm-mp				\
 		ptrace_sig			\
 		pidfd_self			\
+		pidfd_child			\
 		pipe00				\
 		pipe01				\
 		pipe02				\
