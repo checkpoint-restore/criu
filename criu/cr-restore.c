@@ -2618,7 +2618,15 @@ static void prep_libc_rseq_info(struct rst_rseq_param *rseq)
 	if (!kdat.has_ptrace_get_rseq_conf) {
 #if defined(__GLIBC__) && defined(RSEQ_SIG)
 		rseq->rseq_abi_pointer = encode_pointer(__criu_thread_pointer() + __rseq_offset);
+		/*
+		 * Current glibc reports the feature/active size in
+		 * __rseq_size, not the size passed to the kernel.
+		 * This could be 20, but older kernels expect 32 for
+		 * the size argument even if only 20 bytes are used.
+		 */
 		rseq->rseq_abi_size = __rseq_size;
+		if (rseq->rseq_abi_size < 32)
+			rseq->rseq_abi_size = 32;
 		rseq->signature = RSEQ_SIG;
 #else
 		rseq->rseq_abi_pointer = 0;
