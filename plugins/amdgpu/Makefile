@@ -54,7 +54,7 @@ install:
 ifeq ($(CONFIG_AMDGPU),y)
 	$(Q) mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(E) "  INSTALL " $(PLUGIN_NAME)
-	$(Q) install -m 644 $(PLUGIN_SOBJ) $(DESTDIR)$(PLUGINDIR)
+	$(Q) install -m 755 $(PLUGIN_SOBJ) $(DESTDIR)$(PLUGINDIR)
 endif
 .PHONY: install
 
