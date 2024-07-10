@@ -33,7 +33,10 @@ static inline void *thread_pointer(void)
 static inline void unregister_old_rseq(void)
 {
 	/* unregister rseq */
-	syscall(__NR_rseq, (void *)((char *)thread_pointer() + __rseq_offset), __rseq_size, 1, RSEQ_SIG);
+	unsigned int size = __rseq_size;
+	if (__rseq_size < 32)
+		size = 32;
+	syscall(__NR_rseq, (void *)((char *)thread_pointer() + __rseq_offset), size, 1, RSEQ_SIG);
 }
 #else
 static inline void unregister_old_rseq(void)
