@@ -193,10 +193,10 @@ void print_kfd_bo_stat(int bo_cnt, struct kfd_criu_bo_bucket *bo_list)
 	for (int idx = 0; idx < bo_cnt; idx++) {
 		bo = &bo_list[idx];
 		pr_info("\n");
-		pr_info("%s(), %d. KFD BO Addr: %llx \n", __func__, idx, bo->addr);
-		pr_info("%s(), %d. KFD BO Size: %llx \n", __func__, idx, bo->size);
-		pr_info("%s(), %d. KFD BO Offset: %llx \n", __func__, idx, bo->offset);
-		pr_info("%s(), %d. KFD BO Restored Offset: %llx \n", __func__, idx, bo->restored_offset);
+		pr_info("%s(), %d. KFD BO Addr: %" PRIx64 " \n", __func__, idx, bo->addr);
+		pr_info("%s(), %d. KFD BO Size: %" PRIx64 " \n", __func__, idx, bo->size);
+		pr_info("%s(), %d. KFD BO Offset: %" PRIx64 " \n", __func__, idx, bo->offset);
+		pr_info("%s(), %d. KFD BO Restored Offset: %" PRIx64 " \n", __func__, idx, bo->restored_offset);
 		pr_info("%s(), %d. KFD BO Alloc Flags: %x \n", __func__, idx, bo->alloc_flags);
 		pr_info("%s(), %d. KFD BO Gpu ID: %x \n", __func__, idx, bo->gpu_id);
 		pr_info("%s(), %d. KFD BO Dmabuf FD: %x \n", __func__, idx, bo->dmabuf_fd);
