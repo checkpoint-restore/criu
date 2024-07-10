@@ -46,12 +46,15 @@ static inline void *__criu_thread_pointer(void)
 static inline void unregister_glibc_rseq(void)
 {
 	struct rseq *rseq = (struct rseq *)((char *)__criu_thread_pointer() + __rseq_offset);
+	unsigned int size = __rseq_size;
 
 	/* hack: mark glibc rseq structure as failed to register */
 	rseq->cpu_id = RSEQ_CPU_ID_REGISTRATION_FAILED;
 
 	/* unregister rseq */
-	syscall(__NR_rseq, (void *)rseq, __rseq_size, 1, RSEQ_SIG);
+	if (__rseq_size < 32)
+		size = 32;
+	syscall(__NR_rseq, (void *)rseq, size, 1, RSEQ_SIG);
 }
 #else
 static inline void unregister_glibc_rseq(void)
