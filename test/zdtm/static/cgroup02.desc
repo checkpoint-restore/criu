@@ -1,4 +1,4 @@
 {   'dopts': '--manage-cgroups --cgroup-root name=zdtmtst:/prefix',
-    'flags': 'suid',
+    'flags': 'suid excl',
     'flavor': 'h',
     'ropts': '--manage-cgroups --cgroup-root /newroot --cgroup-root name=zdtmtst:/prefix'}
