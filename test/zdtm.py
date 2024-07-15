@@ -283,6 +283,14 @@ class ns_flavor:
                     self.__construct_root()
                     os.mknod(self.root + "/.constructed", stat.S_IFREG | 0o600)
 
+        try:
+            with open(self.root + "/dev/null"):
+                pass
+        except IOError as e:
+            if e.errno != errno.EACCES:
+                raise e
+            raise test_fail_exc("The filesystem of CRIU repo should not have 'nodev' flag. Consider putting CRIU on appropriate file system to run ZDTM.")
+
         for b in l_bins:
             self.__copy_libs(b)
         for b in x_bins:
