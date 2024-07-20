@@ -354,7 +354,15 @@ make -C test/others/action-script run
 # compel testing
 make -C compel/test
 
-# amdgpu_plugin testing
+# amdgpu and cuda plugin testing
 make amdgpu_plugin
 make -C plugins/amdgpu/ test_topology_remap
 ./plugins/amdgpu/test_topology_remap
+
+./test/zdtm.py run -t zdtm/static/maps00 --criu-plugin cuda
+./test/zdtm.py run -t zdtm/static/maps00 --criu-plugin amdgpu
+./test/zdtm.py run -t zdtm/static/maps00 --criu-plugin amdgpu cuda
+
+./test/zdtm.py run -t zdtm/static/maps02 --criu-plugin cuda
+./test/zdtm.py run -t zdtm/static/maps02 --criu-plugin amdgpu
+./test/zdtm.py run -t zdtm/static/maps02 --criu-plugin amdgpu cuda
