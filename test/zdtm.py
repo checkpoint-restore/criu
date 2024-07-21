@@ -74,7 +74,10 @@ tests_root = None
 def clean_tests_root():
     global tests_root
     if tests_root and tests_root[0] == os.getpid():
+        subprocess.call(["./umount2", os.path.join(tests_root[1], "dev")])
+        os.rmdir(os.path.join(tests_root[1], "root/root"))
         os.rmdir(os.path.join(tests_root[1], "root"))
+        os.rmdir(os.path.join(tests_root[1], "dev"))
         os.rmdir(tests_root[1])
 
 
@@ -85,8 +88,18 @@ def make_tests_root():
         tests_root = (os.getpid(), tempfile.mkdtemp("", "criu-root-", tmpdir))
         atexit.register(clean_tests_root)
         os.mkdir(os.path.join(tests_root[1], "root"))
-    os.chmod(tests_root[1], 0o777)
-    return os.path.join(tests_root[1], "root")
+        os.mkdir(os.path.join(tests_root[1], "root", "root"))
+        # The current file system can be mounted with nodev, so let's create a
+        # new tmpfs mount for /dev.
+        devpath = os.path.join(tests_root[1], "dev")
+        os.mkdir(devpath)
+        # zdtm wants to create files on this mount. User namespace tests are
+        # running with custom user and group mappings.
+        subprocess.check_call(["mount", "-t", "tmpfs", "criu-test-dev", devpath])
+        os.chmod(devpath, 0o777)
+    os.chmod(tests_root[1], 0o755)
+    os.chmod(os.path.join(tests_root[1], "root"), 0o755)
+    return os.path.join(tests_root[1], "root", "root"), os.path.join(tests_root[1], "dev")
 
 
 # Report generation
@@ -182,15 +195,16 @@ class host_flavor:
 
 class ns_flavor:
     __root_dirs = [
-        "/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/dev/pts",
-        "/dev/net", "/tmp", "/usr", "/proc", "/run"
+        "/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev",
+        "/tmp", "/usr", "/proc", "/run"
     ]
+    __dev_dirs = ["pts", "net"]
 
     def __init__(self, opts):
         self.name = "ns"
         self.ns = True
         self.uns = False
-        self.root = make_tests_root()
+        self.root, self.devpath = make_tests_root()
         self.root_mounted = False
 
     def __copy_one(self, fname):
@@ -236,16 +250,19 @@ class ns_flavor:
             self.__copy_one(lib)
 
     def __mknod(self, name, rdev=None):
-        name = "/dev/" + name
+        tdev = stat.S_IFCHR
         if not rdev:
-            if not os.access(name, os.F_OK):
+            if not os.access(os.path.join("/dev", name), os.F_OK):
                 print("Skipping %s at root" % name)
                 return
             else:
-                rdev = os.stat(name).st_rdev
+                s = os.stat(os.path.join("/dev", name))
+                rdev = s.st_rdev
+                if stat.S_ISBLK(s.st_mode):
+                    tdev = stat.S_IFBLK
 
-        name = self.root + name
-        os.mknod(name, stat.S_IFCHR, rdev)
+        name = os.path.join(self.devpath, name)
+        os.mknod(name, tdev, rdev)
         os.chmod(name, 0o666)
 
     def __construct_root(self):
@@ -256,11 +273,18 @@ class ns_flavor:
         for ldir in ["/bin", "/sbin", "/lib", "/lib64"]:
             os.symlink(".." + ldir, self.root + "/usr" + ldir)
 
+    def __construct_dev(self):
+        for dir in self.__dev_dirs:
+            os.mkdir(os.path.join(self.devpath, dir))
+            os.chmod(os.path.join(self.devpath, dir), 0o755)
         self.__mknod("tty", os.makedev(5, 0))
         self.__mknod("null", os.makedev(1, 3))
         self.__mknod("net/tun")
         self.__mknod("rtc")
         self.__mknod("autofs", os.makedev(10, 235))
+        ext_dev = os.getenv("ZDTM_MNT_EXT_DEV")
+        if ext_dev:
+            self.__mknod(os.path.basename(ext_dev))
 
     def __copy_deps(self, deps):
         for d in deps.split('|'):
@@ -283,6 +307,9 @@ class ns_flavor:
                     self.__construct_root()
                     os.mknod(self.root + "/.constructed", stat.S_IFREG | 0o600)
 
+        if not os.access(self.devpath + "/.constructed", os.F_OK):
+            self.__construct_dev()
+            os.mknod(self.devpath + "/.constructed", stat.S_IFREG | 0o600)
         for b in l_bins:
             self.__copy_libs(b)
         for b in x_bins:
@@ -480,6 +507,7 @@ class zdtm_test:
         if self.__flavor.ns:
             env['ZDTM_NEWNS'] = "1"
             env['ZDTM_ROOT'] = self.__flavor.root
+            env['ZDTM_DEV'] = self.__flavor.devpath
             env['PATH'] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
             if self.__flavor.uns:
@@ -587,12 +615,18 @@ class zdtm_test:
         return opts
 
     def getdopts(self):
-        return self.__getcropts() + self.__freezer.getdopts(
-        ) + self.__desc.get('dopts', '').split()
+        opts = self.__getcropts() + self.__freezer.getdopts() + \
+            self.__desc.get('dopts', '').split()
+        if self.__flavor.ns:
+            opts += ["--external", "mnt[/dev]:ZDTM_DEV"]
+        return opts
 
     def getropts(self):
-        return self.__getcropts() + self.__freezer.getropts(
-        ) + self.__desc.get('ropts', '').split()
+        opts = self.__getcropts() + self.__freezer.getropts() + \
+            self.__desc.get('ropts', '').split()
+        if self.__flavor.ns:
+            opts += ["--external", "mnt[ZDTM_DEV]:%s" % self.__flavor.devpath]
+        return opts
 
     def unlink_pidfile(self):
         self.__pid = 0
