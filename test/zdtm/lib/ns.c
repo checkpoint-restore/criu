@@ -27,7 +27,7 @@ extern int pivot_root(const char *new_root, const char *put_old);
 static int prepare_mntns(void)
 {
 	int dfd, ret;
-	char *root, *criu_path;
+	char *root, *criu_path, *dev_path;
 	char path[PATH_MAX];
 
 	root = getenv("ZDTM_ROOT");
@@ -49,6 +49,19 @@ static int prepare_mntns(void)
 	if (mount(root, root, NULL, MS_BIND | MS_REC, NULL)) {
 		fprintf(stderr, "Can't bind-mount root: %m\n");
 		return -1;
+	}
+
+	dev_path = getenv("ZDTM_DEV");
+	if (dev_path) {
+		snprintf(path, sizeof(path), "%s/dev", root);
+		if (mount(dev_path, path, NULL, MS_BIND, NULL)) {
+			pr_perror("Unable to mount %s",  path);
+			return -1;
+		}
+		if (mount(NULL, path, NULL, MS_PRIVATE, NULL)) {
+			pr_perror("Unable to mount %s",  path);
+			return -1;
+		}
 	}
 
 	criu_path = getenv("ZDTM_CRIU");
