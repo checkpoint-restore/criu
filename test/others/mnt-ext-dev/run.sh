@@ -8,8 +8,6 @@ truncate -s 0 zdtm.loop
 truncate -s 50M zdtm.loop
 mkfs.ext4 -F zdtm.loop
 dev=`losetup --find --show zdtm.loop`
-mkdir -p ../../dev
-cp -ap $dev ../../dev
 export ZDTM_MNT_EXT_DEV=$dev
 python3 ../../zdtm.py run $EXTRA_OPTS -t zdtm/static/mnt_ext_dev || ret=$?
 losetup -d $dev
