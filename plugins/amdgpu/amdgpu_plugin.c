@@ -1809,7 +1809,7 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 	fd = open(AMDGPU_KFD_DEVICE, O_RDWR | O_CLOEXEC);
 	if (fd < 0) {
 		pr_perror("failed to open kfd in plugin");
-		return -1;
+		return -ENOTSUP;
 	}
 
 	args.pid = target_pid;
@@ -1818,6 +1818,7 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args) == -1) {
 		if (errno == ESRCH) {
 			pr_info("Pid %d has no kfd process info\n", target_pid);
+			exit_code = -ENOTSUP;
 		} else {
 			pr_perror("restore late ioctl failed");
 			exit_code = -1;
