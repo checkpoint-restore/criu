@@ -408,7 +408,7 @@ interrupt:
 int cuda_plugin_resume_devices_late(int pid)
 {
 	if (plugin_disabled) {
-		return 0;
+		return -ENOTSUP;
 	}
 
 	return resume_device(pid, 1);
