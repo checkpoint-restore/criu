@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <grp.h>
 #include <string.h>
 #include <errno.h>
@@ -231,7 +232,7 @@ static inline int _settime(clockid_t clk_id, time_t offset)
 	if (clk_id == CLOCK_MONOTONIC_COARSE || clk_id == CLOCK_MONOTONIC_RAW)
 		clk_id = CLOCK_MONOTONIC;
 
-	len = snprintf(buf, sizeof(buf), "%d %ld 0", clk_id, offset);
+	len = snprintf(buf, sizeof(buf), "%d %" PRId64 " 0", clk_id, (int64_t)offset);
 
 	fd = open("/proc/self/timens_offsets", O_WRONLY);
 	if (fd < 0) {
