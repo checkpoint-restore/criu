@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <inttypes.h>
 #include <unistd.h>
 
 #include <sys/time.h>
@@ -19,14 +19,14 @@ int main(int argc, char *argv[])
 	test_msg("%s pid %d\n", argv[0], getpid());
 
 	gettimeofday(&tv, &tz);
-	test_msg("%d time: %10li\n", getpid(), tv.tv_sec);
+	test_msg("%d time: %10" PRId64 "\n", getpid(), (int64_t)tv.tv_sec);
 
 	test_daemon();
 	test_waitsig();
 
 	/* this call will fail if vDSO is corrupted */
 	gettimeofday(&tv, &tz);
-	test_msg("%d time: %10li\n", getpid(), tv.tv_sec);
+	test_msg("%d time: %10" PRId64 "\n", getpid(), (int64_t)tv.tv_sec);
 
 	pass();
 

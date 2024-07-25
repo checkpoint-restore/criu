@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -55,7 +56,7 @@ void test_msg(const char *format, ...)
 		off += strftime(buf, sizeof(buf), "%H:%M:%S", tm);
 	}
 
-	off += sprintf(buf + off, ".%.3ld: ", tv.tv_usec / 1000);
+	off += sprintf(buf + off, ".%.3" PRId64 ": ", (int64_t)(tv.tv_usec / 1000));
 	off += sprintf(buf + off, "%5d: ", getpid());
 
 skip:
