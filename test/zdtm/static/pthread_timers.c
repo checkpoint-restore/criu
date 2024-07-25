@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <string.h>
 #include <signal.h>
 #include <time.h>
@@ -69,7 +70,8 @@ int main(int argc, char **argv)
 	}
 
 	if (itimerspec.it_interval.tv_nsec != TEST_INTERVAL_NSEC || itimerspec.it_interval.tv_sec) {
-		pr_perror("wrong interval: %ld:%ld", itimerspec.it_interval.tv_sec, itimerspec.it_interval.tv_nsec);
+		pr_perror("wrong interval: %" PRId64 ":%" PRId64,
+			  (int64_t)itimerspec.it_interval.tv_sec, (int64_t)itimerspec.it_interval.tv_nsec);
 		return 1;
 	}
 

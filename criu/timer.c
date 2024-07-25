@@ -46,9 +46,9 @@ static inline int decode_itimer(char *n, ItimerEntry *ie, struct itimerval *val)
 		return -1;
 	}
 
-	pr_info("Restored %s timer to %" PRId64 ".%ld -> %" PRId64 ".%ld\n", n,
-		(int64_t)val->it_value.tv_sec, val->it_value.tv_usec,
-		(int64_t)val->it_interval.tv_sec, val->it_interval.tv_usec);
+	pr_info("Restored %s timer to %" PRId64 ".%" PRId64 " -> %" PRId64 ".%" PRId64 "\n", n,
+		(int64_t)val->it_value.tv_sec, (int64_t)val->it_value.tv_usec,
+		(int64_t)val->it_interval.tv_sec, (int64_t)val->it_interval.tv_usec);
 
 	return 0;
 }

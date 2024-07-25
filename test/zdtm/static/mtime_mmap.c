@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -77,7 +78,7 @@ int main(int argc, char **argv)
 	mtime_new = fst.st_mtime;
 	/* time of last modification */
 	if (mtime_new <= mtime_old) {
-		fail("mtime %ld wasn't updated on mmapped %s file", mtime_new, filename);
+		fail("mtime %" PRId64 " wasn't updated on mmapped %s file", (int64_t)mtime_new, filename);
 		goto failed;
 	}
 
@@ -98,7 +99,7 @@ int main(int argc, char **argv)
 
 	/* time of last modification */
 	if (fst.st_mtime != mtime_new) {
-		fail("After migration, mtime changed to %ld", fst.st_mtime);
+		fail("After migration, mtime changed to %" PRId64, (int64_t)fst.st_mtime);
 		goto failed;
 	}
 
