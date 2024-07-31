@@ -983,6 +983,11 @@ int collect_pstree(void)
 	 */
 	alarm(opts.timeout);
 
+	ret = run_plugins(PAUSE_DEVICES, pid);
+	if (ret < 0 && ret != -ENOTSUP) {
+		goto err;
+	}
+
 	if (opts.freeze_cgroup && cgroup_version())
 		goto err;
 
@@ -990,11 +995,6 @@ int collect_pstree(void)
 
 	if (opts.freeze_cgroup && freeze_processes())
 		goto err;
-
-	ret = run_plugins(PAUSE_DEVICES, pid);
-	if (ret < 0 && ret != -ENOTSUP) {
-		goto err;
-	}
 
 	if (!opts.freeze_cgroup && compel_interrupt_task(pid)) {
 		set_cr_errno(ESRCH);
