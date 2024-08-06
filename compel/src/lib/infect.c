@@ -816,7 +816,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size,
 	uint8_t orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
 	pid_t pid = ctl->rpid;
 	long sret = -ENOSYS;
-	int ret, fd, lfd;
+	int ret, fd, lfd, remote_flags;
 
 	if (ctl->ictx.flags & INFECT_NO_MEMFD)
 		return 1;
@@ -860,7 +860,11 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size,
 		goto err_cure;
 	}
 
-	ctl->remote_map = remote_mmap(ctl, NULL, size, remote_prot, MAP_FILE | MAP_SHARED, fd, 0);
+	remote_flags = MAP_FILE | MAP_SHARED;
+	if (ctl->ictx.remote_map_addr){
+		remote_flags |= MAP_FIXED_NOREPLACE;
+	}
+	ctl->remote_map = remote_mmap(ctl, (void *)ctl->ictx.remote_map_addr, size, remote_prot, remote_flags, fd, 0);
 	if (!ctl->remote_map) {
 		pr_err("Can't rmap memfd for parasite blob\n");
 		goto err_curef;
