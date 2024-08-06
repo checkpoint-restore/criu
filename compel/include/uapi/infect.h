@@ -120,6 +120,7 @@ struct infect_ctx {
 	open_proc_fn open_proc;
 
 	int log_fd; /* fd for parasite code to send messages to */
+	unsigned long remote_map_addr; /* User-specified address where to mmap parasitic code, default not set */
 };
 
 extern struct infect_ctx *compel_infect_ctx(struct parasite_ctl *);
