@@ -49,7 +49,6 @@
 #include "images/inventory.pb-c.h"
 
 #include "shmem.h"
-#include "restorer.h"
 
 /*
  * sys_getgroups() buffer size. Not too much, to avoid stack overflow.
