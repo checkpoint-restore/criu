@@ -123,7 +123,6 @@ struct tty_dump_info {
 	size_t tty_data_size;
 };
 
-static bool stdin_isatty = false;
 static LIST_HEAD(collected_ttys);
 static LIST_HEAD(all_ttys);
 static int self_stdin_fdid = -1;
@@ -1006,7 +1005,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 			}
 		}
 
-		if (!stdin_isatty) {
+		if (self_stdin_fdid == -1) {
 			pr_err("Don't have tty to inherit session from, aborting\n");
 			return -1;
 		}
@@ -2309,15 +2308,14 @@ int tty_prep_fds(void)
 	if (!opts.shell_job)
 		return 0;
 
-	if (!isatty(STDIN_FILENO))
+	if (!isatty(STDIN_FILENO)) {
 		pr_info("Standard stream is not a terminal, may fail later\n");
-	else
-		stdin_isatty = true;
-
-	self_stdin_fdid = fdstore_add(STDIN_FILENO);
-	if (self_stdin_fdid < 0) {
-		pr_err("Can't place stdin fd to fdstore\n");
-		return -1;
+	} else {
+		self_stdin_fdid = fdstore_add(STDIN_FILENO);
+		if (self_stdin_fdid < 0) {
+			pr_err("Can't place stdin fd to fdstore\n");
+			return -1;
+		}
 	}
 
 	return 0;
