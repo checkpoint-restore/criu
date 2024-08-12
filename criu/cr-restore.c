@@ -2238,8 +2238,10 @@ skip_ns_bouncing:
 	 * mapped memory) could be done sanely once the pie code hands
 	 * over the control to master process.
 	 */
+	pr_info("Run late stage hook from criu master for external devices\n");
 	for_each_pstree_item(item) {
-		pr_info("Run late stage hook from criu master for external devices\n");
+		if (!task_alive(item))
+			continue;
 		ret = run_plugins(RESUME_DEVICES_LATE, item->pid->real);
 		/*
 		 * This may not really be an error. Only certain plugin hooks
