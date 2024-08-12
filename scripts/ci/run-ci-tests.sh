@@ -359,10 +359,8 @@ make amdgpu_plugin
 make -C plugins/amdgpu/ test_topology_remap
 ./plugins/amdgpu/test_topology_remap
 
-./test/zdtm.py run -t zdtm/static/maps00 --criu-plugin cuda
-./test/zdtm.py run -t zdtm/static/maps00 --criu-plugin amdgpu
-./test/zdtm.py run -t zdtm/static/maps00 --criu-plugin amdgpu cuda
+./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin cuda
+./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu
+./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu cuda
 
-./test/zdtm.py run -t zdtm/static/maps02 --criu-plugin cuda
-./test/zdtm.py run -t zdtm/static/maps02 --criu-plugin amdgpu
-./test/zdtm.py run -t zdtm/static/maps02 --criu-plugin amdgpu cuda
+./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 --mocked-cuda-checkpoint
