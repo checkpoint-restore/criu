@@ -1030,6 +1030,8 @@ int collect_pstree(void)
 	}
 
 	for_each_pstree_item(iter) {
+		if (!task_alive(iter))
+			continue;
 		ret = run_plugins(CHECKPOINT_DEVICES, iter->pid->real);
 		if (ret < 0 && ret != -ENOTSUP)
 			goto err;
