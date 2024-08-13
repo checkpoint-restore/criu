@@ -22,6 +22,9 @@ message dump_stats_entry {
 	optional uint64			shpages_scanned		= 12;
 	optional uint64			shpages_skipped_parent	= 13;
 	optional uint64			shpages_written		= 14;
+
+	optional uint32			stream_cipher_encryption_time	= 15;
+	optional uint32			block_cipher_encryption_time	= 16;
 }
 
 message restore_stats_entry {
@@ -32,6 +35,9 @@ message restore_stats_entry {
 	required uint32			restore_time		= 4;
 
 	optional uint64			pages_restored		= 5;
+
+	optional uint32			stream_cipher_decryption_time	= 6;
+	optional uint32			block_cipher_decryption_time	= 7;
 }
 
 message stats_entry {

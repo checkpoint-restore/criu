@@ -19,6 +19,7 @@
 #include "bfd.h"
 #include "protobuf.h"
 #include "util.h"
+#include "tls.h"
 
 #define image_name(img, buf) __image_name(img, buf, sizeof(buf))
 static char *__image_name(struct cr_img *img, char *image_path, size_t image_path_size)
@@ -53,6 +54,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 	void *buf = (void *)&local;
 	u32 size;
 	int ret;
+	chacha20_poly1305_t cipher_data;
 
 	if (!cr_pb_descs[type].pb_desc) {
 		pr_err("Wrong object requested %d on %s\n", type, image_name(img, img_name_buf));
@@ -95,6 +97,41 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 		goto err;
 	}
 
+	if (opts.encrypt && type != PB_CIPHER && size > 0) {
+		/* Read tag data */
+		ret = bread(&img->_x, cipher_data.tag, sizeof(cipher_data.tag));
+		if (ret < 0) {
+			pr_perror("Can't read %d bytes of tag data from file %s", (int)sizeof(cipher_data.tag),
+				  image_name(img, img_name_buf));
+			goto err;
+		} else if (ret != sizeof(cipher_data.tag)) {
+			pr_perror("Read %d bytes of tag data while %d expected from %s", ret, (int)sizeof(cipher_data.tag),
+				  image_name(img, img_name_buf));
+			ret = -1;
+			goto err;
+		}
+
+		/* Read nonce data */
+		ret = bread(&img->_x, cipher_data.nonce, sizeof(cipher_data.nonce));
+		if (ret < 0) {
+			pr_perror("Can't read %d bytes of nonce data from file %s", (int)sizeof(cipher_data.nonce),
+				  image_name(img, img_name_buf));
+			goto err;
+		} else if (ret != sizeof(cipher_data.nonce)) {
+			pr_perror("Read %d bytes of nonce data while %d expected from %s", ret, (int)sizeof(cipher_data.nonce),
+				image_name(img, img_name_buf));
+			ret = -1;
+			goto err;
+		}
+
+		/* Decrypt the content of buf */
+		ret = tls_decrypt_data(buf, size, cipher_data.tag, cipher_data.nonce);
+		if (ret < 0) {
+			pr_err("Failed to decrypt object\n");
+			goto err;
+		}
+	}
+
 	*pobj = cr_pb_descs[type].unpack(NULL, size, buf);
 	if (!*pobj) {
 		ret = -1;
@@ -124,7 +161,11 @@ int pb_write_one(struct cr_img *img, void *obj, int type)
 	void *buf = (void *)&local;
 	u32 size, packed;
 	int ret = -1;
-	struct iovec iov[2];
+	int total_size = 0;
+	struct iovec iov[4];
+	/* size + packed object */
+	int iov_cnt = 2;
+	chacha20_poly1305_t cipher_data;
 
 	if (!cr_pb_descs[type].pb_desc) {
 		pr_err("Wrong object requested %d\n", type);
@@ -147,13 +188,33 @@ int pb_write_one(struct cr_img *img, void *obj, int type)
 		goto err;
 	}
 
+	/* Encrypt packed object using ChaCha20-Poly1305 */
+	if (opts.encrypt && size > 0 && type != PB_CIPHER && type != PB_STATS) {
+		ret = tls_encrypt_data(buf, size, cipher_data.tag, cipher_data.nonce);
+		if (ret < 0) {
+			pr_err("Failed to encrypt object\n");
+			goto err;
+		}
+
+		iov[2].iov_base = cipher_data.tag;
+		iov[2].iov_len = sizeof(cipher_data.tag);
+		iov[3].iov_base = cipher_data.nonce;
+		iov[3].iov_len = sizeof(cipher_data.nonce);
+
+		/* size + packed object + tag + nonce */
+		iov_cnt = 4;
+		total_size = iov[2].iov_len + iov[3].iov_len;
+	}
+
 	iov[0].iov_base = &size;
 	iov[0].iov_len = sizeof(size);
 	iov[1].iov_base = buf;
 	iov[1].iov_len = size;
 
-	ret = bwritev(&img->_x, iov, 2);
-	if (ret != size + sizeof(size)) {
+	total_size += iov[0].iov_len + iov[1].iov_len;
+
+	ret = bwritev(&img->_x, iov, iov_cnt);
+	if (ret != total_size) {
 		pr_perror("Can't write %d bytes", (int)(size + sizeof(size)));
 		goto err;
 	}

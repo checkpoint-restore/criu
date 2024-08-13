@@ -72,6 +72,10 @@ test_stream() {
 	./test/zdtm.py run --stream -p 2 --keep-going -a "${STREAM_TEST_EXCLUDE[@]}" "${ZDTM_OPTS[@]}"
 }
 
+test_encrypted_images() {
+	./test/zdtm.py run -a --keep-going --encrypt "${TEST_EXCLUDE[@]}" "${ZDTM_OPTS[@]}"
+}
+
 print_header() {
 	echo "############### $1 ###############"
 }
@@ -210,6 +214,11 @@ chmod 0777 test/zdtm/transition
 if [ "${STREAM_TEST}" = "1" ]; then
 	./scripts/install-criu-image-streamer.sh
 	test_stream
+	exit 0
+fi
+
+if [ "${ENCRYPTED_IMAGES_TEST}" = "1" ]; then
+	test_encrypted_images
 	exit 0
 fi
 

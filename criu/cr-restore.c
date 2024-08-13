@@ -79,6 +79,7 @@
 #include "timens.h"
 #include "bpfmap.h"
 #include "apparmor.h"
+#include "tls.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -2174,6 +2175,10 @@ skip_ns_bouncing:
 		goto out_kill;
 	}
 
+	/* Verify the integrity of encrypted memory pages */
+	if (!tls_verify_hmac())
+		goto out_kill_network_unlocked;
+
 	/*
 	 * There is no need to call try_clean_remaps() after this point,
 	 * as restore went OK and all ghosts were removed by the openers.
@@ -2354,10 +2359,13 @@ int cr_restore_tasks(void)
 	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
 		return -1;
 
-	if (check_img_inventory(/* restore = */ true) < 0)
+	if (init_stats(RESTORE_STATS))
 		goto err;
 
-	if (init_stats(RESTORE_STATS))
+	if (tls_initialize_cipher_from_image())
+		goto err;
+
+	if (check_img_inventory(/* restore = */ true) < 0)
 		goto err;
 
 	if (lsm_check_opts())

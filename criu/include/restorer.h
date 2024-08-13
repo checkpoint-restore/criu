@@ -244,6 +244,10 @@ struct task_restore_args {
 	 */
 	struct rst_rseq_param libc_rseq;
 
+	bool encrypted_pages;
+	int decryption_pipe_fd_r;
+	int decryption_pipe_fd_w;
+
 	uid_t uid;
 	u32 cap_eff[CR_CAP_SIZE];
 
