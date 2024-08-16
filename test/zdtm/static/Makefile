@@ -57,6 +57,7 @@ TST_NOFILE	:=				\
 		pidfd_dead			\
 		pidfd_child			\
 		pidfd_kill			\
+		fd_from_pidfd			\
 		pipe00				\
 		pipe01				\
 		pipe02				\
