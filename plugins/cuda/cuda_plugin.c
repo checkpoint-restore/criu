@@ -4,6 +4,7 @@
 #include "cr_options.h"
 #include "pid.h"
 #include "proc_parse.h"
+#include "seize.h"
 
 #include <common/list.h>
 #include <compel/infect.h>
@@ -379,18 +380,23 @@ int cuda_plugin_pause_devices(int pid)
 	int status = cuda_process_checkpoint_action(pid, ACTION_LOCK, opts.timeout * 1000, msg_buf, sizeof(msg_buf));
 	if (status) {
 		pr_err("PAUSE_DEVICES failed with %s\n", msg_buf);
-		return -1;
-	}
-	if (add_pid_to_buf(&cuda_pids, pid)) {
-		pr_err("unable to track paused pid %d\n", pid);
-		status = cuda_process_checkpoint_action(pid, ACTION_UNLOCK, 0, msg_buf, sizeof(msg_buf));
-		if (status) {
-			pr_err("Failed to unlock process status %s, pid %d may hang\n", msg_buf, pid);
-		}
+		if (alarm_timeouted())
+			goto unlock;
 		return -1;
 	}
 
+	if (add_pid_to_buf(&cuda_pids, pid)) {
+		pr_err("unable to track paused pid %d\n", pid);
+		goto unlock;
+	}
+
 	return 0;
+unlock:
+	status = cuda_process_checkpoint_action(pid, ACTION_UNLOCK, 0, msg_buf, sizeof(msg_buf));
+	if (status) {
+		pr_err("Failed to unlock process status %s, pid %d may hang\n", msg_buf, pid);
+	}
+	return -1;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__PAUSE_DEVICES, cuda_plugin_pause_devices)
 
