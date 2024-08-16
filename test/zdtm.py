@@ -684,6 +684,8 @@ class zdtm_test:
             for name in opts['criu_plugin']:
                 subprocess.check_call(["make", '--no-print-directory', "-C", "plugins/", f"{name}_plugin.so"])
 
+        if 'mocked_cuda_checkpoint' in opts and opts['mocked_cuda_checkpoint']:
+            subprocess.check_call(["make", "-C", "cuda-checkpoint/"])
         if 'rootless' in opts and opts['rootless']:
             return
         subprocess.check_call(
@@ -1141,6 +1143,7 @@ class criu:
         self.__pre_dump_mode = opts['pre_dump_mode']
         self.__preload_libfault = bool(opts['preload_libfault'])
         self.__mntns_compat_mode = bool(opts['mntns_compat_mode'])
+        self.__cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'])
 
         if opts['rpc']:
             self.__criu = criu_rpc
@@ -1222,6 +1225,9 @@ class criu:
 
         s_args = ["--log-file", log, "--images-dir", self.__ddir(),
                   "--verbosity=4"] + opts
+
+        if self.__cuda_checkpoint:
+            s_args += [ "--libdir" , os.path.join(os.getcwd(), "..", "plugins", "cuda") ]
 
         with open(os.path.join(self.__ddir(), action + '.cropt'), 'w') as f:
             f.write(' '.join(s_args) + '\n')
@@ -2160,7 +2166,7 @@ class Launcher:
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode',
-              'rootless', 'preload_libfault')
+              'rootless', 'preload_libfault', 'mocked_cuda_checkpoint')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
         if self.__use_log:
@@ -2173,8 +2179,11 @@ class Launcher:
         if opts['rootless'] and os.getuid() == 0:
             os.setgid(NON_ROOT_UID)
             os.setuid(NON_ROOT_UID)
+        env = dict(os.environ, CR_CT_TEST_INFO=arg)
+        if opts['mocked_cuda_checkpoint']:
+            env['PATH'] = os.path.join(os.getcwd(), "cuda-checkpoint") + ":" + env["PATH"]
         sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"],
-                               env=dict(os.environ, CR_CT_TEST_INFO=arg),
+                               env=env,
                                stdout=log,
                                stderr=subprocess.STDOUT,
                                close_fds=True)
@@ -2871,6 +2880,9 @@ def get_cli_args():
                     choices=['amdgpu', 'cuda'],
                     nargs='+',
                     default=None)
+    rp.add_argument("--mocked-cuda-checkpoint",
+                    action="store_true",
+                    help="Run criu with the cuda plugin and the mocked cuda-checkpoint tool")
 
     lp = sp.add_parser("list", help="List tests")
     lp.set_defaults(action=list_tests)
