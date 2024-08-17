@@ -9,4 +9,7 @@ extern bool alarm_timeouted(void);
 extern char *task_comm_info(pid_t pid, char *comm, size_t size);
 extern char *__task_comm_info(pid_t pid);
 
+extern void dont_use_freeze_cgroup(void);
+extern bool freeze_cgroup_disabled;
+
 #endif

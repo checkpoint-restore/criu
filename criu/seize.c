@@ -79,6 +79,19 @@ enum freezer_state { FREEZER_ERROR = -1, THAWED, FROZEN, FREEZING };
 /* Track if we are running on cgroup v2 system. */
 static bool cgroup_v2 = false;
 
+bool freeze_cgroup_disabled;
+
+/*
+ * Disables the use of freeze cgroups for process seizing, even if explicitly
+ * requested via the --freeze-cgroup option. This is necessary for plugins
+ * (e.g., CUDA) that do not function correctly when processes are frozen using
+ * cgroups.
+ */
+void __attribute__((used)) dont_use_freeze_cgroup(void)
+{
+	freeze_cgroup_disabled = true;
+}
+
 static enum freezer_state get_freezer_v1_state(int fd)
 {
 	char state[32];
@@ -236,7 +249,7 @@ static int freezer_restore_state(void)
 	int fd;
 	int ret;
 
-	if (!opts.freeze_cgroup || origin_freezer_state != FROZEN)
+	if (!opts.freeze_cgroup || freeze_cgroup_disabled || origin_freezer_state != FROZEN)
 		return 0;
 
 	fd = freezer_open();
@@ -397,7 +410,7 @@ static int freezer_detach(void)
 {
 	int i;
 
-	if (!opts.freeze_cgroup)
+	if (!opts.freeze_cgroup || freeze_cgroup_disabled)
 		return 0;
 
 	for (i = 0; i < processes_to_wait && processes_to_wait_pids; i++) {
@@ -638,14 +651,17 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
-		ret = run_plugins(PAUSE_DEVICES, pid);
-		if (ret < 0 && ret != -ENOTSUP) {
-			goto free;
+		if (!opts.freeze_cgroup) {
+			ret = run_plugins(PAUSE_DEVICES, pid);
+			if (ret < 0 && ret != -ENOTSUP) {
+				goto free;
+			}
 		}
 
-		if (!opts.freeze_cgroup)
+		if (!opts.freeze_cgroup || freeze_cgroup_disabled) {
 			/* fails when meets a zombie */
 			__ignore_value(compel_interrupt_task(pid));
+		}
 
 		ret = compel_wait_task(pid, item->pid->real, parse_pid_status, NULL, &creds.s, NULL);
 		if (ret < 0) {
@@ -831,7 +847,7 @@ static int collect_threads(struct pstree_item *item)
 
 		pr_info("\tSeizing %d's %d thread\n", item->pid->real, pid);
 
-		if (!opts.freeze_cgroup && compel_interrupt_task(pid))
+		if ((!opts.freeze_cgroup || freeze_cgroup_disabled) && compel_interrupt_task(pid))
 			continue;
 
 		ret = compel_wait_task(pid, item_ppid(item), parse_pid_status, NULL, &t_creds.s, NULL);
@@ -887,7 +903,7 @@ static int collect_loop(struct pstree_item *item, int (*collect)(struct pstree_i
 {
 	int attempts = NR_ATTEMPTS, nr_inprogress = 1;
 
-	if (opts.freeze_cgroup)
+	if (opts.freeze_cgroup && !freeze_cgroup_disabled)
 		attempts = 1;
 
 	/*
@@ -967,6 +983,61 @@ static int cgroup_version(void)
 	return -1;
 }
 
+static int pause_devices_in_cgroup(void)
+{
+	char buffer[4096];
+	int ret;
+	char procs_path[PATH_MAX];
+	ssize_t bytes_read;
+	pid_t pid;
+	int procs_fd;
+
+	/* Open the cgroup.procs file */
+	snprintf(procs_path, sizeof(procs_path), "%s/%s", opts.freeze_cgroup, "cgroup.procs");
+	procs_fd = open(procs_path, O_RDONLY);
+	if (procs_fd == -1) {
+		pr_perror("Failed to open cgroup.procs file");
+		return -1;
+	}
+
+	/* Read cgroup.procs into a buffer */
+	while ((bytes_read = read(procs_fd, buffer, sizeof(buffer) - 1)) > 0) {
+		char *ptr, *end_ptr;
+		/* Null-terminate the buffer */
+		buffer[bytes_read] = '\0';
+		ptr = buffer;
+
+		/* Process each PID */
+		while (*ptr) {
+			pid = strtol(ptr, &end_ptr, 10);
+			if (ptr != end_ptr) {
+				ret = run_plugins(PAUSE_DEVICES, pid);
+				if (ret < 0 && ret != -ENOTSUP) {
+					pr_err("Failed to pause GPU device\n");
+					close(procs_fd);
+					return -1;
+				}
+
+				ptr = end_ptr;
+			} else {
+				/* Move to the next line if the current line was invalid */
+				while (*ptr && *ptr != '\n')
+					ptr++;
+				/* Skip the newline character */
+				if (*ptr)
+					ptr++;
+			}
+		}
+	}
+	close(procs_fd);
+
+	if (bytes_read == -1) {
+		pr_perror("Failed to read cgroup.procs file");
+		return -1;
+	}
+	return 0;
+}
+
 int collect_pstree(void)
 {
 	pid_t pid = root_item->pid->real;
@@ -983,7 +1054,17 @@ int collect_pstree(void)
 	 */
 	alarm(opts.timeout);
 
-	ret = run_plugins(PAUSE_DEVICES, pid);
+	/*
+	 * To create a checkpoint of a container, we use the cgroup specified by the
+	 * container runtime (e.g., runc) to freeze all processes in the container.
+	 * However, if there are processes with CUDA state, we need to "lock" them
+	 * before freezing; otherwise, the cuda-checkpoint tool may hang.
+	 */
+	if (opts.freeze_cgroup)
+		ret = pause_devices_in_cgroup();
+	else
+		ret = run_plugins(PAUSE_DEVICES, pid);
+
 	if (ret < 0 && ret != -ENOTSUP) {
 		goto err;
 	}
@@ -993,12 +1074,14 @@ int collect_pstree(void)
 
 	pr_debug("Detected cgroup V%d freezer\n", cgroup_v2 ? 2 : 1);
 
-	if (opts.freeze_cgroup && freeze_processes())
-		goto err;
-
-	if (!opts.freeze_cgroup && compel_interrupt_task(pid)) {
-		set_cr_errno(ESRCH);
-		goto err;
+	if (opts.freeze_cgroup && !freeze_cgroup_disabled) {
+		if (freeze_processes())
+			goto err;
+	} else {
+		if (compel_interrupt_task(pid)) {
+			set_cr_errno(ESRCH);
+			goto err;
+		}
 	}
 
 	ret = compel_wait_task(pid, -1, parse_pid_status, NULL, &creds.s, NULL);
@@ -1024,7 +1107,7 @@ int collect_pstree(void)
 	if (ret < 0)
 		goto err;
 
-	if (opts.freeze_cgroup && freezer_wait_processes()) {
+	if (opts.freeze_cgroup && !freeze_cgroup_disabled && freezer_wait_processes()) {
 		ret = -1;
 		goto err;
 	}

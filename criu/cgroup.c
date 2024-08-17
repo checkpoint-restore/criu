@@ -742,7 +742,7 @@ static int collect_cgroups(struct list_head *ctls)
 		if (ret < 0)
 			return ret;
 
-		if (opts.freeze_cgroup && !strcmp(cc->name, "freezer") && add_freezer_state(current_controller))
+		if (opts.freeze_cgroup && !freeze_cgroup_disabled && !strcmp(cc->name, "freezer") && add_freezer_state(current_controller))
 			return -1;
 	}
 
