@@ -54,6 +54,7 @@ TST_NOFILE	:=				\
 		shm-mp				\
 		ptrace_sig			\
 		pidfd_self			\
+		pidfd_of_thread			\
 		pidfd_dead			\
 		pidfd_child			\
 		pidfd_kill			\
