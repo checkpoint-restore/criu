@@ -558,9 +558,8 @@ class coredump_generator:
             fields.append(("start" + str(i), ctypes.c_long))
             fields.append(("end" + str(i), ctypes.c_long))
             fields.append(("file_ofs" + str(i), ctypes.c_long))
-        for i in range(len(infos)):
-            fields.append(
-                ("name" + str(i), ctypes.c_char * (len(infos[i].name) + 1)))
+        for i,info in enumerate(infos):
+            fields.append(("name" + str(i), ctypes.c_char * (len(info.name) + 1)))
 
         class elf_files(ctypes.Structure):
             _fields_ = fields
