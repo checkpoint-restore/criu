@@ -313,6 +313,7 @@ int dump_pstree(struct pstree_item *root_item)
 		e.pgid = item->pgid;
 		e.sid = item->sid;
 		e.n_threads = item->nr_threads;
+		e.realpid = item->pid->real;
 
 		e.threads = xmalloc(sizeof(e.threads[0]) * e.n_threads);
 		if (!e.threads)
@@ -577,6 +578,7 @@ static int read_one_pstree_item(struct cr_img *img, pid_t *pid_max)
 	if (e->sid > *pid_max)
 		*pid_max = e->sid;
 	pi->pid->state = TASK_ALIVE;
+	pi->pid->real = e->realpid;
 
 	if (e->ppid == 0) {
 		if (root_item) {

@@ -1203,9 +1203,15 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 	if (kdat.has_clone3_set_tid) {
+		pid_t ns_tids[2] = {pid};
+		size_t ns_tids_len = 1;
+		if (item->pid->real > 0 && item->pid->real != pid) {
+			ns_tids[ns_tids_len] = item->pid->real;
+			ns_tids_len++;
+		}
 		ret = clone3_with_pid_noasan(restore_task_with_children, &ca,
 					     (ca.clone_flags & ~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)),
-					     SIGCHLD, pid);
+					     SIGCHLD, ns_tids, ns_tids_len);
 	} else {
 		/*
 		 * Some kernel modules, such as network packet generator
