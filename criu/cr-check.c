@@ -54,7 +54,6 @@
 #include "restorer.h"
 #include "uffd.h"
 #include "linux/aio_abi.h"
-#include "syscall.h"
 #include "mount-v2.h"
 
 #include "images/inventory.pb-c.h"
@@ -1437,18 +1436,18 @@ static int ovl_mount(void)
 {
 	int tmpfs, fsfd, ovl;
 
-	fsfd = sys_fsopen("tmpfs", 0);
+	fsfd = cr_fsopen("tmpfs", 0);
 	if (fsfd == -1) {
 		pr_perror("Unable to fsopen tmpfs");
 		return -1;
 	}
 
-	if (sys_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) == -1) {
+	if (cr_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) == -1) {
 		pr_perror("Unable to create tmpfs mount");
 		return -1;
 	}
 
-	tmpfs = sys_fsmount(fsfd, 0, 0);
+	tmpfs = cr_fsmount(fsfd, 0, 0);
 	if (tmpfs == -1) {
 		pr_perror("Unable to mount tmpfs");
 		return -1;
@@ -1475,23 +1474,23 @@ static int ovl_mount(void)
 		return -1;
 	}
 
-	fsfd = sys_fsopen("overlay", 0);
+	fsfd = cr_fsopen("overlay", 0);
 	if (fsfd == -1) {
 		pr_perror("Unable to fsopen overlayfs");
 		return -1;
 	}
-	if (sys_fsconfig(fsfd, FSCONFIG_SET_STRING, "source", "test", 0) == -1 ||
-	    sys_fsconfig(fsfd, FSCONFIG_SET_STRING, "lowerdir", "/tmp/l", 0) == -1 ||
-	    sys_fsconfig(fsfd, FSCONFIG_SET_STRING, "upperdir", "/tmp/u", 0) == -1 ||
-	    sys_fsconfig(fsfd, FSCONFIG_SET_STRING, "workdir", "/tmp/w", 0) == -1) {
+	if (cr_fsconfig(fsfd, FSCONFIG_SET_STRING, "source", "test", 0) == -1 ||
+	    cr_fsconfig(fsfd, FSCONFIG_SET_STRING, "lowerdir", "/tmp/l", 0) == -1 ||
+	    cr_fsconfig(fsfd, FSCONFIG_SET_STRING, "upperdir", "/tmp/u", 0) == -1 ||
+	    cr_fsconfig(fsfd, FSCONFIG_SET_STRING, "workdir", "/tmp/w", 0) == -1) {
 		pr_perror("Unable to configure overlayfs");
 		return -1;
 	}
-	if (sys_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) == -1) {
+	if (cr_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) == -1) {
 		pr_perror("Unable to create overlayfs");
 		return -1;
 	}
-	ovl = sys_fsmount(fsfd, 0, 0);
+	ovl = cr_fsmount(fsfd, 0, 0);
 	if (ovl == -1) {
 		pr_perror("Unable to mount overlayfs");
 		return -1;
