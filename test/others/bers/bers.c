@@ -391,7 +391,7 @@ usage:
 	pr_msg("    -f|--files <num>         create <num> files for each task\n");
 	pr_msg("    -m|--memory <num>        allocate <num> megabytes for each task\n");
 	pr_msg("    --memory-chunks <num>    split memory to <num> equal parts\n");
-	pr_msg("    --mem-fill <mode>        fill memory with data dependin on <mode>:\n");
+	pr_msg("    --mem-fill <mode>        fill memory with data depending on <mode>:\n");
 	pr_msg("                all          fill every byte of memory\n");
 	pr_msg("                light        fill first bytes of every page\n");
 	pr_msg("                dirtify      fill every page\n");

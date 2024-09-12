@@ -834,7 +834,7 @@ static int kerndat_detect_stack_guard_gap(void)
 		 * (see kernel commit 1be7107fbe18ee).
 		 *
 		 * Same time there was semi-complete
-		 * patch released which hitted a number
+		 * patch released which hit a number
 		 * of repos (Ubuntu, Fedora) where instead
 		 * of PAGE_SIZE the 1M gap is cut off.
 		 */
