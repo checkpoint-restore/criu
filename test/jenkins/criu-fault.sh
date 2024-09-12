@@ -40,6 +40,10 @@ fi
 # also check for the main thread corruption
 ./test/zdtm.py run -t zdtm/static/fpu00 --fault 134 -f h --norst || fail
 
+# check dont_use_freeze_cgroup
+./test/zdtm.py run -t zdtm/static/env00 --freezecg zdtm:t --fault 137
+./test/zdtm.py run -t zdtm/static/env00 --freezecg zdtm:t --fault 137 --norst
+
 if ./test/zdtm.py run -t zdtm/static/vfork00 --fault 136 --report report -f h ; then
 	fail
 fi
