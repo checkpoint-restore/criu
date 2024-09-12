@@ -25,6 +25,19 @@
 #include "xmalloc.h"
 #include "util.h"
 
+static bool freeze_cgroup_disabled;
+
+/*
+ * Disables the use of freeze cgroups for process seizing, even if explicitly
+ * requested via the --freeze-cgroup option. This is necessary for plugins
+ * (e.g., CUDA) that do not function correctly when processes are frozen using
+ * cgroups.
+ */
+void __attribute__((used)) dont_use_freeze_cgroup(void)
+{
+	freeze_cgroup_disabled = true;
+}
+
 char *task_comm_info(pid_t pid, char *comm, size_t size)
 {
 	bool is_read = false;
@@ -397,7 +410,7 @@ static int freezer_detach(void)
 {
 	int i;
 
-	if (!opts.freeze_cgroup)
+	if (!opts.freeze_cgroup || freeze_cgroup_disabled)
 		return 0;
 
 	for (i = 0; i < processes_to_wait && processes_to_wait_pids; i++) {
@@ -488,6 +501,31 @@ static int log_unfrozen_stacks(char *root)
 		}
 	}
 	closedir(dir);
+
+	return 0;
+}
+
+static int check_freezer_cgroup(void)
+{
+	enum freezer_state state = THAWED;
+	int fd;
+
+	BUG_ON(!freeze_cgroup_disabled);
+
+	fd = freezer_open();
+	if (fd < 0)
+		return -1;
+
+	state = get_freezer_state(fd);
+	close(fd);
+	if (state == FREEZER_ERROR) {
+		return -1;
+	}
+
+	if (state != THAWED) {
+		pr_err("One or more plugins are incompatible with the freezer cgroup in the FROZEN state.\n");
+		return -1;
+	}
 
 	return 0;
 }
@@ -643,7 +681,7 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
-		if (!opts.freeze_cgroup)
+		if (!opts.freeze_cgroup || freeze_cgroup_disabled)
 			/* fails when meets a zombie */
 			__ignore_value(compel_interrupt_task(pid));
 
@@ -831,7 +869,8 @@ static int collect_threads(struct pstree_item *item)
 
 		pr_info("\tSeizing %d's %d thread\n", item->pid->real, pid);
 
-		if (!opts.freeze_cgroup && compel_interrupt_task(pid))
+		if ((!opts.freeze_cgroup || freeze_cgroup_disabled) &&
+		    compel_interrupt_task(pid))
 			continue;
 
 		ret = compel_wait_task(pid, item_ppid(item), parse_pid_status, NULL, &t_creds.s, NULL);
@@ -887,7 +926,7 @@ static int collect_loop(struct pstree_item *item, int (*collect)(struct pstree_i
 {
 	int attempts = NR_ATTEMPTS, nr_inprogress = 1;
 
-	if (opts.freeze_cgroup)
+	if (opts.freeze_cgroup && !freeze_cgroup_disabled)
 		attempts = 1;
 
 	/*
@@ -993,12 +1032,16 @@ int collect_pstree(void)
 
 	pr_debug("Detected cgroup V%d freezer\n", cgroup_v2 ? 2 : 1);
 
-	if (opts.freeze_cgroup && freeze_processes())
-		goto err;
-
-	if (!opts.freeze_cgroup && compel_interrupt_task(pid)) {
-		set_cr_errno(ESRCH);
-		goto err;
+	if (opts.freeze_cgroup && !freeze_cgroup_disabled) {
+		if (freeze_processes())
+			goto err;
+	} else {
+		if (opts.freeze_cgroup && check_freezer_cgroup())
+			goto err;
+		if (compel_interrupt_task(pid)) {
+			set_cr_errno(ESRCH);
+			goto err;
+		}
 	}
 
 	ret = compel_wait_task(pid, -1, parse_pid_status, NULL, &creds.s, NULL);
@@ -1024,7 +1067,8 @@ int collect_pstree(void)
 	if (ret < 0)
 		goto err;
 
-	if (opts.freeze_cgroup && freezer_wait_processes()) {
+	if (opts.freeze_cgroup && !freeze_cgroup_disabled &&
+	    freezer_wait_processes()) {
 		ret = -1;
 		goto err;
 	}
