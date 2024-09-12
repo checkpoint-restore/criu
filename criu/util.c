@@ -39,7 +39,6 @@
 #include "mem.h"
 #include "namespaces.h"
 #include "criu-log.h"
-#include "syscall.h"
 #include "util-caps.h"
 
 #include "clone-noasan.h"
@@ -1556,23 +1555,78 @@ void print_stack_trace(pid_t pid)
 }
 #endif
 
+int cr_fsopen(const char *fsname, unsigned int flags)
+{
+	return syscall(__NR_fsopen, fsname, flags);
+}
+
+int cr_fsconfig(int fd, unsigned int cmd, const char *key, const char *value, int aux)
+{
+	int ret = syscall(__NR_fsconfig, fd, cmd, key, value, aux);
+	if (ret)
+		fsfd_dump_messages(fd);
+	return ret;
+}
+
+int cr_fsmount(int fd, unsigned int flags, unsigned int attr_flags)
+{
+	int ret = syscall(__NR_fsmount, fd, flags, attr_flags);
+	if (ret)
+		fsfd_dump_messages(fd);
+	return ret;
+}
+
+void fsfd_dump_messages(int fd)
+{
+        char buf[4096];
+        int err, n;
+
+        err = errno;
+
+        for (;;) {
+                n = read(fd, buf, sizeof(buf) - 1);
+                if (n < 0) {
+			if (errno != ENODATA)
+				pr_perror("Unable to read from fs descriptor");
+                        break;
+		}
+		buf[n] = 0;
+
+                switch (buf[0]) {
+                case 'w':
+                        pr_warn("%s\n", buf);
+                        break;
+                case 'i':
+                        pr_info("%s\n", buf);
+                        break;
+                case 'e':
+			/* fallthrough */
+		default:
+                        pr_err("%s\n", buf);
+                        break;
+                }
+        }
+
+        errno = err;
+}
+
 int mount_detached_fs(const char *fsname)
 {
 	int fsfd, fd;
 
-	fsfd = sys_fsopen(fsname, 0);
+	fsfd = cr_fsopen(fsname, 0);
 	if (fsfd < 0) {
 		pr_perror("Unable to open the %s file system", fsname);
 		return -1;
 	}
 
-	if (sys_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0) {
+	if (cr_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0) {
 		pr_perror("Unable to create the %s file system", fsname);
 		close(fsfd);
 		return -1;
 	}
 
-	fd = sys_fsmount(fsfd, 0, 0);
+	fd = cr_fsmount(fsfd, 0, 0);
 	if (fd < 0)
 		pr_perror("Unable to mount the %s file system", fsname);
 	close(fsfd);
