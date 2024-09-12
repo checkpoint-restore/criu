@@ -387,6 +387,11 @@ static inline void print_stack_trace(pid_t pid)
 
 extern int mount_detached_fs(const char *fsname);
 
+extern int cr_fsopen(const char *fsname, unsigned int flags);
+extern int cr_fsconfig(int fd, unsigned int cmd, const char *key, const char *value, int aux);
+extern int cr_fsmount(int fd, unsigned int flags, unsigned int attr_flags);
+extern void fsfd_dump_messages(int fd);
+
 extern char *get_legacy_iptables_bin(bool ipv6, bool restore);
 
 extern int set_opts_cap_eff(void);
