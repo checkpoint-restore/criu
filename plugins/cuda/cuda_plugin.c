@@ -5,6 +5,7 @@
 #include "pid.h"
 #include "proc_parse.h"
 #include "seize.h"
+#include "fault-injection.h"
 
 #include <common/list.h>
 #include <compel/infect.h>
@@ -460,8 +461,15 @@ CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, cuda_plugin_resume_
 
 int cuda_plugin_init(int stage)
 {
-	int ret = cuda_checkpoint_supports_flag("--action");
+	int ret;
 
+	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) && access("/dev/nvidiactl", F_OK)) {
+		pr_info("/dev/nvidiactl doesn't exist. The CUDA plugin is disabled.\n");
+		plugin_disabled = true;
+		return 0;
+	}
+
+	ret = cuda_checkpoint_supports_flag("--action");
 	if (ret == -1) {
 		pr_warn("check that %s is present in $PATH\n", CUDA_CHECKPOINT);
 		plugin_disabled = true;
