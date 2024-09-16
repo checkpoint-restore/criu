@@ -608,6 +608,7 @@ static int sdma_copy_bo(struct kfd_criu_bo_bucket bo_bucket, FILE *storage_fp,
 	while (bytes_remain > 0) {
 		memset(&cs_req, 0, sizeof(cs_req));
 		memset(&fence, 0, sizeof(fence));
+		memset(&ib_info, 0, sizeof(ib_info));
 		memset(ib, 0, packets_per_buffer * 28);
 
 		if (type == SDMA_OP_VRAM_WRITE) {
