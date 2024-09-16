@@ -20,6 +20,7 @@
 #include "amdgpu_plugin_topology.h"
 
 #define TOPOLOGY_PATH "/sys/class/kfd/kfd/topology/nodes/"
+#define MAX_PARAMETER_LEN 64
 
 /* User override options */
 /* Skip firmware version check */
@@ -417,7 +418,9 @@ struct tp_node *sys_add_node(struct tp_system *sys, uint32_t id, uint32_t gpu_id
 
 static bool get_prop(char *line, char *name, uint64_t *value)
 {
-	if (sscanf(line, " %29s %lu", name, value) != 2)
+	char format[16];
+	sprintf(format, " %%%ds %%lu", MAX_PARAMETER_LEN);
+	if (sscanf(line, format, name, value) != 2)
 		return false;
 	return true;
 }
@@ -437,7 +440,7 @@ static int parse_topo_node_properties(struct tp_node *dev, const char *dir_path)
 	}
 
 	while (fgets(line, sizeof(line), file)) {
-		char name[30];
+		char name[MAX_PARAMETER_LEN + 1];
 		uint64_t value;
 
 		memset(name, 0, sizeof(name));
@@ -565,7 +568,7 @@ static int parse_topo_node_mem_banks(struct tp_node *node, const char *dir_path)
 			}
 
 			while (fgets(line, sizeof(line), file)) {
-				char name[30];
+				char name[MAX_PARAMETER_LEN + 1];
 				uint64_t value;
 
 				memset(name, 0, sizeof(name));
@@ -654,7 +657,7 @@ static int parse_topo_node_iolinks(struct tp_node *node, const char *dir_path)
 			}
 
 			while (fgets(line, sizeof(line), file)) {
-				char name[30];
+				char name[MAX_PARAMETER_LEN + 1];
 				uint64_t value;
 
 				memset(name, 0, sizeof(name));
