@@ -15,7 +15,7 @@ DEPS_NOK 		:= ;
 __nmk_dir ?= ../../scripts/nmk/scripts/
 include $(__nmk_dir)msg.mk
 
-PLUGIN_CFLAGS  		:= -g -Wall -Werror -D _GNU_SOURCE -shared -nostartfiles -fPIC -DCR_PLUGIN_DEFAULT="$(PLUGINDIR)"
+PLUGIN_CFLAGS  		:= -g -Wall -Werror -D _GNU_SOURCE -shared -nostartfiles -fPIC
 PLUGIN_LDFLAGS		:= -lpthread -lrt -ldrm -ldrm_amdgpu
 
 ifeq ($(CONFIG_AMDGPU),y)
