@@ -60,6 +60,10 @@ static LIST_HEAD(update_vma_info_list);
 
 size_t kfd_max_buffer_size;
 
+bool plugin_added_to_inventory = false;
+
+bool plugin_disabled = false;
+
 /**************************************************************************************************/
 
 /* Call ioctl, restarting if it is interrupted */
@@ -332,6 +336,13 @@ void getenv_size_t(const char *var, size_t *value)
 
 int amdgpu_plugin_init(int stage)
 {
+	if (stage == CR_PLUGIN_STAGE__RESTORE) {
+		if (!check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name, strlen(CR_PLUGIN_DESC.name))) {
+			plugin_disabled = true;
+			return 0;
+		}
+	}
+
 	pr_info("initialized:  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
 
 	topology_init(&src_topology);
@@ -365,6 +376,9 @@ int amdgpu_plugin_init(int stage)
 
 void amdgpu_plugin_fini(int stage, int ret)
 {
+	if (plugin_disabled)
+		return;
+
 	pr_info("finished  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
 
 	if (stage == CR_PLUGIN_STAGE__RESTORE)
@@ -413,6 +427,14 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 	ret = amdgpu_plugin_drm_handle_device_vma(fd, st_buf);
 	if (ret)
 		pr_perror("%s(), Can't handle VMAs of input device", __func__);
+
+	if (!ret && !plugin_added_to_inventory) {
+		ret = add_inventory_plugin(CR_PLUGIN_DESC.name);
+		if (ret)
+			pr_err("Failed to add AMDGPU plugin to inventory image\n");
+		else
+			plugin_added_to_inventory = true;
+	}
 
 	return ret;
 }
@@ -1540,6 +1562,9 @@ int amdgpu_plugin_restore_file(int id)
 	size_t img_size;
 	FILE *img_fp = NULL;
 
+	if (plugin_disabled)
+		return -ENOTSUP;
+
 	pr_info("Initialized kfd plugin restorer with ID = %d\n", id);
 
 	snprintf(img_path, sizeof(img_path), IMG_KFD_FILE, id);
@@ -1746,6 +1771,9 @@ int amdgpu_plugin_update_vmamap(const char *in_path, const uint64_t addr, const 
 	char *p_end;
 	bool is_kfd = false, is_renderD = false;
 
+	if (plugin_disabled)
+		return -ENOTSUP;
+
 	plugin_log_msg("Enter %s\n", __func__);
 
 	strncpy(path, in_path, sizeof(path));
@@ -1804,6 +1832,9 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 {
 	struct kfd_ioctl_criu_args args = { 0 };
 	int fd, exit_code = 0;
+
+	if (plugin_disabled)
+		return -ENOTSUP;
 
 	pr_info("Inside %s for target pid = %d\n", __func__, target_pid);
 

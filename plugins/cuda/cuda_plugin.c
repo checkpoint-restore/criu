@@ -38,6 +38,8 @@
  */
 bool plugin_disabled = false;
 
+bool plugin_added_to_inventory = false;
+
 struct pid_info {
 	int pid;
 	char checkpointed;
@@ -319,7 +321,7 @@ int cuda_plugin_checkpoint_devices(int pid)
 	k_rtsigset_t save_sigset;
 
 	if (plugin_disabled) {
-		return 0;
+		return -ENOTSUP;
 	}
 
 	restore_tid = get_cuda_restore_tid(pid);
@@ -354,6 +356,15 @@ int cuda_plugin_checkpoint_devices(int pid)
 			pr_err("Failed to restore process after error %s on pid %d\n", msg_buf, pid);
 		}
 	}
+
+	if (!status && !plugin_added_to_inventory) {
+		status = add_inventory_plugin(CR_PLUGIN_DESC.name);
+		if (status)
+			pr_err("Failed to add CUDA plugin to inventory image\n");
+		else
+			plugin_added_to_inventory = true;
+	}
+
 interrupt:
 	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
 
@@ -367,7 +378,7 @@ int cuda_plugin_pause_devices(int pid)
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 
 	if (plugin_disabled) {
-		return 0;
+		return -ENOTSUP;
 	}
 
 	restore_tid = get_cuda_restore_tid(pid);
@@ -462,6 +473,13 @@ CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, cuda_plugin_resume_
 int cuda_plugin_init(int stage)
 {
 	int ret;
+
+	if (stage == CR_PLUGIN_STAGE__RESTORE) {
+		if (!check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name, strlen(CR_PLUGIN_DESC.name))) {
+			plugin_disabled = true;
+			return 0;
+		}
+	}
 
 	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) && access("/dev/nvidiactl", F_OK)) {
 		pr_info("/dev/nvidiactl doesn't exist. The CUDA plugin is disabled.\n");
