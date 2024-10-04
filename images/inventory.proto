@@ -10,6 +10,13 @@ enum lsmtype {
 	APPARMOR	= 2;
 }
 
+// It is not possible to distinguish between an empty repeated field
+// and unset repeated field. To solve this problem and provide backwards
+// compabibility, we use the 'plugins_entry' message.
+message plugins_entry {
+	repeated string			plugins = 12;
+};
+
 message inventory_entry {
 	required uint32			img_version	= 1;
 	optional bool			fdinfo_per_id	= 2;
@@ -21,4 +28,5 @@ message inventory_entry {
 	optional uint32			pre_dump_mode	= 9;
 	optional bool			tcp_close	= 10;
 	optional uint32			network_lock_method	= 11;
+	optional plugins_entry		plugins_entry = 12;
 }
