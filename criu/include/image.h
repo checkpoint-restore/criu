@@ -177,4 +177,8 @@ extern int read_img_str(struct cr_img *, char **pstr, int size);
 
 extern void close_image(struct cr_img *);
 
+extern int add_inventory_plugin(const char *name);
+extern int check_inventory_plugins(void);
+extern bool check_and_remove_inventory_plugin(const char *name, size_t n);
+
 #endif /* __CR_IMAGE_H__ */
