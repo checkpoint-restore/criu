@@ -256,6 +256,9 @@ int cr_plugin_init(int stage)
 			goto err;
 	}
 
+	if (stage == CR_PLUGIN_STAGE__RESTORE && check_inventory_plugins())
+		goto err;
+
 	exit_code = 0;
 err:
 	closedir(d);
