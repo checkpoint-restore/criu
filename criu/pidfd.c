@@ -145,6 +145,20 @@ static int create_tmp_process(void)
 static int free_dead_pidfd(struct dead_pidfd *dead)
 {
 	int status;
+	sigset_t blockmask, oldmask;
+
+	/*
+	 * Block SIGCHLD to prevent interfering from sigchld_handler()
+	 * and to properly handle the tmp process termination without
+	 * a race condition. A similar approach is used in cr_system().
+	 */
+	sigemptyset(&oldmask);
+	sigemptyset(&blockmask);
+	sigaddset(&blockmask, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
+		pr_perror("Cannot set mask of blocked signals");
+		goto err;
+	}
 
 	if (kill(dead->pid, SIGKILL) < 0) {
 		pr_perror("Could not kill temporary process with pid: %d",
@@ -155,6 +169,12 @@ static int free_dead_pidfd(struct dead_pidfd *dead)
 	if (waitpid(dead->pid, &status, 0) != dead->pid) {
 		pr_perror("Could not wait on temporary process with pid: %d",
 		dead->pid);
+		goto err;
+	}
+
+	/* Restore the original signal mask after tmp process has terminated */
+	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+		pr_perror("Cannot clear blocked signals");
 		goto err;
 	}
 
