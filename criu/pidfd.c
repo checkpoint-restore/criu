@@ -27,6 +27,7 @@ struct dead_pidfd {
 	unsigned int ino;
 	int pid;
 	size_t count;
+	sigset_t oldmask;
 	mutex_t pidfd_lock;
 	struct hlist_node hash;
 };
@@ -158,6 +159,12 @@ static int free_dead_pidfd(struct dead_pidfd *dead)
 		goto err;
 	}
 
+	/* Restore the original signal mask after tmp process has terminated */
+	if (sigprocmask(SIG_SETMASK, &dead->oldmask, NULL) == -1) {
+		pr_perror("Cannot clear blocked signals");
+		goto err;
+	}
+
 	if (!WIFSIGNALED(status)) {
 		pr_err("Expected temporary process to be terminated by a signal\n");
 		goto err;
@@ -180,6 +187,7 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 {
 	struct pidfd_info *info;
 	struct dead_pidfd *dead = NULL;
+	sigset_t blockmask;
 	int pidfd;
 
 	info = container_of(d, struct pidfd_info, d);
@@ -199,6 +207,18 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 	BUG_ON(dead->count == 0);
 	dead->count--;
 	if (dead->pid == -1) {
+		/* Block SIGCHLD to prevent interfering from sigchld_handler()
+		 * and to properly handle the tmp process termination without
+		 * a race condition. A similar approach is used in cr_system().
+		 */
+		sigemptyset(&blockmask);
+		sigaddset(&blockmask, SIGCHLD);
+		if (sigprocmask(SIG_BLOCK, &blockmask, &dead->oldmask) == -1) {
+			pr_perror("Cannot set mask of blocked signals");
+			mutex_unlock(&dead->pidfd_lock);
+			goto err_close;
+		}
+
 		dead->pid = create_tmp_process();
 		if (dead->pid < 0) {
 			mutex_unlock(&dead->pidfd_lock);
@@ -270,6 +290,10 @@ static int collect_one_pidfd(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 	dead->ino = info->pidfe->ino;
 	dead->count = 1;
 	dead->pid = -1;
+
+	/* Initialize oldmask to an empty signal set */
+	sigemptyset(&dead->oldmask);
+
 	mutex_init(&dead->pidfd_lock);
 
 	mutex_lock(dead_pidfd_hash_lock);
