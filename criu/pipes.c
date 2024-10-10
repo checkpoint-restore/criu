@@ -148,6 +148,7 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 	int ret;
 	struct pipe_data_rst *pd;
 	struct iovec iov;
+	bool try_vmsplice = true;
 
 	for (pd = hash[id & PIPE_DATA_HASH_MASK]; pd != NULL; pd = pd->next)
 		if (pd->pde->pipe_id == id)
@@ -179,7 +180,16 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 	iov.iov_len = pd->pde->bytes;
 
 	while (iov.iov_len > 0) {
-		ret = vmsplice(pfd, &iov, 1, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
+		if (try_vmsplice) {
+			ret = vmsplice(pfd, &iov, 1, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
+			if (ret < 0 && errno == EPERM) {
+				pr_info("%#x: vmsplice() returned EPERM, falling back to write()\n", id);
+				try_vmsplice = false;
+				ret = write(pfd, iov.iov_base, iov.iov_len);
+			}
+		} else
+			ret = write(pfd, iov.iov_base, iov.iov_len);
+
 		if (ret < 0) {
 			pr_perror("%#x: Error splicing data", id);
 			return -1;
