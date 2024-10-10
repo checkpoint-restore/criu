@@ -357,7 +357,7 @@ int amdgpu_plugin_init(int stage)
 		getenv_bool("KFD_NUMA_CHECK", &kfd_numa_check);
 		getenv_bool("KFD_CAPABILITY_CHECK", &kfd_capability_check);
 	}
-	kfd_max_buffer_size = 0;
+	kfd_max_buffer_size = 4 << 30;
 	getenv_size_t("KFD_MAX_BUFFER_SIZE", &kfd_max_buffer_size);
 
 	return 0;
