@@ -54,6 +54,7 @@ NON_ROOT_UID = 65534
 
 def alarm(*args):
     print("==== ALARM ====")
+    raise InterruptedError("ALARM")
 
 
 def traceit(f, e, a):
@@ -775,11 +776,9 @@ class inhfd_test:
                     # regular files, so we loop.
                     data = b''
                     while not data:
-                        # In python 2.7, peer_file.read() doesn't call the read
-                        # system call if it's read file to the end once. The
-                        # next seek allows to workaround this problem.
-                        data = os.read(peer_file.fileno(), 16)
+                        data = os.read(peer_file.fileno(), len(msg) + 16)
                         time.sleep(0.1)
+                    peer_file.close()
                 except Exception as e:
                     print("Unable to read a peer file: %s" % e)
                     sys.exit(1)
@@ -810,7 +809,16 @@ class inhfd_test:
             my_file.write(msg)
             my_file.flush()
             i += 1
-        pid, status = os.waitpid(self.__peer_pid, 0)
+        signal.alarm(10)
+        try:
+            pid, status = os.waitpid(self.__peer_pid, 0)
+        except InterruptedError:
+            fds = set(os.listdir("/proc/%s/fd" % self.__peer_pid))
+            self.kill()
+            pid, status = os.waitpid(self.__peer_pid, 0)
+        fds = self.__fds.difference(fds)
+        if fds:
+            print("before SIGKILL, child managed to close fds: " + str(fds))
         with open(self.__name + ".out") as output:
             print(output.read())
         self.__peer_pid = 0
