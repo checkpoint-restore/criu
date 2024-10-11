@@ -474,6 +474,7 @@ Restores previously checkpointed processes.
     file descriptor 'N' for restoring a file identified by 'resource'.
     This option can be used to restore an external resource dumped
     with the help of *--external* *file*, *tty*, *pid* and *unix* options.
+    Important: std fds 0-2 are not allowed.
 +
 The 'resource' argument can be one of the following:
 +

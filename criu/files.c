@@ -1567,7 +1567,7 @@ int inherit_fd_parse(char *optarg)
 		n = sscanf(cp, "[%d]:", &fd);
 		cp = strchr(optarg, ':');
 	}
-	if (n != 1 || fd < 0 || !cp || !cp[1]) {
+	if (n != 1 || fd <= STDERR_FILENO || !cp || !cp[1]) {
 		pr_err("Invalid inherit fd argument: %s\n", optarg);
 		return -1;
 	}

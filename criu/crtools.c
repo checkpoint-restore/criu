@@ -499,6 +499,7 @@ usage:
 	       "                            file[mnt_id:inode]\n"
 	       "                            /memfd:name\n"
 	       "                            path/to/file\n"
+	       "                        Important: std fds 0-2 are not allowed.\n"
 	       "  --empty-ns net        Create a namespace, but don't restore its properties\n"
 	       "                        (assuming it will be restored by action scripts)\n"
 	       "  -J|--join-ns NS:{PID|NS_FILE}[,OPTIONS]\n"
