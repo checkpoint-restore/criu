@@ -1098,6 +1098,8 @@ static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
 
 	lpi_get(lpi->parent);
 
+	page_read_disable_dedup(&parent_lpi->pr);
+	page_read_disable_dedup(&lpi->pr);
 	return 1;
 
 out:
