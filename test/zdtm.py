@@ -2877,7 +2877,7 @@ def get_cli_args():
     rp.add_argument("--preload-libfault", action="store_true", help="Run criu with library preload to simulate special cases")
     rp.add_argument("--criu-plugin",
                     help="Run tests with CRIU plugin",
-                    choices=['amdgpu', 'cuda'],
+                    choices=['amdgpu', 'cuda', 'inventory_test_enabled', 'inventory_test_disabled'],
                     nargs='+',
                     default=None)
     rp.add_argument("--mocked-cuda-checkpoint",
