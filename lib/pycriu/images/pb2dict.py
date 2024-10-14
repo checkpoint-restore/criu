@@ -304,7 +304,7 @@ def _pb2dict_cast(field, value, pretty=False, is_hex=False):
         return field.enum_type.values_by_number.get(value, None).name
     elif field.type in _basic_cast:
         cast = _basic_cast[field.type]
-        if pretty and (cast == int):
+        if pretty and cast is int:
             if is_hex:
                 # Fields that have (criu).hex = true option set
                 # should be stored in hex string format.
@@ -376,7 +376,7 @@ def _dict2pb_cast(field, value):
         return field.enum_type.values_by_name.get(value, None).number
     elif field.type in _basic_cast:
         cast = _basic_cast[field.type]
-        if (cast == int) and is_string(value):
+        if cast is int and is_string(value):
             if _marked_as_dev(field):
                 return encode_dev(field, value)
 
