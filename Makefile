@@ -437,7 +437,7 @@ help:
 
 ruff:
 	@ruff --version
-	ruff ${RUFF_FLAGS} --config=scripts/ruff.toml \
+	ruff check ${RUFF_FLAGS} --config=scripts/ruff.toml \
 		test/zdtm.py \
 		test/inhfd/*.py \
 		test/others/rpc/config_file.py \
