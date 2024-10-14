@@ -2213,7 +2213,7 @@ skip_ns_bouncing:
 		goto out_kill_network_unlocked;
 	}
 
-	if (lazy_pages_finish_restore())
+	if (!opts.no_background_fetch && lazy_pages_finish_restore())
 		goto out_kill_network_unlocked;
 
 	__restore_switch_stage(CR_STATE_COMPLETE);
