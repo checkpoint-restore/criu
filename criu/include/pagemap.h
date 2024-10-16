@@ -58,6 +58,9 @@ struct page_read {
 	/* Whether or not pages can be read in PIE code */
 	bool pieok;
 
+	/* Whether or not disable image deduplication*/
+	bool disable_dedup;
+
 	/* Private data of reader */
 	struct cr_img *pmi;
 	struct cr_img *pi;
@@ -111,6 +114,8 @@ int pagemap_render_iovec(struct list_head *from, struct task_restore_args *ta);
  * maintains its own set of references to those structures.
  */
 extern void dup_page_read(struct page_read *src, struct page_read *dst);
+
+extern void page_read_disable_dedup(struct page_read *pr);
 
 extern int dedup_one_iovec(struct page_read *pr, unsigned long base, unsigned long len);
 

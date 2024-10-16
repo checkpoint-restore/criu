@@ -237,6 +237,8 @@ struct cr_options {
 	 * explicitly request it as it comes with many limitations.
 	 */
 	int unprivileged;
+	/* Disable setup pages in the backgroup in lazy-page mode.*/
+	int no_background_fetch;
 };
 
 extern struct cr_options opts;
