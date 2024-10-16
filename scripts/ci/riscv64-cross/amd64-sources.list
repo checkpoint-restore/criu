@@ -1,0 +1,10 @@
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy main restricted
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy universe
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-updates universe
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy multiverse
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-updates multiverse
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
+deb [arch=amd64] http://security.ubuntu.com/ubuntu/ jammy-security main restricted
+deb [arch=amd64] http://security.ubuntu.com/ubuntu/ jammy-security universe
+deb [arch=amd64] http://security.ubuntu.com/ubuntu/ jammy-security multiverse
