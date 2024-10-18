@@ -169,7 +169,13 @@ int main(int argc, char *argv[], char *envp[])
 		pr_err("unknown command: %s\n", argv[optind]);
 		goto usage;
 	}
-
+	/*
+	 * util_init initializes criu_run_id and compel_run_id so that sockets
+	 * are generated with an unique name identifying the specific process
+	 * even in cases where multiple processes with the same pid in
+	 * different pid namespaces are sharing the same network namespace.
+	 */
+	util_init();
 	if (opts.mode == CR_SWRK) {
 		if (argc != optind + 2) {
 			fprintf(stderr, "Usage: criu swrk <fd>\n");
@@ -253,8 +259,6 @@ int main(int argc, char *argv[], char *envp[])
 		pr_perror("Can't change directory to %s", opts.work_dir);
 		return 1;
 	}
-
-	util_init();
 
 	if (log_init(opts.output))
 		return 1;
