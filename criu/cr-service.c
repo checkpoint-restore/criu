@@ -1310,6 +1310,8 @@ int cr_service_work(int sk)
 	int ret = -1;
 	CriuReq *msg = 0;
 
+	util_init();
+
 more:
 	opts.mode = CR_SWRK;
 
@@ -1528,6 +1530,13 @@ int cr_service(bool daemon_mode)
 
 			close(server_fd);
 			init_opts();
+			/*
+			 * We want to have an unique criu_run_id
+			 * here so that each service worker fork here
+			 * can create its own sockets file descriptors
+			 * despite being in the same network namespace.
+			 */
+			util_init();
 			ret = cr_service_work(sk);
 			close(sk);
 			exit(ret != 0);
