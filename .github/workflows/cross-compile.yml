@@ -21,6 +21,7 @@ jobs:
           aarch64-stable-cross,
           ppc64-stable-cross,
           mips64el-stable-cross,
+          riscv64-stable-cross,
         ]
         include:
           - experimental: true
