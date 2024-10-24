@@ -261,7 +261,7 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr, unsigned l
 			break;
 	}
 
-	if (opts.auto_dedup) {
+	if (opts.auto_dedup && !pr->disable_dedup) {
 		ret = punch_hole(pr, pr->pi_off, len, false);
 		if (ret == -1)
 			return -1;
@@ -792,6 +792,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->bunch.iov_base = NULL;
 	pr->pmes = NULL;
 	pr->pieok = false;
+	pr->disable_dedup = false;
 
 	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, img_id);
 	if (!pr->pmi)
@@ -851,6 +852,14 @@ int open_page_read(unsigned long img_id, struct page_read *pr, int pr_flags)
 }
 
 #define DUP_IDS_BASE 1000
+
+void page_read_disable_dedup(struct page_read *pr)
+{
+	pr_debug("disable dedup, id: %d\n", pr->id);
+	pr->disable_dedup = true;
+	if (pr->parent)
+		page_read_disable_dedup(pr->parent);
+}
 
 void dup_page_read(struct page_read *src, struct page_read *dst)
 {
