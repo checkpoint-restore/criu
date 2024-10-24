@@ -413,16 +413,19 @@ static int dump_ip_opts(int sk, int family, int type, int proto, IpOptsEntry *io
 			/* Due to kernel code we can use SOL_IP instead of SOL_IPV6 */
 			ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
 		ret |= dump_opt(sk, SOL_IPV6, IPV6_RECVPKTINFO, &ioe->pktinfo);
+		ret |= dump_opt(sk, SOL_IPV6, IPV6_TRANSPARENT, &ioe->transparent);
 	} else {
 		ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
 		ret |= dump_opt(sk, SOL_IP, IP_PKTINFO, &ioe->pktinfo);
 		ret |= dump_opt(sk, SOL_IP, IP_TOS, &ioe->tos);
 		ret |= dump_opt(sk, SOL_IP, IP_TTL, &ioe->ttl);
+		ret |= dump_opt(sk, SOL_IP, IP_TRANSPARENT, &ioe->transparent);
 	}
 	ioe->has_freebind = ioe->freebind;
 	ioe->has_pktinfo = !!ioe->pktinfo;
 	ioe->has_tos = !!ioe->tos;
 	ioe->has_ttl = !!ioe->ttl;
+	ioe->has_transparent = !!ioe->transparent;
 
 	return ret;
 }
@@ -825,6 +828,8 @@ int restore_ip_opts(int sk, int family, int proto, IpOptsEntry *ioe)
 			ret |= restore_opt(sk, SOL_IPV6, IPV6_FREEBIND, &ioe->freebind);
 		if (ioe->has_pktinfo)
 			ret |= restore_opt(sk, SOL_IPV6, IPV6_RECVPKTINFO, &ioe->pktinfo);
+		if (ioe->has_transparent)
+			ret |= restore_opt(sk, SOL_IPV6, IPV6_TRANSPARENT, &ioe->transparent);
 	} else {
 		if (ioe->has_freebind)
 			ret |= restore_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
@@ -834,6 +839,8 @@ int restore_ip_opts(int sk, int family, int proto, IpOptsEntry *ioe)
 			ret |= restore_opt(sk, SOL_IP, IP_TOS, &ioe->tos);
 		if (ioe->has_ttl)
 			ret |= restore_opt(sk, SOL_IP, IP_TTL, &ioe->ttl);
+		if (ioe->has_transparent)
+			ret |= restore_opt(sk, SOL_IP, IP_TRANSPARENT, &ioe->transparent);
 	}
 
 	if (ioe->raw)
