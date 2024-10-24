@@ -16,7 +16,7 @@ static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 	FileEntry fe = FILE_ENTRY__INIT;
 	ExtFileEntry xfe = EXT_FILE_ENTRY__INIT;
 
-	ret = run_plugins(DUMP_EXT_FILE, lfd, id);
+	ret = run_plugins(DUMP_EXT_FILE, lfd, p->fd, id);
 	if (ret < 0)
 		return ret;
 
@@ -44,11 +44,13 @@ struct ext_file_info {
 static int open_fd(struct file_desc *d, int *new_fd)
 {
 	struct ext_file_info *xfi;
+	struct fdinfo_list_entry *fle_m;
 	int fd;
 
 	xfi = container_of(d, struct ext_file_info, d);
+	fle_m = file_master(d);
 
-	fd = run_plugins(RESTORE_EXT_FILE, xfi->xfe->id);
+	fd = run_plugins(RESTORE_EXT_FILE, xfi->xfe->id, fle_m->fe->fd);
 	if (fd < 0) {
 		pr_err("Unable to restore %#x\n", xfi->xfe->id);
 		return -1;
