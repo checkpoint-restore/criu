@@ -67,8 +67,8 @@ enum {
 
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_UNIX_SK, int fd, int id);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESTORE_UNIX_SK, int id);
-DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_EXT_FILE, int fd, int id);
-DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESTORE_EXT_FILE, int id);
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_EXT_FILE, int fd, int real_fd, int id);
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESTORE_EXT_FILE, int id, int target_fd);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_EXT_MOUNT, char *mountpoint, int id);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESTORE_EXT_MOUNT, int id, char *mountpoint, char *old_root, int *is_file);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_EXT_LINK, int index, int type, char *kind);
@@ -143,8 +143,8 @@ typedef int(cr_plugin_init_t)(void);
 typedef void(cr_plugin_fini_t)(void);
 typedef int(cr_plugin_dump_unix_sk_t)(int fd, int id);
 typedef int(cr_plugin_restore_unix_sk_t)(int id);
-typedef int(cr_plugin_dump_file_t)(int fd, int id);
-typedef int(cr_plugin_restore_file_t)(int id);
+typedef int(cr_plugin_dump_file_t)(int fd, int real_fd, int id);
+typedef int(cr_plugin_restore_file_t)(int id, int target_fd);
 typedef int(cr_plugin_dump_ext_mount_t)(char *mountpoint, int id);
 typedef int(cr_plugin_restore_ext_mount_t)(int id, char *mountpoint, char *old_root, int *is_file);
 typedef int(cr_plugin_dump_ext_link_t)(int index, int type, char *kind);

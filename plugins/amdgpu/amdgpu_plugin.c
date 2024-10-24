@@ -1183,7 +1183,7 @@ exit:
 	return ret;
 }
 
-int amdgpu_plugin_dump_file(int fd, int id)
+int amdgpu_plugin_dump_file(int fd, int real_fd, int id)
 {
 	struct kfd_ioctl_criu_args args = { 0 };
 	char img_path[PATH_MAX];
@@ -1551,7 +1551,7 @@ exit:
 	return ret;
 }
 
-int amdgpu_plugin_restore_file(int id)
+int amdgpu_plugin_restore_file(int id, int target_fd)
 {
 	int ret = 0, fd;
 	char img_path[PATH_MAX];
