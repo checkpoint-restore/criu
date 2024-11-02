@@ -470,6 +470,20 @@ int cuda_plugin_resume_devices_late(int pid)
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, cuda_plugin_resume_devices_late)
 
+/**
+ * Check if a CUDA device is available on the system
+ */
+static bool is_cuda_device_available(void)
+{
+	const char *gpu_path = "/proc/driver/nvidia/gpus/";
+	struct stat sb;
+
+	if (stat(gpu_path, &sb) != 0)
+		return false;
+
+	return S_ISDIR(sb.st_mode);
+}
+
 int cuda_plugin_init(int stage)
 {
 	int ret;
@@ -481,8 +495,8 @@ int cuda_plugin_init(int stage)
 		}
 	}
 
-	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) && access("/dev/nvidiactl", F_OK)) {
-		pr_info("/dev/nvidiactl doesn't exist. The CUDA plugin is disabled.\n");
+	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) && !is_cuda_device_available()) {
+		pr_info("No GPU device found; CUDA plugin is disabled\n");
 		plugin_disabled = true;
 		return 0;
 	}
