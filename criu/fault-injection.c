@@ -24,8 +24,8 @@ int fault_injection_init(void)
 	fi_strategy = start;
 
 	switch (fi_strategy) {
-	case FI_DISABLE_FREEZE_CGROUP:
-		dont_use_freeze_cgroup();
+	case FI_COMPEL_INTERRUPT_ONLY_MODE:
+		set_compel_interrupt_only_mode();
 		break;
 	default:
 		break;

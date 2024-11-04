@@ -509,7 +509,7 @@ int cuda_plugin_init(int stage)
 		INIT_LIST_HEAD(&cuda_pids);
 	}
 
-	dont_use_freeze_cgroup();
+	set_compel_interrupt_only_mode();
 
 	return 0;
 }
