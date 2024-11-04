@@ -25,17 +25,17 @@
 #include "xmalloc.h"
 #include "util.h"
 
-static bool freeze_cgroup_disabled;
+static bool compel_interrupt_only_mode;
 
 /*
  * Disables the use of freeze cgroups for process seizing, even if explicitly
- * requested via the --freeze-cgroup option. This is necessary for plugins
- * (e.g., CUDA) that do not function correctly when processes are frozen using
- * cgroups.
+ * requested via the --freeze-cgroup option or already set in a frozen state.
+ * This is necessary for plugins (e.g., CUDA) that do not function correctly
+ * when processes are frozen using cgroups.
  */
-void __attribute__((used)) dont_use_freeze_cgroup(void)
+void __attribute__((used)) set_compel_interrupt_only_mode(void)
 {
-	freeze_cgroup_disabled = true;
+	compel_interrupt_only_mode = true;
 }
 
 char *task_comm_info(pid_t pid, char *comm, size_t size)
@@ -410,7 +410,7 @@ static int freezer_detach(void)
 {
 	int i;
 
-	if (!opts.freeze_cgroup || freeze_cgroup_disabled)
+	if (!opts.freeze_cgroup || compel_interrupt_only_mode)
 		return 0;
 
 	for (i = 0; i < processes_to_wait && processes_to_wait_pids; i++) {
@@ -505,29 +505,35 @@ static int log_unfrozen_stacks(char *root)
 	return 0;
 }
 
-static int check_freezer_cgroup(void)
+static int prepare_freezer_for_interrupt_only_mode(void)
 {
 	enum freezer_state state = THAWED;
 	int fd;
+	int exit_code = -1;
 
-	BUG_ON(!freeze_cgroup_disabled);
+	BUG_ON(!compel_interrupt_only_mode);
 
 	fd = freezer_open();
 	if (fd < 0)
 		return -1;
 
 	state = get_freezer_state(fd);
-	close(fd);
 	if (state == FREEZER_ERROR) {
-		return -1;
+		goto err;
 	}
+
+	origin_freezer_state = state == FREEZING ? FROZEN : state;
 
 	if (state != THAWED) {
-		pr_err("One or more plugins are incompatible with the freezer cgroup in the FROZEN state.\n");
-		return -1;
+		pr_warn("unfreezing cgroup for plugin compatibility\n");
+		if (freezer_write_state(fd, THAWED))
+			goto err;
 	}
 
-	return 0;
+	exit_code = 0;
+err:
+	close(fd);
+	return exit_code;
 }
 
 static int freeze_processes(void)
@@ -681,7 +687,7 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
-		if (!opts.freeze_cgroup || freeze_cgroup_disabled)
+		if (!opts.freeze_cgroup || compel_interrupt_only_mode)
 			/* fails when meets a zombie */
 			__ignore_value(compel_interrupt_task(pid));
 
@@ -869,7 +875,7 @@ static int collect_threads(struct pstree_item *item)
 
 		pr_info("\tSeizing %d's %d thread\n", item->pid->real, pid);
 
-		if ((!opts.freeze_cgroup || freeze_cgroup_disabled) &&
+		if ((!opts.freeze_cgroup || compel_interrupt_only_mode) &&
 		    compel_interrupt_task(pid))
 			continue;
 
@@ -926,7 +932,7 @@ static int collect_loop(struct pstree_item *item, int (*collect)(struct pstree_i
 {
 	int attempts = NR_ATTEMPTS, nr_inprogress = 1;
 
-	if (opts.freeze_cgroup && !freeze_cgroup_disabled)
+	if (opts.freeze_cgroup && !compel_interrupt_only_mode)
 		attempts = 1;
 
 	/*
@@ -1032,11 +1038,11 @@ int collect_pstree(void)
 
 	pr_debug("Detected cgroup V%d freezer\n", cgroup_v2 ? 2 : 1);
 
-	if (opts.freeze_cgroup && !freeze_cgroup_disabled) {
+	if (opts.freeze_cgroup && !compel_interrupt_only_mode) {
 		if (freeze_processes())
 			goto err;
 	} else {
-		if (opts.freeze_cgroup && check_freezer_cgroup())
+		if (opts.freeze_cgroup && prepare_freezer_for_interrupt_only_mode())
 			goto err;
 		if (compel_interrupt_task(pid)) {
 			set_cr_errno(ESRCH);
@@ -1067,7 +1073,7 @@ int collect_pstree(void)
 	if (ret < 0)
 		goto err;
 
-	if (opts.freeze_cgroup && !freeze_cgroup_disabled &&
+	if (opts.freeze_cgroup && !compel_interrupt_only_mode &&
 	    freezer_wait_processes()) {
 		goto err;
 	}
