@@ -1009,7 +1009,7 @@ static int cgroup_version(void)
 int collect_pstree(void)
 {
 	pid_t pid = root_item->pid->real;
-	int ret = -1;
+	int ret, exit_code = -1;
 	struct proc_status_creds creds;
 	struct pstree_item *iter;
 
@@ -1069,7 +1069,6 @@ int collect_pstree(void)
 
 	if (opts.freeze_cgroup && !freeze_cgroup_disabled &&
 	    freezer_wait_processes()) {
-		ret = -1;
 		goto err;
 	}
 
@@ -1081,12 +1080,12 @@ int collect_pstree(void)
 			goto err;
 	}
 
-	ret = 0;
+	exit_code = 0;
 	timing_stop(TIME_FREEZING);
 	timing_start(TIME_FROZEN);
 
 err:
 	/* Freezing stage finished in time - disable timer. */
 	alarm(0);
-	return ret;
+	return exit_code;
 }
