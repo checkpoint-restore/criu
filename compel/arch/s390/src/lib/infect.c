@@ -294,7 +294,7 @@ static int s390_disable_ri_bit(pid_t pid, user_regs_struct_t *regs)
  * Prepare task registers for restart
  */
 int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs, save_regs_t save,
-			 void *arg, __maybe_unused unsigned long flags)
+			 void *arg, __maybe_unused unsigned long flags, __maybe_unused bool pre_dump)
 {
 	struct iovec iov;
 	int rewind;

@@ -103,6 +103,7 @@ typedef int (*make_sigframe_t)(void *, struct rt_sigframe *, struct rt_sigframe 
 struct infect_ctx {
 	int sock;
 
+	bool pre_dump;
 	/*
 	 * Regs manipulation context.
 	 */

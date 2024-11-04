@@ -33,7 +33,7 @@ extern int parasite_drain_fds_seized(struct parasite_ctl *ctl, struct parasite_d
 extern int parasite_get_proc_fd_seized(struct parasite_ctl *ctl);
 
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
-						   struct vm_area_list *vma_area_list);
+						   struct vm_area_list *vma_area_list, bool pre_dump);
 extern void parasite_ensure_args_size(unsigned long sz);
 extern unsigned long get_exec_start(struct vm_area_list *);
 

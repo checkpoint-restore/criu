@@ -375,7 +375,7 @@ free_ctls:
 	return -1;
 }
 
-struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item, struct vm_area_list *vma_area_list)
+struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item, struct vm_area_list *vma_area_list, bool pre_dump)
 {
 	struct parasite_ctl *ctl;
 	struct infect_ctx *ictx;
@@ -400,6 +400,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ictx = compel_infect_ctx(ctl);
 
+	ictx->pre_dump = pre_dump;
 	ictx->open_proc = do_open_proc;
 	ictx->child_handler = sigchld_handler;
 	ictx->orig_handler.sa_handler = SIG_DFL;

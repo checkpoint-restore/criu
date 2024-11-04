@@ -398,7 +398,7 @@ static int corrupt_extregs(pid_t pid)
 }
 
 int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *xs, save_regs_t save,
-			 void *arg, unsigned long flags)
+			 void *arg, unsigned long flags, bool pre_dump)
 {
 	int ret = -1;
 
@@ -415,8 +415,13 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct
 			set_user_reg(regs, ip, get_user_reg(regs, ip) - 2);
 			break;
 		case -ERESTART_RESTARTBLOCK:
-			pr_warn("Will restore %d with interrupted system call\n", pid);
-			set_user_reg(regs, ax, -EINTR);
+			if (pre_dump) {
+				set_user_reg(regs, ax, get_user_reg(regs, orig_ax));
+				set_user_reg(regs, ip, get_user_reg(regs, ip) - 2);
+			} else {
+				pr_warn("Will restore %d with interrupted system call\n", pid);
+				set_user_reg(regs, ax, -EINTR);
+			}
 			break;
 		}
 	}

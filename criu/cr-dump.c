@@ -1488,7 +1488,7 @@ static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie
 	}
 
 	ret = -1;
-	parasite_ctl = parasite_infect_seized(pid, item, &vmas);
+	parasite_ctl = parasite_infect_seized(pid, item, &vmas, true);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err_free;
@@ -1605,7 +1605,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		goto err;
 	}
 
-	parasite_ctl = parasite_infect_seized(pid, item, &vmas);
+	parasite_ctl = parasite_infect_seized(pid, item, &vmas, opts.final_state == TASK_ALIVE);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;

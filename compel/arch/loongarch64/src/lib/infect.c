@@ -49,7 +49,7 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe, struct rt_sigfr
 }
 
 int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
-			 void *arg, __maybe_unused unsigned long flags)
+			 void *arg, __maybe_unused unsigned long flags, __maybe_unused bool pre_dump)
 {
 	user_fpregs_struct_t tmp, *fpregs = ext_regs ? ext_regs : &tmp;
 	struct iovec iov;
