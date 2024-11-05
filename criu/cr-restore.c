@@ -80,6 +80,7 @@
 #include "bpfmap.h"
 #include "apparmor.h"
 #include "pidfd.h"
+#include "tls.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -2359,6 +2360,9 @@ int cr_restore_tasks(void)
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
 		return -1;
+
+	if (tls_initialize_cipher_from_image())
+		goto err;
 
 	if (init_stats(RESTORE_STATS))
 		goto err;

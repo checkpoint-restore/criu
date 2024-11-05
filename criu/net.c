@@ -948,7 +948,15 @@ static int dump_one_nf(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 	if (lazy_image(img) && open_image_lazy(img))
 		return -1;
 
-	if (write_img_buf(img, hdr, hdr->nlmsg_len))
+	/* During restore we first read the value of nlmsg_len to determine
+	 * the message payload length. Then we read the payload itself.
+	 * To support encryption we need to encrypt (write) the length of
+	 * the payload first, and then the payload itself.
+	 */
+	if (write_img_buf(img, hdr, sizeof(struct nlmsghdr), true))
+		return -1;
+
+	if (write_img_buf(img, hdr + 1, hdr->nlmsg_len - sizeof(struct nlmsghdr), true))
 		return -1;
 
 	return 0;

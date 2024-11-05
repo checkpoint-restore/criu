@@ -555,6 +555,7 @@ handlers = {
     'BPFMAP_DATA': entry_handler(pb.bpfmap_data_entry,
                                  bpfmap_data_extra_handler()),
     'APPARMOR': entry_handler(pb.apparmor_entry),
+    'CIPHER': entry_handler(pb.cipher_entry),
 }
 
 

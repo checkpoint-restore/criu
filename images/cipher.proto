@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+message cipher_entry {
+	required bytes	token	= 1;
+}

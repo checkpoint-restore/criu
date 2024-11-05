@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <sys/stat.h>
+
 #include "crtools.h"
 #include "cr_options.h"
 #include "imgset.h"
@@ -19,6 +20,7 @@
 #include "proc_parse.h"
 #include "img-streamer.h"
 #include "namespaces.h"
+#include "tls.h"
 
 bool ns_per_id = false;
 bool img_common_magic = true;
@@ -793,61 +795,132 @@ struct cr_img *open_pages_image(unsigned long flags, struct cr_img *pmi, u32 *id
 }
 
 /*
- * Write buffer @ptr of @size bytes into @fd file
+ * Write buffer @ptr of @size bytes into @fd file.
+ * The @encrypt_data boolean flag indicates whether
+ * the data should be encrypted using ChaCha20-Poly1305.
+ *
  * Returns
  *	0  on success
  *	-1 on error (error message is printed)
  */
-int write_img_buf(struct cr_img *img, const void *ptr, int size)
+int write_img_buf(struct cr_img *img, const void *ptr, int size, bool encrypt_data)
 {
-	int ret;
+	int ret, exit_code = -1;
+	char *buf = NULL;
+	chacha20_poly1305_t cipher_data;
 
-	ret = bwrite(&img->_x, ptr, size);
-	if (ret == size)
-		return 0;
+	if (!encrypt_data || !opts.encrypt || size <= 0) {
+		buf = (void *)ptr;
+	} else {
+		buf = xmalloc(size);
+		if (!buf)
+			return -1;
 
-	if (ret < 0)
-		pr_perror("Can't write img file");
-	else
-		pr_err("Img trimmed %d/%d\n", ret, size);
-	return -1;
+		if (memcpy(buf, ptr, size) == NULL) {
+			pr_perror("Failed to copy buffer data");
+			goto err;
+		}
+
+		/* Encrypt buffer data using ChaCha20-Poly1305 */
+		ret = tls_encrypt_data(buf, size, cipher_data.tag, cipher_data.nonce);
+		if (ret < 0) {
+			pr_err("Failed to encrypt buffer data\n");
+			goto err;
+		}
+	}
+
+	ret = bwrite(&img->_x, buf, size);
+	if (ret != size) {
+		if (ret < 0)
+			pr_perror("Can't write img file");
+		else
+			pr_err("Img trimmed %d/%d\n", ret, size);
+
+		goto err;
+	}
+
+	if (encrypt_data && opts.encrypt && size > 0) {
+		ret = bwrite(&img->_x, cipher_data.tag, sizeof(cipher_data.tag));
+		if (ret != sizeof(cipher_data.tag)) {
+			pr_err("Failed to write tag data to image file\n");
+			goto err;
+		}
+
+		ret = bwrite(&img->_x, cipher_data.nonce, sizeof(cipher_data.nonce));
+		if (ret != sizeof(cipher_data.nonce)) {
+			pr_err("Failed to write nonce data to image file\n");
+			goto err;
+		}
+	}
+
+	exit_code = 0;
+err:
+	if (buf != (void *)ptr)
+		xfree(buf);
+	return exit_code;
 }
 
 /*
  * Read buffer @ptr of @size bytes from @fd file
+ * The @decrypt_data boolean flag indicates whether
+ * the data should be decrypted using ChaCha20-Poly1305.
+ *
  * Returns
  *	1  on success
  *	0  on EOF (silently)
  *	-1 on error (error message is printed)
  */
-int read_img_buf_eof(struct cr_img *img, void *ptr, int size)
+int do_read_img_buf_eof(struct cr_img *img, void *ptr, int size, bool decrypt_data)
 {
+	chacha20_poly1305_t cipher_data;
 	int ret;
 
 	ret = bread(&img->_x, ptr, size);
+	if (ret < 0) {
+		pr_perror("Can't read img file");
+		return -1;
+	}
+	if (ret == 0)
+		return (size == 0);
+
+	if (opts.encrypt && decrypt_data && size > 0) {
+		if (bread(&img->_x, cipher_data.tag, sizeof(cipher_data.tag)) <= 0) {
+			pr_err("Can't read tag data\n");
+			return -1;
+		}
+
+		if (bread(&img->_x, cipher_data.nonce, sizeof(cipher_data.nonce)) <= 0) {
+			pr_err("Can't read nonce data\n");
+			return -1;
+		}
+
+		if (tls_decrypt_data(ptr, size, cipher_data.tag, cipher_data.nonce) < 0) {
+			pr_err("Can't decrypt data\n");
+			return -1;
+		}
+	}
+
 	if (ret == size)
 		return 1;
-	if (ret == 0)
-		return 0;
 
-	if (ret < 0)
-		pr_perror("Can't read img file");
-	else
-		pr_err("Img trimmed %d/%d\n", ret, size);
+	pr_err("Img trimmed %d/%d\n", ret, size);
 	return -1;
 }
 
 /*
  * Read buffer @ptr of @size bytes from @fd file
+ * The @decrypt_data boolean flag indicates whether
+ * the data should be decrypted using ChaCha20-Poly1305.
+ *
  * Returns
  *	1  on success
  *	-1 on error or EOF (error message is printed)
  */
-int read_img_buf(struct cr_img *img, void *ptr, int size)
+int do_read_img_buf(struct cr_img *img, void *ptr, int size, bool decrypt_data)
 {
 	int ret;
 
-	ret = read_img_buf_eof(img, ptr, size);
+	ret = do_read_img_buf_eof(img, ptr, size, decrypt_data);
 	if (ret == 0) {
 		pr_err("Unexpected EOF\n");
 		ret = -1;
@@ -870,7 +943,9 @@ int read_img_str(struct cr_img *img, char **pstr, int size)
 	if (!str)
 		return -1;
 
-	ret = read_img_buf(img, str, size);
+	/* TODO: read_img_str() is used only in do_restore_nftables()
+	 * which does not currently use encryption. */
+	ret = do_read_img_buf(img, str, size, false);
 	if (ret < 0) {
 		xfree(str);
 		return -1;
