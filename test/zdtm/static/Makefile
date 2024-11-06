@@ -56,6 +56,7 @@ TST_NOFILE	:=				\
 		pidfd_self			\
 		pidfd_of_thread			\
 		pidfd_dead			\
+		pidfd_diffdead			\
 		pidfd_child			\
 		pidfd_kill			\
 		fd_from_pidfd			\
