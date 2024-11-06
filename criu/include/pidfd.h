@@ -7,7 +7,7 @@
 extern const struct fdtype_ops pidfd_dump_ops;
 extern struct collect_image_info pidfd_cinfo;
 extern int is_pidfd_link(char *link);
-extern int init_dead_pidfd_hash(void);
+extern void init_dead_pidfd_hash(void);
 struct pidfd_dump_info {
 	PidfdEntry pidfe;
 	pid_t pid;

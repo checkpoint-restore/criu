@@ -1811,11 +1811,6 @@ int prepare_files(void)
 {
 	init_fdesc_hash();
 	init_sk_info_hash();
-
-	if (init_dead_pidfd_hash()) {
-		pr_err("Could not initialise hash map for dead pidfds\n");
-		return -1;
-	}
-
+	init_dead_pidfd_hash();
 	return collect_image(&files_cinfo);
 }
