@@ -21,32 +21,26 @@
 struct pidfd_info {
 	PidfdEntry *pidfe;
 	struct file_desc d;
+
+	struct dead_pidfd *dead;
+	struct pidfd_info *next;
 };
 
 struct dead_pidfd {
 	unsigned int ino;
-	int pid;
-	size_t count;
-	mutex_t pidfd_lock;
+	int creator_id;
+
 	struct hlist_node hash;
+	struct pidfd_info *list;
 };
 
 #define DEAD_PIDFD_HASH_SIZE 32
 static struct hlist_head dead_pidfd_hash[DEAD_PIDFD_HASH_SIZE];
-static mutex_t *dead_pidfd_hash_lock;
 
-int init_dead_pidfd_hash(void)
+void init_dead_pidfd_hash(void)
 {
 	for (int i = 0; i < DEAD_PIDFD_HASH_SIZE; i++)
 		INIT_HLIST_HEAD(&dead_pidfd_hash[i]);
-
-	dead_pidfd_hash_lock = shmalloc(sizeof(*dead_pidfd_hash_lock));
-	if (!dead_pidfd_hash_lock)
-		return -1;
-
-	mutex_init(dead_pidfd_hash_lock);
-
-	return 0;
 }
 
 static struct dead_pidfd *lookup_dead_pidfd(unsigned int ino)
@@ -54,15 +48,12 @@ static struct dead_pidfd *lookup_dead_pidfd(unsigned int ino)
 	struct dead_pidfd *dead;
 	struct hlist_head *chain;
 
-	mutex_lock(dead_pidfd_hash_lock);
 	chain = &dead_pidfd_hash[ino % DEAD_PIDFD_HASH_SIZE];
 	hlist_for_each_entry(dead, chain, hash) {
 		if (dead->ino == ino) {
-			mutex_unlock(dead_pidfd_hash_lock);
 			return dead;
 		}
 	}
-	mutex_unlock(dead_pidfd_hash_lock);
 
 	return NULL;
 }
@@ -142,7 +133,7 @@ static int create_tmp_process(void)
 	return tmp_process;
 }
 
-static int free_dead_pidfd(struct dead_pidfd *dead)
+static int kill_helper(pid_t pid)
 {
 	int status;
 	sigset_t blockmask, oldmask;
@@ -160,15 +151,13 @@ static int free_dead_pidfd(struct dead_pidfd *dead)
 		goto err;
 	}
 
-	if (kill(dead->pid, SIGKILL) < 0) {
-		pr_perror("Could not kill temporary process with pid: %d",
-		dead->pid);
+	if (kill(pid, SIGKILL) < 0) {
+		pr_perror("Could not kill temporary process with pid: %d", pid);
 		goto err;
 	}
 
-	if (waitpid(dead->pid, &status, 0) != dead->pid) {
-		pr_perror("Could not wait on temporary process with pid: %d",
-		dead->pid);
+	if (waitpid(pid, &status, 0) != pid) {
+		pr_perror("Could not wait on temporary process with pid: %d", pid);
 		goto err;
 	}
 
@@ -188,9 +177,6 @@ static int free_dead_pidfd(struct dead_pidfd *dead)
 		goto err;
 	}
 
-	mutex_lock(dead_pidfd_hash_lock);
-	hlist_del(&dead->hash);
-	mutex_unlock(dead_pidfd_hash_lock);
 	return 0;
 err:
 	return -1;
@@ -198,8 +184,9 @@ err:
 
 static int open_one_pidfd(struct file_desc *d, int *new_fd)
 {
-	struct pidfd_info *info;
+	struct pidfd_info *info, *child;
 	struct dead_pidfd *dead = NULL;
+	pid_t pid;
 	int pidfd;
 
 	info = container_of(d, struct pidfd_info, d);
@@ -215,34 +202,44 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 	dead = lookup_dead_pidfd(info->pidfe->ino);
 	BUG_ON(!dead);
 
-	mutex_lock(&dead->pidfd_lock);
-	BUG_ON(dead->count == 0);
-	dead->count--;
-	if (dead->pid == -1) {
-		dead->pid = create_tmp_process();
-		if (dead->pid < 0) {
-			mutex_unlock(&dead->pidfd_lock);
-			goto err_close;
+	if (info->dead && info->dead->creator_id != info->pidfe->id) {
+		int ret = recv_desc_from_peer(&info->d, &pidfd);
+		if (ret != 0) {
+			if (ret != 1)
+				pr_err("Can't get fd\n");
+			return ret;
 		}
+		goto out;
 	}
 
-	pidfd = pidfd_open(dead->pid, info->pidfe->flags);
+	pid = create_tmp_process();
+	if (pid < 0)
+		goto err_close;
+
+	for (child = dead->list; child; child = child->next) {
+		if (child == info)
+			continue;
+		pidfd = pidfd_open(pid, child->pidfe->flags);
+		if (pidfd < 0) {
+			pr_perror("Could not open pidfd for %d", child->pidfe->nspid);
+			goto err_close;
+		}
+
+		if (send_desc_to_peer(pidfd, &child->d)) {
+			pr_perror("Can't send file descriptor");
+			close(pidfd);
+			return -1;
+		}
+		close(pidfd);
+	}
+
+	pidfd = pidfd_open(pid, info->pidfe->flags);
 	if (pidfd < 0) {
 		pr_perror("Could not open pidfd for %d", info->pidfe->nspid);
-		mutex_unlock(&dead->pidfd_lock);
 		goto err_close;
 	}
-
-	if (dead->count == 0) {
-		if (free_dead_pidfd(dead)) {
-			pr_err("Failed to delete dead_pidfd struct\n");
-			mutex_unlock(&dead->pidfd_lock);
-			close(pidfd);
-			goto err_close;
-		}
-	}
-	mutex_unlock(&dead->pidfd_lock);
-
+	if (kill_helper(pid))
+		goto err_close;
 out:
 	if (rst_file_params(pidfd, info->pidfe->fown, info->pidfe->flags)) {
 		goto err_close;
@@ -269,32 +266,31 @@ static int collect_one_pidfd(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 	info->pidfe = pb_msg(msg, PidfdEntry);
 	pr_info_pidfd("Collected ", info->pidfe);
 
+	info->dead = NULL;
 	if (info->pidfe->nspid != -1)
 		goto out;
 
 	dead = lookup_dead_pidfd(info->pidfe->ino);
-	if (dead) {
-		mutex_lock(&dead->pidfd_lock);
-		dead->count++;
-		mutex_unlock(&dead->pidfd_lock);
-		goto out;
-	}
-
-	dead = shmalloc(sizeof(*dead));
 	if (!dead) {
-		pr_err("Could not allocate shared memory..\n");
-		return -1;
+		dead = xmalloc(sizeof(*dead));
+		if (!dead) {
+			pr_err("Could not allocate memory..\n");
+			return -1;
+		}
+
+		INIT_HLIST_NODE(&dead->hash);
+		dead->list = NULL;
+		dead->ino = info->pidfe->ino;
+		dead->creator_id = info->pidfe->id;
+		hlist_add_head(&dead->hash, &dead_pidfd_hash[dead->ino % DEAD_PIDFD_HASH_SIZE]);
 	}
 
-	INIT_HLIST_NODE(&dead->hash);
-	dead->ino = info->pidfe->ino;
-	dead->count = 1;
-	dead->pid = -1;
-	mutex_init(&dead->pidfd_lock);
+	info->dead = dead;
+	info->next = dead->list;
+	dead->list = info;
+	if (dead->creator_id > info->pidfe->id)
+		dead->creator_id = info->pidfe->id;
 
-	mutex_lock(dead_pidfd_hash_lock);
-	hlist_add_head(&dead->hash, &dead_pidfd_hash[dead->ino % DEAD_PIDFD_HASH_SIZE]);
-	mutex_unlock(dead_pidfd_hash_lock);
 out:
 	return file_desc_add(&info->d, info->pidfe->id, &pidfd_desc_ops);
 }
