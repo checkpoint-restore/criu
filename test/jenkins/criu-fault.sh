@@ -43,6 +43,8 @@ fi
 # check set_compel_interrupt_only_mode
 ./test/zdtm.py run -t zdtm/static/env00 --freezecg zdtm:t --fault 137
 ./test/zdtm.py run -t zdtm/static/env00 --freezecg zdtm:t --fault 137 --norst
+# check set_compel_interrupt_only_mode when test cgroup is frozen
+./test/zdtm.py run -t zdtm/static/env00 --freezecg zdtm:f --fault 137
 
 if ./test/zdtm.py run -t zdtm/static/vfork00 --fault 136 --report report -f h ; then
 	fail
