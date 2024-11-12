@@ -11,6 +11,7 @@ int main(int argc, char *argv[])
 		int option_index = 0;
 		static struct option long_options[] = {
 			{ "pid", required_argument, 0, 'p' },
+			{ "get-state", no_argument, 0, 's' },
 			{ "get-restore-tid", no_argument, 0, 'g' },
 			{ "action", required_argument, 0, 'a' },
 			{ "timeout", required_argument, 0, 't' },
@@ -30,6 +31,9 @@ int main(int argc, char *argv[])
 		case 'g':
 		case 'a':
 		case 't':
+			break;
+		case 's':
+			printf("running\n");
 			break;
 		case 'h':
 			printf("--action - execute an action");
