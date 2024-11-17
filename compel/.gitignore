@@ -4,6 +4,9 @@ arch/arm/plugins/std/syscalls/syscalls.S
 arch/aarch64/plugins/std/syscalls/syscalls.S
 arch/s390/plugins/std/syscalls/syscalls.S
 arch/ppc64/plugins/std/syscalls/syscalls.S
+arch/mips/plugins/std/syscalls/syscalls-64.S
+arch/loongarch64/plugins/std/syscalls/syscalls-64.S
+arch/riscv64/plugins/std/syscalls/syscalls.S
 include/version.h
 plugins/include/uapi/std/asm/syscall-types.h
 plugins/include/uapi/std/syscall-64.h
