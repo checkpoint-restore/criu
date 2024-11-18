@@ -394,7 +394,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req, int mode)
 	if (req->parent_img)
 		SET_CHAR_OPTS(img_parent, req->parent_img);
   
-  if (req->stream)
+	if (req->stream)
 		opts.stream = true;
 
 	if (open_image_dir(images_dir_path, mode) < 0) {
@@ -1256,7 +1256,7 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 
 	if (pid == 0) {
 		int ret = 1;
-    int mode = (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP) ? O_DUMP : -1;	
+		int mode = (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP) ? O_DUMP : -1;
 
 		opts.mode = CR_CPUINFO;
 		if (setup_opts_from_req(sk, msg->opts, mode))
