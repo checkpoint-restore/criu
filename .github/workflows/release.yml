@@ -42,8 +42,8 @@ jobs:
       uses: actions/upload-release-asset@v1
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: target/release/cedana-image-streamer
-        asset_name: cedana-image-streamer
+        asset_path: criu/criu
+        asset_name: criu
         asset_content_type: application/octet-stream
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
