@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-release:
+    name: Build and release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt -y install libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler \
+          protobuf-compiler python3-protobuf libnl-3-dev libcap-dev libnet-dev
+    - name: Build criu
+      run: |
+        make criu
+        sudo make install-criu
+    - name: Persist criu
+      id: persist-criu
+      uses: actions/upload-artifact@v4
+      with:
+        name: criu
+        path: criu/criu
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload executable
+      uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: target/release/cedana-image-streamer
+        asset_name: cedana-image-streamer
+        asset_content_type: application/octet-stream
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  push:
+    name: Push to Cloudsmith
+    runs-on: ubuntu-latest
+    needs: build-and-release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: criu
+
+      - name: Push criu
+        id: push-criu
+        uses: cloudsmith-io/action@master
+        with:
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          command: "push"
+          format: "raw"
+          owner: "cedana"
+          repo: "criu"
+          file: "criu"
+          name: "criu"
+          version: ${{ github.ref_name }}
+          republish: "true"
+
