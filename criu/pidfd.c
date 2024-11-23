@@ -11,6 +11,8 @@
 #include "common/bug.h"
 #include "rst-malloc.h"
 
+#include "compel/plugins/std/syscall-codes.h"
+
 #undef LOG_PREFIX
 #define LOG_PREFIX "pidfd: "
 
