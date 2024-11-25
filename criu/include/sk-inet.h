@@ -105,4 +105,7 @@ struct rst_tcp_sock {
 union libsoccr_addr;
 int restore_sockaddr(union libsoccr_addr *sa, int family, u32 pb_port, u32 *pb_addr, u32 ifindex);
 
+void show_one_inet_img(const char *act, const InetSkEntry *e);
+void show_one_inet(const char *act, const struct inet_sk_desc *sk);
+
 #endif /* __CR_SK_INET_H__ */
