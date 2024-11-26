@@ -242,16 +242,21 @@ int dump_tcp_opts(int fd, TcpOptsEntry *toe)
 	return ret;
 }
 
+static bool is_localhost(uint32_t *src_addr, uint32_t *dst_addr)
+{
+	return src_addr[0] == htonl(INADDR_LOOPBACK) && dst_addr[0] == htonl(INADDR_LOOPBACK);
+}
+
 int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
 {
 	if (sk->dst_port == 0)
 		return 0;
 
-	if (opts.tcp_close) {
+	if (opts.tcp_close && !is_localhost(sk->src_addr, sk->dst_addr)) {
 		return 0;
 	}
 
-	pr_info("Dumping TCP connection\n");
+	show_one_inet("Dumping TCP connection", sk);
 
 	if (tcp_repair_established(fd, sk))
 		return -1;
@@ -459,14 +464,15 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 {
 	struct libsoccr_sk *sk;
 
-	pr_info("Restoring TCP connection\n");
-
-	if (opts.tcp_close) {
+	if (opts.tcp_close && !is_localhost(ii->ie->src_addr, ii->ie->dst_addr)) {
+		show_one_inet_img("Shutdown TCP connection", ii->ie);
 		if (shutdown(fd, SHUT_RDWR) && errno != ENOTCONN) {
 			pr_perror("Unable to shutdown the socket id %x ino %x", ii->ie->id, ii->ie->ino);
 		}
 		return 0;
 	}
+
+	show_one_inet_img("Restoring TCP connection", ii->ie);
 
 	sk = libsoccr_pause(fd);
 	if (!sk)

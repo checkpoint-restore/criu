@@ -85,7 +85,7 @@ out_link:
 	return e;
 }
 
-static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
+void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 {
 	char src_addr[INET_ADDR_LEN] = "<unknown>";
 
@@ -99,7 +99,7 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 		 ___tcp_state_name(sk->state), src_addr);
 }
 
-static void show_one_inet_img(const char *act, const InetSkEntry *e)
+void show_one_inet_img(const char *act, const InetSkEntry *e)
 {
 	char src_addr[INET_ADDR_LEN] = "<unknown>";
 
