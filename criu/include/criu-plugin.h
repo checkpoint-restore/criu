@@ -60,6 +60,8 @@ enum {
 
 	CR_PLUGIN_HOOK__CHECKPOINT_DEVICES = 11,
 
+	CR_PLUGIN_HOOK__POST_FORKING = 12,
+
 	CR_PLUGIN_HOOK__MAX
 };
 
@@ -78,6 +80,7 @@ DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__UPDATE_VMA_MAP, const char *path, const
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, int pid);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__PAUSE_DEVICES, int pid);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, int pid);
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__POST_FORKING, void);
 
 enum {
 	CR_PLUGIN_STAGE__DUMP,
@@ -152,5 +155,6 @@ typedef int(cr_plugin_handle_device_vma_t)(int fd, const struct stat *stat);
 typedef int(cr_plugin_update_vma_map_t)(const char *path, const uint64_t addr, const uint64_t old_pgoff,
 					uint64_t *new_pgoff, int *plugin_fd);
 typedef int(cr_plugin_resume_devices_late_t)(int pid);
+typedef int(cr_plugin_post_forking_t)(void);
 
 #endif /* __CRIU_PLUGIN_H__ */
