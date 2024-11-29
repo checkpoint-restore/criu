@@ -2366,41 +2366,47 @@ int cr_restore_tasks(void)
 		return 1;
 
 	if (check_img_inventory(/* restore = */ true) < 0)
-		goto err;
-
-	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
 		return -1;
 
 	if (init_stats(RESTORE_STATS))
-		goto err;
+		return -1;
 
 	if (lsm_check_opts())
-		goto err;
+		return -1;
 
 	timing_start(TIME_RESTORE);
 
 	if (cpu_init() < 0)
-		goto err;
+		return -1;
 
 	if (vdso_init_restore())
-		goto err;
+		return -1;
 
 	if (tty_init_restore())
-		goto err;
+		return -1;
 
 	if (opts.cpu_cap & CPU_CAP_IMAGE) {
 		if (cpu_validate_cpuinfo())
-			goto err;
+			return -1;
 	}
 
 	if (prepare_task_entries() < 0)
-		goto err;
+		return -1;
 
 	if (prepare_pstree() < 0)
-		goto err;
+		return -1;
 
 	if (fdstore_init())
-		goto err;
+		return -1;
+
+	/*
+	 * For the AMDGPU plugin, its parallel restore feature needs to use fdstore to store
+	 * its socket file descriptor. This allows the main process and the target process to
+	 * communicate with each other through this file descriptor. Therefore, cr_plugin_init
+	 * must be initialized after fdstore_init.
+	 */
+	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
+		return -1;
 
 	if (inherit_fd_move_to_fdstore())
 		goto err;
