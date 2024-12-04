@@ -285,7 +285,7 @@ int exec_rpc_query_external_files(char *name, int sk)
 
 static char images_dir[PATH_MAX];
 
-static int setup_opts_from_req(int sk, CriuOpts *req, int mode)
+static int setup_opts_from_req(int sk, CriuOpts *req, int operation)
 {
 	struct ucred ids;
 	struct stat st;
@@ -397,7 +397,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req, int mode)
 	if (req->stream)
 		opts.stream = true;
 
-	if (open_image_dir(images_dir_path, mode) < 0) {
+	if (open_image_dir(images_dir_path, operation) < 0) {
 		pr_perror("Can't open images directory");
 		goto err;
 	}
@@ -1256,10 +1256,10 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 
 	if (pid == 0) {
 		int ret = 1;
-		int mode = (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP) ? O_DUMP : -1;
+		int operation = (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP) ? O_DUMP : -1;
 
 		opts.mode = CR_CPUINFO;
-		if (setup_opts_from_req(sk, msg->opts, mode))
+		if (setup_opts_from_req(sk, msg->opts, operation))
 			goto cout;
 
 		__setproctitle("cpuinfo %s --rpc -D %s", msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ? "dump" : "check",
