@@ -30,6 +30,7 @@ struct vdso_symbol {
 struct vdso_symtable {
 	unsigned long vdso_size;
 	unsigned long vvar_size;
+	unsigned long vvar_vclock_size;
 	struct vdso_symbol symbols[VDSO_SYMBOL_MAX];
 	bool vdso_before_vvar; /* order of vdso/vvar pair */
 };
