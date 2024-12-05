@@ -45,6 +45,7 @@ static int remap_one(char *who, unsigned long *from, unsigned long to, size_t si
 static int park_at(struct vdso_maps *rt, unsigned long vdso, unsigned long vvar)
 {
 	unsigned long vvar_size = rt->sym.vvar_size;
+	unsigned long vvar_vclock_size = rt->sym.vvar_vclock_size;
 	unsigned long vdso_size = rt->sym.vdso_size;
 	int ret;
 
@@ -54,8 +55,24 @@ static int park_at(struct vdso_maps *rt, unsigned long vdso, unsigned long vvar)
 
 	std_log_set_gettimeofday(NULL); /* stop using vdso for timings */
 
-	if (vvar)
+	if (vvar) {
+		/*
+		 * v6.13-rc1~172^2~9 splits the vvar vma in two parts vvar and
+		 * vvar_clock. The last one is mapped right after the first
+		 * one.
+		 */
+		if (vvar_vclock_size) {
+			unsigned long from;
+
+			vvar_size -= vvar_vclock_size;
+			from = rt->vvar_start + vvar_size;
+
+			ret = remap_one("rt-vvar", &from, vvar + vvar_size, vvar_vclock_size);
+			if (ret)
+				return ret;
+		}
 		ret = remap_one("rt-vvar", &rt->vvar_start, vvar, vvar_size);
+	}
 
 	if (!ret)
 		vdso_update_gtod_addr(rt);
