@@ -579,7 +579,8 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 	} else if (!strcmp(file_path, "[vdso]")) {
 		if (handle_vdso_vma(vma_area))
 			goto err;
-	} else if (!strcmp(file_path, "[vvar]")) {
+	} else if (!strcmp(file_path, "[vvar]") ||
+		   !strcmp(file_path, "[vvar_vclock]")) {
 		if (handle_vvar_vma(vma_area))
 			goto err;
 	} else if (!strcmp(file_path, "[heap]")) {
@@ -771,7 +772,7 @@ static int task_size_check(pid_t pid, VmaEntry *entry)
 
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t dump_filemap)
 {
-	struct vma_area *vma_area = NULL;
+	struct vma_area *vma_area = NULL, *prev_vma_area = NULL;
 	unsigned long start, end, pgoff, prev_end = 0;
 	char r, w, x, s;
 	int ret = -1, vm_file_fd = -1;
@@ -813,8 +814,22 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t du
 				continue;
 		}
 
-		if (vma_area && vma_list_add(vma_area, vma_area_list, &prev_end, &vfi, &prev_vfi))
-			goto err;
+		if (vma_area && vma_area_is(vma_area, VMA_AREA_VVAR) &&
+		    prev_vma_area && vma_area_is(prev_vma_area, VMA_AREA_VVAR)) {
+			if (prev_vma_area->e->end != vma_area->e->start) {
+				pr_err("two nonconsecutive vvar vma-s: "
+				       "%" PRIx64 "-%" PRIx64 " %" PRIx64 "-%" PRIx64 "\n",
+				       prev_vma_area->e->start, prev_vma_area->e->end,
+				       vma_area->e->start, vma_area->e->end);
+				goto err;
+			}
+			/* Merge all vvar vma-s into one. */
+			prev_vma_area->e->end = vma_area->e->end;
+		} else {
+			if (vma_area && vma_list_add(vma_area, vma_area_list, &prev_end, &vfi, &prev_vfi))
+				goto err;
+			prev_vma_area = vma_area;
+		}
 
 		if (eof)
 			break;

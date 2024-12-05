@@ -310,7 +310,7 @@ static int vdso_parse_maps(pid_t pid, struct vdso_maps *s)
 
 	while (1) {
 		unsigned long start, end;
-		char *has_vdso, *has_vvar;
+		char *has_vdso, *has_vvar, *has_vvar_vclock;
 
 		buf = breadline(&f);
 		if (buf == NULL)
@@ -318,13 +318,19 @@ static int vdso_parse_maps(pid_t pid, struct vdso_maps *s)
 		if (IS_ERR(buf))
 			goto err;
 
-		has_vdso = strstr(buf, "[vdso]");
-		if (!has_vdso)
+		has_vvar = NULL;
+		has_vvar_vclock = NULL;
+		do {
+			has_vdso = strstr(buf, "[vdso]");
+			if (has_vdso)
+				break;
 			has_vvar = strstr(buf, "[vvar]");
-		else
-			has_vvar = NULL;
+			if (has_vvar)
+				break;
+			has_vvar_vclock = strstr(buf, "[vvar_vclock]");
+		} while (0);
 
-		if (!has_vdso && !has_vvar)
+		if (!has_vdso && !has_vvar && !has_vvar_vclock)
 			continue;
 
 		if (sscanf(buf, "%lx-%lx", &start, &end) != 2) {
@@ -339,13 +345,21 @@ static int vdso_parse_maps(pid_t pid, struct vdso_maps *s)
 			}
 			s->vdso_start = start;
 			s->sym.vdso_size = end - start;
-		} else {
+		} else if (has_vvar) {
 			if (s->vvar_start != VVAR_BAD_ADDR) {
 				pr_err("Got second VVAR entry\n");
 				goto err;
 			}
 			s->vvar_start = start;
 			s->sym.vvar_size = end - start;
+		} else {
+			if (s->vvar_start == VDSO_BAD_ADDR ||
+			    s->vvar_start + s->sym.vvar_size != start) {
+				pr_err("VVAR and VVAR_VCLOCK entries are not subsequent\n");
+				goto err;
+			}
+			s->sym.vvar_vclock_size = end - start;
+			s->sym.vvar_size += s->sym.vvar_vclock_size;
 		}
 	}
 
