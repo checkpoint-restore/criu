@@ -806,7 +806,7 @@ static int dump_using_req(int sk, CriuOpts *req)
 	bool self_dump = !req->pid;
 
 	opts.mode = CR_DUMP;
-	if (setup_opts_from_req(sk, req, O_DUMP))
+	if (setup_opts_from_req(sk, req, image_dir_mode()))
 		goto exit;
 
 	__setproctitle("dump --rpc -t %d -D %s", req->pid, images_dir);
@@ -1256,10 +1256,9 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 
 	if (pid == 0) {
 		int ret = 1;
-		int operation = (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP) ? O_DUMP : -1;
 
-		opts.mode = CR_CPUINFO;
-		if (setup_opts_from_req(sk, msg->opts, operation))
+		opts.mode = (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP) ? CR_CPUINFO_DUMP : CR_CPUINFO_CHECK;
+		if (setup_opts_from_req(sk, msg->opts, image_dir_mode()))
 			goto cout;
 
 		__setproctitle("cpuinfo %s --rpc -D %s", msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ? "dump" : "check",

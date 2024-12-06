@@ -33,6 +33,8 @@ extern int cr_lazy_pages(bool daemon);
 extern int check_add_feature(char *arg);
 extern void pr_check_features(const char *offset, const char *sep, int width);
 
+int image_dir_mode(void);
+
 #define PPREP_HEAD_INACTIVE ((struct pprep_head *)-1)
 
 #define add_post_prepare_cb_once(phead)                   \
