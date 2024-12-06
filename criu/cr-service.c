@@ -394,14 +394,10 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->parent_img)
 		SET_CHAR_OPTS(img_parent, req->parent_img);
 
-	/*
-	 * Image streaming is not supported with CRIU's service feature as
-	 * the streamer must be started for each dump/restore operation.
-	 * It is unclear how to do that with RPC, so we punt for now.
-	 * This explains why we provide the argument mode=-1 instead of
-	 * O_RSTR or O_DUMP.
-	 */
-	if (open_image_dir(images_dir_path, -1) < 0) {
+	if (req->stream)
+		opts.stream = true;
+
+	if (open_image_dir(images_dir_path, image_dir_mode()) < 0) {
 		pr_perror("Can't open images directory");
 		goto err;
 	}
@@ -1261,7 +1257,7 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 	if (pid == 0) {
 		int ret = 1;
 
-		opts.mode = CR_CPUINFO;
+		opts.mode = (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP) ? CR_CPUINFO_DUMP : CR_CPUINFO_CHECK;
 		if (setup_opts_from_req(sk, msg->opts))
 			goto cout;
 

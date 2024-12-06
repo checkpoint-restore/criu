@@ -54,19 +54,17 @@ void flush_early_log_to_stderr(void)
 	flush_early_log_buffer(STDERR_FILENO);
 }
 
-static int image_dir_mode(char *argv[], int optind)
+int image_dir_mode()
 {
 	switch (opts.mode) {
 	case CR_DUMP:
+		/* fallthrough */
+	case CR_CPUINFO_DUMP:
 		/* fallthrough */
 	case CR_PRE_DUMP:
 		return O_DUMP;
 	case CR_RESTORE:
 		return O_RSTR;
-	case CR_CPUINFO:
-		if (!strcmp(argv[optind + 1], "dump"))
-			return O_DUMP;
-		/* fallthrough */
 	default:
 		return -1;
 	}
@@ -76,7 +74,7 @@ static int image_dir_mode(char *argv[], int optind)
 	return -1;
 }
 
-static int parse_criu_mode(char *mode)
+static int parse_criu_mode(char *mode, char *subcommand)
 {
 	if (!strcmp(mode, "dump"))
 		opts.mode = CR_DUMP;
@@ -96,8 +94,12 @@ static int parse_criu_mode(char *mode)
 		opts.mode = CR_SWRK;
 	else if (!strcmp(mode, "dedup"))
 		opts.mode = CR_DEDUP;
-	else if (!strcmp(mode, "cpuinfo"))
-		opts.mode = CR_CPUINFO;
+	else if (!strcmp(mode, "cpuinfo") && subcommand == NULL)
+		return -2;
+	else if (!strcmp(mode, "cpuinfo") && !strcmp(subcommand, "dump"))
+		opts.mode = CR_CPUINFO_DUMP;
+	else if (!strcmp(mode, "cpuinfo") && !strcmp(subcommand, "check"))
+		opts.mode = CR_CPUINFO_CHECK;
 	else if (!strcmp(mode, "exec"))
 		opts.mode = CR_EXEC_DEPRECATED;
 	else if (!strcmp(mode, "show"))
@@ -115,6 +117,7 @@ int main(int argc, char *argv[], char *envp[])
 	bool has_exec_cmd = false;
 	bool has_sub_command;
 	int state = PARSING_GLOBAL_CONF;
+	char* subcommand;
 
 	BUILD_BUG_ON(CTL_32 != SYSCTL_TYPE__CTL_32);
 	BUILD_BUG_ON(__CTL_STR != SYSCTL_TYPE__CTL_STR);
@@ -165,8 +168,14 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	if (parse_criu_mode(argv[optind])) {
+	has_sub_command = (argc - optind) > 1;
+	subcommand = has_sub_command ? argv[optind + 1] : NULL;
+	ret = parse_criu_mode(argv[optind], subcommand);
+	if (ret == -1) {
 		pr_err("unknown command: %s\n", argv[optind]);
+		goto usage;
+	} else if (ret == -2) {
+		pr_err("cpuinfo requires an action: dump or check\n");
 		goto usage;
 	}
 	/*
@@ -200,8 +209,6 @@ int main(int argc, char *argv[], char *envp[])
 	if (opts.work_dir == NULL)
 		SET_CHAR_OPTS(work_dir, opts.imgs_dir);
 
-	has_sub_command = (argc - optind) > 1;
-
 	if (has_exec_cmd) {
 		if (!has_sub_command) {
 			pr_err("--exec-cmd requires a command\n");
@@ -225,23 +232,20 @@ int main(int argc, char *argv[], char *envp[])
 		opts.exec_cmd[argc - optind - 1] = NULL;
 	} else {
 		/* No subcommands except for cpuinfo and restore --exec-cmd */
-		if (opts.mode != CR_CPUINFO && has_sub_command) {
+		if (opts.mode != CR_CPUINFO_DUMP && opts.mode != CR_CPUINFO_CHECK && has_sub_command) {
 			pr_err("excessive parameter%s for command %s\n", (argc - optind) > 2 ? "s" : "", argv[optind]);
-			goto usage;
-		} else if (opts.mode == CR_CPUINFO && !has_sub_command) {
-			pr_err("cpuinfo requires an action: dump or check\n");
 			goto usage;
 		}
 	}
 
-	if (opts.stream && image_dir_mode(argv, optind) == -1) {
+	if (opts.stream && image_dir_mode() == -1) {
 		pr_err("--stream cannot be used with the %s command\n", argv[optind]);
 		goto usage;
 	}
 
 	/* We must not open imgs dir, if service is called */
 	if (opts.mode != CR_SERVICE) {
-		ret = open_image_dir(opts.imgs_dir, image_dir_mode(argv, optind));
+		ret = open_image_dir(opts.imgs_dir, image_dir_mode());
 		if (ret < 0) {
 			pr_err("Couldn't open image dir %s\n", opts.imgs_dir);
 			return 1;
@@ -335,16 +339,10 @@ int main(int argc, char *argv[], char *envp[])
 	if (opts.mode == CR_DEDUP)
 		return cr_dedup() != 0;
 
-	if (opts.mode == CR_CPUINFO) {
-		if (!argv[optind + 1]) {
-			pr_err("cpuinfo requires an action: dump or check\n");
-			goto usage;
-		}
-		if (!strcmp(argv[optind + 1], "dump"))
-			return cpuinfo_dump();
-		else if (!strcmp(argv[optind + 1], "check"))
-			return cpuinfo_check();
-	}
+	if (opts.mode == CR_CPUINFO_DUMP)
+		return cpuinfo_dump();
+	if (opts.mode == CR_CPUINFO_CHECK)
+		return cpuinfo_check();
 
 	if (opts.mode == CR_EXEC_DEPRECATED) {
 		pr_err("The \"exec\" action is deprecated by the Compel library.\n");
