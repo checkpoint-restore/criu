@@ -29,6 +29,8 @@
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "tcp: "
+#define IPV4_LOCALHOST_CIDR_MASK 0xff000000
+#define IPV4_LOCALHOST_CIDR INADDR_LOOPBACK && IPV4_LOCALHOST_CIDR_MASK
 
 static LIST_HEAD(cpt_tcp_repair_sockets);
 static LIST_HEAD(rst_tcp_repair_sockets);
@@ -244,9 +246,28 @@ err_r:
 	return ret;
 }
 
-static bool is_localhost(uint32_t *src_addr, uint32_t *dst_addr)
+static bool is_localhost(unsigned int family, uint32_t *src_addr, uint32_t *dst_addr)
 {
-	return src_addr[0] == htonl(INADDR_LOOPBACK) && dst_addr[0] == htonl(INADDR_LOOPBACK);
+
+    if (family == AF_INET)
+        return (ntohl(src_addr[0]) && IPV4_LOCALHOST_CIDR_MASK ) == IPV4_LOCALHOST_CIDR && 
+        (ntohl(dst_addr[0]) && IPV4_LOCALHOST_CIDR_MASK ) == IPV4_LOCALHOST_CIDR;
+    else if (family == AF_INET6){
+
+        if ( src_addr[0]  !=  0x0 ||  dst_addr[0]  != 0x0 || 
+            src_addr[1]  !=  0x0 ||  dst_addr[1]  != 0x0 || 
+        )
+            return false;
+
+        if (ntohl( src_addr[2] ) ==  0xffff && ntohl( dst_addr[2] ) == 0xffff)
+            return (ntohl(src_addr[4]) && IPV4_LOCALHOST_CIDR_MASK ) == IPV4_LOCALHOST_CIDR && 
+            (ntohl(dst_addr[4]) && IPV4_LOCALHOST_CIDR_MASK ) == IPV4_LOCALHOST_CIDR;
+
+        return (( src_addr[2] ) ==  0x0 && ( dst_addr[2] ) == 0x0) &&
+            (ntohl( src_addr[3] ) ==  0x1 && ntohl( dst_addr[3] ) == 0x1);
+    }
+
+    return false;
 }
 
 int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
@@ -272,7 +293,7 @@ int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
 	if (sk->dst_port == 0)
 		return 0;
 
-	if (opts.tcp_close && !is_localhost(sk->src_addr, sk->dst_addr)) {
+	if (opts.tcp_close && !is_localhost(sk->sd->family,,sk->src_addr, sk->dst_addr)) {
 		return 0;
 	}
 
@@ -458,7 +479,7 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 {
 	struct libsoccr_sk *sk;
 
-	if (opts.tcp_close && !is_localhost(ii->ie->src_addr, ii->ie->dst_addr)) {
+	if (opts.tcp_close && !is_localhost(ii->ie->family, ii->ie->src_addr, ii->ie->dst_addr)) {
 		show_one_inet_img("Shutdown TCP connection", ii->ie);
 		if (shutdown(fd, SHUT_RDWR) && errno != ENOTCONN) {
 			pr_perror("Unable to shutdown the socket id %x ino %x", ii->ie->id, ii->ie->ino);
