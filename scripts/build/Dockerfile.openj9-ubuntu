@@ -24,9 +24,10 @@ RUN apt-install protobuf-c-compiler \
 	gcc \
 	maven
 
+RUN mkdir -p /etc/criu && echo 'ghost-limit 16777216' > /etc/criu/default.conf
 COPY . /criu
 WORKDIR /criu
 
 RUN make mrproper && make -j $(nproc) CC="$CC"
 
-ENTRYPOINT mvn -q -f test/javaTests/pom.xml test
+ENTRYPOINT mvn -f test/javaTests/pom.xml test
