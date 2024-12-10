@@ -15,6 +15,7 @@ Checkpoint / Restore inside a docker container
 Pytorch
 Tensorflow
 Using CRIU Image Streamer
+Parallel Restore
 
 DESCRIPTION
 -----------
