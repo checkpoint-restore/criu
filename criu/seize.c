@@ -1008,7 +1008,7 @@ static int collect_task(struct pstree_item *item)
 	if (ret < 0)
 		goto err_close;
 
-	if ((item->pid->state == TASK_DEAD) && !list_empty(&item->children)) {
+	if ((item->pid->state == TASK_DEAD) && has_children(item)) {
 		pr_err("Zombie with children?! O_o Run, run, run!\n");
 		goto err_close;
 	}
