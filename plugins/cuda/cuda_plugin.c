@@ -402,7 +402,7 @@ int cuda_plugin_checkpoint_devices(int pid)
 interrupt:
 	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
 
-	return status != 0 ? status : int_ret;
+	return status != 0 ? -1 : int_ret;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, cuda_plugin_checkpoint_devices);
 
