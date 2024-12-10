@@ -182,7 +182,7 @@ void free_pstree(struct pstree_item *root_item)
 	struct pstree_item *item = root_item, *parent;
 
 	while (item) {
-		if (!list_empty(&item->children)) {
+		if (has_children(item)) {
 			item = list_first_entry(&item->children, struct pstree_item, sibling);
 			continue;
 		}
@@ -244,10 +244,15 @@ int init_pstree_helper(struct pstree_item *ret)
 	return 0;
 }
 
+bool has_children(struct pstree_item *item)
+{
+	return !list_empty(&item->children);
+}
+
 /* Deep first search on children */
 struct pstree_item *pstree_item_next(struct pstree_item *item)
 {
-	if (!list_empty(&item->children))
+	if (has_children(item))
 		return list_first_entry(&item->children, struct pstree_item, sibling);
 
 	while (item->parent) {

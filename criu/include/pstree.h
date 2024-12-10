@@ -104,6 +104,7 @@ extern void pstree_insert_pid(struct pid *pid_node);
 extern struct pid *pstree_pid_by_virt(pid_t pid);
 
 extern struct pstree_item *root_item;
+extern bool has_children(struct pstree_item *item);
 extern struct pstree_item *pstree_item_next(struct pstree_item *item);
 #define for_each_pstree_item(pi) for (pi = root_item; pi != NULL; pi = pstree_item_next(pi))
 
