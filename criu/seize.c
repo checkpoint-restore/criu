@@ -539,6 +539,34 @@ err:
 	return exit_code;
 }
 
+static void cgroupv1_freezer_kludges(int fd, int iter, const struct timespec *req) {
+	/* As per older kernel docs (freezer-subsystem.txt before
+	 * the kernel commit ef9fe980c6fcc1821), if FREEZING is seen,
+	 * userspace should either retry or thaw. While current
+	 * kernel cgroup v1 docs no longer mention a need to retry,
+	 * even recent kernels can't reliably freeze a cgroup v1.
+	 *
+	 * Let's keep asking the kernel to freeze from time to time.
+	 * In addition, do occasional thaw/sleep/freeze.
+	 *
+	 * This is still a game of chances (the real fix belongs to the kernel)
+	 * but these kludges might improve the probability of success.
+	 *
+	 * Cgroup v2 does not have this problem.
+	 */
+	switch (iter % 32) {
+		case 9:
+		case 20:
+			freezer_write_state(fd, FROZEN);
+			break;
+		case 31:
+			freezer_write_state(fd, THAWED);
+			nanosleep(req, NULL);
+			freezer_write_state(fd, FROZEN);
+			break;
+	}
+}
+
 static int freeze_processes(void)
 {
 	int fd, exit_code = -1;
@@ -596,6 +624,9 @@ static int freeze_processes(void)
 
 			if (state == FROZEN || i++ == nr_attempts || alarm_timeouted())
 				break;
+
+			if (!cgroup_v2)
+				cgroupv1_freezer_kludges(fd, i, &req);
 
 			nanosleep(&req, NULL);
 		}
