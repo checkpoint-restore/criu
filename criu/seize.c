@@ -545,7 +545,8 @@ static int freeze_processes(void)
 	enum freezer_state state = THAWED;
 
 	static const unsigned long step_ms = 100;
-	unsigned long nr_attempts = (opts.timeout * 1000000) / step_ms;
+	/* Since opts.timeout is in seconds, multiply it by 1000 to convert to milliseconds. */
+	unsigned long nr_attempts = (opts.timeout * 1000) / step_ms;
 	unsigned long i = 0;
 
 	const struct timespec req = {
@@ -554,14 +555,12 @@ static int freeze_processes(void)
 	};
 
 	if (unlikely(!nr_attempts)) {
-		/*
-		 * If timeout is turned off, lets
-		 * wait for at least 10 seconds.
-		 */
-		nr_attempts = (10 * 1000000) / step_ms;
+		/* If the timeout is 0, wait for at least 10 seconds. */
+		nr_attempts = (10 * 1000) / step_ms;
 	}
 
-	pr_debug("freezing processes: %lu attempts with %lu ms steps\n", nr_attempts, step_ms);
+	pr_debug("freezing cgroup %s: %lu x %lums attempts, timeout: %us\n",
+		 opts.freeze_cgroup, nr_attempts, step_ms, opts.timeout);
 
 	fd = freezer_open();
 	if (fd < 0)
@@ -588,22 +587,22 @@ static int freeze_processes(void)
 		 * not read @tasks pids while freezer in
 		 * transition stage.
 		 */
-		for (; i <= nr_attempts; i++) {
+		while (1) {
 			state = get_freezer_state(fd);
 			if (state == FREEZER_ERROR) {
 				close(fd);
 				return -1;
 			}
 
-			if (state == FROZEN)
+			if (state == FROZEN || i++ == nr_attempts || alarm_timeouted())
 				break;
-			if (alarm_timeouted())
-				goto err;
+
 			nanosleep(&req, NULL);
 		}
 
-		if (i > nr_attempts) {
-			pr_err("Unable to freeze cgroup %s\n", opts.freeze_cgroup);
+		if (state != FROZEN) {
+			pr_err("Unable to freeze cgroup %s (%lu x %lums attempts, timeout: %us)\n",
+			       opts.freeze_cgroup, i, step_ms, opts.timeout);
 			if (!pr_quelled(LOG_DEBUG))
 				log_unfrozen_stacks(opts.freeze_cgroup);
 			goto err;
