@@ -1,1 +1,4 @@
-{'flags': 'suid'}
+# This test isn't executed in the host flavor (in the same network namespace,
+# because the kernel releases a test socket asynchronously, so the restore
+# can fail if it is executed before the kernel actually destroys the socket.
+{'flags': 'suid', 'flavor': 'ns uns'}
