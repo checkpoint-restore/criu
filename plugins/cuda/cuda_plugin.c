@@ -391,13 +391,13 @@ int cuda_plugin_checkpoint_devices(int pid)
 	if (resume_restore_thread(restore_tid, &save_sigset)) {
 		return -1;
 	}
+
+	task_info->checkpointed = 1;
 	status = cuda_process_checkpoint_action(pid, ACTION_CHECKPOINT, 0, msg_buf, sizeof(msg_buf));
 	if (status) {
 		pr_err("CHECKPOINT_DEVICES failed with %s\n", msg_buf);
 		goto interrupt;
 	}
-
-	task_info->checkpointed = 1;
 
 interrupt:
 	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
