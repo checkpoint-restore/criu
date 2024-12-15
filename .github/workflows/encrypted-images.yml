@@ -1,0 +1,17 @@
+name: Encrypted Images Test
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: encrypted-images-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run CRIU Encrypted Images Test
+      run: sudo -E make -C scripts/ci local ENCRYPTED_IMAGES_TEST=1

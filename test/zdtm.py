@@ -1137,7 +1137,8 @@ class criu:
         self.__page_server_p = None
         self.__dump_process = None
         self.__img_streamer_process = None
-        self.__tls = self.__tls_options() if opts['tls'] else []
+        self.__tls = ['--tls'] + self.__tls_options() if opts['tls'] else []
+        self.__encrypt = ['--encrypt'] + self.__tls_options() if opts['encrypt'] else []
         self.__criu_bin = opts['criu_bin']
         self.__crit_bin = opts['crit_bin']
         self.__pre_dump_mode = opts['pre_dump_mode']
@@ -1205,11 +1206,13 @@ class criu:
 
     def __tls_options(self):
         pki_dir = os.path.dirname(os.path.abspath(__file__)) + "/pki"
-        return [
-            "--tls", "--tls-no-cn-verify", "--tls-key", pki_dir + "/key.pem",
-            "--tls-cert", pki_dir + "/cert.pem", "--tls-cacert",
-            pki_dir + "/cacert.pem"
+        output = [
+            "--tls-no-cn-verify",
+            "--tls-key", pki_dir + "/key.pem",
+            "--tls-cert", pki_dir + "/cert.pem",
+            "--tls-cacert", pki_dir + "/cacert.pem"
         ]
+        return output
 
     def __ddir(self):
         return os.path.join(self.__dump_path, "%d" % self.__iter)
@@ -1433,7 +1436,7 @@ class criu:
         os.mkdir(self.__ddir())
         os.chmod(self.__ddir(), 0o777)
 
-        a_opts = ["--tree", self.__test.getpid()]
+        a_opts = ["--tree", self.__test.getpid()] + self.__encrypt
         if self.__prev_dump_iter:
             a_opts += [
                 "--prev-images-dir",
@@ -1508,7 +1511,7 @@ class criu:
                 raise test_fail_exc("criu page-server exited with %d" % ret)
 
     def restore(self):
-        r_opts = []
+        r_opts = self.__encrypt
         if self.__restore_sibling:
             r_opts = ["--restore-sibling"]
             self.__test.auto_reap = False
@@ -2165,7 +2168,7 @@ class Launcher:
               'sat', 'script', 'rpc', 'criu_config', 'lazy_pages', 'join_ns',
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
-              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode',
+              'tls', 'encrypt', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode',
               'rootless', 'preload_libfault', 'mocked_cuda_checkpoint')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
@@ -2850,6 +2853,7 @@ def get_cli_args():
                     help="simulate lazy migration",
                     action='store_true')
     rp.add_argument("--tls", help="use TLS for migration", action='store_true')
+    rp.add_argument("-e", "--encrypt", help="encrypt images", action='store_true')
     rp.add_argument("--title", help="A test suite title", default="criu")
     rp.add_argument("--show-stats",
                     help="Show criu statistics",
