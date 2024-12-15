@@ -13,6 +13,7 @@
 #include "restorer.h"
 #include "rst-malloc.h"
 #include "page-xfer.h"
+#include "tls.h"
 
 #include "fault-injection.h"
 #include "xmalloc.h"
@@ -259,6 +260,16 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr, unsigned l
 		curr += ret;
 		if (curr == len)
 			break;
+	}
+
+	if (opts.encrypt) {
+		/* We need to make sure to read the full content of pages before decrypting the data */
+		for (int i = 0; i < len; i += PAGE_SIZE) {
+			if (tls_block_cipher_decrypt_data(buf + i, PAGE_SIZE)) {
+				pr_err("Failed to decrypt data\n");
+				return -1;
+			}
+		}
 	}
 
 	if (opts.auto_dedup && !pr->disable_dedup) {
@@ -536,6 +547,7 @@ static int process_async_reads(struct page_read *pr)
 	list_for_each_entry_safe(piov, n, &pr->async, l) {
 		ssize_t ret;
 		struct iovec *iovs = piov->to;
+		int iovcnt = piov->nr;
 
 		pr_debug("Read piov iovs %d, from %ju, len %ju, first %p:%zu\n", piov->nr, piov->from,
 			 piov->end - piov->from, piov->to->iov_base, piov->to->iov_len);
@@ -577,6 +589,18 @@ static int process_async_reads(struct page_read *pr)
 		}
 
 		BUG_ON(pr->io_complete); /* FIXME -- implement once needed */
+
+		if (opts.encrypt) {
+			/* We need to make sure to read the full content of pages before decrypting the data */
+			for (int i = 0; i < iovcnt; i++) {
+				for (int j = 0; j < iovs[i].iov_len; j += PAGE_SIZE) {
+					if (tls_block_cipher_decrypt_data(iovs[i].iov_base + j, PAGE_SIZE)) {
+						pr_err("Failed to decrypt data\n");
+						return -1;
+					}
+				}
+			}
+		}
 
 		list_del(&piov->l);
 		xfree(iovs);

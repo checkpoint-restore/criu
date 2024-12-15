@@ -31,6 +31,7 @@
 #include "prctl.h"
 #include "compel/infect-util.h"
 #include "pidfd-store.h"
+#include "tls.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -1442,6 +1443,7 @@ int open_vmas(struct pstree_item *t)
 static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 {
 	struct cr_img *pages;
+	int pipe_fds[2][2];
 
 	/*
 	 * We optimize the case when rsti(t)->vma_io is empty.
@@ -1466,6 +1468,44 @@ static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 		return -1;
 
 	ta->vma_ios_fd = img_raw_fd(pages);
+
+	if (!opts.encrypt) {
+		ta->encrypted_pages = false;
+		ta->decryption_pipe_fd_w = -1;
+		ta->decryption_pipe_fd_r = -1;
+	} else {
+		pid_t helper_pid, *child;
+		ta->encrypted_pages = true;
+
+		if (pipe(pipe_fds[0])) {
+			pr_perror("Failed to create pipe");
+			return -1;
+		}
+		if (pipe(pipe_fds[1])) {
+			pr_perror("Failed to create pipe");
+			return -1;
+		}
+
+		helper_pid = tls_vma_io_pipe(ta->vma_ios_fd, pipe_fds);
+		if (helper_pid < 0) {
+			pr_err("Failed to setup VMA IO pipe\n");
+			return -1;
+		}
+
+		/* Add PID of the helper task used to decrypt images, so that the
+		 * restorer can wait() for it when the restore stage is done.
+		 */
+		ta->helpers = (pid_t *)rst_mem_align_cpos(RM_PRIVATE);
+		child = rst_mem_alloc(sizeof(*child), RM_PRIVATE);
+		ta->helpers_n++;
+		*child = helper_pid;
+
+		close(pipe_fds[0][0]);
+		close(pipe_fds[1][1]);
+		ta->decryption_pipe_fd_w = pipe_fds[0][1];
+		ta->decryption_pipe_fd_r = pipe_fds[1][0];
+	}
+
 	return pagemap_render_iovec(&rsti(t)->vma_io, ta);
 }
 

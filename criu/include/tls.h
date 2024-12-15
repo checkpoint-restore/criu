@@ -36,6 +36,9 @@ int tls_encrypt_file_data(int fd_in, int fd_out, size_t data_size);
 int tls_decrypt_file_data(int fd_in, int fd_out, size_t data_size);
 int tls_encryption_pipe(int output_file_fd, int pipe_read_fd);
 int tls_decryption_pipe(int intput_file_fd, int pipe_write_fd);
+int tls_block_cipher_encrypt_data(void *ptext, size_t ptext_len);
+int tls_block_cipher_decrypt_data(void *ctext, size_t ctext_len);
+int tls_vma_io_pipe(int pages_img_fd, int pipe_fds[2][2]);
 
 #else /* CONFIG_GNUTLS */
 
@@ -54,6 +57,9 @@ int tls_decryption_pipe(int intput_file_fd, int pipe_write_fd);
 #define tls_decrypt_file_data(fd_in, fd_out, data_size) (-1)
 #define tls_encryption_pipe(output_file_fd, pipe_read_fd) (-1)
 #define tls_decryption_pipe(intput_file_fd, pipe_write_fd) (-1)
+#define tls_block_cipher_encrypt_data(ptext, ptext_len)		(-1)
+#define tls_block_cipher_decrypt_data(ctext, ctext_len)		(-1)
+#define tls_vma_io_pipe(pages_img_fd, pipe_fds) (-1)
 #define write_img_cipher() (0)
 
 #endif /* CONFIG_HAS_GNUTLS */

@@ -1524,6 +1524,75 @@ static ssize_t preadv_limited(int fd, struct iovec *iovs, int nr, off_t offs, si
 	return ret;
 }
 
+/**
+ * decrypt_preadv_limited() is similar to preadv_limited(),
+ * but uses pipes to communicate with a helper process that
+ * decrypts the content of pages.
+ */
+static ssize_t decrypt_preadv_limited(int rfd, int wfd, struct iovec *iovs, int nr, off_t offs, size_t max_to_read)
+{
+	size_t saved_last_iov_len = 0;
+	ssize_t ret;
+	ssize_t preadv_ret;
+	pid_t local_pid = sys_getpid();
+
+	if (max_to_read) {
+		for (int i = 0; i < nr; ++i) {
+			if (iovs[i].iov_len <= max_to_read) {
+				max_to_read -= iovs[i].iov_len;
+				continue;
+			}
+
+			if (!max_to_read) {
+				nr = i;
+				break;
+			}
+
+			saved_last_iov_len = iovs[i].iov_len;
+			iovs[i].iov_len = max_to_read;
+			nr = i + 1;
+			break;
+		}
+	}
+
+	ret = sys_write(wfd, &local_pid, sizeof(pid_t));
+	if (ret < 0) {
+		return -1;
+	}
+
+	ret = sys_write(wfd, &offs, sizeof(off_t));
+	if (ret < 0) {
+		return -1;
+	}
+
+	ret = sys_write(wfd, &nr, sizeof(int));
+	if (ret < 0) {
+		return -1;
+	}
+
+	for (int i = 0; i < nr; i++) {
+		ret = sys_write(wfd, &iovs[i].iov_len, sizeof(size_t));
+		if (ret < 0) {
+			return -1;
+		}
+
+		ret = sys_write(wfd, &iovs[i].iov_base, sizeof(void *));
+		if (ret < 0) {
+			return -1;
+		}
+	}
+
+	ret = sys_read(rfd, &preadv_ret, sizeof(ssize_t));
+	if (ret < 0) {
+		return -1;
+	}
+
+	if (saved_last_iov_len)
+		iovs[nr - 1].iov_len = saved_last_iov_len;
+
+	return preadv_ret;
+}
+
 /*
  * In the worst case buf size should be:
  *   sizeof(struct inotify_event) * 2 + PATH_MAX
@@ -1816,8 +1885,15 @@ __visible long __export_restore_task(struct task_restore_args *args)
 			 * If we're requested to punch holes in the file after reading we do
 			 * it to save memory. Limit the reads then to an arbitrary block size.
 			 */
-			r = preadv_limited(args->vma_ios_fd, iovs, nr, rio->off,
-					   args->auto_dedup ? AUTO_DEDUP_OVERHEAD_BYTES : 0);
+			if (args->encrypted_pages) {
+				r = decrypt_preadv_limited(args->decryption_pipe_fd_r, args->decryption_pipe_fd_w, iovs,
+							   nr, rio->off,
+							   args->auto_dedup ? AUTO_DEDUP_OVERHEAD_BYTES : 0);
+			} else {
+				r = preadv_limited(args->vma_ios_fd, iovs, nr, rio->off,
+						   args->auto_dedup ? AUTO_DEDUP_OVERHEAD_BYTES : 0);
+			}
+
 			if (r < 0) {
 				pr_err("Can't read pages data (%d)\n", (int)r);
 				goto core_restore_end;
@@ -1851,6 +1927,16 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		}
 
 		rio = ((void *)rio) + RIO_SIZE(rio->nr_iovs);
+	}
+
+	/*
+	 * Close PIPEs used for communicating with helper processes.
+	 * See tls_vma_io_pipe().
+	 */
+	if (args->encrypted_pages) {
+		pr_debug("Closing decryption pipe\n");
+		sys_close(args->decryption_pipe_fd_r);
+		sys_close(args->decryption_pipe_fd_w);
 	}
 
 	if (args->vma_ios_fd != -1)

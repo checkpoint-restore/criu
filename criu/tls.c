@@ -55,6 +55,20 @@ static int tls_sk_flags = 0;
 static uint8_t token[32];
 static const gnutls_cipher_algorithm_t stream_cipher_algorithm = GNUTLS_CIPHER_CHACHA20_POLY1305;
 
+/* AES-XTS is used for encryption of image files.
+ * XTS uses two 256-bits AES keys - one key is used to perform
+ * the AES block encryption; the other is used to encrypt what is
+ * known as a "tweak value." This encrypted tweak is further modified
+ * with a Galois polynomial function (GF) and XOR with both the plain
+ * text and the cipher text of each block. This ensures that blocks of
+ * identical data will not produce identical cipher text.
+ */
+static gnutls_cipher_hd_t block_cipher_handle;
+static gnutls_datum_t aes_xts_key, aes_xts_iv;
+static unsigned int cipher_block_size;
+static const gnutls_cipher_algorithm_t block_cipher_algorithm = GNUTLS_CIPHER_AES_256_XTS;
+
+
 void tls_terminate_session(bool async)
 {
 	int ret;
@@ -431,6 +445,29 @@ static inline int _tls_generate_token(void)
 	return gnutls_rnd(GNUTLS_RND_KEY, &token, sizeof(token));
 }
 
+static inline int _aes_xts_generate_key(void)
+{
+	aes_xts_key.size = gnutls_cipher_get_key_size(block_cipher_algorithm);
+	aes_xts_key.data = xmalloc(aes_xts_key.size);
+	pr_debug("Generating encryption key (%u bytes)\n", aes_xts_key.size);
+	return gnutls_rnd(GNUTLS_RND_KEY, aes_xts_key.data, aes_xts_key.size);
+}
+
+static inline int _aes_xts_generate_iv(void)
+{
+	aes_xts_iv.size = gnutls_cipher_get_iv_size(block_cipher_algorithm);
+	aes_xts_iv.data = xmalloc(aes_xts_iv.size);
+	pr_debug("Generating encryption IV (%u bytes)\n", aes_xts_iv.size);
+	return gnutls_rnd(GNUTLS_RND_NONCE, aes_xts_iv.data, aes_xts_iv.size);
+}
+
+static int _aes_xts_cipher_init(void)
+{
+	pr_debug("Initializing %s cipher\n", gnutls_cipher_get_name(block_cipher_algorithm));
+	cipher_block_size = gnutls_cipher_get_block_size(block_cipher_algorithm);
+	return gnutls_cipher_init(&block_cipher_handle, block_cipher_algorithm, &aes_xts_key, &aes_xts_iv);
+}
+
 /**
  * tls_initialize_cipher initializes GnuTLS, loads a public key,
  * and initializes a cipher context that is used to encrypt the
@@ -483,6 +520,24 @@ int tls_initialize_cipher(void)
 	ret = _tls_generate_token();
 	if (ret < 0) {
 		tls_perror("Failed to generate token", ret);
+		return -1;
+	}
+
+	ret = _aes_xts_generate_key();
+	if (ret < 0) {
+		tls_perror("Failed to generate key", ret);
+		return -1;
+	}
+
+	ret = _aes_xts_generate_iv();
+	if (ret < 0) {
+		tls_perror("Failed to generate iv", ret);
+		return -1;
+	}
+
+	ret = _aes_xts_cipher_init();
+	if (ret < 0) {
+		tls_perror("Failed to initialize cipher", ret);
 		return -1;
 	}
 
@@ -627,33 +682,39 @@ int tls_initialize_cipher_from_image(void)
 	if (!x509_key)
 		return -1;
 
+	/* Initialize private key object */
 	ret = gnutls_privkey_init(&privkey);
 	if (ret < 0) {
 		tls_perror("Failed to initialize private key", ret);
 		return -1;
 	}
 
+	/* Import private key */
 	ret = gnutls_privkey_import_x509(privkey, x509_key, 0);
 	if (ret < 0) {
 		tls_perror("Failed to import private key", ret);
 		return -1;
 	}
 
+	/* Load entry from cipher image */
 	ret = pb_read_one(img, &ce, PB_CIPHER);
 	if (ret < 0) {
 		pr_err("Failed to read cipher entry\n");
 		goto out_close;
 	}
 
+	pr_debug("Loading ChaCha20-Poly1305 key from cipher image\n");
+
+	/* Decrypt token */
 	ciphertext.data = ce->token.data;
 	ciphertext.size = ce->token.len;
-
 	ret = gnutls_privkey_decrypt_data(privkey, 0, &ciphertext, &decrypted_token);
 	if (ret < 0) {
 		tls_perror("Failed to decrypt token data", ret);
 		goto out_close;
 	}
 
+	/* Validate token size */
 	if (decrypted_token.size != sizeof(token)) {
 		pr_err("Invalid token size (%d != %lu)\n", decrypted_token.size, sizeof(token));
 		goto out_close;
@@ -662,6 +723,43 @@ int tls_initialize_cipher_from_image(void)
 	if (memcpy(token, decrypted_token.data, sizeof(token)) != token) {
 		pr_perror("Failed to copy token data");
 		goto out_close;
+	}
+
+	pr_debug("Loading AES key from cipher image\n");
+
+	/* Decrypt AES key */
+	ciphertext.data = ce->aes_key.data;
+	ciphertext.size = ce->aes_key.len;
+	ret = gnutls_privkey_decrypt_data(privkey, 0, &ciphertext, &decrypted_token);
+	if (ret < 0) {
+		tls_perror("Failed to decrypt key data", ret);
+		goto out_close;
+	}
+
+	/* Validate AES key size */
+	aes_xts_key.size = gnutls_cipher_get_key_size(block_cipher_algorithm);
+	if (decrypted_token.size != aes_xts_key.size) {
+		pr_err("Invalid key size (%d != %u)\n", decrypted_token.size, aes_xts_key.size);
+		goto out_close;
+	}
+	aes_xts_key.data = xmalloc(aes_xts_key.size);
+	memcpy(aes_xts_key.data, decrypted_token.data, decrypted_token.size);
+
+	pr_debug("Loading IV from cipher image\n");
+
+	aes_xts_iv.size = gnutls_cipher_get_iv_size(block_cipher_algorithm);
+	if (ce->aes_iv.len != aes_xts_iv.size) {
+		pr_err("Invalid IV size (%lu != %u)\n", ce->aes_iv.len, aes_xts_iv.size);
+		goto out_close;
+	}
+	aes_xts_iv.data = xmalloc(aes_xts_iv.size);
+	memcpy(aes_xts_iv.data, ce->aes_iv.data, aes_xts_iv.size);
+
+	/* Initialize AES-XTS cipher context */
+	ret = _aes_xts_cipher_init();
+	if (ret < 0) {
+		tls_perror("Failed to initialize cipher", ret);
+		return -1;
 	}
 
 	ret = 0;
@@ -736,6 +834,20 @@ int write_img_cipher(void)
 	}
 	ce.token.len = ciphertext.size;
 	ce.token.data = ciphertext.data;
+
+	plaintext.data = aes_xts_key.data;
+	plaintext.size = aes_xts_key.size;
+	ret = _encrypt_data_with_pubkey(&plaintext, &ciphertext);
+	if (ret < 0) {
+		return -1;
+	}
+	ce.has_aes_key = true;
+	ce.aes_key.len = ciphertext.size;
+	ce.aes_key.data = ciphertext.data;
+
+	ce.has_aes_iv = true;
+	ce.aes_iv.len = aes_xts_iv.size;
+	ce.aes_iv.data = aes_xts_iv.data;
 
 	pr_debug("Writing cipher image\n");
 	img = open_image(CR_FD_CIPHER, O_DUMP);
@@ -1111,4 +1223,172 @@ int tls_decryption_pipe(int input_fd, int pipe_write_fd)
 		}
 	}
 	return 0;
+}
+
+int tls_block_cipher_encrypt_data(void *ptext, size_t ptext_len)
+{
+	int ret;
+
+	ret = gnutls_cipher_encrypt2(block_cipher_handle, ptext, ptext_len, (void *)ptext, ptext_len);
+	if (ret < 0) {
+		tls_perror("Failed to encrypt data", ret);
+		return -1;
+	}
+	return 0;
+}
+
+int tls_block_cipher_decrypt_data(void *ctext, size_t ctext_len)
+{
+	int ret;
+
+	ret = gnutls_cipher_decrypt2(block_cipher_handle, ctext, ctext_len, (void *)ctext, ctext_len);
+	if (ret < 0) {
+		tls_perror("Failed to decrypt data", ret);
+		return -1;
+	}
+	return 0;
+}
+
+/**
+ * tls_vma_io_pipe forks a child process that reads encrypted data from
+ * the pages_img_fd and decrypts the data. It uses process_vm_writev()
+ * to write the decrypted data to the address space of remote process.
+ * The pipe_read_fd and pipe_write_fd are used to communicate with the
+ * restorer process (see decrypt_preadv_limited() in criu/pie/restorer.c).
+ */
+int tls_vma_io_pipe(int pages_img_fd, int pipe_fds[2][2])
+{
+	pid_t child_pid;
+	int ret;
+	int pipe_read_fd = pipe_fds[0][0], pipe_write_fd = pipe_fds[1][1];
+
+	child_pid = fork();
+	if (child_pid == -1) {
+		pr_perror("Failed to fork");
+		return -1;
+	}
+
+	if (child_pid > 0) {
+		return child_pid;
+	}
+
+	close(pipe_fds[1][0]);
+	close(pipe_fds[0][1]);
+
+	child_pid = getpid();
+
+	while (1) {
+		int nr;
+		off_t offs;
+		pid_t remote_pid;
+		struct iovec *local_iovs, *remote_iovs;
+		size_t iov_len, total_len = 0;
+		ssize_t preadv_ret;
+
+		/* Read remote PID from pipe. This is the PID value used
+		 * by process_vm_writev() to identify the remote process
+		 */
+		ret = read(pipe_read_fd, &remote_pid, sizeof(pid_t));
+		if (ret < 0) {
+			pr_perror("Failed reading offs");
+			exit(1);
+		}
+		if (ret == 0) {
+			break; /* EOF */
+		}
+
+		/* Read offs and nr from pipe. These are the offset and
+		 * number of iovecs used by preadv() to read data from
+		 * the pages image. The data is then decrypted and written
+		 * to the remote process using process_vm_writev(). */
+		ret = read(pipe_read_fd, &offs, sizeof(off_t));
+		if (ret < 0) {
+			pr_perror("Failed reading offs");
+			exit(1);
+		}
+
+		ret = read(pipe_read_fd, &nr, sizeof(int));
+		if (ret < 0) {
+			pr_perror("Failed reading nr");
+			exit(1);
+		}
+
+		/* local_iovs are used to read encrypted data from pages image
+		 * remote_iovs are used to write decrypted data to remote process
+		 * See decrypt_preadv_limited() in criu/pie/restorer.c and man page
+		 * for process_vm_writev(2). */
+		local_iovs = xmalloc(nr * sizeof(struct iovec));
+		remote_iovs = xmalloc(nr * sizeof(struct iovec));
+
+		for (int i = 0; i < nr; i++) {
+			ret = read(pipe_read_fd, &iov_len, sizeof(size_t));
+			if (ret < -1) {
+				pr_perror("Failed reading iov_len");
+				exit(1);
+			}
+
+			/* process_vm_writev() would fail with EINVAL if the
+			 * sum of the iov_len values overflows a ssize_t value */
+			if ((iov_len + total_len) > SSIZE_MAX) {
+				pr_err("Invalid iov_len value\n");
+				exit(1);
+			}
+
+			local_iovs[i].iov_len = iov_len;
+			remote_iovs[i].iov_len = iov_len;
+			total_len += iov_len;
+
+			local_iovs[i].iov_base = xmalloc(iov_len);
+			if (local_iovs[i].iov_base == NULL) {
+				exit(1);
+			}
+
+			ret = read(pipe_read_fd, &remote_iovs[i].iov_base, sizeof(void *));
+			if (ret < -1) {
+				pr_perror("Failed reading iov_len");
+				exit(1);
+			}
+		}
+
+		/* Read encrypted data from pages image into local_iovs */
+		preadv_ret = preadv(pages_img_fd, local_iovs, nr, offs);
+		if (preadv_ret != total_len) {
+			pr_perror("Failed reading iovs from image");
+			exit(1);
+		}
+
+		/* Decrypt content of images */
+		for (int i = 0; i < nr; i++) {
+			for (int j = 0; j < local_iovs[i].iov_len; j += PAGE_SIZE) {
+				if (tls_block_cipher_decrypt_data(local_iovs[i].iov_base + j, PAGE_SIZE)) {
+					pr_err("Failed to decrypt data\n");
+					exit(1);
+				}
+			}
+		}
+
+		/* Write decrypted data to remote process address space */
+		ret = process_vm_writev(remote_pid, local_iovs, nr, remote_iovs, nr, 0);
+		if (ret < 0) {
+			pr_perror("Failed writing iovs to remote process");
+			exit(1);
+		}
+
+		/* Send preadv() return value to the restorer process so
+		 * that it can return it to the caller */
+		ret = write(pipe_write_fd, &preadv_ret, sizeof(ssize_t));
+		if (ret < 0) {
+			pr_perror("Failed writing ret");
+			exit(1);
+		}
+
+		/* Cleanup local_iovs and remote_iovs */
+		for (int i = 0; i < nr; i++) {
+			xfree(local_iovs[i].iov_base);
+		}
+		xfree(local_iovs);
+		xfree(remote_iovs);
+	}
+
+	exit(0);
 }
