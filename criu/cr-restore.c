@@ -2359,17 +2359,17 @@ int cr_restore_tasks(void)
 	if (init_service_fd())
 		return 1;
 
+	if (init_stats(RESTORE_STATS))
+		goto err;
+
+	if (tls_initialize_cipher_from_image())
+		goto err;
+
 	if (check_img_inventory(/* restore = */ true) < 0)
 		goto err;
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
 		return -1;
-
-	if (tls_initialize_cipher_from_image())
-		goto err;
-
-	if (init_stats(RESTORE_STATS))
-		goto err;
 
 	if (lsm_check_opts())
 		goto err;

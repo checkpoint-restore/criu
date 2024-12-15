@@ -170,6 +170,14 @@ void write_stats(int what)
 		ds_entry.has_irmap_resolve = true;
 		encode_time(TIME_IRMAP_RESOLVE, &ds_entry.irmap_resolve);
 
+		if (opts.encrypt) {
+			ds_entry.has_stream_cipher_encryption_time = true;
+			encode_time(TIME_STREAM_CIPHER_ENCRYPTION, &ds_entry.stream_cipher_encryption_time);
+
+			ds_entry.has_block_cipher_encryption_time = true;
+			encode_time(TIME_BLOCK_CIPHER_ENCRYPTION, &ds_entry.block_cipher_encryption_time);
+		}
+
 		ds_entry.pages_scanned = dstats->counts[CNT_PAGES_SCANNED];
 		ds_entry.pages_skipped_parent = dstats->counts[CNT_PAGES_SKIPPED_PARENT];
 		ds_entry.pages_written = dstats->counts[CNT_PAGES_WRITTEN];
@@ -197,6 +205,14 @@ void write_stats(int what)
 
 		encode_time(TIME_FORK, &rs_entry.forking_time);
 		encode_time(TIME_RESTORE, &rs_entry.restore_time);
+
+		if (opts.encrypt) {
+			rs_entry.has_stream_cipher_decryption_time = true;
+			encode_time(TIME_STREAM_CIPHER_DECRYPTION, &rs_entry.stream_cipher_decryption_time);
+
+			rs_entry.has_block_cipher_decryption_time = true;
+			encode_time(TIME_BLOCK_CIPHER_DECRYPTION, &rs_entry.block_cipher_decryption_time);
+		}
 
 		name = "restore";
 	} else
