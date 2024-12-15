@@ -48,8 +48,10 @@ void preload_netfilter_modules(void)
 		fd = -1;
 		pr_perror("failed to open /dev/null, using log fd for net module preload");
 	}
-	cr_system(fd, fd, fd, iptable_cmd_ipv4, (char *[]){ iptable_cmd_ipv4, "-L", "-n", NULL }, CRS_CAN_FAIL);
-	cr_system(fd, fd, fd, iptable_cmd_ipv6, (char *[]){ iptable_cmd_ipv6, "-L", "-n", NULL }, CRS_CAN_FAIL);
+	cr_system(fd, fd, fd, iptable_cmd_ipv4, (char *[]){ iptable_cmd_ipv4, "-L", "-n", NULL }, CRS_CAN_FAIL,
+		  TLS_MODE_NONE);
+	cr_system(fd, fd, fd, iptable_cmd_ipv6, (char *[]){ iptable_cmd_ipv6, "-L", "-n", NULL }, CRS_CAN_FAIL,
+		  TLS_MODE_NONE);
 	close_safe(&fd);
 }
 
@@ -100,7 +102,7 @@ static int iptables_connection_switch_raw(int family, u32 *src_addr, u16 src_por
 	 * cr_system is used here, because it blocks SIGCHLD before waiting
 	 * a child and the child can't be waited from SIGCHLD handler.
 	 */
-	ret = cr_system(-1, -1, -1, "sh", argv, 0);
+	ret = cr_system(-1, -1, -1, "sh", argv, 0, TLS_MODE_NONE);
 	if (ret < 0 || !WIFEXITED(ret) || WEXITSTATUS(ret)) {
 		pr_err("Iptables configuration failed\n");
 		return -1;

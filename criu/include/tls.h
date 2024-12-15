@@ -7,6 +7,12 @@ typedef struct {
 	uint8_t nonce[12];
 } chacha20_poly1305_t;
 
+typedef struct {
+	chacha20_poly1305_t cipher_data;
+	ssize_t size;
+	char data[4096];
+} criu_datum_t;
+
 #ifdef CONFIG_GNUTLS
 
 #include <stdbool.h>
@@ -28,6 +34,8 @@ int tls_decrypt_data(void *data, size_t data_size, uint8_t *tag_data, uint8_t *n
 int tls_encrypt_pipe_data(int fd_in, int fd_out, size_t data_size);
 int tls_encrypt_file_data(int fd_in, int fd_out, size_t data_size);
 int tls_decrypt_file_data(int fd_in, int fd_out, size_t data_size);
+int tls_encryption_pipe(int output_file_fd, int pipe_read_fd);
+int tls_decryption_pipe(int intput_file_fd, int pipe_write_fd);
 
 #else /* CONFIG_GNUTLS */
 
@@ -44,6 +52,8 @@ int tls_decrypt_file_data(int fd_in, int fd_out, size_t data_size);
 #define tls_encrypt_pipe_data(fd_in, fd_out, data_size) (-1)
 #define tls_encrypt_file_data(fd_in, fd_out, data_size) (-1)
 #define tls_decrypt_file_data(fd_in, fd_out, data_size) (-1)
+#define tls_encryption_pipe(output_file_fd, pipe_read_fd) (-1)
+#define tls_decryption_pipe(intput_file_fd, pipe_write_fd) (-1)
 #define write_img_cipher() (0)
 
 #endif /* CONFIG_HAS_GNUTLS */

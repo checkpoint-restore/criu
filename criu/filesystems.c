@@ -19,6 +19,7 @@
 #include "util.h"
 #include "fs-magic.h"
 #include "tty.h"
+#include "tls.h"
 
 #include "images/mnt.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
@@ -420,7 +421,7 @@ static int tmpfs_dump(struct mount_info *pm)
 			       (char *[]){ "tar", "--create", "--gzip", "--no-unquote", "--no-wildcards",
 					   "--one-file-system", "--check-links", "--preserve-permissions", "--sparse",
 					   "--numeric-owner", "--directory", "/proc/self/fd/0", ".", NULL },
-			       0, userns_pid);
+			       0, userns_pid, TLS_MODE_ENCRYPT);
 
 	if (ret)
 		pr_err("Can't dump tmpfs content\n");
@@ -453,7 +454,7 @@ static int tmpfs_restore(struct mount_info *pm)
 	ret = cr_system(img_raw_fd(img), -1, -1, "tar",
 			(char *[]){ "tar", "--extract", "--gzip", "--no-unquote", "--no-wildcards", "--directory",
 				    service_mountpoint(pm), NULL },
-			0);
+			0, TLS_MODE_DECRYPT);
 	close_image(img);
 
 	if (ret) {

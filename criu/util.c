@@ -40,6 +40,7 @@
 #include "namespaces.h"
 #include "criu-log.h"
 #include "util-caps.h"
+#include "tls.h"
 
 #include "clone-noasan.h"
 #include "cr_options.h"
@@ -513,9 +514,9 @@ int is_anon_link_type(char *link, char *type)
  * If "in" is negative, stdin will be closed.
  * If "out" or "err" are negative, a log file descriptor will be used.
  */
-int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned flags)
+int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int tls_mode)
 {
-	return cr_system_userns(in, out, err, cmd, argv, flags, -1);
+	return cr_system_userns(in, out, err, cmd, argv, flags, -1, tls_mode);
 }
 
 int cr_close_range(unsigned int fd, unsigned int max_fd, unsigned int flags)
@@ -565,10 +566,15 @@ int close_fds(int minfd)
 	return 0;
 }
 
-int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int userns_pid)
+#define READ_END  0
+#define WRITE_END 1
+
+int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int userns_pid,
+		     int tls_mode)
 {
 	sigset_t blockmask, oldmask;
 	int ret = -1, status;
+	int pipe_fds[2];
 	pid_t pid;
 
 	sigemptyset(&blockmask);
@@ -576,6 +582,18 @@ int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], un
 	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
 		pr_perror("Cannot set mask of blocked signals");
 		return -1;
+	}
+
+	/**
+	 * To enable encryption/decryption with cr_system_userns(),
+	 * we set the stdin or stdout FD to a PIPE that is used to
+	 * encrypt or decrypt the data.
+	 */
+	if (opts.encrypt && tls_mode != TLS_MODE_NONE) {
+		if (pipe(pipe_fds)) {
+			pr_perror("Failed to create pipe");
+			return -1;
+		}
 	}
 
 	pid = fork();
@@ -595,6 +613,16 @@ int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], un
 			if (setuid(0) || setgid(0)) {
 				pr_perror("Unable to set uid or gid");
 				goto out_chld;
+			}
+		}
+
+		if (opts.encrypt) {
+			if (tls_mode == TLS_MODE_ENCRYPT) {
+				close(pipe_fds[READ_END]);
+				out = pipe_fds[WRITE_END];
+			} else if (tls_mode == TLS_MODE_DECRYPT) {
+				close(pipe_fds[WRITE_END]);
+				in = pipe_fds[READ_END];
 			}
 		}
 
@@ -641,6 +669,24 @@ int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], un
 			cmd, strerror(errno));
 	out_chld:
 		_exit(1);
+	}
+
+	if (opts.encrypt) {
+		if (tls_mode == TLS_MODE_ENCRYPT) {
+			close(pipe_fds[WRITE_END]);
+			if (tls_encryption_pipe(out, pipe_fds[READ_END]) < 0) {
+				pr_err("Failed to encrypt data to pipe\n");
+				goto out;
+			}
+			close(pipe_fds[READ_END]);
+		} else if (tls_mode == TLS_MODE_DECRYPT) {
+			close(pipe_fds[READ_END]);
+			if (tls_decryption_pipe(in, pipe_fds[WRITE_END]) < 0) {
+				pr_err("Failed to decrypt data from pipe\n");
+				goto out;
+			}
+			close(pipe_fds[WRITE_END]);
+		}
 	}
 
 	while (1) {
@@ -1716,7 +1762,7 @@ static int is_iptables_nft(char *bin)
 		goto err;
 	}
 
-	ret = cr_system(-1, pfd[1], -1, cmd[0], cmd, CRS_CAN_FAIL);
+	ret = cr_system(-1, pfd[1], -1, cmd[0], cmd, CRS_CAN_FAIL, TLS_MODE_NONE);
 	if (ret) {
 		pr_err("%s -V failed\n", cmd[0]);
 		goto err;

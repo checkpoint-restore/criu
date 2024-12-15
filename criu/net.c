@@ -1971,7 +1971,8 @@ static int run_ip_tool(char *arg1, char *arg2, char *arg3, char *arg4, int fdin,
 	if (!ip_tool_cmd)
 		ip_tool_cmd = "ip";
 
-	ret = cr_system(fdin, fdout, -1, ip_tool_cmd, (char *[]){ "ip", arg1, arg2, arg3, arg4, NULL }, flags);
+	ret = cr_system(fdin, fdout, -1, ip_tool_cmd, (char *[]){ "ip", arg1, arg2, arg3, arg4, NULL }, flags,
+			TLS_MODE_NONE);
 	if (ret) {
 		if (!(flags & CRS_CAN_FAIL))
 			pr_err("IP tool failed on %s %s %s %s\n", arg1, arg2, arg3 ?: "", arg4 ?: "");
@@ -1981,7 +1982,7 @@ static int run_ip_tool(char *arg1, char *arg2, char *arg3, char *arg4, int fdin,
 	return 0;
 }
 
-static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
+static int run_iptables_tool(char *def_cmd, int fdin, int fdout, int tls_mode)
 {
 	int ret;
 	char *cmd;
@@ -1990,7 +1991,7 @@ static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
 	if (!cmd)
 		cmd = def_cmd;
 	pr_debug("\tRunning %s for %s\n", cmd, def_cmd);
-	ret = cr_system(fdin, fdout, -1, "sh", (char *[]){ "sh", "-c", cmd, NULL }, 0);
+	ret = cr_system(fdin, fdout, -1, "sh", (char *[]){ "sh", "-c", cmd, NULL }, 0, tls_mode);
 	if (ret)
 		pr_err("%s failed\n", def_cmd);
 
@@ -2064,7 +2065,7 @@ static inline int dump_iptables(struct cr_imgset *fds)
 		pr_info("skipping iptables dump - no legacy version present\n");
 	} else {
 		img = img_from_set(fds, CR_FD_IPTABLES);
-		if (run_iptables_tool(iptables_cmd, -1, img_raw_fd(img)))
+		if (run_iptables_tool(iptables_cmd, -1, img_raw_fd(img), TLS_MODE_ENCRYPT))
 			return -1;
 	}
 
@@ -2075,7 +2076,7 @@ static inline int dump_iptables(struct cr_imgset *fds)
 		pr_info("skipping ip6tables dump - no legacy version present\n");
 	} else {
 		img = img_from_set(fds, CR_FD_IP6TABLES);
-		if (run_iptables_tool(ip6tables_cmd, -1, img_raw_fd(img)))
+		if (run_iptables_tool(ip6tables_cmd, -1, img_raw_fd(img), TLS_MODE_ENCRYPT))
 			return -1;
 	}
 
@@ -2409,7 +2410,7 @@ static inline int restore_iptables(int pid)
 		return -1;
 	}
 
-	ret = run_iptables_tool(comm, img_raw_fd(img), -1);
+	ret = run_iptables_tool(comm, img_raw_fd(img), -1, TLS_MODE_DECRYPT);
 	close_image(img);
 	if (ret)
 		return ret;
@@ -2432,7 +2433,7 @@ ipt6:
 		return -1;
 	}
 
-	ret = run_iptables_tool(comm, img_raw_fd(img), -1);
+	ret = run_iptables_tool(comm, img_raw_fd(img), -1, TLS_MODE_DECRYPT);
 out:
 	close_image(img);
 
@@ -3067,7 +3068,7 @@ static int iptables_restore(bool ipv6, char *buf, int size)
 	}
 	close_safe(&pfd[1]);
 
-	ret = cr_system(pfd[0], -1, -1, cmd[0], cmd, 0);
+	ret = cr_system(pfd[0], -1, -1, cmd[0], cmd, 0, TLS_MODE_NONE);
 err:
 	close_safe(&pfd[1]);
 	close_safe(&pfd[0]);
@@ -3210,7 +3211,7 @@ static bool iptables_has_criu_jump_target(void)
 		pr_perror("failed to open /dev/null, using log fd");
 	}
 
-	ret = cr_system(fd, fd, fd, "sh", argv, CRS_CAN_FAIL);
+	ret = cr_system(fd, fd, fd, "sh", argv, CRS_CAN_FAIL, TLS_MODE_NONE);
 	close_safe(&fd);
 	return !ret;
 }

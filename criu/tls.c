@@ -1055,3 +1055,60 @@ int tls_decrypt_file_data(int fd_in, int fd_out, size_t data_size)
 err:
 	return exit_code;
 }
+
+int tls_encryption_pipe(int output_fd, int pipe_read_fd)
+{
+	while (1) {
+		criu_datum_t datum;
+
+		ssize_t ret = read(pipe_read_fd, datum.data, sizeof(datum.data));
+		if (ret < 0) {
+			pr_perror("Failed to read data from pipe");
+			return -1;
+		}
+
+		if (ret == 0)
+			break; /* EOF */
+
+		datum.size = ret;
+
+		if (tls_encrypt_data(datum.data, datum.size, datum.cipher_data.tag, datum.cipher_data.nonce) < 0) {
+			pr_err("Failed to encrypt buffer data\n");
+			return -1;
+		}
+
+		if (write(output_fd, &datum, sizeof(datum)) != sizeof(datum)) {
+			pr_perror("Failed to write data packet");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int tls_decryption_pipe(int input_fd, int pipe_write_fd)
+{
+	while (1) {
+		criu_datum_t datum;
+
+		ssize_t ret = read(input_fd, &datum, sizeof(datum));
+		if (ret == 0)
+			break; /* EOF */
+
+		if (ret != sizeof(datum)) {
+			pr_err("Failed to read metadata: %ld != %ld\n", ret, sizeof(datum));
+			return -1;
+		}
+
+		if (tls_decrypt_data(datum.data, datum.size, datum.cipher_data.tag, datum.cipher_data.nonce) < 0) {
+			pr_err("Failed to decrypt buffer data\n");
+			return -1;
+		}
+
+		if (write(pipe_write_fd, datum.data, datum.size) == -1) {
+			pr_perror("Failed to write decrypted data");
+			return -1;
+		}
+	}
+	return 0;
+}
