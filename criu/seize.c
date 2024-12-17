@@ -87,7 +87,10 @@ static const char frozen[] = "FROZEN";
 static const char freezing[] = "FREEZING";
 static const char thawed[] = "THAWED";
 
-enum freezer_state { FREEZER_ERROR = -1, THAWED, FROZEN, FREEZING };
+enum freezer_state { FREEZER_ERROR = -1,
+		     THAWED,
+		     FROZEN,
+		     FREEZING };
 
 /* Track if we are running on cgroup v2 system. */
 static bool cgroup_v2 = false;
