@@ -3066,9 +3066,43 @@ err:
 	return ret;
 }
 
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+static inline FILE *redirect_nftables_output(struct nft_ctx *nft)
+{
+	FILE *fp;
+	int fd;
+
+	fd = dup(log_get_fd());
+	if (fd < 0) {
+		pr_perror("dup() to redirect nftables output failed");
+		return NULL;
+	}
+
+	fp = fdopen(fd, "w");
+	if (!fp) {
+		pr_perror("fdopen() to redirect nftables output failed");
+		return NULL;
+	}
+
+	/**
+	 * Without setvbuf() the output from libnftables will be
+	 * somewhere in the log file, probably at the end.
+	 * With setvbuf() potential output will be at the correct
+	 * position.
+	 */
+	setvbuf(fp, NULL, _IONBF, 0);
+
+	nft_ctx_set_output(nft, fp);
+	nft_ctx_set_error(nft, fp);
+
+	return fp;
+}
+#endif
+
 static inline int nftables_lock_network_internal(void)
 {
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	cleanup_file FILE *fp = NULL;
 	struct nft_ctx *nft;
 	int ret = 0;
 	char table[32];
@@ -3080,6 +3114,10 @@ static inline int nftables_lock_network_internal(void)
 	nft = nft_ctx_new(NFT_CTX_DEFAULT);
 	if (!nft)
 		return -1;
+
+	fp = redirect_nftables_output(nft);
+	if (!fp)
+		goto out;
 
 	snprintf(buf, sizeof(buf), "create table %s", table);
 	if (NFT_RUN_CMD(nft, buf))
@@ -3168,6 +3206,7 @@ static inline int nftables_network_unlock(void)
 {
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 	int ret = 0;
+	cleanup_file FILE *fp = NULL;
 	struct nft_ctx *nft;
 	char table[32];
 	char buf[128];
@@ -3177,6 +3216,10 @@ static inline int nftables_network_unlock(void)
 
 	nft = nft_ctx_new(NFT_CTX_DEFAULT);
 	if (!nft)
+		return -1;
+
+	fp = redirect_nftables_output(nft);
+	if (!fp)
 		return -1;
 
 	snprintf(buf, sizeof(buf), "delete table %s", table);
