@@ -63,6 +63,7 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 		sz += CR_CAP_SIZE * sizeof(ce->cap_prm[0]);
 		sz += CR_CAP_SIZE * sizeof(ce->cap_eff[0]);
 		sz += CR_CAP_SIZE * sizeof(ce->cap_bnd[0]);
+		sz += CR_CAP_SIZE * sizeof(ce->cap_amb[0]);
 		/*
 		 * @groups are dynamic and allocated
 		 * on demand.
@@ -122,10 +123,12 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 			ce->n_cap_prm = CR_CAP_SIZE;
 			ce->n_cap_eff = CR_CAP_SIZE;
 			ce->n_cap_bnd = CR_CAP_SIZE;
+			ce->n_cap_amb = CR_CAP_SIZE;
 			ce->cap_inh = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_inh[0]));
 			ce->cap_prm = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_prm[0]));
 			ce->cap_eff = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_eff[0]));
 			ce->cap_bnd = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_bnd[0]));
+			ce->cap_amb = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_amb[0]));
 
 			if (arch_alloc_thread_info(core)) {
 				xfree(core);
