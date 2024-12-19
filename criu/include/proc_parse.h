@@ -81,6 +81,7 @@ struct proc_status_creds {
 	u32 cap_prm[PROC_CAP_SIZE];
 	u32 cap_eff[PROC_CAP_SIZE];
 	u32 cap_bnd[PROC_CAP_SIZE];
+	u32 cap_amb[PROC_CAP_SIZE];
 };
 
 #define INVALID_UID ((uid_t)-1)
