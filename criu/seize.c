@@ -674,8 +674,6 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
-		pr_info("Seized task %d, state %d\n", pid, ret);
-
 		c = alloc_pstree_item();
 		if (c == NULL) {
 			ret = -1;
@@ -712,6 +710,8 @@ static int collect_children(struct pstree_item *item)
 
 		if (ret == TASK_STOPPED)
 			c->pid->stop_signo = compel_parse_stop_signo(pid);
+
+		pr_info("Seized task %d, state %d\n", pid, ret);
 
 		c->pid->real = pid;
 		c->parent = item;
