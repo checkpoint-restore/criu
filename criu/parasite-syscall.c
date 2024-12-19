@@ -103,16 +103,19 @@ static int alloc_groups_copy_creds(CredsEntry *ce, struct parasite_dump_creds *c
 	BUILD_BUG_ON(sizeof(ce->cap_prm[0]) != sizeof(c->cap_prm[0]));
 	BUILD_BUG_ON(sizeof(ce->cap_eff[0]) != sizeof(c->cap_eff[0]));
 	BUILD_BUG_ON(sizeof(ce->cap_bnd[0]) != sizeof(c->cap_bnd[0]));
+	BUILD_BUG_ON(sizeof(ce->cap_amb[0]) != sizeof(c->cap_amb[0]));
 
 	BUG_ON(ce->n_cap_inh != CR_CAP_SIZE);
 	BUG_ON(ce->n_cap_prm != CR_CAP_SIZE);
 	BUG_ON(ce->n_cap_eff != CR_CAP_SIZE);
 	BUG_ON(ce->n_cap_bnd != CR_CAP_SIZE);
+	BUG_ON(ce->n_cap_amb != CR_CAP_SIZE);
 
 	memcpy(ce->cap_inh, c->cap_inh, sizeof(c->cap_inh[0]) * CR_CAP_SIZE);
 	memcpy(ce->cap_prm, c->cap_prm, sizeof(c->cap_prm[0]) * CR_CAP_SIZE);
 	memcpy(ce->cap_eff, c->cap_eff, sizeof(c->cap_eff[0]) * CR_CAP_SIZE);
 	memcpy(ce->cap_bnd, c->cap_bnd, sizeof(c->cap_bnd[0]) * CR_CAP_SIZE);
+	memcpy(ce->cap_amb, c->cap_amb, sizeof(c->cap_amb[0]) * CR_CAP_SIZE);
 
 	if (c->no_new_privs > 0) {
 		ce->no_new_privs = c->no_new_privs;

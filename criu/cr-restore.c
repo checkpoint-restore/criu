@@ -2992,6 +2992,7 @@ static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned lo
 	args->creds.cap_eff = NULL;
 	args->creds.cap_prm = NULL;
 	args->creds.cap_bnd = NULL;
+	args->creds.cap_amb = NULL;
 	args->creds.groups = NULL;
 	args->creds.lsm_profile = NULL;
 
@@ -2999,6 +3000,7 @@ static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned lo
 	copy_caps(args->cap_eff, ce->cap_eff, ce->n_cap_eff);
 	copy_caps(args->cap_prm, ce->cap_prm, ce->n_cap_prm);
 	copy_caps(args->cap_bnd, ce->cap_bnd, ce->n_cap_bnd);
+	copy_caps(args->cap_amb, ce->cap_amb, ce->n_cap_amb);
 
 	if (ce->n_groups && !groups_match(ce->groups, ce->n_groups)) {
 		unsigned int *groups;

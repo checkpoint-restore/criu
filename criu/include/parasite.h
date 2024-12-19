@@ -148,6 +148,7 @@ struct parasite_dump_creds {
 	u32 cap_prm[CR_CAP_SIZE];
 	u32 cap_eff[CR_CAP_SIZE];
 	u32 cap_bnd[CR_CAP_SIZE];
+	u32 cap_amb[CR_CAP_SIZE];
 
 	int uids[4];
 	int gids[4];

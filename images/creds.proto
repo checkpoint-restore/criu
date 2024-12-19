@@ -25,4 +25,6 @@ message creds_entry {
 	optional string lsm_sockcreate = 16;
 	optional bytes	apparmor_data	= 17;
 	optional uint32	no_new_privs	= 18;
+
+	repeated uint32 cap_amb = 19;
 }
