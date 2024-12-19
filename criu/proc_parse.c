@@ -1071,7 +1071,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 	if (bfdopenr(&f))
 		return -1;
 
-	while (done < 13) {
+	while (done < 14) {
 		str = breadline(&f);
 		if (str == NULL)
 			break;
@@ -1155,6 +1155,13 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 			continue;
 		}
 
+		if (!strncmp(str, "CapAmb:", 7)) {
+			if (cap_parse(str + 8, cr->cap_amb))
+				goto err_parse;
+			done++;
+			continue;
+		}
+
 		if (!strncmp(str, "Seccomp:", 8)) {
 			if (sscanf(str + 9, "%d", &cr->s.seccomp_mode) != 1) {
 				goto err_parse;
@@ -1198,7 +1205,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 	}
 
 	/* seccomp and nspids are optional */
-	expected_done = (parsed_seccomp ? 12 : 11);
+	expected_done = (parsed_seccomp ? 13 : 12);
 	if (kdat.has_nspid)
 		expected_done++;
 	if (done == expected_done)

@@ -75,6 +75,7 @@ struct thread_creds_args {
 	u32 cap_prm[CR_CAP_SIZE];
 	u32 cap_eff[CR_CAP_SIZE];
 	u32 cap_bnd[CR_CAP_SIZE];
+	u32 cap_amb[CR_CAP_SIZE];
 
 	char *lsm_profile;
 	unsigned int *groups;

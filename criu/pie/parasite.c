@@ -324,6 +324,7 @@ static int dump_creds(struct parasite_dump_creds *args)
 		args->cap_prm[i] = data[i].prm;
 		args->cap_inh[i] = data[i].inh;
 		args->cap_bnd[i] = 0;
+		args->cap_amb[i] = 0;
 
 		for (j = 0; j < 32; j++) {
 			if (j + i * 32 > args->cap_last_cap)
@@ -335,6 +336,18 @@ static int dump_creds(struct parasite_dump_creds *args)
 			}
 			if (ret)
 				args->cap_bnd[i] |= (1 << j);
+		}
+
+		for (j = 0; j < 32; j++) {
+			if (j + i * 32 > args->cap_last_cap)
+				break;
+			ret = sys_prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, j + i * 32, 0, 0);
+			if (ret < 0) {
+				pr_err("Unable to read ambient capability %d: %d\n", j + i * 32, ret);
+				return -1;
+			}
+			if (ret)
+				args->cap_amb[i] |= (1 << j);
 		}
 	}
 
