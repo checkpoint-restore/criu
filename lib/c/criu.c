@@ -352,8 +352,8 @@ int criu_set_parent_images(const char *path)
 
 int criu_local_set_pre_dump_mode(criu_opts *opts, enum criu_pre_dump_mode mode)
 {
-	opts->rpc->has_pre_dump_mode = true;
 	if (mode == CRIU_PRE_DUMP_SPLICE || mode == CRIU_PRE_DUMP_READ) {
+		opts->rpc->has_pre_dump_mode = true;
 		opts->rpc->pre_dump_mode = (CriuPreDumpMode)mode;
 		return 0;
 	}
@@ -1867,8 +1867,8 @@ void criu_set_pidfd_store_sk(int sk)
 
 int criu_local_set_network_lock(criu_opts *opts, enum criu_network_lock_method method)
 {
-	opts->rpc->has_network_lock = true;
 	if (method == CRIU_NETWORK_LOCK_IPTABLES || method == CRIU_NETWORK_LOCK_NFTABLES || method == CRIU_NETWORK_LOCK_SKIP) {
+		opts->rpc->has_network_lock = true;
 		opts->rpc->network_lock = (CriuNetworkLockMethod)method;
 		return 0;
 	}
