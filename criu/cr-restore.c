@@ -2994,6 +2994,7 @@ static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned lo
 	args->creds.cap_bnd = NULL;
 	args->creds.groups = NULL;
 	args->creds.lsm_profile = NULL;
+	args->creds.lsm_profile = NULL;
 
 	copy_caps(args->cap_inh, ce->cap_inh, ce->n_cap_inh);
 	copy_caps(args->cap_eff, ce->cap_eff, ce->n_cap_eff);
