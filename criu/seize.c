@@ -1050,7 +1050,6 @@ int collect_pstree(void)
 	pid_t pid = root_item->pid->real;
 	int ret, exit_code = -1;
 	struct proc_status_creds creds;
-	struct pstree_item *iter;
 
 	timing_start(TIME_FREEZING);
 
@@ -1111,6 +1110,21 @@ int collect_pstree(void)
 		goto err;
 	}
 
+	exit_code = 0;
+	timing_stop(TIME_FREEZING);
+	timing_start(TIME_FROZEN);
+
+err:
+	/* Freezing stage finished in time - disable timer. */
+	alarm(0);
+	return exit_code;
+}
+
+int checkpoint_devices(void)
+{
+	struct pstree_item *iter;
+	int ret, exit_code = -1;
+
 	for_each_pstree_item(iter) {
 		if (!task_alive(iter))
 			continue;
@@ -1120,11 +1134,6 @@ int collect_pstree(void)
 	}
 
 	exit_code = 0;
-	timing_stop(TIME_FREEZING);
-	timing_start(TIME_FROZEN);
-
 err:
-	/* Freezing stage finished in time - disable timer. */
-	alarm(0);
 	return exit_code;
 }
