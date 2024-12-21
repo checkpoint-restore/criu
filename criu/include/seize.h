@@ -2,6 +2,7 @@
 #define __CR_SEIZE_H__
 
 extern int collect_pstree(void);
+extern int checkpoint_devices(void);
 struct pstree_item;
 extern void pstree_switch_state(struct pstree_item *root_item, int st);
 extern const char *get_real_freezer_state(void);
