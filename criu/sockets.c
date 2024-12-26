@@ -65,7 +65,7 @@ const char *socket_proto_name(unsigned int proto, char *nm, size_t size)
 		[IPPROTO_IPV6] = __stringify_1(IPPROTO_IPV6), [IPPROTO_RSVP] = __stringify_1(IPPROTO_RSVP),
 		[IPPROTO_GRE] = __stringify_1(IPPROTO_GRE),   [IPPROTO_ESP] = __stringify_1(IPPROTO_ESP),
 		[IPPROTO_AH] = __stringify_1(IPPROTO_AH),     [IPPROTO_UDPLITE] = __stringify_1(IPPROTO_UDPLITE),
-		[IPPROTO_RAW] = __stringify_1(IPPROTO_RAW),
+		[IPPROTO_RAW] = __stringify_1(IPPROTO_RAW),   [IPPROTO_ICMPV6] = __stringify_1(IPPROTO_ICMPV6),
 	};
 	return __socket_const_name(nm, size, protos, ARRAY_SIZE(protos), proto);
 }
@@ -131,10 +131,12 @@ enum socket_cl_bits {
 	INET_UDP_CL_BIT,
 	INET_UDPLITE_CL_BIT,
 	INET_RAW_CL_BIT,
+	INET_ICMP_CL_BIT,
 	INET6_TCP_CL_BIT,
 	INET6_UDP_CL_BIT,
 	INET6_UDPLITE_CL_BIT,
 	INET6_RAW_CL_BIT,
+	INET6_ICMP_CL_BIT,
 	UNIX_CL_BIT,
 	PACKET_CL_BIT,
 	_MAX_CL_BIT,
@@ -161,6 +163,8 @@ static inline enum socket_cl_bits get_collect_bit_nr(unsigned int family, unsign
 			return INET_UDPLITE_CL_BIT;
 		if (proto == IPPROTO_RAW)
 			return INET_RAW_CL_BIT;
+		if (proto == IPPROTO_ICMP)
+			return INET_ICMP_CL_BIT;
 	}
 	if (family == AF_INET6) {
 		if (proto == IPPROTO_TCP)
@@ -171,6 +175,8 @@ static inline enum socket_cl_bits get_collect_bit_nr(unsigned int family, unsign
 			return INET6_UDPLITE_CL_BIT;
 		if (proto == IPPROTO_RAW)
 			return INET6_RAW_CL_BIT;
+		if (proto == IPPROTO_ICMPV6)
+			return INET6_ICMP_CL_BIT;
 	}
 
 	pr_err("Unknown pair family %d proto %d\n", family, proto);
@@ -280,6 +286,12 @@ void preload_socket_modules(void)
 	probe_diag(nl, &req, -ENOENT);
 
 	req.r.i.sdiag_protocol = IPPROTO_RAW;
+	probe_diag(nl, &req, -ENOENT);
+
+	req.r.i.sdiag_protocol = IPPROTO_ICMP;
+	probe_diag(nl, &req, -ENOENT);
+
+	req.r.i.sdiag_protocol = IPPROTO_ICMPV6;
 	probe_diag(nl, &req, -ENOENT);
 
 	close(nl);
@@ -773,6 +785,10 @@ static int inet_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *arg)
 	case IPPROTO_RAW:
 		type = SOCK_RAW;
 		break;
+	case IPPROTO_ICMP:
+	case IPPROTO_ICMPV6:
+		type = SOCK_DGRAM;
+		break;
 	default:
 		BUG_ON(1);
 		return -1;
@@ -797,7 +813,7 @@ static int collect_err(int err, struct ns_id *ns, void *arg)
 	char family[32], proto[32];
 	char msg[256];
 
-	snprintf(msg, sizeof(msg), "Sockects collect procedure family %s proto %s",
+	snprintf(msg, sizeof(msg), "Sockets collect procedure family %s proto %s",
 		 socket_family_name(gr->family, family, sizeof(family)),
 		 socket_proto_name(gr->protocol, proto, sizeof(proto)));
 
@@ -905,6 +921,13 @@ int collect_sockets(struct ns_id *ns)
 	if (tmp)
 		err = tmp;
 
+	/* Collect IPv4 ICMP sockets */
+	req.r.i.sdiag_family = AF_INET;
+	req.r.i.sdiag_protocol = IPPROTO_ICMP;
+	req.r.i.idiag_ext = 0;
+	req.r.i.idiag_states = -1; /* All */
+	set_collect_bit(req.r.n.sdiag_family, req.r.n.sdiag_protocol);
+
 	/* Collect IPv6 TCP sockets */
 	req.r.i.sdiag_family = AF_INET6;
 	req.r.i.sdiag_protocol = IPPROTO_TCP;
@@ -943,6 +966,13 @@ int collect_sockets(struct ns_id *ns)
 	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, collect_err, ns, &req.r.i);
 	if (tmp)
 		err = tmp;
+
+	/* Collect IPv6 ICMP sockets */
+	req.r.i.sdiag_family = AF_INET6;
+	req.r.i.sdiag_protocol = IPPROTO_ICMPV6;
+	req.r.i.idiag_ext = 0;
+	req.r.i.idiag_states = -1; /* All */
+	set_collect_bit(req.r.n.sdiag_family, req.r.n.sdiag_protocol);
 
 	req.r.p.sdiag_family = AF_PACKET;
 	req.r.p.sdiag_protocol = 0;

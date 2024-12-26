@@ -130,6 +130,8 @@ static int can_dump_ipproto(unsigned int ino, int proto, int type)
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 	case IPPROTO_UDPLITE:
+	case IPPROTO_ICMP:
+	case IPPROTO_ICMPV6:
 		break;
 	default:
 		pr_err("Unsupported proto %d for socket %x\n", proto, ino);
@@ -922,8 +924,9 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 	}
 
 	if (ie->src_port) {
-		if (inet_bind(sk, ii))
-			goto err;
+		if (ie->proto != IPPROTO_ICMP && ie->proto != IPPROTO_ICMPV6)
+			if (inet_bind(sk, ii))
+				goto err;
 	}
 
 	/*
