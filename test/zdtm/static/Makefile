@@ -37,6 +37,8 @@ TST_NOFILE	:=				\
 		socket_udp-corked		\
 		socket6_udp			\
 		socket_udp_shutdown		\
+		socket_icmp			\
+		socket6_icmp			\
 		sk-freebind			\
 		sk-freebind-false		\
 		socket_udplite			\
@@ -630,6 +632,7 @@ socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV6
 socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV4V6
 socket-tcp-closed-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK
 socket-tcp-skip-in-flight:	CFLAGS += -D ZDTM_IPV4V6
+socket6-icmp:		CFLAGS += -DZDTM_IPV6
 sock_ip_opts01:		CFLAGS += -DZDTM_VAL_ZERO
 sock_tcp_opts01:	CFLAGS += -DZDTM_VAL_ZERO
 tun_ns:			CFLAGS += -DTUN_NS
