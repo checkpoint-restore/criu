@@ -8,6 +8,7 @@ TST_NOFILE	:=				\
 		sleeping00			\
 		pid00				\
 		caps00				\
+		caps01				\
 		wait00				\
 		zombie00			\
 		zombie01			\
