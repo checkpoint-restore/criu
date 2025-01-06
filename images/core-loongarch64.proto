@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+import "opts.proto";
+
+message user_loongarch64_gpregs_entry {
+	repeated uint64 regs	= 1;
+	required uint64 pc		= 2;
+}
+
+message user_loongarch64_fpregs_entry {
+	repeated uint64 regs    = 1;
+	required uint64 fcc     = 2;
+	required uint32 fcsr    = 3;
+}
+
+message thread_info_loongarch64 {
+	required uint64	clear_tid_addr	= 1[(criu).hex = true];
+	required uint64	tls				= 2;
+	required user_loongarch64_gpregs_entry	gpregs	= 3[(criu).hex = true];
+	required user_loongarch64_fpregs_entry	fpregs	= 4[(criu).hex = true];
+}

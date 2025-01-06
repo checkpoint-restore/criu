@@ -1,0 +1,1 @@
+{'flags': 'excl', 'opts': '--file-locks', 'feature': 'fdinfo_lock'}

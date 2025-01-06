@@ -1,0 +1,21 @@
+name: Fedora Rawhide Test
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: fedora-rawhide-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Fedora Rawhide Test
+      # We need to pass environment variables from the CI environment to
+      # distinguish between CI environments. However, we need to make sure that
+      # XDG_RUNTIME_DIR environment variable is not set due to a bug in Podman.
+      # FIXME: https://github.com/containers/podman/issues/14920
+      run: sudo -E XDG_RUNTIME_DIR= make -C scripts/ci fedora-rawhide CONTAINER_RUNTIME=podman BUILD_OPTIONS="--security-opt seccomp=unconfined"

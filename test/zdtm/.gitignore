@@ -1,0 +1,14 @@
+/lib/libzdtmtst.a
+/lib/.gitignore
+/static/.gitignore
+/transition/.gitignore
+
+*.pid
+*.pidns
+*.out
+*.outns
+*.out.external
+*.inprogress
+*.test
+*.test.*
+*.state

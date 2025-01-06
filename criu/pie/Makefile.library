@@ -1,0 +1,33 @@
+# PIE library is a static library that's going to be linked into
+# *both* CRIU binary and PIEs (parasite/restorer).
+# Please, make sure that you're including here only objects
+# those will be used in CRIU too. For objects files only for PIEs
+# edit their separate recipes criu/pie/Makefile
+
+lib-name		:= pie.lib.a
+
+lib-y			+= util.o
+lib-y			+= util-vdso.o
+
+ifeq ($(ARCH),x86)
+        ifeq ($(CONFIG_COMPAT),y)
+                lib-y	+= util-vdso-elf32.o
+        endif
+        CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
+endif
+
+ifeq ($(ARCH),arm)
+        lib-y		+= ./$(ARCH_DIR)/aeabi-helpers.o
+        lib-y		+= ./$(ARCH_DIR)/pie-cacheflush.o
+endif
+
+CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
+CFLAGS		+= $(CFLAGS_PIE)
+
+ifeq ($(ARCH),mips)
+CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -mno-abicalls -fno-pic
+endif
+
+ifeq ($(ARCH),riscv64)
+	ccflags-y	+= -fno-stack-protector
+endif

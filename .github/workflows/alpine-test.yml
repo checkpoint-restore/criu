@@ -1,0 +1,20 @@
+name: Alpine Test
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: alpine-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        target: [GCC=1, CLANG=1]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Alpine ${{ matrix.target }} Test
+      run: sudo -E make -C scripts/ci alpine ${{ matrix.target }}

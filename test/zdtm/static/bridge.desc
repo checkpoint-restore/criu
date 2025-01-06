@@ -1,0 +1,7 @@
+{   'deps': [   '/bin/sh',
+                '/usr/bin/sort',
+                '/bin/grep',
+                '/sbin/ip|/bin/ip',
+                '/usr/bin/diff'],
+    'flags': 'suid',
+    'flavor': 'ns uns'}

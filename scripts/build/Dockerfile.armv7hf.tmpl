@@ -1,0 +1,1 @@
+Dockerfile.linux32.tmpl

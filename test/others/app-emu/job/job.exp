@@ -1,0 +1,59 @@
+#!/usr/bin/expect
+
+source ../../env.sh || exit 1
+
+exec rm -rf ./dump
+exec mkdir ./dump
+
+system echo "-1" > ./dump/pid.pid
+
+set current [fork]
+switch $current {
+	-1 {
+		puts "Fork failed."
+		exit -1
+	}
+	0 {
+		set timeout 5
+		spawn ./job
+		set pid [exp_pid]
+		expect "READY" {
+			puts "READY"
+		} timeout {
+			puts "FAIL: Timed out on ready"
+			exit -1
+		}
+		system $criu dump -v4 -D ./dump -o dump.log -j -t $pid
+		system echo "$pid" > ./dump/pid.pid
+		exit 0
+	}
+	default {
+		sleep 2
+		set timeout 5
+
+		set ::pidfile [open ./dump/pid.pid r]
+		set pid [gets $::pidfile]
+
+		if {$pid == -1} {
+			puts "FAIL: Invalid pid read"
+			exit -1
+		}
+
+		spawn $criu restore -v4 -D ./dump -o restore.log -j
+		#
+		# spawn doesn't wait for restore to complete, so
+		# add some sleep here. Still better would be to
+		# rewrite this test completely.
+		sleep 2
+		system kill -15 $pid
+
+		expect "ALIVE" {
+			puts "PASS"
+		} timeout {
+			puts "FAIL: Timed out"
+			exit -1
+		}
+
+		exit 0
+	}
+}

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# tracefs is automatically mounted under debugfs if the kernel has it, so we
+# just need to check for a file in the tracing directory.
+test -f /sys/kernel/debug/tracing/README || exit 1

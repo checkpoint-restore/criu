@@ -1,0 +1,1 @@
+inotify00.c

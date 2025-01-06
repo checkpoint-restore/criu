@@ -1,0 +1,1 @@
+FROM registry.fedoraproject.org/fedora:rawhide

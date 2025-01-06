@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+mount --make-rslave /
+umount -l  /proc
+mount -t proc proc /proc/
+mount -t binfmt_misc none /proc/sys/fs/binfmt_misc/
+exec "$@"

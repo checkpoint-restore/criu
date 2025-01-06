@@ -1,0 +1,96 @@
+#
+# Installation paths.
+PREFIX		?= /usr/local
+BINDIR		?= $(PREFIX)/bin
+SBINDIR		?= $(PREFIX)/sbin
+MANDIR		?= $(PREFIX)/share/man
+INCLUDEDIR	?= $(PREFIX)/include
+LIBEXECDIR	?= $(PREFIX)/libexec
+RUNDIR		?= /run
+PLUGINDIR	?= $(PREFIX)/lib/criu
+
+#
+# For recent Debian/Ubuntu with multiarch support.
+DEB_HOST_MULTIARCH := $(shell dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)
+ifneq "$(DEB_HOST_MULTIARCH)" ""
+        LIBDIR			?= $(PREFIX)/lib/$(DEB_HOST_MULTIARCH)
+else
+        #
+        # For most other systems
+        ifeq "$(shell uname -m)" "x86_64"
+                LIBDIR		?= $(PREFIX)/lib64
+        endif
+endif
+
+#
+# LIBDIR falls back to the standard path.
+LIBDIR ?= $(PREFIX)/lib
+
+export PREFIX BINDIR SBINDIR MANDIR RUNDIR
+export LIBDIR INCLUDEDIR LIBEXECDIR PLUGINDIR
+
+# Detect externally managed Python environment (PEP 668).
+PYTHON_EXTERNALLY_MANAGED := $(shell $(PYTHON) -c 'import os, sysconfig; print(int(os.path.isfile(os.path.join(sysconfig.get_path("stdlib"), "EXTERNALLY-MANAGED"))))')
+PIP_BREAK_SYSTEM_PACKAGES ?= 0
+
+# If Python environment is externally managed and PIP_BREAK_SYSTEM_PACKAGES is not set, skip pip install.
+SKIP_PIP_INSTALL := 0
+ifeq ($(PYTHON_EXTERNALLY_MANAGED),1)
+ifeq ($(PIP_BREAK_SYSTEM_PACKAGES),0)
+
+SKIP_PIP_INSTALL := 1
+$(info Warn: Externally managed python environment)
+$(info Consider using PIP_BREAK_SYSTEM_PACKAGES=1)
+
+endif
+endif
+
+# Default flags for pip install:
+# --upgrade: Upgrade crit/pycriu packages
+# --ignore-installed: Ignore existing packages and reinstall them
+PIPFLAGS ?= --upgrade --ignore-installed
+
+export SKIP_PIP_INSTALL PIPFLAGS
+
+install-man:
+	$(Q) $(MAKE) -C Documentation install
+.PHONY: install-man
+
+install-lib: lib
+	$(Q) $(MAKE) $(build)=lib install
+.PHONY: install-lib
+
+install-crit: lib
+	$(Q) $(MAKE) $(build)=crit install
+.PHONY: install-crit
+
+install-criu: criu
+	$(Q) $(MAKE) $(build)=criu install
+.PHONY: install-criu
+
+install-amdgpu_plugin: amdgpu_plugin
+	$(Q) $(MAKE) -C plugins/amdgpu install
+.PHONY: install-amdgpu_plugin
+
+install-cuda_plugin: cuda_plugin
+	$(Q) $(MAKE) -C plugins/cuda install
+.PHONY: install-cuda_plugin
+
+install-compel: $(compel-install-targets)
+	$(Q) $(MAKE) $(build)=compel install
+	$(Q) $(MAKE) $(build)=compel/plugins install
+.PHONY: install-compel
+
+install: install-man install-lib install-crit install-criu install-compel install-amdgpu_plugin install-cuda_plugin ;
+.PHONY: install
+
+uninstall:
+	$(Q) $(MAKE) -C Documentation $@
+	$(Q) $(MAKE) $(build)=lib $@
+	$(Q) $(MAKE) $(build)=crit $@
+	$(Q) $(MAKE) $(build)=criu $@
+	$(Q) $(MAKE) $(build)=compel $@
+	$(Q) $(MAKE) $(build)=compel/plugins $@
+	$(Q) $(MAKE) -C plugins/amdgpu $@
+	$(Q) $(MAKE) -C plugins/cuda $@
+.PHONY: uninstall

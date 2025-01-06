@@ -1,0 +1,89 @@
+<?xml version = "1.0" encoding = "UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name = "Suite1">
+	<parameter name="checkpointOpt" value=""/>
+	<parameter name="restoreOpt" value=""/>
+
+	<test name = "test1-FileRead">
+		<parameter name="testname" value="FileRead"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test2-ReadWrite">
+		<parameter name="testname" value="ReadWrite"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test3-MemoryMappings">
+		<parameter name="testname" value="MemoryMappings"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test4-MultipleFileRead">
+		<parameter name="testname" value="MultipleFileRead"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test5-MultipleFileWrite">
+		<parameter name="testname" value="MultipleFileWrite"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test6-Sockets">
+		<parameter name="testname" value="Sockets"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test7-SocketsListen">
+		<parameter name="testname" value="SocketsListen"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test8-SocketsConnect">
+		<parameter name="testname" value="SocketsConnect"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test9-SocketsMultiple">
+		<parameter name="testname" value="SocketsMultiple"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test10-SocketsData">
+		<parameter name="testname" value="SocketsData"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+
+	</test>
+
+</suite>

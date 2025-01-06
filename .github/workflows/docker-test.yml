@@ -1,0 +1,19 @@
+name: Docker Test
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: docker-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Docker Test (${{ matrix.os }})
+      run: sudo make -C scripts/ci docker-test

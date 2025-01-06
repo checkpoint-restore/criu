@@ -1,0 +1,32 @@
+FROM docker.io/library/eclipse-temurin:11-focal
+ARG CC=gcc
+
+COPY scripts/ci/apt-install /bin/apt-install
+
+RUN apt-install protobuf-c-compiler \
+	libprotobuf-c-dev \
+	libaio-dev \
+	libprotobuf-dev \
+	protobuf-compiler \
+	libcap-dev \
+	libnl-3-dev \
+	gdb \
+	bash \
+	python3-protobuf \
+	python3-yaml \
+	libnet-dev \
+	libnl-route-3-dev \
+	libbsd-dev \
+	make \
+	git \
+	pkg-config \
+	iptables \
+	gcc \
+	maven
+
+COPY . /criu
+WORKDIR /criu
+
+RUN make mrproper && make -j $(nproc) CC="$CC"
+
+ENTRYPOINT mvn -q -f test/javaTests/pom.xml test

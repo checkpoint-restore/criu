@@ -1,0 +1,1 @@
+{'flags': 'noauto', 'deps': [ '/bin/sh', '/bin/kill', '/bin/cat' ]}

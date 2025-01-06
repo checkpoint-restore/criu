@@ -1,0 +1,40 @@
+name: Run code linter
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: lint-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.fedoraproject.org/fedora:latest
+    steps:
+    - name: Install tools
+      run: sudo dnf -y install git make ruff xz clang-tools-extra which codespell git-clang-format ShellCheck
+
+    - uses: actions/checkout@v4
+
+    - name: Set git safe directory
+      # https://github.com/actions/checkout/issues/760
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: Run make lint
+      run: make lint
+
+    - name: Run make indent
+      continue-on-error: true
+      run: |
+        if [ -z "${{github.base_ref}}" ]; then
+          git fetch --deepen=1
+          make indent
+        else
+          git fetch origin ${{github.base_ref}}
+          make indent BASE=origin/${{github.base_ref}}
+        fi
+    - name: Raise in-line make indent warnings
+      run: |
+        git diff | ./scripts/github-indent-warnings.py

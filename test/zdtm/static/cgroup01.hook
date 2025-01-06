@@ -1,0 +1,21 @@
+#!/bin/bash
+
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
+set -e
+
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup none $tname -o "none,name=zdtmtst"
+
+echo "Cleaning $tname"
+
+set +e
+rmdir "$tname/subcg01/empty.0/"
+rmdir "$tname/subcg01/empty.1/"
+rmdir "$tname/subcg01/"
+set -e
+
+echo "Left there is:"
+ls "$tname"
+umount "$tname"
+rmdir "$tname"

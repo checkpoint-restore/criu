@@ -1,0 +1,8 @@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: CRIU
+Description: RPC library for userspace checkpoint and restore
+Version: @version@
+Libs: -L${libdir} -lcriu
+Cflags: -I${includedir}

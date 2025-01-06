@@ -1,0 +1,1 @@
+{ 'dir': 'zdtm/', 'exclude': [ 'static/route_rules', 'static/criu-rtc.so', 'lib/parseargs.sh', 'lib/stop_and_chk.sh' ] }

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+[ "$1" == "--clean" ] || exit 0
+
+rmdir zdtm/static/mnt_tracefs.test

@@ -1,0 +1,66 @@
+syntax = "proto2";
+
+message dev_iolink {
+	required uint32 type = 1;
+	required uint32 node_to_id = 2;
+}
+
+message kfd_device_entry {
+	required uint32 node_id = 1;
+	required uint32 gpu_id = 2;
+	required uint32 cpu_cores_count = 3;
+	required uint32 simd_count = 4;
+	required uint32 mem_banks_count = 5;
+	required uint32 caches_count = 6;
+	required uint32 io_links_count = 7;
+	required uint32 max_waves_per_simd = 8;
+	required uint32 lds_size_in_kb = 9;
+	required uint32 gds_size_in_kb = 10;
+	required uint32 num_gws = 11;
+	required uint32 wave_front_size = 12;
+	required uint32 array_count = 13;
+	required uint32 simd_arrays_per_engine = 14;
+	required uint32 cu_per_simd_array = 15;
+	required uint32 simd_per_cu = 16;
+	required uint32 max_slots_scratch_cu = 17;
+	required uint32 vendor_id = 18;
+	required uint32 device_id = 19;
+	required uint32 domain = 20;
+	required uint32 drm_render_minor = 21;
+	required uint64 hive_id = 22;
+	required uint32 num_sdma_engines = 23;
+	required uint32 num_sdma_xgmi_engines = 24;
+	required uint32 num_sdma_queues_per_engine = 25;
+	required uint32 num_cp_queues = 26;
+	required uint32 fw_version = 27;
+	required uint32 capability = 28;
+	required uint32 sdma_fw_version = 29;
+	required uint32 vram_public = 30;
+	required uint64 vram_size = 31;
+	repeated dev_iolink iolinks = 32;
+}
+
+message kfd_bo_entry {
+	required uint64 addr = 1;
+	required uint64 size = 2;
+	required uint64 offset = 3;
+	required uint32 alloc_flags = 4;
+	required uint32 gpu_id = 5;
+}
+
+message criu_kfd {
+	required uint32 pid = 1;
+	required uint32 num_of_gpus = 2;
+	required uint32 num_of_cpus = 3;
+	repeated kfd_device_entry device_entries = 4;
+	required uint64 num_of_bos = 5;
+	repeated kfd_bo_entry bo_entries = 6;
+	required uint32 num_of_objects = 7;
+	required uint64 shared_mem_size = 8;
+	required uint32 shared_mem_magic = 9;
+	required bytes priv_data = 10;
+}
+
+message criu_render_node {
+	required uint32 gpu_id = 1;
+}

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup none $tname -o "none,name=zdtmtst"
+
+echo "Cleaning $tname"
+set +e
+rmdir "$tname/test"
+set -e
+
+umount "$tname"
+rmdir "$tname"

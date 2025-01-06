@@ -1,0 +1,35 @@
+pipeline {
+	options {
+		buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '30'))
+	}
+	agent {
+		node {
+			label 'x86_64'
+		}
+	}
+	triggers {
+		cron('H H/4 * * *')
+	}
+	stages {
+		stage('Build') {
+			steps {
+				sh 'git clean -dxf'
+				sh 'make'
+				sh 'make -C test/zdtm'
+			}
+		}
+		stage('Test'){
+			steps {
+				sh './test/jenkins/run_ct sh -c "mount --make-rprivate / && mount --rbind . /mnt && cd /mnt && ./test/jenkins/criu-lazy-migration.sh"'
+				junit 'test/report/criu-testreport*.xml'
+			}
+		}
+	}
+	post {
+		failure {
+			emailext attachLog: true, body: '''$DEFAULT_CONTENT
+
+${FILE,path="test/report/output"}''', compressLog: true, subject: '$DEFAULT_SUBJECT', to: "${env.CRIU_RECIPIENTS}"
+		}
+	}
+}

@@ -1,0 +1,5 @@
+{
+   'feature': 'mnt_id sk_unix_file',
+    'flags': 'suid',
+    'flavor': 'ns uns',
+}

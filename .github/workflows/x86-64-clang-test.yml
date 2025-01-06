@@ -1,0 +1,16 @@
+name: X86_64 CLANG Test
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: clang-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run X86_64 CLANG Test
+      run: sudo make -C scripts/ci x86_64 CLANG=1

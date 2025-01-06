@@ -1,0 +1,8 @@
+#!/bin/sh
+#
+# A wrapper to use compel-host right from the source dir
+# (i.e. when it is not yet installed).
+
+COMPEL_UNINSTALLED_ROOTDIR=$(dirname "$0")
+export COMPEL_UNINSTALLED_ROOTDIR
+exec "${COMPEL_UNINSTALLED_ROOTDIR}/compel-host-bin" "$@"

@@ -1,0 +1,114 @@
+CFLAGS_REMOVE_clone-noasan.o += $(CFLAGS-ASAN)
+CFLAGS_kerndat.o	+= -DKDAT_MAGIC_2=${shell echo $${SOURCE_DATE_EPOCH:-$$(date +%s)}} -DKDAT_RUNDIR=\"$(RUNDIR)\"
+ldflags-y		+= -r
+
+obj-y			+= action-scripts.o
+obj-y			+= external.o
+obj-y			+= aio.o
+obj-y			+= apparmor.o
+obj-y			+= bfd.o
+obj-y			+= bitmap.o
+obj-y			+= cgroup.o
+obj-y			+= cgroup-props.o
+obj-y			+= clone-noasan.o
+obj-y			+= cr-check.o
+obj-y			+= cr-dedup.o
+obj-y			+= cr-dump.o
+obj-y			+= cr-errno.o
+obj-y			+= cr-restore.o
+obj-y			+= cr-service.o
+obj-y			+= crtools.o
+obj-y			+= eventfd.o
+obj-y			+= eventpoll.o
+obj-y			+= fault-injection.o
+obj-y			+= fifo.o
+obj-y			+= file-ids.o
+obj-y			+= file-lock.o
+obj-y			+= files-ext.o
+obj-y			+= files.o
+obj-y			+= files-reg.o
+obj-y			+= fsnotify.o
+obj-y			+= image-desc.o
+obj-y			+= image.o
+obj-y			+= img-streamer.o
+obj-y			+= ipc_ns.o
+obj-y			+= irmap.o
+obj-y			+= kcmp-ids.o
+obj-y			+= kerndat.o
+obj-y			+= libnetlink.o
+obj-y			+= log.o
+obj-y			+= lsm.o
+obj-y			+= mem.o
+obj-y			+= memfd.o
+obj-y			+= mount.o
+obj-y			+= mount-v2.o
+obj-y			+= filesystems.o
+obj-y			+= namespaces.o
+obj-y			+= netfilter.o
+obj-y			+= net.o
+obj-y			+= pagemap-cache.o
+obj-y			+= page-pipe.o
+obj-y			+= pagemap.o
+obj-y			+= page-xfer.o
+obj-y			+= parasite-syscall.o
+obj-y			+= pie-util.o
+obj-y			+= pipes.o
+obj-y			+= plugin.o
+obj-y			+= proc_parse.o
+obj-y			+= protobuf-desc.o
+obj-y			+= protobuf.o
+obj-y			+= pstree.o
+obj-y			+= rbtree.o
+obj-y			+= rst-malloc.o
+obj-y			+= seccomp.o
+obj-y			+= seize.o
+obj-y			+= shmem.o
+obj-y			+= sigframe.o
+obj-y			+= signalfd.o
+obj-y			+= sk-inet.o
+obj-y			+= sk-netlink.o
+obj-y			+= sk-packet.o
+obj-y			+= sk-queue.o
+obj-y			+= sk-tcp.o
+obj-y			+= sk-unix.o
+obj-y			+= sockets.o
+obj-y			+= stats.o
+obj-y			+= string.o
+obj-y			+= setproctitle.o
+obj-y			+= sysctl.o
+obj-y			+= sysfs_parse.o
+obj-y			+= timerfd.o
+obj-$(CONFIG_GNUTLS)	+= tls.o
+obj-y			+= tty.o
+obj-y			+= tun.o
+obj-y			+= util.o
+obj-y			+= uts_ns.o
+obj-y			+= path.o
+obj-y			+= autofs.o
+obj-y			+= fdstore.o
+obj-y			+= uffd.o
+obj-y			+= config.o
+obj-y			+= servicefd.o
+obj-y			+= pie-util-vdso.o
+obj-y			+= vdso.o
+obj-y			+= timens.o
+obj-y			+= timer.o
+obj-y			+= sigact.o
+obj-$(CONFIG_HAS_LIBBPF)	+= bpfmap.o
+obj-$(CONFIG_COMPAT)	+= pie-util-vdso-elf32.o
+CFLAGS_pie-util-vdso-elf32.o	+= -DCONFIG_VDSO_32
+obj-$(CONFIG_COMPAT)	+= vdso-compat.o
+CFLAGS_REMOVE_vdso-compat.o	+= $(CFLAGS-ASAN) $(CFLAGS-GCOV)
+obj-y			+= pidfd-store.o
+obj-y			+= hugetlb.o
+obj-y			+= pidfd.o
+
+PROTOBUF_GEN := scripts/protobuf-gen.sh
+
+$(obj)/protobuf-desc.d: $(obj)/protobuf-desc-gen.h
+
+$(obj)/protobuf-desc-gen.h: $(PROTOBUF_GEN) criu/include/protobuf-desc.h
+	$(call msg-gen, $@)
+	$(Q) $(SH) $(PROTOBUF_GEN) > $@
+
+mrproper-y += $(obj)/protobuf-desc-gen.h

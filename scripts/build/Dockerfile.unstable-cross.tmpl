@@ -1,0 +1,42 @@
+COPY scripts/ci/apt-install /bin/apt-install
+
+# Add the cross compiler sources
+RUN echo "deb http://deb.debian.org/debian/ unstable main" >> /etc/apt/sources.list && \
+  dpkg --add-architecture ${DEBIAN_ARCH}
+
+RUN apt-install \
+	crossbuild-essential-${DEBIAN_ARCH}	\
+	libc6-dev-${DEBIAN_ARCH}-cross		\
+	libc6-${DEBIAN_ARCH}-cross		\
+	libbz2-dev:${DEBIAN_ARCH}		\
+	libexpat1-dev:${DEBIAN_ARCH}		\
+	ncurses-dev:${DEBIAN_ARCH}		\
+	libssl-dev:${DEBIAN_ARCH}		\
+	protobuf-c-compiler			\
+	protobuf-compiler			\
+	python3-protobuf			\
+	libnl-3-dev:${DEBIAN_ARCH}		\
+	libprotobuf-dev:${DEBIAN_ARCH}		\
+	libnet-dev:${DEBIAN_ARCH}		\
+	libprotobuf-c-dev:${DEBIAN_ARCH}	\
+	libcap-dev:${DEBIAN_ARCH}		\
+	libaio-dev:${DEBIAN_ARCH}		\
+	libnl-route-3-dev:${DEBIAN_ARCH}
+
+ENV CROSS_COMPILE=${CROSS_TRIPLET}-				\
+	CROSS_ROOT=/usr/${CROSS_TRIPLET}			\
+	AS=/usr/bin/${CROSS_TRIPLET}-as				\
+	AR=/usr/bin/${CROSS_TRIPLET}-ar				\
+	CC=/usr/bin/${CROSS_TRIPLET}-gcc			\
+	CPP=/usr/bin/${CROSS_TRIPLET}-cpp			\
+	CXX=/usr/bin/${CROSS_TRIPLET}-g++			\
+	LD=/usr/bin/${CROSS_TRIPLET}-ld				\
+	FC=/usr/bin/${CROSS_TRIPLET}-gfortran
+
+ENV PATH="${PATH}:${CROSS_ROOT}/bin"				\
+	PKG_CONFIG_PATH=/usr/lib/${CROSS_TRIPLET}/pkgconfig
+
+COPY . /criu
+WORKDIR /criu
+
+RUN	make mrproper && date && make -j $(nproc) zdtm && date

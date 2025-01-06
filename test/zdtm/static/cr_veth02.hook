@@ -1,0 +1,43 @@
+#!/bin/bash
+
+if [ "$1" == "--post-start" ]; then
+	set -xe
+
+	PIDF="zdtm/static/cr_veth02.pid.inprogress"
+	while [ ! -f "$PIDF" ]; do
+		sleep ".1"
+	done
+
+	TPID=$(cat $PIDF)
+	ps xaf
+	echo "-> $TPID"
+
+	ip link add zdtmvthc0 type veth peer name zdtmvthh0
+	ip link set zdtmvthc0 netns $TPID
+	nsenter -n -t $TPID ip addr add 192.168.124.124/32 dev zdtmvthc0
+	nsenter -n -t $TPID ip addr
+
+elif [ "$1" == "--post-restore" ]; then
+	PIDF="zdtm/static/cr_veth02.pid"
+	TPID=$(cat $PIDF)
+
+	nsenter -n -t $TPID ip addr
+
+	echo "Device OK"
+elif [ "$1" == "--pre-restore" ]; then
+	# Wait for the link to die
+	ip link list
+	while ip link list zdtmvthh0 ; do
+		sleep ".5"
+	done
+	ip link add zdtmvthc1 type veth peer name zdtmvthh1
+elif [ "$1" == "--clean" ]; then
+	# Wait for the link to die
+	ip link list
+	while ip link list zdtmvthh0 ; do
+		sleep ".5"
+	done
+	while ip link list zdtmvthh1 ; do
+		sleep ".5"
+	done
+fi

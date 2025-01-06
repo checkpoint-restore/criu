@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crit"
+description = "CRiu Image Tool"
+authors = [
+    {name = "CRIU team", email = "criu@openvz.org"},
+]
+license = {text = "GPLv2"}
+dynamic = ["version"]
+requires-python = ">=3.6"
+
+[project.scripts]
+crit = "crit.__main__:main"
+
+[tool.setuptools]
+packages = ["crit"]
+
+[tool.setuptools.dynamic]
+version = {attr = "crit.__version__"}

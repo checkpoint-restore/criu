@@ -1,0 +1,29 @@
+FROM docker.io/library/eclipse-temurin:11-alpine
+ARG CC=gcc
+
+RUN apk update && apk add \
+	bash \
+	build-base \
+	coreutils \
+	git \
+	gnutls-dev \
+	libaio-dev \
+	libcap-dev \
+	libnet-dev \
+	libnl3-dev \
+	pkgconfig \
+	protobuf-c-dev \
+	protobuf-dev \
+	python3 \
+	sudo \
+	maven \
+	ip6tables \
+	iptables \
+	bash
+
+COPY . /criu
+WORKDIR /criu
+
+RUN make mrproper && make -j $(nproc) CC="$CC"
+
+ENTRYPOINT mvn -q -f test/javaTests/pom.xml test

@@ -1,0 +1,17 @@
+name: Fedora ASAN Test
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: fedora-asan-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Fedora ASAN Test
+      run: sudo -E make -C scripts/ci fedora-asan

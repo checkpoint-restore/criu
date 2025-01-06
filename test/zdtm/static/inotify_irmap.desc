@@ -1,0 +1,1 @@
+{'flags': 'suid', 'opts' : '--force-irmap --irmap-scan-path /zdtm/static'}

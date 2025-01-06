@@ -1,0 +1,4 @@
+#!/bin/bash
+
+test -d /sys/kernel/security/apparmor || exit 1
+apparmor_parser -r `dirname $0`/apparmor.profile

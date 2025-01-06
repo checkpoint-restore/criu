@@ -1,0 +1,6 @@
+os.getenv("ZDTM_MNT_EXT_DEV") and \
+( lambda dev, rdev:
+{'flavor': 'ns', 'feature': 'mnt_id', "flags": "suid",
+"dopts": "--external dev[%d/%d]:loop" % (os.major(rdev), os.minor(rdev)),
+"ropts": "--external dev[loop]:%s" % dev,
+} ) (os.getenv("ZDTM_MNT_EXT_DEV"), os.stat(os.getenv("ZDTM_MNT_EXT_DEV")).st_rdev) or {'flags': 'noauto'}

@@ -1,0 +1,5 @@
+syntax = "proto2";
+
+message criu_rtc {
+	required uint64	IRQP = 1;
+}

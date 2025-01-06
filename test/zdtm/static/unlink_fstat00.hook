@@ -1,0 +1,11 @@
+#!/bin/bash
+
+[ "$1" == "--fault" -a "$2" == "restore" ] || exit 0
+
+if [ $(find -name 'unlink_fstat00*ghost' | wc -l ) -ne 0 ]; then
+	echo "Dangling ghost file"
+	exit 1
+fi
+
+echo "Restore fault handled"
+exit 0

@@ -1,0 +1,50 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ "criu-dev", "master" ]
+  pull_request:
+    branches: [ "criu-dev" ]
+  schedule:
+    - cron: "11 6 * * 3"
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: codeql-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ python, cpp ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Packages (cpp)
+        if: ${{ matrix.language == 'cpp' }}
+        run: |
+          sudo scripts/ci/apt-install protobuf-c-compiler libprotobuf-c-dev libprotobuf-dev build-essential libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnet-dev pkg-config libnl-3-dev libbsd0 libbsd-dev iproute2 libcap-dev libaio-dev libbsd-dev python3-yaml libnl-route-3-dev gnutls-dev
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{ matrix.language }}"

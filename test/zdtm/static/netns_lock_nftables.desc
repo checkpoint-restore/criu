@@ -1,0 +1,8 @@
+{
+    'flavor': 'h',
+    'flags': 'suid excl reqrst',
+    'feature': 'network_lock_nftables',
+    'opts': '--tcp-established',
+    'dopts': '--network-lock nftables',
+    'ropts': '--join-ns net:/var/run/netns/criu-net-lock-test'
+}

@@ -1,0 +1,4 @@
+{   'feature': 'mnt_id',
+    'flavor': 'uns',
+    'opts': '--ext-mount-map auto --enable-external-masters',
+    'ropts': '--mntns-compat-mode'}

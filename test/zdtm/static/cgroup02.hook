@@ -1,0 +1,32 @@
+#!/bin/bash
+
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
+set -e
+
+rmroots() {
+	echo "Cleaning $tname ($1)"
+
+	mount -t cgroup none $tname -o "$1"
+
+	for d in "$tname/prefix" "$tname/newroot"; do
+		test -d "$d" || continue
+		# sort by line length
+		for i in `find $d -type d | awk '{print length, $0}' | sort -rn | cut -d " " -f2-`; do
+			echo $i
+			rmdir $i
+		done
+	done
+
+	echo "Left there is:"
+	ls "$tname"
+	umount "$tname"
+}
+
+tname=$(mktemp -d cgclean.XXXXXX)
+
+for ctl in $(cat /proc/self/cgroup | cut -d: -f2); do
+	rmroots "$ctl"
+done
+
+rmdir $tname

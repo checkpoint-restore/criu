@@ -1,0 +1,2 @@
+# /proc/pid/pagemap doesn't show phys addr for unprivileged users
+{'flavor': 'ns h', 'flags': 'suid nolazy'}
