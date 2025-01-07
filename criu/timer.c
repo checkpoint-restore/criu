@@ -16,7 +16,7 @@ static inline int timeval_valid(struct timeval *tv)
 
 static inline int decode_itimer(char *n, ItimerEntry *ie, struct itimerval *val)
 {
-	if (ie->isec == 0 && ie->iusec == 0) {
+	if (ie->isec == 0 && ie->iusec == 0 && ie->vsec == 0 && ie->vusec == 0) {
 		memzero_p(val);
 		return 0;
 	}

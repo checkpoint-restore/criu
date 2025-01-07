@@ -2226,7 +2226,7 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	 * code below doesn't fail due to bad timing values.
 	 */
 
-#define itimer_armed(args, i) (args->itimers[i].it_interval.tv_sec || args->itimers[i].it_interval.tv_usec)
+#define itimer_armed(args, i) (args->itimers[i].it_value.tv_sec || args->itimers[i].it_value.tv_usec)
 
 	if (itimer_armed(args, 0))
 		sys_setitimer(ITIMER_REAL, &args->itimers[0], NULL);
