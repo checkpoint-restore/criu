@@ -33,13 +33,9 @@ static void timer_tick(int sig)
 		}
 }
 
-static void setup_timers(void)
+static void setup_timers(const struct itimerval *tv)
 {
 	int i;
-	struct itimerval tv = {
-		.it_interval = { .tv_sec = 0, .tv_usec = 100000 },
-		.it_value = { .tv_sec = 0, .tv_usec = 100 },
-	};
 
 	for (i = 0; i < NUM_TIMERS; i++) {
 		if (signal(timer_tests[i].signal, timer_tick) == SIG_ERR) {
@@ -47,7 +43,7 @@ static void setup_timers(void)
 			exit(1);
 		}
 
-		if (setitimer(timer_tests[i].timer_type, &tv, NULL) < 0) {
+		if (setitimer(timer_tests[i].timer_type, tv, NULL) < 0) {
 			pr_perror("can't set timer %d", i);
 			exit(1);
 		}
@@ -77,13 +73,27 @@ static void check_timers(void)
 
 int main(int argc, char **argv)
 {
+	const struct itimerval tv = {
+		.it_interval = { .tv_sec = 0, .tv_usec = 100000 },
+		.it_value = { .tv_sec = 0, .tv_usec = 100 },
+	};
+	const struct itimerval oneshot_tv = {
+		.it_interval = { .tv_sec = 0, .tv_usec = 0 },
+		.it_value = { .tv_sec = 1, .tv_usec = 100 },
+	};
+	const struct itimerval tvs[2] = {
+		tv,
+		oneshot_tv,
+	};
+
 	test_init(argc, argv);
+	for (int i = 0; i < 2; i++) {
+		setup_timers(&tvs[i]);
 
-	setup_timers();
+		test_daemon();
+		test_waitsig();
 
-	test_daemon();
-	test_waitsig();
-
-	check_timers();
+		check_timers();
+	}
 	return 0;
 }
