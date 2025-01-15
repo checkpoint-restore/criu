@@ -45,7 +45,7 @@ bool kfd_capability_check = true;
  */
 int fd_next = -1;
 
-static int open_drm_render_device(int minor)
+int open_drm_render_device(int minor)
 {
 	char path[128];
 	int fd, ret_fd;
