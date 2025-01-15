@@ -565,6 +565,12 @@ int cuda_plugin_init(int stage)
 {
 	int ret;
 
+	/* Disable CUDA checkpointing with pre-dump */
+	if (stage == CR_PLUGIN_STAGE__PRE_DUMP) {
+		plugin_disabled = true;
+		return 0;
+	}
+
 	if (stage == CR_PLUGIN_STAGE__RESTORE) {
 		if (!check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name, strlen(CR_PLUGIN_DESC.name))) {
 			plugin_disabled = true;
