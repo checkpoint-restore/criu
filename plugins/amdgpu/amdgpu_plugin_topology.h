@@ -118,6 +118,7 @@ struct tp_node *sys_get_node_by_gpu_id(const struct tp_system *sys, const uint32
 struct tp_node *sys_get_node_by_render_minor(const struct tp_system *sys, const int drm_render_minor);
 struct tp_node *sys_get_node_by_index(const struct tp_system *sys, uint32_t index);
 
+int open_drm_render_device(int minor);
 int node_get_drm_render_device(struct tp_node *node);
 void sys_close_drm_render_devices(struct tp_system *sys);
 
