@@ -406,6 +406,14 @@ static inline void cleanup_freep(void *p)
 	free(*pp);
 }
 
+#define cleanup_file __attribute__((cleanup(cleanup_filep)))
+static inline void cleanup_filep(FILE **f)
+{
+	FILE *file = *f;
+	if (file)
+		(void)fclose(file);
+}
+
 extern int run_command(char *buf, size_t buf_size, int (*child_fn)(void *), void *args);
 
 /*
