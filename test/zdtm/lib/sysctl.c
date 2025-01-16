@@ -3,6 +3,49 @@
 #include "zdtmtst.h"
 #include "sysctl.h"
 
+int sysctl_read_str(const char *name, char *data, size_t size)
+{
+	int fd, ret;
+
+	fd = open(name, O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Can't open %s", name);
+		return -1;
+	}
+
+	ret = read(fd, data, size - 1);
+	if (ret < 0) {
+		pr_perror("Can't read %s", name);
+		close(fd);
+		return -1;
+	}
+	data[ret] = '\0';
+	close(fd);
+
+	return 0;
+}
+
+int sysctl_write_str(const char *name, char *data)
+{
+	int fd, ret;
+
+	fd = open(name, O_WRONLY);
+	if (fd < 0) {
+		pr_perror("Can't open %s", name);
+		return -1;
+	}
+
+	ret = write(fd, data, strlen(data));
+	if (ret < 0) {
+		pr_perror("Can't write %s into %s", data, name);
+		close(fd);
+		return -1;
+	}
+	close(fd);
+
+	return 0;
+}
+
 int sysctl_read_int(const char *name, int *data)
 {
 	int fd;
