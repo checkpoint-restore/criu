@@ -2149,10 +2149,16 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	list_for_each_entry(p, &ns->net.ids, node)
 		i++;
 
+	/*
+	 * Here we allocate one single big buffer for storing multiple arrays
+	 * of protobuf entries and pointers to entries in it and we later use
+	 * xptr_pull_s to claim a part of this buffer of proper size for each
+	 * particular array. Next we read data from sysctl files to those
+	 * arrays and then finally save them into images.
+	 */
 	o_buf = buf = xmalloc(i * (sizeof(NetnsId *) + sizeof(NetnsId)) +
-			      size4 * (sizeof(SysctlEntry *) + sizeof(SysctlEntry)) * 2 +
-			      size6 * (sizeof(SysctlEntry *) + sizeof(SysctlEntry)) * 2 +
-			      sizex * (sizeof(SysctlEntry *) + sizeof(SysctlEntry)));
+			      (size4 * 2 + size6 * 2 + sizex) *
+			      (sizeof(SysctlEntry *) + sizeof(SysctlEntry)));
 	if (!buf)
 		goto out;
 
