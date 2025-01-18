@@ -39,6 +39,10 @@ ci_prep () {
 	# This can fail on aarch64 travis
 	service apport stop || :
 
+	# Ubuntu has set up AppArmor in 24.04 so that it blocks use of user
+	# namespaces by unprivileged users. We need this for some of our tests.
+	sysctl kernel.apparmor_restrict_unprivileged_userns=0 || :
+
 	if [ "$CLANG" = "1" ]; then
 		# clang support
 		CC=clang
