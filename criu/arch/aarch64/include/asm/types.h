@@ -33,7 +33,16 @@ static inline uint64_t encode_pointer(void *p)
 	return (uint64_t)p;
 }
 
-#define AT_VECTOR_SIZE 40
+/**
+ * See also:
+ *   * arch/arm64/include/uapi/asm/auxvec.h
+ *   * include/linux/auxvec.h
+ *   * include/linux/mm_types.h
+ */
+#define AT_VECTOR_SIZE_BASE 22
+#define AT_VECTOR_SIZE_ARCH 2
+#define AT_VECTOR_SIZE (2*(AT_VECTOR_SIZE_ARCH + AT_VECTOR_SIZE_BASE + 1))
+
 typedef uint64_t auxv_t;
 typedef uint64_t tls_t;
 
