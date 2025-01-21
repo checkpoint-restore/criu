@@ -29,8 +29,17 @@ static inline int decode_itimer(char *n, ItimerEntry *ie, struct itimerval *val)
 		return -1;
 	}
 
-	val->it_value.tv_sec = ie->vsec;
-	val->it_value.tv_usec = ie->vusec;
+	if (ie->vsec == 0 && ie->vusec == 0) {
+		/*
+		 * Remaining time was too short. Set it to
+		 * interval to make the timer armed and work.
+		 */
+		val->it_value.tv_sec = ie->isec;
+		val->it_value.tv_usec = ie->iusec;
+	} else {
+		val->it_value.tv_sec = ie->vsec;
+		val->it_value.tv_usec = ie->vusec;
+	}
 
 	if (!timeval_valid(&val->it_value)) {
 		pr_err("Invalid timer value\n");
