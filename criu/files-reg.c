@@ -1150,7 +1150,7 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp, struct ns_i
 	rfe.name = link_name + 1;
 
 	/* Any 'unique' name works here actually. Remap works by reg-file ids. */
-	snprintf(tmp + 1, sizeof(link_name) - (size_t)(tmp - link_name - 1), "link_remap.%d", rfe.id);
+	snprintf(tmp + 1, sizeof(link_name) - (size_t)(tmp - link_name) - 1, "link_remap.%d", rfe.id);
 
 	mntns_root = mntns_get_root_fd(nsid);
 
