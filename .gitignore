@@ -35,3 +35,7 @@ compel/include/asm
 include/common/asm
 include/common/config.h
 build/**
+
+# Clang's compilation database file and directory.
+/.cache
+/compile_commands.json
