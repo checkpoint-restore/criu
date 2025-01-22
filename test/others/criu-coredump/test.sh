@@ -45,9 +45,8 @@ function run_test {
 
 UNAME_M=$(uname -m)
 
-if [ "$UNAME_M" != "x86_64" ]; then
-	# the criu-coredump script is only x86_64 aware
-	echo "criu-coredump only support x86_64. skipping."
+if [[ "$UNAME_M" != "aarch64" && "$UNAME_M" != "x86_64" ]]; then
+	echo "criu-coredump only supports aarch64 and x86_64. skipping."
 	exit 0
 fi
 
