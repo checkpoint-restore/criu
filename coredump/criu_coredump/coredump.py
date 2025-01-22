@@ -31,6 +31,7 @@
 import io
 import sys
 import ctypes
+import platform
 
 from pycriu import images
 from . import elf
@@ -130,6 +131,11 @@ class coredump_generator:
     reg_files = None  # reg-files;
     pagemaps = {}  # pagemap by pid;
 
+    # thread info key based on the current arch
+    thread_info_key = {"aarch64": "ti_aarch64", "x86_64": "thread_info"}
+
+    machine = platform.machine()  # current arch
+
     def _img_open_and_strip(self, name, single=False, pid=None):
         """
         Load criu image and strip it from magic and redundant list.
@@ -213,7 +219,7 @@ class coredump_generator:
         ehdr.e_ident[elf.EI_VERSION] = elf.EV_CURRENT
 
         ehdr.e_type = elf.ET_CORE
-        ehdr.e_machine = elf.EM_X86_64
+        ehdr.e_machine = self._get_e_machine()
         ehdr.e_version = elf.EV_CURRENT
         ehdr.e_phoff = ctypes.sizeof(elf.Elf64_Ehdr())
         ehdr.e_ehsize = ctypes.sizeof(elf.Elf64_Ehdr())
@@ -223,6 +229,13 @@ class coredump_generator:
         ehdr.e_phnum = len(phdrs)
 
         return ehdr
+
+    def _get_e_machine(self):
+        """
+        Get the e_machine field based on the current architecture.
+        """
+        e_machine_dict = {"aarch64": elf.EM_AARCH64, "x86_64": elf.EM_X86_64}
+        return e_machine_dict[self.machine]
 
     def _gen_phdrs(self, pid, notes, vmas):
         """
@@ -332,7 +345,7 @@ class coredump_generator:
         Generate NT_PRSTATUS note for thread tid of process pid.
         """
         core = self.cores[tid]
-        regs = core["thread_info"]["gpregs"]
+        regs = self._get_gpregs(core)
         pstree = self.pstree[pid]
 
         prstatus = elf.elf_prstatus()
@@ -345,33 +358,7 @@ class coredump_generator:
         prstatus.pr_pgrp = pstree["pgid"]
         prstatus.pr_sid = pstree["sid"]
 
-        prstatus.pr_reg.r15 = regs["r15"]
-        prstatus.pr_reg.r14 = regs["r14"]
-        prstatus.pr_reg.r13 = regs["r13"]
-        prstatus.pr_reg.r12 = regs["r12"]
-        prstatus.pr_reg.rbp = regs["bp"]
-        prstatus.pr_reg.rbx = regs["bx"]
-        prstatus.pr_reg.r11 = regs["r11"]
-        prstatus.pr_reg.r10 = regs["r10"]
-        prstatus.pr_reg.r9 = regs["r9"]
-        prstatus.pr_reg.r8 = regs["r8"]
-        prstatus.pr_reg.rax = regs["ax"]
-        prstatus.pr_reg.rcx = regs["cx"]
-        prstatus.pr_reg.rdx = regs["dx"]
-        prstatus.pr_reg.rsi = regs["si"]
-        prstatus.pr_reg.rdi = regs["di"]
-        prstatus.pr_reg.orig_rax = regs["orig_ax"]
-        prstatus.pr_reg.rip = regs["ip"]
-        prstatus.pr_reg.cs = regs["cs"]
-        prstatus.pr_reg.eflags = regs["flags"]
-        prstatus.pr_reg.rsp = regs["sp"]
-        prstatus.pr_reg.ss = regs["ss"]
-        prstatus.pr_reg.fs_base = regs["fs_base"]
-        prstatus.pr_reg.gs_base = regs["gs_base"]
-        prstatus.pr_reg.ds = regs["ds"]
-        prstatus.pr_reg.es = regs["es"]
-        prstatus.pr_reg.fs = regs["fs"]
-        prstatus.pr_reg.gs = regs["gs"]
+        self._set_pr_regset(prstatus.pr_reg, regs)
 
         nhdr = elf.Elf64_Nhdr()
         nhdr.n_namesz = 5
@@ -385,28 +372,64 @@ class coredump_generator:
 
         return note
 
+    def _get_gpregs(self, core):
+        """
+        Get the general purpose registers based on the current architecture.
+        """
+        thread_info_key = self.thread_info_key[self.machine]
+        thread_info = core[thread_info_key]
+
+        return thread_info["gpregs"]
+
+    def _set_pr_regset(self, pr_reg, regs):
+        """
+        Set the pr_reg struct based on the current architecture.
+        """
+        if self.machine == "aarch64":
+            pr_reg.regs = (ctypes.c_ulonglong * len(regs["regs"]))(*regs["regs"])
+            pr_reg.sp = regs["sp"]
+            pr_reg.pc = regs["pc"]
+            pr_reg.pstate = regs["pstate"]
+        elif self.machine == "x86_64":
+            pr_reg.r15 = regs["r15"]
+            pr_reg.r14 = regs["r14"]
+            pr_reg.r13 = regs["r13"]
+            pr_reg.r12 = regs["r12"]
+            pr_reg.rbp = regs["bp"]
+            pr_reg.rbx = regs["bx"]
+            pr_reg.r11 = regs["r11"]
+            pr_reg.r10 = regs["r10"]
+            pr_reg.r9 = regs["r9"]
+            pr_reg.r8 = regs["r8"]
+            pr_reg.rax = regs["ax"]
+            pr_reg.rcx = regs["cx"]
+            pr_reg.rdx = regs["dx"]
+            pr_reg.rsi = regs["si"]
+            pr_reg.rdi = regs["di"]
+            pr_reg.orig_rax = regs["orig_ax"]
+            pr_reg.rip = regs["ip"]
+            pr_reg.cs = regs["cs"]
+            pr_reg.eflags = regs["flags"]
+            pr_reg.rsp = regs["sp"]
+            pr_reg.ss = regs["ss"]
+            pr_reg.fs_base = regs["fs_base"]
+            pr_reg.gs_base = regs["gs_base"]
+            pr_reg.ds = regs["ds"]
+            pr_reg.es = regs["es"]
+            pr_reg.fs = regs["fs"]
+            pr_reg.gs = regs["gs"]
+
     def _gen_fpregset(self, pid, tid):
         """
         Generate NT_FPREGSET note for thread tid of process pid.
         """
         core = self.cores[tid]
-        regs = core["thread_info"]["fpregs"]
+        regs = self._get_fpregs(core)
 
         fpregset = elf.elf_fpregset_t()
         ctypes.memset(ctypes.addressof(fpregset), 0, ctypes.sizeof(fpregset))
 
-        fpregset.cwd = regs["cwd"]
-        fpregset.swd = regs["swd"]
-        fpregset.ftw = regs["twd"]
-        fpregset.fop = regs["fop"]
-        fpregset.rip = regs["rip"]
-        fpregset.rdp = regs["rdp"]
-        fpregset.mxcsr = regs["mxcsr"]
-        fpregset.mxcr_mask = regs["mxcsr_mask"]
-        fpregset.st_space = (ctypes.c_uint * len(regs["st_space"]))(
-            *regs["st_space"])
-        fpregset.xmm_space = (ctypes.c_uint * len(regs["xmm_space"]))(
-            *regs["xmm_space"])
+        self._set_fpregset(fpregset, regs)
 
         nhdr = elf.Elf64_Nhdr()
         nhdr.n_namesz = 5
@@ -416,6 +439,58 @@ class coredump_generator:
         note = elf_note()
         note.data = fpregset
         note.owner = b"CORE"
+        note.nhdr = nhdr
+
+        return note
+
+    def _get_fpregs(self, core):
+        """
+        Get the floating point register dictionary based on the current architecture.
+        """
+        fpregs_key_dict = {"aarch64": "fpsimd", "x86_64": "fpregs"}
+        fpregs_key = fpregs_key_dict[self.machine]
+
+        thread_info_key = self.thread_info_key[self.machine]
+
+        return core[thread_info_key][fpregs_key]
+
+    def _set_fpregset(self, fpregset, regs):
+        """
+        Set the fpregset struct based on the current architecture.
+        """
+        if self.machine == "aarch64":
+            fpregset.vregs = (ctypes.c_ulonglong * len(regs["vregs"]))(*regs["vregs"])
+            fpregset.fpsr = regs["fpsr"]
+            fpregset.fpcr = regs["fpcr"]
+        elif self.machine == "x86_64":
+            fpregset.cwd = regs["cwd"]
+            fpregset.swd = regs["swd"]
+            fpregset.ftw = regs["twd"]
+            fpregset.fop = regs["fop"]
+            fpregset.rip = regs["rip"]
+            fpregset.rdp = regs["rdp"]
+            fpregset.mxcsr = regs["mxcsr"]
+            fpregset.mxcr_mask = regs["mxcsr_mask"]
+            fpregset.st_space = (ctypes.c_uint * len(regs["st_space"]))(
+                *regs["st_space"])
+            fpregset.xmm_space = (ctypes.c_uint * len(regs["xmm_space"]))(
+                *regs["xmm_space"])
+
+    def _gen_arm_tls(self, tid):
+        """
+        Generate NT_ARM_TLS note for thread tid of process pid.
+        """
+        core = self.cores[tid]
+        tls = ctypes.c_ulonglong(core["ti_aarch64"]["tls"])
+
+        nhdr = elf.Elf64_Nhdr()
+        nhdr.n_namesz = 6
+        nhdr.n_descsz = ctypes.sizeof(ctypes.c_ulonglong)
+        nhdr.n_type = elf.NT_ARM_TLS
+
+        note = elf_note()
+        note.data = tls
+        note.owner = b"LINUX"
         note.nhdr = nhdr
 
         return note
@@ -593,8 +668,11 @@ class coredump_generator:
 
         notes.append(self._gen_prstatus(pid, tid))
         notes.append(self._gen_fpregset(pid, tid))
-        notes.append(self._gen_x86_xstate(pid, tid))
         notes.append(self._gen_siginfo(pid, tid))
+        if self.machine == "aarch64":
+            notes.append(self._gen_arm_tls(tid))
+        elif self.machine == "x86_64":
+            notes.append(self._gen_x86_xstate(pid, tid))
 
         return notes
 

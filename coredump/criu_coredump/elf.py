@@ -1,5 +1,8 @@
 # Define structures and constants for generating elf file.
 import ctypes
+import platform
+
+MACHINE = platform.machine()
 
 Elf64_Half = ctypes.c_uint16  # typedef uint16_t Elf64_Half;
 Elf64_Word = ctypes.c_uint32  # typedef uint32_t Elf64_Word;
@@ -39,6 +42,7 @@ ET_CORE = 4  # #define ET_CORE         4               /* Core file */
 
 # Legal values for e_machine (architecture).
 EM_X86_64 = 62  # #define EM_X86_64       62              /* AMD x86-64 architecture */
+EM_AARCH64 = 183  # #define EM_AARCH64	183	/* ARM AARCH64 */
 
 # Legal values for e_version (version).
 EV_CURRENT = 1  # #define EV_CURRENT      1               /* Current version */
@@ -119,6 +123,7 @@ NT_AUXV = 6  # #define NT_AUXV  6  /* Contains copy of auxv array */
 NT_SIGINFO = 0x53494749  # #define NT_SIGINFO  0x53494749  /* Contains copy of siginfo_t, size might increase */
 NT_FILE = 0x46494c45  # #define NT_FILE  0x46494c45  /* Contains information about mapped files */
 NT_X86_XSTATE = 0x202  # #define NT_X86_XSTATE  0x202  /* x86 extended state using xsave */
+NT_ARM_TLS = 0x401  # #define NT_ARM_TLS	0x401 /* ARM TLS register */
 
 
 class Elf64_Nhdr(ctypes.Structure):  # typedef struct
@@ -218,7 +223,7 @@ class timeval(ctypes.Structure):  # struct timeval
     ]
 
 
-class user_regs_struct(ctypes.Structure):  # struct user_regs_struct
+class x86_64_user_regs_struct(ctypes.Structure):  # struct x86_64_user_regs_struct
     _fields_ = [
         ("r15",
          ctypes.c_ulonglong),  # __extension__ unsigned long long int r15;
@@ -277,10 +282,31 @@ class user_regs_struct(ctypes.Structure):  # struct user_regs_struct
     ]
 
 
+class aarch64_user_regs_struct(ctypes.Structure):  # struct aarch64_user_regs_struct
+    _fields_ = [
+        ("regs",
+         ctypes.c_ulonglong * 31),  # unsigned long long int regs[31];
+        ("sp",
+         ctypes.c_ulonglong),  # unsigned long long int sp;
+        ("pc",
+         ctypes.c_ulonglong),  # unsigned long long int pc;
+        ("pstate",
+         ctypes.c_ulonglong),  # unsigned long long int pstate;
+    ]
+
+
 # elf_greg_t    = ctypes.c_ulonglong
 # ELF_NGREG = ctypes.sizeof(user_regs_struct)/ctypes.sizeof(elf_greg_t)
 # elf_gregset_t = elf_greg_t*ELF_NGREG
-elf_gregset_t = user_regs_struct
+user_regs_dict = {
+        "aarch64": aarch64_user_regs_struct,
+        "x86_64": x86_64_user_regs_struct,
+}
+
+try:
+    elf_gregset_t = user_regs_dict[MACHINE]
+except KeyError:
+    raise ValueError("Current architecture %s is not supported." % MACHINE)
 
 
 class elf_prstatus(ctypes.Structure):  # struct elf_prstatus
@@ -420,7 +446,7 @@ class elf_prpsinfo(ctypes.Structure):  # struct elf_prpsinfo
     ]
 
 
-class user_fpregs_struct(ctypes.Structure):  # struct user_fpregs_struct
+class x86_64_user_fpregs_struct(ctypes.Structure):  # struct x86_64_user_fpregs_struct
     _fields_ = [
         # unsigned short int cwd;
         ("cwd", ctypes.c_ushort),
@@ -447,7 +473,28 @@ class user_fpregs_struct(ctypes.Structure):  # struct user_fpregs_struct
     ]
 
 
-elf_fpregset_t = user_fpregs_struct
+class aarch64_user_fpregs_struct(ctypes.Structure):  # struct aarch64_user_fpregs_struct
+    _fields_ = [
+        # unsigned long long int vregs[64];
+        ("vregs", ctypes.c_ulonglong * 64),
+        # unsigned int fpsr;
+        ("fpsr", ctypes.c_uint),
+        # unsigned int fpcr;
+        ("fpcr", ctypes.c_uint),
+        # unsigned int padding[2];
+        ("padding", ctypes.c_uint * 2),
+    ]
+
+
+user_fpregs_dict = {
+        "aarch64": aarch64_user_fpregs_struct,
+        "x86_64": x86_64_user_fpregs_struct,
+}
+
+try:
+    elf_fpregset_t = user_fpregs_dict[MACHINE]
+except KeyError:
+    raise ValueError("Current architecture %s is not supported." % MACHINE)
 
 # siginfo_t related constants.
 
