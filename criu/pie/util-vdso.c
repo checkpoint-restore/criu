@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -48,10 +49,25 @@ static bool __ptr_struct_oob(uintptr_t ptr, size_t struct_size, uintptr_t start,
 	return __ptr_oob(ptr, start, size) || __ptr_struct_end_oob(ptr, struct_size, start, size);
 }
 
+/* Local strlen implementation */
+static size_t __strlen(const char *str)
+{
+	const char *ptr;
+
+	if (!str)
+		return 0;
+
+	ptr = str;
+	while (*ptr != '\0')
+		ptr++;
+
+	return ptr - str;
+}
+
 /*
  * Elf hash, see format specification.
  */
-static unsigned long elf_hash(const unsigned char *name)
+static unsigned long elf_sysv_hash(const unsigned char *name)
 {
 	unsigned long h = 0, g;
 
@@ -62,6 +78,15 @@ static unsigned long elf_hash(const unsigned char *name)
 			h ^= g >> 24;
 		h &= ~g;
 	}
+	return h;
+}
+
+/* * The GNU hash format. Taken from glibc.  */
+static unsigned long elf_gnu_hash(const unsigned char *name)
+{
+	unsigned long h = 5381;
+	for (unsigned char c = *name; c != '\0'; c = *++name)
+		h = h * 33 + c;
 	return h;
 }
 
@@ -149,11 +174,14 @@ err_oob:
  * Output parameters are:
  *   @dyn_strtab - address of the symbol table
  *   @dyn_symtab - address of the string table section
- *   @dyn_hash   - address of the symbol hash table
+ *   @dyn_hash     - address of the symbol hash table
+ *   @use_gnu_hash - the format of hash DT_HASH or DT_GNU_HASH
  */
-static int parse_elf_dynamic(uintptr_t mem, size_t size, Phdr_t *dynamic, Dyn_t **dyn_strtab, Dyn_t **dyn_symtab,
-			     Dyn_t **dyn_hash)
+static int parse_elf_dynamic(uintptr_t mem, size_t size, Phdr_t *dynamic,
+			     Dyn_t **dyn_strtab, Dyn_t **dyn_symtab,
+			     Dyn_t **dyn_hash, bool *use_gnu_hash)
 {
+	Dyn_t *dyn_gnu_hash = NULL, *dyn_sysv_hash = NULL;
 	Dyn_t *dyn_syment = NULL;
 	Dyn_t *dyn_strsz = NULL;
 	uintptr_t addr;
@@ -184,15 +212,51 @@ static int parse_elf_dynamic(uintptr_t mem, size_t size, Phdr_t *dynamic, Dyn_t 
 			dyn_syment = d;
 			pr_debug("DT_SYMENT: %lx\n", (unsigned long)d->d_un.d_val);
 		} else if (d->d_tag == DT_HASH) {
-			*dyn_hash = d;
+			dyn_sysv_hash = d;
 			pr_debug("DT_HASH: %lx\n", (unsigned long)d->d_un.d_ptr);
+		} else if (d->d_tag == DT_GNU_HASH) {
+			/*
+			 * This is complicated.
+			 *
+			 * Looking at the Linux kernel source, the following can be seen
+			 * regarding which hashing style the VDSO uses on each arch:
+			 *
+			 *     aarch64: not specified (depends on linker, can be
+			 *                             only GNU hash style)
+			 *     arm: --hash-style=sysv
+			 *     loongarch: --hash-style=sysv
+			 *     mips: --hash-style=sysv
+			 *     powerpc: --hash-style=both
+			 *     riscv: --hash-style=both
+			 *     s390: --hash-style=both
+			 *     x86: --hash-style=both
+			 *
+			 * Some architectures are using both hash-styles, that
+			 * is the easiest for CRIU. Some architectures are only
+			 * using the old style (sysv), that is what CRIU supports.
+			 *
+			 * Starting with Linux 6.11, aarch64 unfortunately decided
+			 * to switch from '--hash-style=sysv' to ''. Specifying
+			 * nothing unfortunately may mean GNU hash style only and not
+			 * 'both' (depending on the linker).
+			 */
+			dyn_gnu_hash = d;
+			pr_debug("DT_GNU_HASH: %lx\n", (unsigned long)d->d_un.d_ptr);
 		}
 	}
 
-	if (!*dyn_strtab || !*dyn_symtab || !dyn_strsz || !dyn_syment || !*dyn_hash) {
+	if (!*dyn_strtab || !*dyn_symtab || !dyn_strsz || !dyn_syment ||
+	    (!dyn_gnu_hash && !dyn_sysv_hash)) {
 		pr_err("Not all dynamic entries are present\n");
 		return -EINVAL;
 	}
+
+	/*
+	 * Prefer DT_HASH over DT_GNU_HASH as it's been more tested and
+	 * as a result more stable.
+	 */
+	*use_gnu_hash = !dyn_sysv_hash;
+	*dyn_hash = dyn_sysv_hash ?: dyn_gnu_hash;
 
 	return 0;
 
@@ -208,60 +272,141 @@ typedef unsigned long Hash_t;
 typedef Word_t Hash_t;
 #endif
 
-static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load, struct vdso_symtable *t,
-			      uintptr_t dynsymbol_names, Hash_t *hash, Dyn_t *dyn_symtab)
+static bool elf_symbol_match(uintptr_t mem, size_t size,
+		uintptr_t dynsymbol_names, Sym_t *sym,
+		const char *symbol, const size_t vdso_symbol_length)
+{
+	uintptr_t addr = (uintptr_t)sym;
+	char *name;
+
+	if (__ptr_struct_oob(addr, sizeof(Sym_t), mem, size))
+		return false;
+
+	if (ELF_ST_TYPE(sym->st_info) != STT_FUNC && ELF_ST_BIND(sym->st_info) != STB_GLOBAL)
+		return false;
+
+	addr = dynsymbol_names + sym->st_name;
+	if (__ptr_struct_oob(addr, vdso_symbol_length, mem, size))
+		return false;
+	name = (void *)addr;
+
+	return !std_strncmp(name, symbol, vdso_symbol_length);
+}
+
+
+static unsigned long elf_symbol_lookup(uintptr_t mem, size_t size,
+		const char *symbol, uint32_t symbol_hash, unsigned int sym_off,
+		uintptr_t dynsymbol_names, Dyn_t *dyn_symtab, Phdr_t *load,
+		Hash_t nbucket, Hash_t nchain, Hash_t *bucket, Hash_t *chain,
+		const size_t vdso_symbol_length, bool use_gnu_hash)
+{
+	unsigned int j;
+	uintptr_t addr;
+
+	j = bucket[symbol_hash % nbucket];
+	if (j == STN_UNDEF)
+		return 0;
+
+	addr = mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
+
+	if (use_gnu_hash) {
+		uint32_t *h = bucket + nbucket + (j - sym_off);
+		uint32_t hash_val;
+
+		symbol_hash |= 1;
+		do {
+			Sym_t *sym = (void *)addr + sizeof(Sym_t) * j;
+
+			hash_val = *h++;
+			if ((hash_val | 1) == symbol_hash &&
+			    elf_symbol_match(mem, size, dynsymbol_names, sym,
+					     symbol, vdso_symbol_length))
+				return sym->st_value;
+			j++;
+		} while (!(hash_val & 1));
+	} else {
+		for (; j < nchain && j != STN_UNDEF; j = chain[j]) {
+			Sym_t *sym = (void *)addr + sizeof(Sym_t) * j;
+
+			if (elf_symbol_match(mem, size, dynsymbol_names, sym,
+					     symbol, vdso_symbol_length))
+				return sym->st_value;
+		}
+	}
+	return 0;
+}
+
+static int parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
+			     struct vdso_symtable *t, uintptr_t dynsymbol_names,
+			     Hash_t *hash, Dyn_t *dyn_symtab, bool use_gnu_hash)
 {
 	ARCH_VDSO_SYMBOLS_LIST
 
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = { ARCH_VDSO_SYMBOLS };
 	const size_t vdso_symbol_length = sizeof(t->symbols[0].name) - 1;
 
-	Hash_t nbucket, nchain;
-	Hash_t *bucket, *chain;
+	Hash_t *bucket = NULL;
+	Hash_t *chain = NULL;
+	Hash_t nbucket = 0;
+	Hash_t nchain = 0;
 
-	unsigned int i, j, k;
-	uintptr_t addr;
+	unsigned int sym_off = 0;
+	unsigned int i = 0;
 
-	nbucket = hash[0];
-	nchain = hash[1];
-	bucket = &hash[2];
-	chain = &hash[nbucket + 2];
+	unsigned long (*elf_hash)(const unsigned char *);
 
-	pr_debug("nbucket %lx nchain %lx bucket %lx chain %lx\n", (long)nbucket, (long)nchain, (unsigned long)bucket,
-		 (unsigned long)chain);
+	if (use_gnu_hash) {
+		uint32_t *gnu_hash = (uint32_t *)hash;
+		uint32_t bloom_sz;
+		size_t *bloom;
+
+		nbucket = gnu_hash[0];
+		sym_off = gnu_hash[1];
+		bloom_sz = gnu_hash[2];
+		bloom = (size_t *)&gnu_hash[4];
+		bucket = (Hash_t *)(&bloom[bloom_sz]);
+		elf_hash = &elf_gnu_hash;
+		pr_debug("nbucket %lx sym_off %lx bloom_sz %lx bloom %lx bucket %lx\n",
+			 (unsigned long)nbucket, (unsigned long)sym_off,
+			 (unsigned long)bloom_sz, (unsigned long)bloom,
+			 (unsigned long)bucket);
+	} else {
+		nbucket = hash[0];
+		nchain = hash[1];
+		bucket = &hash[2];
+		chain = &hash[nbucket + 2];
+		elf_hash = &elf_sysv_hash;
+		pr_debug("nbucket %lx nchain %lx bucket %lx chain %lx\n",
+			 (unsigned long)nbucket, (unsigned long)nchain,
+			 (unsigned long)bucket, (unsigned long)chain);
+	}
+
 
 	for (i = 0; i < VDSO_SYMBOL_MAX; i++) {
 		const char *symbol = vdso_symbols[i];
-		k = elf_hash((const unsigned char *)symbol);
+		unsigned long addr, symbol_hash;
+		const size_t symbol_length = __strlen(symbol);
 
-		for (j = bucket[k % nbucket]; j < nchain && j != STN_UNDEF; j = chain[j]) {
-			Sym_t *sym;
-			char *name;
+		symbol_hash = elf_hash((const unsigned char *)symbol);
+		addr = elf_symbol_lookup(mem, size, symbol, symbol_hash,
+				sym_off, dynsymbol_names, dyn_symtab, load,
+				nbucket, nchain, bucket, chain,
+				vdso_symbol_length, use_gnu_hash);
+		pr_debug("symbol %s at address %lx\n", symbol, addr);
+		if (!addr)
+			continue;
 
-			addr = mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
-
-			addr += sizeof(Sym_t) * j;
-			if (__ptr_struct_oob(addr, sizeof(Sym_t), mem, size))
-				continue;
-			sym = (void *)addr;
-
-			if (ELF_ST_TYPE(sym->st_info) != STT_FUNC && ELF_ST_BIND(sym->st_info) != STB_GLOBAL)
-				continue;
-
-			addr = dynsymbol_names + sym->st_name;
-			if (__ptr_struct_oob(addr, vdso_symbol_length, mem, size))
-				continue;
-			name = (void *)addr;
-
-			if (std_strncmp(name, symbol, vdso_symbol_length))
-				continue;
-
-			/* XXX: provide strncpy() implementation for PIE */
-			memcpy(t->symbols[i].name, name, vdso_symbol_length);
-			t->symbols[i].offset = (unsigned long)sym->st_value - load->p_vaddr;
-			break;
+		/* XXX: provide strncpy() implementation for PIE */
+		if (symbol_length > vdso_symbol_length) {
+			pr_err("strlen(%s) %zd, only %zd bytes available\n",
+				symbol, symbol_length, vdso_symbol_length);
+			return -EINVAL;
 		}
+		memcpy(t->symbols[i].name, symbol, symbol_length);
+		t->symbols[i].offset = addr - load->p_vaddr;
 	}
+
+	return 0;
 }
 
 int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
@@ -271,6 +416,7 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	Dyn_t *dyn_symtab = NULL;
 	Dyn_t *dyn_hash = NULL;
 	Hash_t *hash = NULL;
+	bool use_gnu_hash;
 
 	uintptr_t dynsymbol_names;
 	uintptr_t addr;
@@ -296,7 +442,8 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	 * needed. Note that we're interested in a small set of tags.
 	 */
 
-	ret = parse_elf_dynamic(mem, size, dynamic, &dyn_strtab, &dyn_symtab, &dyn_hash);
+	ret = parse_elf_dynamic(mem, size, dynamic, &dyn_strtab, &dyn_symtab,
+				&dyn_hash, &use_gnu_hash);
 	if (ret < 0)
 		return ret;
 
@@ -310,7 +457,11 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 		goto err_oob;
 	hash = (void *)addr;
 
-	parse_elf_symbols(mem, size, load, t, dynsymbol_names, hash, dyn_symtab);
+	ret = parse_elf_symbols(mem, size, load, t, dynsymbol_names, hash, dyn_symtab,
+				use_gnu_hash);
+
+	if (ret <0)
+		return ret;
 
 	return 0;
 
