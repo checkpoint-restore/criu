@@ -29,4 +29,8 @@ message inventory_entry {
 	optional bool			tcp_close	= 10;
 	optional uint32			network_lock_method	= 11;
 	optional plugins_entry		plugins_entry = 12;
+	// Remember the criu_run_id when CRIU dumped the process.
+	// This is currently used to delete the correct nftables
+	// network locking rule.
+	optional string                 dump_criu_run_id        = 13;
 }
