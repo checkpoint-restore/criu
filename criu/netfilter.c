@@ -299,7 +299,25 @@ int nftables_lock_connection(struct inet_sk_desc *sk)
 
 int nftables_get_table(char *table, int n)
 {
-	if (snprintf(table, n, "inet CRIU-%d", root_item->pid->real) < 0) {
+	int ret;
+
+	switch(dump_criu_run_id[0]) {
+	case 0:
+		/* This is not a restore.*/
+		ret = snprintf(table, n, "inet CRIU-%s", criu_run_id);
+		break;
+	case NO_DUMP_CRIU_RUN_ID:
+		/**
+		 * This is a restore from an older image with no
+		 * dump_criu_run_id available. Let's use the old ID.
+		 */
+		ret = snprintf(table, n, "inet CRIU-%d", root_item->pid->real);
+		break;
+	default:
+		ret = snprintf(table, n, "inet CRIU-%s", dump_criu_run_id);
+	}
+
+	if (ret < 0) {
 		pr_err("Cannot generate CRIU's nftables table name\n");
 		return -1;
 	}
