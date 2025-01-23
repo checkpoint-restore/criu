@@ -4,7 +4,7 @@ set -x -e
 CI_PKGS=(protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
-		libnl-route-3-dev time libbsd-dev python3-yaml
+		libnl-route-3-dev time libbsd-dev python3-yaml uuid-dev
 		libperl-dev pkg-config python3-protobuf python3-pip
 		python3-importlib-metadata python3-junit.xml libdrm-dev)
 

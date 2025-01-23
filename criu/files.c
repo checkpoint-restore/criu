@@ -978,7 +978,7 @@ static int receive_fd(struct fdinfo_list_entry *fle);
 static void transport_name_gen(struct sockaddr_un *addr, int *len, int pid)
 {
 	addr->sun_family = AF_UNIX;
-	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-fd-%d-%" PRIx64, pid, criu_run_id);
+	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-fd-%d-%s", pid, criu_run_id);
 	*len = SUN_LEN(addr);
 	*addr->sun_path = '\0';
 }
