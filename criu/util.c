@@ -28,6 +28,7 @@
 #include <ftw.h>
 #include <time.h>
 #include <libgen.h>
+#include <uuid/uuid.h>
 
 #include "linux/mount.h"
 
@@ -2026,20 +2027,16 @@ int run_command(char *buf, size_t buf_size, int (*child_fn)(void *), void *args)
 	return fret;
 }
 
-uint64_t criu_run_id;
+char criu_run_id[RUN_ID_HASH_LENGTH];
 
 void util_init(void)
 {
-	struct stat statbuf;
+	uuid_t uuid;
 
-	criu_run_id = getpid();
-	if (!stat("/proc/self/ns/pid", &statbuf))
-		criu_run_id |= (uint64_t)statbuf.st_ino << 32;
-	else if (errno != ENOENT)
-		pr_perror("Can't stat /proc/self/ns/pid - CRIU run id might not be unique");
-
-	compel_run_id = criu_run_id;
-	pr_info("CRIU run id = %#" PRIx64 "\n", criu_run_id);
+	uuid_generate(uuid);
+	uuid_unparse(uuid, criu_run_id);
+	pr_info("CRIU run id = %s\n", criu_run_id);
+	memcpy(compel_run_id, criu_run_id, sizeof(criu_run_id));
 }
 
 /*

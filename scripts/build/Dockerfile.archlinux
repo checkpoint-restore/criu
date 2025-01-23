@@ -35,6 +35,7 @@ RUN pacman -Syu --noconfirm \
 	python-junit-xml \
 	python-importlib-metadata \
 	libdrm \
+	util-linux-libs \
 	diffutils
 
 COPY . /criu
