@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "compel/infect-util.h"
+
 int add_external(char *key)
 {
 	return 0;
@@ -141,4 +143,4 @@ int check_mount_v2(void)
 	return 0;
 }
 
-uint64_t compel_run_id;
+char compel_run_id[RUN_ID_HASH_LENGTH];
