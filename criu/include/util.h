@@ -424,6 +424,8 @@ extern int run_command(char *buf, size_t buf_size, int (*child_fn)(void *), void
  */
 extern char criu_run_id[RUN_ID_HASH_LENGTH];
 extern void util_init(void);
+#define NO_DUMP_CRIU_RUN_ID 0x7f
+extern char dump_criu_run_id[RUN_ID_HASH_LENGTH];
 
 extern char *resolve_mountpoint(char *path);
 

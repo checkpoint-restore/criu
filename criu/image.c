@@ -25,6 +25,7 @@ bool img_common_magic = true;
 TaskKobjIdsEntry *root_ids;
 u32 root_cg_set;
 Lsmtype image_lsm;
+char dump_criu_run_id[RUN_ID_HASH_LENGTH];
 
 struct inventory_plugin {
 	struct list_head node;
@@ -120,6 +121,24 @@ int check_img_inventory(bool restore)
 					goto out_err;
 			}
 		}
+
+		/**
+		 * This contains the criu_run_id during dumping of the process.
+		 * For things like removing network locking (nftables) this
+		 * information is needed to identify the name of the network
+		 * locking table.
+		 */
+		if (he->dump_criu_run_id) {
+			strncpy(dump_criu_run_id, he->dump_criu_run_id, sizeof(dump_criu_run_id) - 1);
+			pr_info("Dump CRIU run id = %s\n", dump_criu_run_id);
+		} else {
+			/**
+			 * If restoring from an old image this is a marker
+			 * that no dump_criu_run_id exists.
+			 */
+			dump_criu_run_id[0] = NO_DUMP_CRIU_RUN_ID;
+		}
+
 	}
 
 	ret = 0;
@@ -366,6 +385,17 @@ int prepare_inventory(InventoryEntry *he)
 	/* Save network lock method to reuse in restore */
 	he->has_network_lock_method = true;
 	he->network_lock_method = opts.network_lock_method;
+
+	/**
+	 * This contains the criu_run_id during dumping of the process.
+	 * For things like removing network locking (nftables) this
+	 * information is needed to identify the name of the network
+	 * locking table.
+	 */
+	he->dump_criu_run_id = xstrdup(criu_run_id);
+
+	if (!he->dump_criu_run_id)
+		return -1;
 
 	return 0;
 }
