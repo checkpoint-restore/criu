@@ -24,7 +24,8 @@ RUN apk update && apk add \
 	sudo \
 	libcap-utils \
 	libdrm-dev \
-	util-linux
+	util-linux \
+	util-linux-dev
 
 COPY . /criu
 WORKDIR /criu

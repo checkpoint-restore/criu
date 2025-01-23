@@ -22,6 +22,7 @@ RUN apt-install protobuf-c-compiler \
 	pkg-config \
 	iptables \
 	gcc \
+	uuid-dev \
 	maven
 
 COPY . /criu

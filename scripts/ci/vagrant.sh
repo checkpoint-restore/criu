@@ -39,7 +39,7 @@ setup() {
 	ssh default sudo dnf install -y gcc git gnutls-devel nftables-devel libaio-devel \
 		libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make protobuf-c-devel \
 		protobuf-devel python3-protobuf python3-importlib-metadata python3-junit_xml \
-		rubygem-asciidoctor iptables libselinux-devel libbpf-devel python3-yaml
+		rubygem-asciidoctor iptables libselinux-devel libbpf-devel python3-yaml libuuid-devel
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	ssh default sudo systemctl mask sssd
 	ssh default cat /proc/cmdline

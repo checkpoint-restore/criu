@@ -19,6 +19,7 @@ RUN apk update && apk add \
 	maven \
 	ip6tables \
 	iptables \
+	util-linux-dev \
 	bash
 
 COPY . /criu

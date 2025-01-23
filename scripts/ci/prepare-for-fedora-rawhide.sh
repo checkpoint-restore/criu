@@ -36,6 +36,7 @@ dnf install -y \
 	e2fsprogs \
 	rubygem-asciidoctor \
 	libdrm-devel \
+	libuuid-devel \
 	kmod
 
 # /tmp is no longer 755 in the rawhide container image and breaks CI - fix it

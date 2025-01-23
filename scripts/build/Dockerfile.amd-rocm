@@ -56,6 +56,7 @@ RUN apt-get clean -qqy && apt-get update -qqy && apt-get install -qqy --no-insta
 	python-protobuf \
 	python3-minimal \
 	python-ipaddress \
+	uuid-dev \
 	curl \
 	wget \
 	vim \
