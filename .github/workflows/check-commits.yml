@@ -12,14 +12,14 @@ jobs:
     # Check if pull request does not have label "not-selfcontained-ok"
     if: "!contains(github.event.pull_request.labels.*.name, 'not-selfcontained-ok')"
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         # Needed to rebase against the base branch
         fetch-depth: 0
         # Checkout pull request HEAD commit instead of merge commit
         ref: ${{ github.event.pull_request.head.sha }}
     - name: Install dependencies
-      run: sudo apt-get install -y libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnl-3-dev libnet-dev libcap-dev
+      run: sudo scripts/ci/apt-install libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnl-3-dev libnet-dev libcap-dev
     - name: Configure git user details
       run: |
         git config --global user.email "checkpoint-restore@users.noreply.github.com"
