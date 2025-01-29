@@ -14,7 +14,7 @@
 #define RB_MASK	 3
 
 struct rb_node {
-	unsigned long rb_parent_color; /* Keeps both parent anc color */
+	unsigned long rb_parent_color; /* Keeps both parent and color */
 	struct rb_node *rb_right;
 	struct rb_node *rb_left;
 } __aligned(sizeof(long));
