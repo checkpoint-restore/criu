@@ -1421,7 +1421,7 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 
 	if (opts.ps_socket != -1) {
 		ask = opts.ps_socket;
-		pr_info("Re-using ps socket %d\n", ask);
+		pr_info("Reusing ps socket %d\n", ask);
 		goto no_server;
 	}
 
@@ -1467,7 +1467,7 @@ static int connect_to_page_server(void)
 
 	if (opts.ps_socket != -1) {
 		page_server_sk = opts.ps_socket;
-		pr_info("Re-using ps socket %d\n", page_server_sk);
+		pr_info("Reusing ps socket %d\n", page_server_sk);
 		goto out;
 	}
 

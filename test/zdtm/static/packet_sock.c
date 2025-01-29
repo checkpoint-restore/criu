@@ -5,7 +5,7 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
 /*
  * Description:
- *  Create and bind several packet sockets, check thet getname
+ *  Create and bind several packet sockets, check that getname
  *  reports same result before and after c/r cycle. This is enough
  *  for _basic_ packet functionality only, but still.
  */
