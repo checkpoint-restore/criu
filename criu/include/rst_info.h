@@ -22,7 +22,7 @@ struct fdt {
 	pid_t pid; /* Who should restore this fd table */
 	/*
 	 * The fd table is ready for restoing, if fdt_lock is equal to nr
-	 * The fdt table was restrored, if fdt_lock is equal to nr + 1
+	 * The fdt table was restored, if fdt_lock is equal to nr + 1
 	 */
 	futex_t fdt_lock;
 };
