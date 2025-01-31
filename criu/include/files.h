@@ -195,5 +195,7 @@ extern int open_transport_socket(void);
 extern int set_fds_event(pid_t virt);
 extern void wait_fds_event(void);
 
+int serve_out_dmabuf_fd(int handle, int fd);
+
 int find_unused_fd_pid(pid_t pid);
 #endif /* __CR_FILES_H__ */

@@ -28,6 +28,7 @@ enum sfd_type {
 	USERNSD_SK,	  /* Socket for usernsd */
 	NS_FD_OFF,	  /* Node's net namespace fd */
 	TRANSPORT_FD_OFF, /* to transfer file descriptors */
+	DMABUF_FD_OFF,
 	RPC_SK_OFF,
 	FDSTORE_SK_OFF,
 
@@ -47,5 +48,6 @@ extern int install_service_fd(enum sfd_type type, int fd);
 extern int close_service_fd(enum sfd_type type);
 extern void __close_service_fd(enum sfd_type type);
 extern int clone_service_fd(struct pstree_item *me);
+extern int get_unused_high_fd(void);
 
 #endif /* __CR_SERVICE_FD_H__ */

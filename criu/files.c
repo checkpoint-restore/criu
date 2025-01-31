@@ -62,6 +62,8 @@
 static struct hlist_head file_desc_hash[FDESC_HASH_SIZE];
 /* file_desc's, which fle is not owned by a process, that is able to open them */
 static LIST_HEAD(fake_master_head);
+/* processes that have a file from a plugin that can use shared dmabuf_fds */
+static LIST_HEAD(dmabuf_processes);
 
 static u32 max_file_desc_id = 0;
 
@@ -831,10 +833,35 @@ static void collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_desc 
 	}
 }
 
+static int add_pid_to_dmabuf_list(int pid)
+{
+	struct fdinfo_list_entry *le;
+
+	list_for_each_entry(le, &dmabuf_processes, desc_list)
+		if (le->pid == pid)
+			return 0;
+
+	le = alloc_fle(pid, NULL);
+
+	if (!le)
+		return -ENOMEM;
+
+	list_add(&le->desc_list, &dmabuf_processes);
+
+	return 0;
+}
+
 struct fdinfo_list_entry *collect_fd_to(int pid, FdinfoEntry *e, struct rst_info *rst_info, struct file_desc *fdesc,
 					bool fake, bool force_master)
 {
 	struct fdinfo_list_entry *new_le;
+	int ret;
+
+	if (fdesc->ops->type == FD_TYPES__EXT) {
+		ret = add_pid_to_dmabuf_list(pid);
+		if (ret)
+			return NULL;
+	}
 
 	new_le = alloc_fle(pid, e);
 	if (new_le) {
@@ -983,6 +1010,14 @@ static void transport_name_gen(struct sockaddr_un *addr, int *len, int pid)
 	*addr->sun_path = '\0';
 }
 
+static void dmabuf_socket_name_gen(struct sockaddr_un *addr, int *len, int pid)
+{
+	addr->sun_family = AF_UNIX;
+	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-dmabuf-%d-%" PRIx64, pid, criu_run_id);
+	*len = SUN_LEN(addr);
+	*addr->sun_path = '\0';
+}
+
 static bool task_fle(struct pstree_item *task, struct fdinfo_list_entry *fle)
 {
 	struct fdinfo_list_entry *tmp;
@@ -1026,6 +1061,45 @@ static int recv_fd_from_peer(struct fdinfo_list_entry *fle)
 	} while (tmp != fle);
 
 	return 0;
+}
+
+static int recv_dmabuf_fds(void)
+{
+	int fd, newfd, ret, tsock, handle;
+
+	tsock = get_service_fd(DMABUF_FD_OFF);
+
+	while (true) {
+		ret = __recv_fds(tsock, &fd, 1, (void *)&handle, sizeof(handle), MSG_DONTWAIT);
+
+		if (ret == -EAGAIN || ret == -EWOULDBLOCK)
+			return 1;
+		else if (ret)
+			return -1;
+
+		newfd = get_unused_high_fd();
+
+		reopen_fd_as(newfd, fd);
+
+		run_plugins(DMABUF_FD, handle, newfd);
+	}
+
+	return 0;
+}
+
+static int send_dmabuf_fd_to_peer(int handle, int fd, int pid)
+{
+	struct sockaddr_un saddr;
+	int len, sock, ret;
+
+	sock = get_service_fd(DMABUF_FD_OFF);
+
+	dmabuf_socket_name_gen(&saddr, &len, pid);
+	pr_info("\t\tSend dmabuf fd %d for handle %d to %s\n", fd, handle, saddr.sun_path + 1);
+	ret = send_fds(sock, &saddr, len, &fd, 1, (void *)&handle, sizeof(handle));
+	if (ret < 0)
+		return -1;
+	return set_fds_event(pid);
 }
 
 static int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle)
@@ -1132,6 +1206,25 @@ int setup_and_serve_out(struct fdinfo_list_entry *fle, int new_fd)
 	return 0;
 }
 
+int serve_out_dmabuf_fd(int handle, int fd)
+{
+	int ret;
+	struct fdinfo_list_entry *fle;
+
+	list_for_each_entry(fle, &dmabuf_processes, desc_list) {
+		ret = send_dmabuf_fd_to_peer(handle, fd, fle->pid);
+
+		if (ret) {
+			pr_err("Can't sent fd %d to %d\n", fd, fle->pid);
+			goto out;
+		}
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
 static int open_fd(struct fdinfo_list_entry *fle)
 {
 	struct file_desc *d = fle->desc;
@@ -1212,6 +1305,7 @@ static int open_fdinfos(struct pstree_item *me)
 	do {
 		progress = again = false;
 		clear_fds_event();
+		recv_dmabuf_fds();
 
 		list_for_each_entry_safe(fle, tmp, list, ps_list) {
 			st = fle->stage;
@@ -1707,6 +1801,25 @@ int open_transport_socket(void)
 
 	if (install_service_fd(TRANSPORT_FD_OFF, sock) < 0)
 		goto out;
+
+
+	sock = socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+	if (sock < 0) {
+		pr_perror("Can't create socket");
+		goto out;
+	}
+
+	dmabuf_socket_name_gen(&saddr, &slen, pid);
+	if (bind(sock, (struct sockaddr *)&saddr, slen) < 0) {
+		pr_perror("Can't bind dmabuf socket %s", saddr.sun_path + 1);
+		close(sock);
+		goto out;
+	}
+
+	if (install_service_fd(DMABUF_FD_OFF, sock) < 0)
+		goto out;
+
+
 	ret = 0;
 out:
 	return ret;

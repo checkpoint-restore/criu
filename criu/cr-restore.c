@@ -3470,6 +3470,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	close_image_dir();
 	close_proc();
 	close_service_fd(TRANSPORT_FD_OFF);
+	close_service_fd(DMABUF_FD_OFF);
 	close_service_fd(CR_PROC_FD_OFF);
 	close_service_fd(ROOT_FD_OFF);
 	close_service_fd(USERNSD_SK);

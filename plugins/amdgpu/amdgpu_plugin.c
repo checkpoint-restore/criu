@@ -49,13 +49,6 @@ struct vma_metadata {
 
 /************************************ Global Variables ********************************************/
 
-/**
- * FD of KFD device used to checkpoint. On a multi-process
- * tree the order of checkpointing goes from parent to child
- * and so on - so saving the FD will not be overwritten
- */
-static int kfd_checkpoint_fd;
-
 static LIST_HEAD(update_vma_info_list);
 
 size_t kfd_max_buffer_size;
@@ -79,7 +72,7 @@ int kmtIoctl(int fd, unsigned long request, void *arg)
 		/* In case pthread_atfork didn't catch it, this will
 		 * make any subsequent hsaKmt calls fail in CHECK_KFD_OPEN.
 		 */
-		pr_perror("KFD file descriptor not valid in this process");
+		pr_perror("KFD file descriptor not valid in this process: %d\n", fd);
 	return ret;
 }
 
@@ -110,7 +103,9 @@ static int allocate_device_entries(CriuKfd *e, int num_of_devices)
 	}
 
 	for (int i = 0; i < num_of_devices; i++) {
-		KfdDeviceEntry *entry = xzalloc(sizeof(*entry));
+		KfdDeviceEntry *entry;
+
+		entry = xzalloc(sizeof(*entry));
 
 		if (!entry) {
 			pr_err("Failed to allocate entry\n");
@@ -503,11 +498,11 @@ void free_and_unmap(uint64_t size, amdgpu_bo_handle h_bo, amdgpu_va_handle h_va,
 	amdgpu_bo_free(h_bo);
 }
 
-static int sdma_copy_bo(struct kfd_criu_bo_bucket bo_bucket, FILE *storage_fp,
+int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 						void *buffer, size_t buffer_size, amdgpu_device_handle h_dev,
-						uint64_t max_copy_size, enum sdma_op_type type)
+						uint64_t max_copy_size, enum sdma_op_type type, bool do_not_free)
 {
-	uint64_t size, src_bo_size, dst_bo_size, buffer_bo_size, bytes_remain, buffer_space_remain;
+	uint64_t src_bo_size, dst_bo_size, buffer_bo_size, bytes_remain, buffer_space_remain;
 	uint64_t gpu_addr_src, gpu_addr_dst, gpu_addr_ib, copy_src, copy_dst, copy_size;
 	amdgpu_va_handle h_va_src, h_va_dst, h_va_ib;
 	amdgpu_bo_handle h_bo_src, h_bo_dst, h_bo_ib;
@@ -520,10 +515,8 @@ static int sdma_copy_bo(struct kfd_criu_bo_bucket bo_bucket, FILE *storage_fp,
 	uint32_t expired;
 	amdgpu_context_handle h_ctx;
 	uint32_t *ib = NULL;
-	int j, err, shared_fd, packets_per_buffer;
+	int j, err, packets_per_buffer;
 
-	shared_fd = bo_bucket.dmabuf_fd;
-	size = bo_bucket.size;
 	buffer_bo_size = min(size, buffer_size);
 	packets_per_buffer = ((buffer_bo_size - 1) / max_copy_size) + 1;
 	src_bo_size = (type == SDMA_OP_VRAM_WRITE) ? buffer_bo_size : size;
@@ -734,7 +727,8 @@ err_dst_bo_map:
 	if (err)
 		pr_perror("dest range free failed");
 err_dst_va:
-	err = amdgpu_bo_free(h_bo_dst);
+	if (!do_not_free)
+		err = amdgpu_bo_free(h_bo_dst);
 	if (err)
 		pr_perror("dest bo free failed");
 err_dst_bo_prep:
@@ -822,8 +816,9 @@ void *dump_bo_contents(void *_thread_data)
 		num_bos++;
 
 		/* perform sDMA based vram copy */
-		ret = sdma_copy_bo(bo_buckets[i], bo_contents_fp, buffer, buffer_size, h_dev, max_copy_size,
-				   SDMA_OP_VRAM_READ);
+		ret = sdma_copy_bo(bo_buckets[i].dmabuf_fd, bo_buckets[i].size, bo_contents_fp, buffer, buffer_size, h_dev, max_copy_size,
+				   SDMA_OP_VRAM_READ, false);
+
 		if (ret) {
 			pr_err("Failed to drain the BO using sDMA: bo_buckets[%d]\n", i);
 			break;
@@ -920,8 +915,8 @@ void *restore_bo_contents(void *_thread_data)
 
 		num_bos++;
 
-		ret = sdma_copy_bo(bo_buckets[i], bo_contents_fp, buffer, buffer_size, h_dev, max_copy_size,
-				   SDMA_OP_VRAM_WRITE);
+		ret = sdma_copy_bo(bo_buckets[i].dmabuf_fd, bo_buckets[i].size, bo_contents_fp, buffer, buffer_size, h_dev, max_copy_size,
+				   SDMA_OP_VRAM_WRITE, false);
 		if (ret) {
 			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
 			break;
@@ -1007,28 +1002,39 @@ int restore_hsakmt_shared_mem(const uint64_t shared_mem_size, const uint32_t sha
 	return 0;
 }
 
-static int unpause_process(int fd)
+int amdgpu_unpause_processes(int pid)
 {
 	int ret = 0;
 	struct kfd_ioctl_criu_args args = { 0 };
+	struct list_head *l = get_dumped_fds();
+	struct dumped_fd *st;
 
-	args.op = KFD_CRIU_OP_UNPAUSE;
+	list_for_each_entry(st, l, l) {
+		if (st->is_drm) {
+			ret = amdgpu_plugin_drm_unpause_file(st->fd);
+			if (ret) {
+				pr_perror("Failed to unpause drm device file");
+				goto exit;
+			}
+			close(st->fd);
+		} else {
+			args.op = KFD_CRIU_OP_UNPAUSE;
 
-	ret = kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args);
-	if (ret) {
-		pr_perror("Failed to unpause process");
-		goto exit;
+			ret = kmtIoctl(st->fd, AMDKFD_IOC_CRIU_OP, &args);
+			if (ret) {
+				pr_perror("Failed to unpause process");
+				goto exit;
+			}
+		}
 	}
-
-	// Reset the KFD FD
-	kfd_checkpoint_fd = -1;
-	sys_close_drm_render_devices(&src_topology);
 
 exit:
 	pr_info("Process unpaused %s (ret:%d)\n", ret ? "Failed" : "Ok", ret);
+	clear_dumped_fds();
 
 	return ret;
 }
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_DEVICE_LATE, amdgpu_unpause_processes)
 
 static int save_devices(int fd, struct kfd_ioctl_criu_args *args, struct kfd_criu_device_bucket *device_buckets,
 			CriuKfd *e)
@@ -1072,6 +1078,8 @@ static int save_bos(int id, int fd, struct kfd_ioctl_criu_args *args, struct kfd
 {
 	struct thread_data *thread_datas;
 	int ret = 0, i;
+	amdgpu_device_handle h_dev;
+	uint32_t major, minor;
 
 	pr_debug("Dumping %d BOs\n", args->num_bos);
 
@@ -1095,6 +1103,21 @@ static int save_bos(int id, int fd, struct kfd_ioctl_criu_args *args, struct kfd
 		boinfo->size = bo_bucket->size;
 		boinfo->offset = bo_bucket->offset;
 		boinfo->alloc_flags = bo_bucket->alloc_flags;
+
+		ret = amdgpu_device_initialize(node_get_drm_render_device(sys_get_node_by_gpu_id(&src_topology, bo_bucket->gpu_id)), &major, &minor, &h_dev);
+
+		boinfo->handle = get_gem_handle(h_dev, bo_bucket->dmabuf_fd);
+
+		amdgpu_device_deinitialize(h_dev);
+
+		boinfo->is_import = bo_bucket->is_import | shared_bo_has_exporter(boinfo->handle);
+	}
+	for (i = 0; i < e->num_of_bos; i++) {
+		KfdBoEntry *boinfo = e->bo_entries[i];
+
+		ret = record_shared_bo(boinfo->handle, boinfo->is_import);
+		if (ret)
+			goto exit;
 	}
 
 	for (int i = 0; i < e->num_of_gpus; i++) {
@@ -1215,11 +1238,10 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		return -1;
 	}
 
-	/* Initialize number of device files that will be checkpointed */
-	init_gpu_count(&src_topology);
-
 	/* Check whether this plugin was called for kfd or render nodes */
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0) {
+		char buffer[64];
+		char path[64];
 
 		/* This is RenderD dumper plugin, for now just save renderD
 		 * minor number to be used during restore. In later phases this
@@ -1229,11 +1251,11 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		if (ret)
 			return ret;
 
-		/* Invoke unpause process if needed */
-		decrement_checkpoint_count();
-		if (checkpoint_is_complete()) {
-			ret = unpause_process(kfd_checkpoint_fd);
-		}
+		ret = record_dumped_fd(fd, true);
+		if (ret)
+			return ret;
+		sprintf(path, "/proc/self/fd/%d", fd);
+		readlink(path, buffer, 64);
 
 		/* Need to return success here so that criu can call plugins for renderD nodes */
 		return ret;
@@ -1331,14 +1353,11 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	xfree(buf);
 
-exit:
-	/* Restore all queues if conditions permit */
-	kfd_checkpoint_fd = fd;
-	decrement_checkpoint_count();
-	if (checkpoint_is_complete()) {
-		ret = unpause_process(fd);
-	}
+        ret = record_dumped_fd(fd, false);
+        if (ret)
+               goto exit;
 
+exit:
 	xfree((void *)args.devices);
 	xfree((void *)args.bos);
 	xfree((void *)args.priv_data);
@@ -1409,6 +1428,7 @@ exit:
 static int restore_bos(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 {
 	struct kfd_criu_bo_bucket *bo_buckets;
+	bool retry_needed = false;
 
 	pr_debug("Restoring %ld BOs\n", e->num_of_bos);
 
@@ -1422,18 +1442,59 @@ static int restore_bos(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 	for (int i = 0; i < args->num_bos; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
 		KfdBoEntry *bo_entry = e->bo_entries[i];
+		int dmabuf_fd = -1;
+
+		bo_bucket->addr = bo_entry->addr;
+
+		if (work_already_completed(bo_entry->handle, bo_entry->gpu_id)) {
+			bo_bucket->skip = 1;
+		} else if (bo_entry->handle != -1) {
+			if (bo_entry->is_import) {
+				dmabuf_fd = dmabuf_fd_for_handle(bo_entry->handle);
+				if (dmabuf_fd == -1) {
+					bo_bucket->skip = 1;
+					retry_needed = true;
+				}
+			}
+		}
+
+		bo_bucket->is_import = bo_entry->is_import;
 
 		bo_bucket->gpu_id = bo_entry->gpu_id;
-		bo_bucket->addr = bo_entry->addr;
 		bo_bucket->size = bo_entry->size;
 		bo_bucket->offset = bo_entry->offset;
 		bo_bucket->alloc_flags = bo_entry->alloc_flags;
+		bo_bucket->dmabuf_fd = dmabuf_fd;
 
 		plugin_log_msg("BO [%d] gpu_id:%x addr:%llx size:%llx offset:%llx\n", i, bo_bucket->gpu_id,
 			       bo_bucket->addr, bo_bucket->size, bo_bucket->offset);
+
 	}
 
 	pr_info("Restore BOs Ok\n");
+
+	return retry_needed;
+}
+
+int save_vma_updates(uint64_t offset, uint64_t addr, uint64_t restored_offset, int fd)
+{
+	struct vma_metadata *vma_md;
+
+	vma_md = xmalloc(sizeof(*vma_md));
+	if (!vma_md) {
+		return -ENOMEM;
+	}
+
+	memset(vma_md, 0, sizeof(*vma_md));
+
+	vma_md->old_pgoff = offset;
+	vma_md->vma_entry = addr;
+
+	vma_md->new_pgoff = restored_offset;
+	vma_md->fd = fd;
+
+	list_add_tail(&vma_md->list, &update_vma_info_list);
+
 	return 0;
 }
 
@@ -1451,6 +1512,9 @@ static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKf
 	for (int i = 0; i < e->num_of_bos; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
 		struct tp_node *tp_node;
+
+		if (bo_bucket->skip)
+			continue;
 
 		if (bo_bucket->alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT |
 					      KFD_IOC_ALLOC_MEM_FLAGS_MMIO_REMAP | KFD_IOC_ALLOC_MEM_FLAGS_DOORBELL)) {
@@ -1480,10 +1544,6 @@ static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKf
 			vma_md->new_minor = tp_node->drm_render_minor;
 			vma_md->new_pgoff = bo_bucket->restored_offset;
 			vma_md->fd = node_get_drm_render_device(tp_node);
-
-			plugin_log_msg("adding vma_entry:addr:0x%lx old-off:0x%lx "
-				       "new_off:0x%lx new_minor:%d\n",
-				       vma_md->vma_entry, vma_md->old_pgoff, vma_md->new_pgoff, vma_md->new_minor);
 
 			list_add_tail(&vma_md->list, &update_vma_info_list);
 		}
@@ -1551,7 +1611,7 @@ exit:
 	return ret;
 }
 
-int amdgpu_plugin_restore_file(int id)
+int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 {
 	int ret = 0, fd;
 	char img_path[PATH_MAX];
@@ -1561,6 +1621,8 @@ int amdgpu_plugin_restore_file(int id)
 	struct kfd_ioctl_criu_args args = { 0 };
 	size_t img_size;
 	FILE *img_fp = NULL;
+
+	*retry_needed = false;
 
 	if (plugin_disabled)
 		return -ENOTSUP;
@@ -1609,8 +1671,6 @@ int amdgpu_plugin_restore_file(int id)
 		}
 		fclose(img_fp);
 
-		pr_info("render node gpu_id = 0x%04x\n", rd->gpu_id);
-
 		target_gpu_id = maps_get_dest_gpu(&restore_maps, rd->gpu_id);
 		if (!target_gpu_id) {
 			fd = -ENODEV;
@@ -1626,8 +1686,18 @@ int amdgpu_plugin_restore_file(int id)
 		pr_info("render node destination gpu_id = 0x%04x\n", tp_node->gpu_id);
 
 		fd = node_get_drm_render_device(tp_node);
-		if (fd < 0)
+		if (fd < 0) {
 			pr_err("Failed to open render device (minor:%d)\n", tp_node->drm_render_minor);
+			return -1;
+		}
+
+		ret = amdgpu_plugin_drm_restore_file(fd, rd);
+		if (ret == 1)
+			*retry_needed = true;
+		if (ret < 0) {
+			fd = ret;
+			goto fail;
+		}
 	fail:
 		criu_render_node__free_unpacked(rd, NULL);
 		xfree(buf);
@@ -1639,12 +1709,19 @@ int amdgpu_plugin_restore_file(int id)
 		 * copy of the fd. CRIU core owns the duplicated returned fd, and amdgpu_plugin owns the fd stored in
 		 * tp_node.
 		 */
-		fd = dup(fd);
-		if (fd == -1) {
-			pr_perror("unable to duplicate the render fd");
-			return -1;
+
+		if (fd < 0)
+			return fd;
+
+		if (!(*retry_needed)) {
+			fd = dup(fd);
+			if (fd == -1) {
+				pr_perror("unable to duplicate the render fd");
+				return -1;
+			}
+			return fd;
 		}
-		return fd;
+		return 0;
 	}
 
 	fd = open(AMDGPU_KFD_DEVICE, O_RDWR | O_CLOEXEC);
@@ -1688,12 +1765,15 @@ int amdgpu_plugin_restore_file(int id)
 	 * This way, we know that the file descriptors we store will not conflict with file descriptors inside core
 	 * CRIU.
 	 */
-	fd_next = find_unused_fd_pid(e->pid);
-	if (fd_next <= 0) {
-		pr_err("Failed to find unused fd (fd:%d)\n", fd_next);
-		ret = -EINVAL;
-		goto exit;
+	if (fd_next == -1) {
+		fd_next = find_unused_fd_pid(e->pid);
+		if (fd_next <= 0) {
+			pr_err("Failed to find unused fd (fd:%d)\n", fd_next);
+			ret = -EINVAL;
+			goto exit;
+		}
 	}
+
 
 	ret = devinfo_to_topology(e->device_entries, e->num_of_gpus + e->num_of_cpus, &src_topology);
 	if (ret) {
@@ -1714,23 +1794,43 @@ int amdgpu_plugin_restore_file(int id)
 		goto exit;
 	}
 
+
 	ret = restore_devices(&args, e);
 	if (ret)
 		goto exit;
 
 	ret = restore_bos(&args, e);
-	if (ret)
+	if (ret == 1)
+		*retry_needed = true;
+	else if (ret)
 		goto exit;
 
 	args.num_objects = e->num_of_objects;
 	args.priv_data_size = e->priv_data.len;
 	args.priv_data = (uintptr_t)e->priv_data.data;
+	args.is_retry = work_already_completed(-1, -1);
 
 	args.op = KFD_CRIU_OP_RESTORE;
 	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args) == -1) {
 		pr_perror("Restore ioctl failed");
 		ret = -1;
 		goto exit;
+	}
+
+	ret = record_completed_work(-1, -1);
+	if (ret < 0)
+		goto exit;
+	for (int i = 0; i < args.num_bos; i++) {
+		struct kfd_criu_bo_bucket *bo_bucket = &((struct kfd_criu_bo_bucket *)args.bos)[i];
+		KfdBoEntry *bo_entry = e->bo_entries[i];
+
+		if (!bo_bucket->skip && !work_already_completed(bo_entry->handle, bo_entry->gpu_id)) {
+			ret = record_completed_work(bo_entry->handle, bo_entry->gpu_id);
+			if (ret < 0)
+				goto exit;
+			if (!bo_entry->is_import)
+				serve_out_dmabuf_fd(bo_entry->handle, bo_bucket->dmabuf_fd);
+		}
 	}
 
 	ret = restore_bo_data(id, (struct kfd_criu_bo_bucket *)args.bos, e);
@@ -1758,6 +1858,10 @@ exit:
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESTORE_EXT_FILE, amdgpu_plugin_restore_file)
 
+int amdgpu_plugin_dmabuf_fd_update(int handle, int fd) {
+	return record_shared_dmabuf_fd(handle, fd);
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DMABUF_FD, amdgpu_plugin_dmabuf_fd_update)
 /* return 0 if no match found
  * return -1 for error.
  * return 1 if vmap map must be adjusted.
@@ -1856,6 +1960,8 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 			exit_code = -1;
 		}
 	}
+
+	clear_completed_work_and_dmabuf_fds();
 
 	close(fd);
 	return exit_code;

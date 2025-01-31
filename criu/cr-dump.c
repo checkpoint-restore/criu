@@ -2228,6 +2228,9 @@ int cr_dump_tasks(pid_t pid)
 			goto err;
 	}
 
+	if(run_plugins(DUMP_DEVICE_LATE, pid))
+		goto err;
+
 	if (parent_ie) {
 		inventory_entry__free_unpacked(parent_ie, NULL);
 		parent_ie = NULL;

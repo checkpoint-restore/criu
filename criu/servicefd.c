@@ -25,6 +25,7 @@ int service_fd_rlim_cur;
 
 /* Base of current process service fds set */
 static int service_fd_base;
+static int next_high_fd;
 
 /* Id of current process in shared fdt */
 static int service_fd_id = 0;
@@ -53,6 +54,7 @@ const char *sfd_type_name(enum sfd_type type)
 		[USERNSD_SK] = __stringify_1(USERNSD_SK),
 		[NS_FD_OFF] = __stringify_1(NS_FD_OFF),
 		[TRANSPORT_FD_OFF] = __stringify_1(TRANSPORT_FD_OFF),
+		[DMABUF_FD_OFF] = __stringify_1(DMABUF_FD_OFF),
 		[RPC_SK_OFF] = __stringify_1(RPC_SK_OFF),
 		[FDSTORE_SK_OFF] = __stringify_1(FDSTORE_SK_OFF),
 		[SERVICE_FD_MAX] = __stringify_1(SERVICE_FD_MAX),
@@ -312,5 +314,15 @@ int clone_service_fd(struct pstree_item *me)
 	service_fd_id = id;
 	ret = 0;
 
+	next_high_fd = service_fd_base + 1024;
+
 	return ret;
+}
+
+int get_unused_high_fd(void)
+{
+	if (next_high_fd > service_fd_rlim_cur)
+		return -1;
+	next_high_fd += 1;
+	return next_high_fd - 1;
 }
