@@ -466,7 +466,7 @@ shellcheck:
 	shellcheck -x test/others/action-script/*.sh
 
 codespell:
-	codespell -S tags
+	codespell
 
 lint: ruff shellcheck codespell
 	# Do not append \n to pr_perror, pr_pwarn or fail
