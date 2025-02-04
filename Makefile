@@ -140,6 +140,10 @@ ifneq ($(GCOV),)
         CFLAGS          += $(CFLAGS-GCOV)
 endif
 
+ifneq ($(NETWORK_LOCK_DEFAULT),)
+	CFLAGS		+= -DNETWORK_LOCK_DEFAULT=$(NETWORK_LOCK_DEFAULT)
+endif
+
 ifeq ($(ASAN),1)
 	CFLAGS-ASAN	:= -fsanitize=address
 	export		CFLAGS-ASAN
