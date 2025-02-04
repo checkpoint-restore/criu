@@ -70,7 +70,15 @@ enum NETWORK_LOCK_METHOD {
 	NETWORK_LOCK_SKIP,
 };
 
+/**
+ * CRIU currently defaults to the iptables locking backend.
+ *
+ * It is, however, possible to change this by defining
+ * NETWORK_LOCK_DEFAULT to a different value on the command-line.
+ */
+#ifndef NETWORK_LOCK_DEFAULT
 #define NETWORK_LOCK_DEFAULT NETWORK_LOCK_IPTABLES
+#endif
 
 /*
  * Ghost file size we allow to carry by default.
