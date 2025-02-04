@@ -110,18 +110,17 @@ static char *ext_mount_lookup(char *key)
  * Single linked list of mount points get from proc/images
  */
 struct mount_info *mntinfo;
+struct mount_info *mntinfo_tail;
 
 static void mntinfo_add_list(struct mount_info *new)
 {
-	if (!mntinfo)
+	if (!mntinfo) {
 		mntinfo = new;
+        mntinfo_tail = mntinfo;
+    }
 	else {
-		struct mount_info *pm;
-
-		/* Add to the tail. (FIXME -- make O(1) ) */
-		for (pm = mntinfo; pm->next != NULL; pm = pm->next)
-			;
-		pm->next = new;
+        mntinfo_tail->next = new;
+        mntinfo_tail = mntinfo_tail->next;     
 	}
 }
 
