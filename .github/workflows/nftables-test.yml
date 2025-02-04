@@ -1,0 +1,24 @@
+name: Nftables bases testing
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: nftables-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Remove iptables
+      run: sudo apt remove -y iptables
+    - name: Install libnftables-dev
+      run: sudo scripts/ci/apt-install libnftables-dev
+    - name: chmod 755 /home/runner
+      # CRIU's tests are sometimes running as some random user and need
+      # to be able to access the test files.
+      run: sudo chmod 755 /home/runner
+    - name: Build with nftables network locking backend
+      run: sudo make -C scripts/ci local COMPILE_FLAGS="NETWORK_LOCK_DEFAULT=NETWORK_LOCK_NFTABLES"
