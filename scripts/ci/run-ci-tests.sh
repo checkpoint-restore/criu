@@ -39,6 +39,10 @@ ci_prep () {
 	# This can fail on aarch64 travis
 	service apport stop || :
 
+	# Ubuntu has set up AppArmor in 24.04 so that it blocks use of user
+	# namespaces by unprivileged users. We need this for some of our tests.
+	sysctl kernel.apparmor_restrict_unprivileged_userns=0 || :
+
 	if [ "$CLANG" = "1" ]; then
 		# clang support
 		CC=clang
@@ -121,8 +125,14 @@ if [ "${CD_TO_TOP}" = "1" ]; then
 fi
 
 export GCOV CC
+if [ -z "$COMPILE_FLAGS" ]; then
+	LOCAL_COMPILE_FLAGS=("V=1")
+else
+	IFS=" " read -r -a LOCAL_COMPILE_FLAGS <<< "$COMPILE_FLAGS"
+	LOCAL_COMPILE_FLAGS=("V=1" "${LOCAL_COMPILE_FLAGS[@]}")
+fi
 $CC --version
-time make CC="$CC" -j4 V=1
+time make CC="$CC" -j4 "${LOCAL_COMPILE_FLAGS[@]}"
 
 ./criu/criu -v4 cpuinfo dump || :
 ./criu/criu -v4 cpuinfo check || :
@@ -150,6 +160,7 @@ ulimit -c unlimited
 cgid=$$
 cleanup_cgroup() {
 	./test/zdtm_umount_cgroups $cgid
+	dmesg
 }
 trap cleanup_cgroup EXIT
 ./test/zdtm_mount_cgroups $cgid
