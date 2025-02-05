@@ -1,6 +1,7 @@
 {
     'flavor': 'h',
     'flags': 'suid excl reqrst',
+    'feature': 'has_ipt_legacy',
     'opts': '--tcp-established',
     'dopts': '--network-lock iptables',
     'ropts': '--join-ns net:/var/run/netns/criu-net-lock-test'
