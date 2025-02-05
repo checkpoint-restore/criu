@@ -5,6 +5,6 @@
 	],
 	'opts': '--tcp-established',
 	'flags': 'suid nouser samens',
-	'feature' : 'tcp_half_closed',
+	'feature' : 'tcp_half_closed has_ipt_legacy',
 	'flavor': 'ns uns',
 }
