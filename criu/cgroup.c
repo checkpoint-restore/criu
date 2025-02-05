@@ -248,7 +248,7 @@ static int find_dir(const char *path, struct list_head *dirs, struct cgroup_dir 
 			return EXACT_MATCH;
 		}
 
-		if (strstartswith(path, d->path)) {
+		if (issubpath(path, d->path)) {
 			int ret = find_dir(path, &d->children, rdir);
 			if (ret == NO_MATCH) {
 				*rdir = d;
