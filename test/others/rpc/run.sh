@@ -51,7 +51,7 @@ function test_restore_loop {
 	title_print "Dump loop process"
 	# So theoretically '-j' (--shell-job) should not be necessary, but on alpine
 	# this test fails without it.
-	${CRIU} dump -j -v4 -o dump-loop.log -D build/imgs_loop -t ${P}
+	${CRIU} dump -j -v4 -o dump-loop.log --network-lock skip -D build/imgs_loop -t ${P}
 
 	title_print "Run restore-loop"
 	./restore-loop.py build/criu_service.socket build/imgs_loop
