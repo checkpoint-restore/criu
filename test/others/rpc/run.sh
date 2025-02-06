@@ -3,6 +3,7 @@
 set -e
 
 CRIU=./criu
+FAIL=1
 
 export PROTODIR=`readlink -f "${PWD}/../../protobuf"`
 
@@ -19,6 +20,13 @@ function stop_server {
 	title_print "Shutdown service server"
 	kill -SIGTERM $(cat build/pidfile)
 	unlink build/pidfile
+	if [ "${FAIL}" == "1" ]; then
+		for i in build/output*; do
+			echo "File: $i"
+			cat $i
+		done
+		find . -name "*.log" -print -exec cat {} \; || true
+	fi
 }
 
 function test_c {
@@ -79,6 +87,8 @@ test_py
 test_restore_loop
 test_ps
 test_errno
+
+FAIL=0
 
 stop_server
 
