@@ -370,7 +370,7 @@ int render_lsm_profile(char *profile, char **val)
 	case LSMTYPE__APPARMOR:
 		return render_aa_profile(val, profile);
 	case LSMTYPE__SELINUX:
-		if (asprintf(val, "%s", profile) < 0) {
+		if (asprintf(val, "%s", opts.lsm_supplied ? opts.lsm_profile : profile) < 0) {
 			*val = NULL;
 			return -1;
 		}
