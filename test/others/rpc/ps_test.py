@@ -23,6 +23,7 @@ req.type = rpc.PAGE_SERVER
 req.opts.log_file = 'page-server.log'
 req.opts.log_level = 4
 req.opts.images_dir_fd = os.open(args['dir'], os.O_DIRECTORY)
+req.opts.network_lock = rpc.SKIP
 
 s.send(req.SerializeToString())
 
