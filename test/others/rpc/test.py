@@ -24,6 +24,7 @@ req.type = rpc.DUMP
 req.opts.leave_running = True
 req.opts.log_level = 4
 req.opts.images_dir_fd = os.open(args['dir'], os.O_DIRECTORY)
+req.opts.network_lock = rpc.SKIP
 
 # Send request
 s.send(req.SerializeToString())

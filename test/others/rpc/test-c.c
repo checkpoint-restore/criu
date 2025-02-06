@@ -99,6 +99,8 @@ int main(int argc, char *argv[])
 	req.opts->images_dir_fd = dir_fd;
 	req.opts->has_log_level = true;
 	req.opts->log_level = 4;
+	req.opts->has_network_lock = true;
+	req.opts->network_lock = CRIU_NETWORK_LOCK_METHOD__SKIP;
 
 	/*
 	 * Connect to service socket

@@ -67,6 +67,7 @@ class test:
         req = self.get_base_req()
         req.type = rpc.DUMP
         req.opts.pid = pid
+        req.opts.network_lock = rpc.SKIP
 
         self.send_req(req)
         resp = self.recv_resp()
@@ -84,6 +85,7 @@ class test:
         req = self.get_base_req()
         req.type = rpc.DUMP
         req.opts.leave_running = True
+        req.opts.network_lock = rpc.SKIP
 
         self.send_req(req)
         resp = self.recv_resp()
