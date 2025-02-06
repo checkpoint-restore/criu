@@ -4,6 +4,7 @@ set -e -x
 dnf install -y \
 	diffutils \
 	findutils \
+	gawk \
 	gcc \
 	git \
 	gnutls-devel \
