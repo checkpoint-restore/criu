@@ -115,11 +115,10 @@ static void mntinfo_add_list(struct mount_info *new)
 {
 	if (!mntinfo) {
 		mntinfo = new;
-                mntinfo->tail = new->tail;
-        }
-	else {
-                mntinfo->tail->next = new;
-                mntinfo->tail = new->tail;
+		mntinfo->tail = new->tail;
+	} else {
+		mntinfo->tail->next = new;
+		mntinfo->tail = new->tail;
 	}
 }
 
@@ -127,10 +126,11 @@ struct mount_info *tail_buffer;
 
 void mntinfo_add_list_before(struct mount_info **head, struct mount_info *new)
 {
-    if(!*head)
-        tail_buffer = new;
+	if (!*head) {
+		tail_buffer = new;
+	}
 
-        new->next = *head;
+	new->next = *head;
 	new->tail = tail_buffer;
 	*head = new;
 }
@@ -1202,7 +1202,7 @@ int __check_mountpoint_fd(struct mount_info *pm, int mnt_fd, bool parse_mountinf
 			return 0;
 
 		pr_warn("The file system %#x %#x (%#x) %s %s is inaccessible\n", pm->s_dev, pm->s_dev_rt, dev,
-		        pm->fstype->name, pm->ns_mountpoint);
+			pm->fstype->name, pm->ns_mountpoint);
 		return -1;
 	}
 
@@ -1959,7 +1959,7 @@ err:
 				_mi = list_entry(_mi->children._el, struct mount_info, siblings); \
 				continue;                                                         \
 			}                                                                         \
-		up:                                                                               \
+up:                                                                                               \
 			if (_fn_r(_mi))                                                           \
 				return -1;                                                        \
 			if (_mi == _r)                                                            \
