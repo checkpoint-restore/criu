@@ -113,21 +113,25 @@ struct mount_info *mntinfo;
 
 static void mntinfo_add_list(struct mount_info *new)
 {
-	if (!mntinfo)
+	if (!mntinfo) {
 		mntinfo = new;
+                mntinfo->tail = new->tail;
+        }
 	else {
-		struct mount_info *pm;
-
-		/* Add to the tail. (FIXME -- make O(1) ) */
-		for (pm = mntinfo; pm->next != NULL; pm = pm->next)
-			;
-		pm->next = new;
+                mntinfo->tail->next = new;
+                mntinfo->tail = new->tail;
 	}
 }
 
+struct mount_info *tail_buffer;
+
 void mntinfo_add_list_before(struct mount_info **head, struct mount_info *new)
 {
-	new->next = *head;
+    if(!*head)
+        tail_buffer = new;
+
+        new->next = *head;
+	new->tail = tail_buffer;
 	*head = new;
 }
 

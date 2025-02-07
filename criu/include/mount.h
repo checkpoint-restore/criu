@@ -90,6 +90,7 @@ struct mount_info {
 	int deleted_level;
 	struct list_head deleted_list;
 	struct mount_info *next;
+	struct mount_info *tail;
 	struct ns_id *nsid;
 
 	char *external;
