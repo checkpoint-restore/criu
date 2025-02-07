@@ -121,7 +121,8 @@ static int has_elf_identity(Ehdr_t *ehdr)
 	return true;
 }
 
-static int parse_elf_phdr(uintptr_t mem, size_t size, Phdr_t **dynamic, Phdr_t **load)
+static int parse_elf_phdr(uintptr_t mem, size_t size,
+			  Phdr_t **dynamic, Phdr_t **load, bool *is_32bit)
 {
 	Ehdr_t *ehdr = (void *)mem;
 	uintptr_t addr;
@@ -135,6 +136,8 @@ static int parse_elf_phdr(uintptr_t mem, size_t size, Phdr_t **dynamic, Phdr_t *
 	 */
 	if (!has_elf_identity(ehdr))
 		return -EINVAL;
+
+	*is_32bit = ehdr->e_ident[EI_CLASS] != ELFCLASS64;
 
 	addr = mem + ehdr->e_phoff;
 	if (__ptr_oob(addr, mem, size))
@@ -272,6 +275,8 @@ typedef unsigned long Hash_t;
 typedef Word_t Hash_t;
 #endif
 
+typedef uint32_t Hash32_t;
+
 static bool elf_symbol_match(uintptr_t mem, size_t size,
 		uintptr_t dynsymbol_names, Sym_t *sym,
 		const char *symbol, const size_t vdso_symbol_length)
@@ -297,21 +302,22 @@ static bool elf_symbol_match(uintptr_t mem, size_t size,
 static unsigned long elf_symbol_lookup(uintptr_t mem, size_t size,
 		const char *symbol, uint32_t symbol_hash, unsigned int sym_off,
 		uintptr_t dynsymbol_names, Dyn_t *dyn_symtab, Phdr_t *load,
-		Hash_t nbucket, Hash_t nchain, Hash_t *bucket, Hash_t *chain,
+		uint64_t nbucket, uint64_t nchain, void *_bucket, Hash_t *chain,
 		const size_t vdso_symbol_length, bool use_gnu_hash)
 {
 	unsigned int j;
 	uintptr_t addr;
 
-	j = bucket[symbol_hash % nbucket];
-	if (j == STN_UNDEF)
-		return 0;
-
 	addr = mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
 
 	if (use_gnu_hash) {
-		uint32_t *h = bucket + nbucket + (j - sym_off);
-		uint32_t hash_val;
+		Hash32_t *h, hash_val, *bucket = _bucket;
+
+		j = bucket[symbol_hash % nbucket];
+		if (j == STN_UNDEF)
+			return 0;
+
+		h = bucket + nbucket + (j - sym_off);
 
 		symbol_hash |= 1;
 		do {
@@ -325,6 +331,12 @@ static unsigned long elf_symbol_lookup(uintptr_t mem, size_t size,
 			j++;
 		} while (!(hash_val & 1));
 	} else {
+		Hash_t *bucket = _bucket;
+
+		j = bucket[symbol_hash % nbucket];
+		if (j == STN_UNDEF)
+			return 0;
+
 		for (; j < nchain && j != STN_UNDEF; j = chain[j]) {
 			Sym_t *sym = (void *)addr + sizeof(Sym_t) * j;
 
@@ -338,17 +350,17 @@ static unsigned long elf_symbol_lookup(uintptr_t mem, size_t size,
 
 static int parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 			     struct vdso_symtable *t, uintptr_t dynsymbol_names,
-			     Hash_t *hash, Dyn_t *dyn_symtab, bool use_gnu_hash)
+			     Hash_t *hash, Dyn_t *dyn_symtab, bool use_gnu_hash,
+			     bool is_32bit)
 {
 	ARCH_VDSO_SYMBOLS_LIST
 
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = { ARCH_VDSO_SYMBOLS };
 	const size_t vdso_symbol_length = sizeof(t->symbols[0].name) - 1;
 
-	Hash_t *bucket = NULL;
+	void *bucket = NULL;
 	Hash_t *chain = NULL;
-	Hash_t nbucket = 0;
-	Hash_t nchain = 0;
+	uint64_t nbucket, nchain = 0;
 
 	unsigned int sym_off = 0;
 	unsigned int i = 0;
@@ -358,17 +370,23 @@ static int parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 	if (use_gnu_hash) {
 		uint32_t *gnu_hash = (uint32_t *)hash;
 		uint32_t bloom_sz;
-		size_t *bloom;
 
 		nbucket = gnu_hash[0];
 		sym_off = gnu_hash[1];
 		bloom_sz = gnu_hash[2];
-		bloom = (size_t *)&gnu_hash[4];
-		bucket = (Hash_t *)(&bloom[bloom_sz]);
+		if (is_32bit) {
+			uint32_t *bloom;
+			bloom = (uint32_t *)&gnu_hash[4];
+			bucket = (Hash_t *)(&bloom[bloom_sz]);
+		} else {
+			uint64_t *bloom;
+			bloom = (uint64_t *)&gnu_hash[4];
+			bucket = (Hash_t *)(&bloom[bloom_sz]);
+		}
 		elf_hash = &elf_gnu_hash;
-		pr_debug("nbucket %lx sym_off %lx bloom_sz %lx bloom %lx bucket %lx\n",
+		pr_debug("nbucket %lx sym_off %lx bloom_sz %lx bucket %lx\n",
 			 (unsigned long)nbucket, (unsigned long)sym_off,
-			 (unsigned long)bloom_sz, (unsigned long)bloom,
+			 (unsigned long)bloom_sz,
 			 (unsigned long)bucket);
 	} else {
 		nbucket = hash[0];
@@ -417,6 +435,7 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	Dyn_t *dyn_hash = NULL;
 	Hash_t *hash = NULL;
 	bool use_gnu_hash;
+	bool is_32bit;
 
 	uintptr_t dynsymbol_names;
 	uintptr_t addr;
@@ -427,7 +446,7 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	/*
 	 * We need PT_LOAD and PT_DYNAMIC here. Each once.
 	 */
-	ret = parse_elf_phdr(mem, size, &dynamic, &load);
+	ret = parse_elf_phdr(mem, size, &dynamic, &load, &is_32bit);
 	if (ret < 0)
 		return ret;
 	if (!load || !dynamic) {
@@ -458,7 +477,7 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	hash = (void *)addr;
 
 	ret = parse_elf_symbols(mem, size, load, t, dynsymbol_names, hash, dyn_symtab,
-				use_gnu_hash);
+				use_gnu_hash, is_32bit);
 
 	if (ret <0)
 		return ret;
