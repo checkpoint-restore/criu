@@ -1204,7 +1204,7 @@ int __check_mountpoint_fd(struct mount_info *pm, int mnt_fd, bool parse_mountinf
 			return 0;
 
 		pr_warn("The file system %#x %#x (%#x) %s %s is inaccessible\n", pm->s_dev, pm->s_dev_rt, dev,
-			pm->fstype->name, pm->ns_mountpoint);
+		        pm->fstype->name, pm->ns_mountpoint);
 		return -1;
 	}
 
@@ -1961,7 +1961,7 @@ err:
 				_mi = list_entry(_mi->children._el, struct mount_info, siblings); \
 				continue;                                                         \
 			}                                                                         \
-up:                                                                                               \
+		up:                                                                               \
 			if (_fn_r(_mi))                                                           \
 				return -1;                                                        \
 			if (_mi == _r)                                                            \
