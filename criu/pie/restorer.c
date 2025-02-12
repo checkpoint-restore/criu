@@ -1989,6 +1989,9 @@ __visible long __export_restore_task(struct task_restore_args *args)
 
 		for (m = 0; m < sizeof(vma_entry->madv) * 8; m++) {
 			if (vma_entry->madv & (1ul << m)) {
+				if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
+					continue;
+
 				ret = sys_madvise(vma_entry->start, vma_entry_len(vma_entry), m);
 				if (ret) {
 					pr_err("madvise(%" PRIx64 ", %" PRIu64 ", %ld) "
