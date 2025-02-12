@@ -60,6 +60,8 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 	__assign_hook(PAUSE_DEVICES, "cr_plugin_pause_devices");
 	__assign_hook(CHECKPOINT_DEVICES, "cr_plugin_checkpoint_devices");
 	__assign_hook(POST_FORKING, "cr_plugin_post_forking");
+	__assign_hook(RESUME_DEVICES_EARLY, "cr_plugin_resume_devices_early");
+	__assign_hook(COLLECT_FILE, "cr_plugin_collect_file");
 
 #undef __assign_hook
 
