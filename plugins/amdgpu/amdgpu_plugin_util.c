@@ -41,6 +41,9 @@
 /* Tracks number of device files that need to be checkpointed */
 static int dev_file_cnt = 0;
 
+static LIST_HEAD(shared_bos);
+static LIST_HEAD(completed_work);
+
 /* Helper structures to encode device topology of SRC and DEST platforms */
 struct tp_system src_topology;
 struct tp_system dest_topology;
@@ -66,6 +69,87 @@ void init_gpu_count(struct tp_system *topo)
 
 	/* We add ONE to include checkpointing of KFD device */
 	dev_file_cnt = 1 + topology_gpu_count(topo);
+}
+
+bool shared_bo_has_exporter(int handle)
+{
+	struct shared_bo *bo;
+
+	if (handle == -1)
+		return false;
+
+	list_for_each_entry(bo, &shared_bos, l) {
+		if (bo->handle == handle) {
+			return bo->has_exporter;
+		}
+	}
+
+	return false;
+}
+
+int record_shared_bo(int handle, bool is_imported)
+{
+	struct shared_bo *bo;
+
+	if (handle == -1)
+		return 0;
+
+	list_for_each_entry(bo, &shared_bos, l) {
+		if (bo->handle == handle) {
+			return 0;
+		}
+	}
+	bo = malloc(sizeof(struct shared_bo));
+	if (!bo)
+		return -1;
+	bo->handle = handle;
+	bo->has_exporter = !is_imported;
+	list_add(&bo->l, &shared_bos);
+
+	return 0;
+}
+
+int record_completed_work(int handle, int id)
+{
+	struct restore_completed_work *work;
+
+	work = malloc(sizeof(struct restore_completed_work));
+	if (!work)
+		return -1;
+	work->handle = handle;
+	work->id = id;
+	list_add(&work->l, &completed_work);
+
+	return 0;
+}
+
+bool work_already_completed(int handle, int id)
+{
+	struct restore_completed_work *work;
+
+	list_for_each_entry(work, &completed_work, l) {
+		if (work->handle == handle && work->id == id) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void clear_restore_state()
+{
+	while (!list_empty(&shared_dmabuf_fds)) {
+		struct shared_dmabuf *st = list_first_entry(&shared_dmabuf_fds, struct shared_dmabuf, l);
+		list_del(&st->l);
+		close(st->dmabuf_fd);
+		free(st);
+	}
+
+	while (!list_empty(&completed_work)) {
+		struct restore_completed_work *st = list_first_entry(&completed_work, struct restore_completed_work, l);
+		list_del(&st->l);
+		free(st);
+	}
 }
 
 int read_fp(FILE *fp, void *buf, const size_t buf_len)
