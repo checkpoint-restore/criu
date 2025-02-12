@@ -45,10 +45,11 @@ static int open_fd(struct file_desc *d, int *new_fd)
 {
 	struct ext_file_info *xfi;
 	int fd;
+	bool retry_needed;
 
 	xfi = container_of(d, struct ext_file_info, d);
 
-	fd = run_plugins(RESTORE_EXT_FILE, xfi->xfe->id);
+	fd = run_plugins(RESTORE_EXT_FILE, xfi->xfe->id, &retry_needed);
 	if (fd < 0) {
 		pr_err("Unable to restore %#x\n", xfi->xfe->id);
 		return -1;
@@ -57,8 +58,11 @@ static int open_fd(struct file_desc *d, int *new_fd)
 	if (restore_fown(fd, xfi->xfe->fown))
 		return -1;
 
-	*new_fd = fd;
-	return 0;
+	if (!retry_needed)
+		*new_fd = fd;
+	else
+		*new_fd = -1;
+	return retry_needed;
 }
 
 static struct file_desc_ops ext_desc_ops = {
