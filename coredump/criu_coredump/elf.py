@@ -4,13 +4,19 @@ import platform
 
 MACHINE = platform.machine()
 
+Elf32_Half = ctypes.c_uint16  # typedef uint16_t Elf32_Half;
+Elf32_Word = ctypes.c_uint32  # typedef uint32_t Elf32_Word;
+Elf32_Addr = ctypes.c_uint32  # typedef uint32_t Elf32_Addr;
+Elf32_Off = ctypes.c_uint32  # typedef uint32_t Elf32_Off;
+Elf32_Xword = ctypes.c_uint64  # typedef uint64_t Elf32_Xword;
+
 Elf64_Half = ctypes.c_uint16  # typedef uint16_t Elf64_Half;
 Elf64_Word = ctypes.c_uint32  # typedef uint32_t Elf64_Word;
 Elf64_Addr = ctypes.c_uint64  # typedef uint64_t Elf64_Addr;
 Elf64_Off = ctypes.c_uint64  # typedef uint64_t Elf64_Off;
 Elf64_Xword = ctypes.c_uint64  # typedef uint64_t Elf64_Xword;
 
-# Elf64_Ehdr related constants.
+# Elf_Ehdr related constants.
 
 # e_ident size.
 EI_NIDENT = 16  # #define EI_NIDENT (16)
@@ -31,21 +37,49 @@ EI_CLASS = 4  # #define EI_CLASS        4               /* File class byte index
 
 EI_DATA = 5  # #define EI_DATA         5               /* Data encoding byte index */
 
+EI_OSABI = 7  # #define EI_OSABI	7		/* OS ABI identification */
+
 EI_VERSION = 6  # #define EI_VERSION      6               /* File version byte index */
 
 ELFDATA2LSB = 1  # #define ELFDATA2LSB     1               /* 2's complement, little endian */
 
+ELFCLASS32 = 1  # #define ELFCLASS32	1		/* 32-bit objects */
 ELFCLASS64 = 2  # #define ELFCLASS64      2               /* 64-bit objects */
 
 # Legal values for e_type (object file type).
 ET_CORE = 4  # #define ET_CORE         4               /* Core file */
 
 # Legal values for e_machine (architecture).
+EM_ARM = 40  # #define EM_ARM		40	/* ARM */
 EM_X86_64 = 62  # #define EM_X86_64       62              /* AMD x86-64 architecture */
 EM_AARCH64 = 183  # #define EM_AARCH64	183	/* ARM AARCH64 */
 
 # Legal values for e_version (version).
 EV_CURRENT = 1  # #define EV_CURRENT      1               /* Current version */
+
+# Legal values for e_osabi
+ELFOSABI_NONE = 0  # #define ELFOSABI_NONE		0	/* UNIX System V ABI */
+ELFOSABI_ARM = 97  # #define ELFOSABI_ARM		97	/* ARM */
+
+
+class Elf32_Ehdr(ctypes.Structure):  # typedef struct
+    _fields_ = [
+        ("e_ident",
+         ctypes.c_ubyte * EI_NIDENT),  # unsigned char e_ident[EI_NIDENT];
+        ("e_type", Elf32_Half),  # Elf32_Half e_type;
+        ("e_machine", Elf32_Half),  # Elf32_Half e_machine;
+        ("e_version", Elf32_Word),  # Elf32_Word e_version;
+        ("e_entry", Elf32_Addr),  # Elf32_Addr e_entry;
+        ("e_phoff", Elf32_Off),  # Elf32_Off e_phoff;
+        ("e_shoff", Elf32_Off),  # Elf32_Off e_shoff;
+        ("e_flags", Elf32_Word),  # Elf32_Word e_flags;
+        ("e_ehsize", Elf32_Half),  # Elf32_Half e_ehsize;
+        ("e_phentsize", Elf32_Half),  # Elf32_Half e_phentsize;
+        ("e_phnum", Elf32_Half),  # Elf32_Half e_phnum;
+        ("e_shentsize", Elf32_Half),  # Elf32_Half e_shentsize;
+        ("e_shnum", Elf32_Half),  # Elf32_Half e_shnum;
+        ("e_shstrndx", Elf32_Half)  # Elf32_Half e_shstrndx;
+    ]  # } Elf32_Ehdr;
 
 
 class Elf64_Ehdr(ctypes.Structure):  # typedef struct
@@ -68,7 +102,7 @@ class Elf64_Ehdr(ctypes.Structure):  # typedef struct
     ]  # } Elf64_Ehdr;
 
 
-# Elf64_Phdr related constants.
+# Elf_Phdr related constants.
 
 # Legal values for p_type (segment type).
 PT_LOAD = 1  # #define PT_LOAD         1               /* Loadable program segment */
@@ -78,6 +112,19 @@ PT_NOTE = 4  # #define PT_NOTE         4               /* Auxiliary information 
 PF_X = 1  # #define PF_X            (1 << 0)        /* Segment is executable */
 PF_W = 1 << 1  # #define PF_W            (1 << 1)        /* Segment is writable */
 PF_R = 1 << 2  # #define PF_R            (1 << 2)        /* Segment is readable */
+
+
+class Elf32_Phdr(ctypes.Structure):  # typedef struct
+    _fields_ = [
+        ("p_type", Elf32_Word),  # Elf32_Word p_type;
+        ("p_offset", Elf32_Off),  # Elf32_Off p_offset;
+        ("p_vaddr", Elf32_Addr),  # Elf32_Addr p_vaddr;
+        ("p_paddr", Elf32_Addr),  # Elf32_Addr p_paddr;
+        ("p_filesz", Elf32_Word),  # Elf32_Word p_filesz;
+        ("p_memsz", Elf32_Word),  # Elf32_Word p_memsz;
+        ("p_flags", Elf32_Word),  # Elf32_Word p_flags;
+        ("p_align", Elf32_Word),  # Elf32_Word p_align;
+    ]  # } Elf32_Phdr;
 
 
 class Elf64_Phdr(ctypes.Structure):  # typedef struct
@@ -93,7 +140,25 @@ class Elf64_Phdr(ctypes.Structure):  # typedef struct
     ]  # } Elf64_Phdr;
 
 
-# Elf64_auxv_t related constants.
+# Elf_auxv_t related constants.
+
+
+class _Elf32_auxv_t_U(ctypes.Union):
+    _fields_ = [("a_val", ctypes.c_uint32)]
+
+
+class Elf32_auxv_t(ctypes.Structure):  # typedef struct
+    _fields_ = [
+        ("a_type",
+         ctypes.c_uint32),   # uint32_t a_type;		/* Entry type */
+        ("a_un", _Elf32_auxv_t_U)  # union
+
+        # uint32_t a_val;		/* Integer value */
+        # /* We use to have pointer elements added here.  We cannot do that,
+        # though, since it does not work when using 32-bit definitions
+        # on 64-bit platforms and vice versa.  */
+        # } a_un;
+    ]  # } Elf32_auxv_t;
 
 
 class _Elf64_auxv_t_U(ctypes.Union):
@@ -114,7 +179,7 @@ class Elf64_auxv_t(ctypes.Structure):  # typedef struct
     ]  # } Elf64_auxv_t;
 
 
-# Elf64_Nhdr related constants.
+# Elf_Nhdr related constants.
 
 NT_PRSTATUS = 1  # #define NT_PRSTATUS  1  /* Contains copy of prstatus struct */
 NT_FPREGSET = 2  # #define NT_FPREGSET  2  /* Contains copy of fpregset struct */
@@ -123,7 +188,22 @@ NT_AUXV = 6  # #define NT_AUXV  6  /* Contains copy of auxv array */
 NT_SIGINFO = 0x53494749  # #define NT_SIGINFO  0x53494749  /* Contains copy of siginfo_t, size might increase */
 NT_FILE = 0x46494c45  # #define NT_FILE  0x46494c45  /* Contains information about mapped files */
 NT_X86_XSTATE = 0x202  # #define NT_X86_XSTATE  0x202  /* x86 extended state using xsave */
+NT_ARM_VFP = 0x400  # #define NT_ARM_VFP	0x400		/* ARM VFP/NEON registers */
 NT_ARM_TLS = 0x401  # #define NT_ARM_TLS	0x401 /* ARM TLS register */
+
+
+class Elf32_Nhdr(ctypes.Structure):  # typedef struct
+    _fields_ = [
+        (
+            "n_namesz", Elf32_Word
+        ),  # Elf32_Word n_namesz;  /* Length of the note's name.  */
+        (
+            "n_descsz", Elf32_Word
+        ),  # Elf32_Word n_descsz;  /* Length of the note's descriptor.  */
+        (
+            "n_type", Elf32_Word
+        ),  # Elf32_Word n_type;  /* Type of the note.  */
+    ]  # } Elf32_Nhdr;
 
 
 class Elf64_Nhdr(ctypes.Structure):  # typedef struct
@@ -139,7 +219,52 @@ class Elf64_Nhdr(ctypes.Structure):  # typedef struct
     ]  # } Elf64_Nhdr;
 
 
-# Elf64_Shdr related constants.
+# Elf_Shdr related constants.
+
+
+class Elf32_Shdr(ctypes.Structure):
+    _fields_ = [
+        (
+            # Section name (string tbl index)
+            "sh_name", Elf32_Word
+        ),
+        (
+            # Section type
+            "sh_type", Elf32_Word
+        ),
+        (
+            # Section flags
+            "sh_flags", Elf32_Word
+        ),
+        (
+            # Section virtual addr at execution
+            "sh_addr", Elf32_Addr
+        ),
+        (
+            # Section file offset
+            "sh_offset", Elf32_Off
+        ),
+        (
+            # Section size in bytes
+            "sh_size", Elf32_Word
+        ),
+        (
+            # Link to another section
+            "sh_link", Elf32_Word
+        ),
+        (
+            # Additional section information
+            "sh_info", Elf32_Word
+        ),
+        (
+            # Section alignment
+            "sh_addralign", Elf32_Word
+        ),
+        (
+            # Entry size if section holds table
+            "sh_entsize", Elf32_Word
+        )
+    ]
 
 
 class Elf64_Shdr(ctypes.Structure):
@@ -295,11 +420,53 @@ class aarch64_user_regs_struct(ctypes.Structure):  # struct aarch64_user_regs_st
     ]
 
 
+class arm_user_regs_struct(ctypes.Structure):  # struct arm_user_regs_struct
+    _fields_ = [
+        ("r0",
+         ctypes.c_ulong),  # unsigned ulong int r0;
+        ("r1",
+         ctypes.c_ulong),  # unsigned ulong int r1;
+        ("r2",
+         ctypes.c_ulong),  # unsigned ulong int r2;
+        ("r3",
+         ctypes.c_ulong),  # unsigned ulong int r3;
+        ("r4",
+         ctypes.c_ulong),  # unsigned ulong int r4;
+        ("r5",
+         ctypes.c_ulong),  # unsigned ulong int r5;
+        ("r6",
+         ctypes.c_ulong),  # unsigned ulong int r6;
+        ("r7",
+         ctypes.c_ulong),  # unsigned ulong int r7;
+        ("r8",
+         ctypes.c_ulong),  # unsigned ulong int r8;
+        ("r9",
+         ctypes.c_ulong),  # unsigned ulong int r9;
+        ("r10",
+         ctypes.c_ulong),  # unsigned ulong int r10;
+        ("fp",
+         ctypes.c_ulong),  # unsigned ulong int fp;
+        ("ip",
+         ctypes.c_ulong),  # unsigned ulong int ip;
+        ("sp",
+         ctypes.c_ulong),  # unsigned ulong int sp;
+        ("lr",
+         ctypes.c_ulong),  # unsigned ulong int lr;
+        ("pc",
+         ctypes.c_ulong),  # unsigned ulong int pc;
+        ("cpsr",
+         ctypes.c_ulong),  # unsigned ulong int cpsr;
+        ("orig_r0",
+         ctypes.c_ulong),  # unsigned ulong int orig_r0;
+    ]
+
+
 # elf_greg_t    = ctypes.c_ulonglong
 # ELF_NGREG = ctypes.sizeof(user_regs_struct)/ctypes.sizeof(elf_greg_t)
 # elf_gregset_t = elf_greg_t*ELF_NGREG
 user_regs_dict = {
         "aarch64": aarch64_user_regs_struct,
+        "armv7l": arm_user_regs_struct,
         "x86_64": x86_64_user_regs_struct,
 }
 
@@ -488,6 +655,7 @@ class aarch64_user_fpregs_struct(ctypes.Structure):  # struct aarch64_user_fpreg
 
 user_fpregs_dict = {
         "aarch64": aarch64_user_fpregs_struct,
+        "armv7l": None,
         "x86_64": x86_64_user_fpregs_struct,
 }
 
@@ -889,3 +1057,13 @@ class elf_xsave_struct(ctypes.Structure):  # struct xsave_struct {
         # struct ymmh_struct              ymmh;
         ("ymmh", ymmh_struct)
     ]  # } __aligned(FP_MIN_ALIGN_BYTES) __packed;
+
+
+class vfp_hard_struct(ctypes.Structure):  # struct vfp_hard_struct {
+    _fields_ = [
+        ("vfp_regs", ctypes.c_ulonglong * 32),  # __u64 fpregs[32];
+        ("fpexc", ctypes.c_ulong),  # __u32 fpexc;
+        ("fpscr", ctypes.c_ulong),  # __u32 fpscr;
+        ("fpinst", ctypes.c_ulong),  # __u32 fpinst;
+        ("fpinst2", ctypes.c_ulong),  # __u32 fpinst2;
+    ]  # };

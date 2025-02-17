@@ -95,8 +95,13 @@ class coredump:
             buf.write(b"\0" * (8 - len(note.owner)))
             buf.write(note.data)
 
-        offset = ctypes.sizeof(elf.Elf64_Ehdr())
-        offset += (len(self.vmas) + 1) * ctypes.sizeof(elf.Elf64_Phdr())
+        bits = platform.architecture()[0]  # 32 or 64 bits
+
+        ehdr = {"32bit": elf.Elf32_Ehdr, "64bit": elf.Elf64_Ehdr}
+        phdr = {"32bit": elf.Elf32_Phdr, "64bit": elf.Elf64_Phdr}
+
+        offset = ctypes.sizeof(ehdr[bits]())
+        offset += (len(self.vmas) + 1) * ctypes.sizeof(phdr[bits]())
 
         filesz = 0
         for note in self.notes:
@@ -132,9 +137,18 @@ class coredump_generator:
     pagemaps = {}  # pagemap by pid;
 
     # thread info key based on the current arch
-    thread_info_key = {"aarch64": "ti_aarch64", "x86_64": "thread_info"}
+    thread_info_key = {
+        "aarch64": "ti_aarch64",
+        "armv7l": "ti_arm",
+        "x86_64": "thread_info",
+    }
 
     machine = platform.machine()  # current arch
+    bits = platform.architecture()[0]  # 32 or 64 bits
+
+    ehdr = {"32bit": elf.Elf32_Ehdr, "64bit": elf.Elf64_Ehdr}  # 32 or 64 bits Ehdr
+    nhdr = {"32bit": elf.Elf32_Nhdr, "64bit": elf.Elf64_Nhdr}  # 32 or 64 bits Nhdr
+    phdr = {"32bit": elf.Elf32_Phdr, "64bit": elf.Elf64_Phdr}  # 32 or 64 bits Phdr
 
     def _img_open_and_strip(self, name, single=False, pid=None):
         """
@@ -207,23 +221,30 @@ class coredump_generator:
         """
         Generate elf header for process pid with program headers phdrs.
         """
-        ehdr = elf.Elf64_Ehdr()
+        ei_class = {"32bit": elf.ELFCLASS32, "64bit": elf.ELFCLASS64}
+
+        ehdr = self.ehdr[self.bits]()
 
         ctypes.memset(ctypes.addressof(ehdr), 0, ctypes.sizeof(ehdr))
         ehdr.e_ident[elf.EI_MAG0] = elf.ELFMAG0
         ehdr.e_ident[elf.EI_MAG1] = elf.ELFMAG1
         ehdr.e_ident[elf.EI_MAG2] = elf.ELFMAG2
         ehdr.e_ident[elf.EI_MAG3] = elf.ELFMAG3
-        ehdr.e_ident[elf.EI_CLASS] = elf.ELFCLASS64
+        ehdr.e_ident[elf.EI_CLASS] = ei_class[self.bits]
         ehdr.e_ident[elf.EI_DATA] = elf.ELFDATA2LSB
         ehdr.e_ident[elf.EI_VERSION] = elf.EV_CURRENT
+
+        if self.machine == "armv7l":
+            ehdr.e_ident[elf.EI_OSABI] = elf.ELFOSABI_ARM
+        else:
+            ehdr.e_ident[elf.EI_OSABI] = elf.ELFOSABI_NONE
 
         ehdr.e_type = elf.ET_CORE
         ehdr.e_machine = self._get_e_machine()
         ehdr.e_version = elf.EV_CURRENT
-        ehdr.e_phoff = ctypes.sizeof(elf.Elf64_Ehdr())
-        ehdr.e_ehsize = ctypes.sizeof(elf.Elf64_Ehdr())
-        ehdr.e_phentsize = ctypes.sizeof(elf.Elf64_Phdr())
+        ehdr.e_phoff = ctypes.sizeof(self.ehdr[self.bits]())
+        ehdr.e_ehsize = ctypes.sizeof(self.ehdr[self.bits]())
+        ehdr.e_phentsize = ctypes.sizeof(self.phdr[self.bits]())
         # FIXME Case len(phdrs) > PN_XNUM should be handled properly.
         # See fs/binfmt_elf.c from linux kernel.
         ehdr.e_phnum = len(phdrs)
@@ -234,7 +255,11 @@ class coredump_generator:
         """
         Get the e_machine field based on the current architecture.
         """
-        e_machine_dict = {"aarch64": elf.EM_AARCH64, "x86_64": elf.EM_X86_64}
+        e_machine_dict = {
+            "aarch64": elf.EM_AARCH64,
+            "armv7l": elf.EM_ARM,
+            "x86_64": elf.EM_X86_64,
+        }
         return e_machine_dict[self.machine]
 
     def _gen_phdrs(self, pid, notes, vmas):
@@ -243,15 +268,15 @@ class coredump_generator:
         """
         phdrs = []
 
-        offset = ctypes.sizeof(elf.Elf64_Ehdr())
-        offset += (len(vmas) + 1) * ctypes.sizeof(elf.Elf64_Phdr())
+        offset = ctypes.sizeof(self.ehdr[self.bits]())
+        offset += (len(vmas) + 1) * ctypes.sizeof(self.phdr[self.bits]())
 
         filesz = 0
         for note in notes:
             filesz += ctypes.sizeof(note.nhdr) + ctypes.sizeof(note.data) + 8
 
         # PT_NOTE
-        phdr = elf.Elf64_Phdr()
+        phdr = self.phdr[self.bits]()
         ctypes.memset(ctypes.addressof(phdr), 0, ctypes.sizeof(phdr))
         phdr.p_type = elf.PT_NOTE
         phdr.p_offset = offset
@@ -271,7 +296,7 @@ class coredump_generator:
         for vma in vmas:
             offset += filesz
             filesz = vma.filesz
-            phdr = elf.Elf64_Phdr()
+            phdr = self.phdr[self.bits]()
             ctypes.memset(ctypes.addressof(phdr), 0, ctypes.sizeof(phdr))
             phdr.p_type = elf.PT_LOAD
             phdr.p_align = PAGESIZE
@@ -328,7 +353,7 @@ class coredump_generator:
         prpsinfo.pr_psargs = self._gen_cmdline(pid)[:80]
         prpsinfo.pr_fname = core["tc"]["comm"].encode()
 
-        nhdr = elf.Elf64_Nhdr()
+        nhdr = self.nhdr[self.bits]()
         nhdr.n_namesz = 5
         nhdr.n_descsz = ctypes.sizeof(elf.elf_prpsinfo())
         nhdr.n_type = elf.NT_PRPSINFO
@@ -360,7 +385,7 @@ class coredump_generator:
 
         self._set_pr_regset(prstatus.pr_reg, regs)
 
-        nhdr = elf.Elf64_Nhdr()
+        nhdr = self.nhdr[self.bits]()
         nhdr.n_namesz = 5
         nhdr.n_descsz = ctypes.sizeof(elf.elf_prstatus())
         nhdr.n_type = elf.NT_PRSTATUS
@@ -390,6 +415,25 @@ class coredump_generator:
             pr_reg.sp = regs["sp"]
             pr_reg.pc = regs["pc"]
             pr_reg.pstate = regs["pstate"]
+        elif self.machine == "armv7l":
+            pr_reg.r0 = regs["r0"]
+            pr_reg.r1 = regs["r1"]
+            pr_reg.r2 = regs["r2"]
+            pr_reg.r3 = regs["r3"]
+            pr_reg.r4 = regs["r4"]
+            pr_reg.r5 = regs["r5"]
+            pr_reg.r6 = regs["r6"]
+            pr_reg.r7 = regs["r7"]
+            pr_reg.r8 = regs["r8"]
+            pr_reg.r9 = regs["r9"]
+            pr_reg.r10 = regs["r10"]
+            pr_reg.fp = regs["fp"]
+            pr_reg.ip = regs["ip"]
+            pr_reg.sp = regs["sp"]
+            pr_reg.lr = regs["lr"]
+            pr_reg.pc = regs["pc"]
+            pr_reg.cpsr = regs["cpsr"]
+            pr_reg.orig_r0 = regs["orig_r0"]
         elif self.machine == "x86_64":
             pr_reg.r15 = regs["r15"]
             pr_reg.r14 = regs["r14"]
@@ -495,6 +539,34 @@ class coredump_generator:
 
         return note
 
+    def _gen_arm_vfp(self, tid):
+        """
+        Generate NT_ARM_VFP note for thread tid of process pid.
+        """
+        core = self.cores[tid]
+        fpstate = core["ti_arm"]["fpstate"]
+
+        data = elf.vfp_hard_struct()
+        ctypes.memset(ctypes.addressof(data), 0, ctypes.sizeof(data))
+
+        data.vfp_regs = (ctypes.c_uint64 * len(fpstate["vfp_regs"]))(*fpstate["vfp_regs"])
+        data.fpexc = fpstate["fpexc"]
+        data.fpscr = fpstate["fpscr"]
+        data.fpinst = fpstate["fpinst"]
+        data.fpinst2 = fpstate["fpinst2"]
+
+        nhdr = elf.Elf32_Nhdr()
+        nhdr.n_namesz = 6
+        nhdr.n_descsz = ctypes.sizeof(data)
+        nhdr.n_type = elf.NT_ARM_VFP
+
+        note = elf_note()
+        note.data = data
+        note.owner = b"LINUX"
+        note.nhdr = nhdr
+
+        return note
+
     def _gen_x86_xstate(self, pid, tid):
         """
         Generate NT_X86_XSTATE note for thread tid of process pid.
@@ -544,7 +616,7 @@ class coredump_generator:
         # FIXME zeroify everything for now
         ctypes.memset(ctypes.addressof(siginfo), 0, ctypes.sizeof(siginfo))
 
-        nhdr = elf.Elf64_Nhdr()
+        nhdr = self.nhdr[self.bits]()
         nhdr.n_namesz = 5
         nhdr.n_descsz = ctypes.sizeof(elf.siginfo_t())
         nhdr.n_type = elf.NT_SIGINFO
@@ -563,17 +635,22 @@ class coredump_generator:
         mm = self.mms[pid]
         num_auxv = len(mm["mm_saved_auxv"]) // 2
 
-        class elf_auxv(ctypes.Structure):
+        class elf32_auxv(ctypes.Structure):
+            _fields_ = [("auxv", elf.Elf32_auxv_t * num_auxv)]
+
+        class elf64_auxv(ctypes.Structure):
             _fields_ = [("auxv", elf.Elf64_auxv_t * num_auxv)]
 
-        auxv = elf_auxv()
+        elf_auxv = {"32bit": elf32_auxv(), "64bit": elf64_auxv()}
+
+        auxv = elf_auxv[self.bits]
         for i in range(num_auxv):
             auxv.auxv[i].a_type = mm["mm_saved_auxv"][i]
             auxv.auxv[i].a_val = mm["mm_saved_auxv"][i + 1]
 
-        nhdr = elf.Elf64_Nhdr()
+        nhdr = self.nhdr[self.bits]()
         nhdr.n_namesz = 5
-        nhdr.n_descsz = ctypes.sizeof(elf_auxv())
+        nhdr.n_descsz = ctypes.sizeof(elf_auxv[self.bits])
         nhdr.n_type = elf.NT_AUXV
 
         note = elf_note()
@@ -650,7 +727,7 @@ class coredump_generator:
             setattr(data, "file_ofs" + str(i), info.file_ofs)
             setattr(data, "name" + str(i), info.name.encode())
 
-        nhdr = elf.Elf64_Nhdr()
+        nhdr = self.nhdr[self.bits]()
 
         nhdr.n_namesz = 5  # strlen + 1
         nhdr.n_descsz = ctypes.sizeof(elf_files())
@@ -667,10 +744,13 @@ class coredump_generator:
         notes = []
 
         notes.append(self._gen_prstatus(pid, tid))
-        notes.append(self._gen_fpregset(pid, tid))
+        if self.machine != "armv7l":
+            notes.append(self._gen_fpregset(pid, tid))
         notes.append(self._gen_siginfo(pid, tid))
         if self.machine == "aarch64":
             notes.append(self._gen_arm_tls(tid))
+        elif self.machine == "armv7l":
+            notes.append(self._gen_arm_vfp(tid))
         elif self.machine == "x86_64":
             notes.append(self._gen_x86_xstate(pid, tid))
 
