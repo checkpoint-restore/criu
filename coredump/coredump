@@ -6,7 +6,7 @@ import sys
 
 import criu_coredump
 
-PLATFORMS = ["aarch64", "x86_64"]
+PLATFORMS = ["aarch64", "armv7l", "x86_64"]
 
 
 def coredump(opts):
