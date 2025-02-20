@@ -646,7 +646,7 @@ static int kerndat_loginuid(void)
 static int kerndat_iptables_has_xtlocks(void)
 {
 	int fd;
-	char *argv[4] = { "sh", "-c", "iptables -w -L", NULL };
+	char *argv[4] = { "sh", "-c", "iptables -n -w -L", NULL };
 
 	fd = open("/dev/null", O_RDWR);
 	if (fd < 0) {
