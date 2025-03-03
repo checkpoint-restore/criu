@@ -15,7 +15,7 @@
 
 #define XSAVE_PB_NELEMS(__s, __obj, __member) (sizeof(__s) / sizeof(*(__obj)->__member))
 
-int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+int save_task_regs(pid_t pid, void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	CoreEntry *core = x;
 	UserX86RegsEntry *gpregs = core->thread_info->gpregs;

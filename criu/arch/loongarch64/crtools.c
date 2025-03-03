@@ -29,7 +29,7 @@
 
 #define assign_reg(dst, src, e) (dst)->e = (__typeof__(dst->e))(src)->e
 
-int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+int save_task_regs(pid_t pid, void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	int i;
 	CoreEntry *core = x;

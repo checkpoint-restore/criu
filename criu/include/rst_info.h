@@ -1,6 +1,7 @@
 #ifndef __CR_RST_INFO_H__
 #define __CR_RST_INFO_H__
 
+#include "asm/restore.h"
 #include "common/lock.h"
 #include "common/list.h"
 #include "vma.h"
@@ -32,6 +33,11 @@ struct rst_rseq {
 	uint64_t rseq_abi_pointer;
 	uint64_t rseq_cs_pointer;
 };
+
+#ifndef ARCH_RST_INFO
+struct rst_arch_info {
+};
+#endif
 
 struct rst_info {
 	struct list_head fds;
@@ -80,6 +86,8 @@ struct rst_info {
 	futex_t shstk_unlock;
 
 	void *breakpoint;
+
+	struct rst_arch_info arch_info;
 };
 
 extern struct task_entries *task_entries;

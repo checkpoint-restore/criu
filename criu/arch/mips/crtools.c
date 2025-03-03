@@ -27,7 +27,7 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+int save_task_regs(pid_t pid, void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	CoreEntry *core = x;
 

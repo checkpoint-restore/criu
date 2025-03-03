@@ -11,6 +11,8 @@
 
 #include <sys/mman.h>
 
+#include "log.h"
+
 static inline void *alloc_compat_syscall_stack(void)
 {
 	void *mem = (void *)sys_mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_32BIT | MAP_ANONYMOUS | MAP_PRIVATE,
