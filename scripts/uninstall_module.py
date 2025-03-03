@@ -10,6 +10,16 @@ import site
 import subprocess
 import sys
 
+# With Python 3.13 the subprocess module now uses the `posix_spawn()`
+# function which requires loading the `signal` module:
+#     https://docs.python.org/3/whatsnew/3.13.html#subprocess
+#
+# We need to load this module here, before PYTHONPATH and sys.path
+# have been modified to use the path specified with `--prefix`.
+#
+# flake8: noqa: F401
+import signal
+
 import importlib_metadata
 
 
