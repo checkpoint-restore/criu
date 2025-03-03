@@ -1300,7 +1300,7 @@ struct plain_regs_struct {
 	user_fpregs_struct_t fpregs;
 };
 
-static int save_regs_plain(void *to, user_regs_struct_t *r, user_fpregs_struct_t *f)
+static int save_regs_plain(pid_t pid, void *to, user_regs_struct_t *r, user_fpregs_struct_t *f)
 {
 	struct plain_regs_struct *prs = to;
 

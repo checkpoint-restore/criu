@@ -400,7 +400,7 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct
 	if (ret)
 		return ret;
 
-	return save(arg, regs, fpregs);
+	return save(pid, arg, regs, fpregs);
 }
 
 int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)

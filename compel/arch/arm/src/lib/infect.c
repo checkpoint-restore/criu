@@ -94,7 +94,7 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct
 		}
 	}
 
-	ret = save(arg, regs, vfp);
+	ret = save(pid, arg, regs, vfp);
 err:
 	return ret;
 }

@@ -1,7 +1,7 @@
 #ifndef __CR_ASM_DUMP_H__
 #define __CR_ASM_DUMP_H__
 
-int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f);
+int save_task_regs(pid_t pid, void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f);
 int arch_alloc_thread_info(CoreEntry *core);
 void arch_free_thread_info(CoreEntry *core);
 

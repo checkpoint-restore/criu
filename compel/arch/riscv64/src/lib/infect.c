@@ -92,7 +92,7 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct
 		return -1;
 	}
 
-	ret = save(arg, regs, fpsimd);
+	ret = save(pid, arg, regs, fpsimd);
 	return ret;
 }
 
