@@ -97,7 +97,7 @@ extern k_rtsigset_t *compel_thread_sigmask(struct parasite_thread_ctl *tctl);
 struct rt_sigframe;
 
 typedef int (*open_proc_fn)(int pid, int mode, const char *fmt, ...) __attribute__((__format__(__printf__, 3, 4)));
-typedef int (*save_regs_t)(void *, user_regs_struct_t *, user_fpregs_struct_t *);
+typedef int (*save_regs_t)(pid_t pid, void *, user_regs_struct_t *, user_fpregs_struct_t *);
 typedef int (*make_sigframe_t)(void *, struct rt_sigframe *, struct rt_sigframe *, k_rtsigset_t *);
 
 struct infect_ctx {

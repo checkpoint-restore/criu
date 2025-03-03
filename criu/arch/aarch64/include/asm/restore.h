@@ -26,4 +26,14 @@ static inline void core_get_tls(CoreEntry *pcore, tls_t *ptls)
 
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core);
 
+#define ARCH_RST_INFO y
+struct rst_arch_info {
+	bool has_paca, has_pacg;
+	PacAddressKeys pac_address_keys;
+	PacGenericKeys pac_generic_keys;
+};
+
+int arch_ptrace_restore(int pid, struct pstree_item *item);
+void arch_rsti_init(struct pstree_item *current);
+
 #endif

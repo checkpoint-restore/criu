@@ -17,9 +17,32 @@ message user_aarch64_fpsimd_context_entry {
 	required uint32 fpcr	= 3;
 }
 
+message pac_address_keys {
+	required uint64 apiakey_lo = 1;
+	required uint64 apiakey_hi = 2;
+	required uint64 apibkey_lo = 3;
+	required uint64 apibkey_hi = 4;
+	required uint64 apdakey_lo = 5;
+	required uint64 apdakey_hi = 6;
+	required uint64 apdbkey_lo = 7;
+	required uint64 apdbkey_hi = 8;
+	required uint64 pac_enabled_key = 9;
+}
+
+message pac_generic_keys {
+	required uint64 apgakey_lo = 1;
+	required uint64 apgakey_hi = 2;
+}
+
+message pac_keys {
+	optional pac_address_keys pac_address_keys = 6;
+	optional pac_generic_keys pac_generic_keys = 7;
+}
+
 message thread_info_aarch64 {
 	required uint64			 		clear_tid_addr	= 1[(criu).hex = true];
 	required uint64					tls		= 2;
 	required user_aarch64_regs_entry		gpregs		= 3[(criu).hex = true];
 	required user_aarch64_fpsimd_context_entry	fpsimd		= 4;
+	optional pac_keys				pac_keys = 5;
 }

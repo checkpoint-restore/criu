@@ -404,7 +404,7 @@ static int __copy_task_regs(user_regs_struct_t *regs, user_fpregs_struct_t *fpre
 	return 0;
 }
 
-int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
+int save_task_regs(pid_t pid, void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
 {
 	return __copy_task_regs(u, f, (CoreEntry *)arg);
 }
