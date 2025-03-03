@@ -282,7 +282,7 @@ static void free_ri_cb(UserS390RiEntry *ri_cb)
 /*
  * Copy internal structures into Google Protocol Buffers
  */
-int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
+int save_task_regs(pid_t pid, void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
 {
 	UserS390VxrsHighEntry *vxrs_high = NULL;
 	UserS390VxrsLowEntry *vxrs_low = NULL;

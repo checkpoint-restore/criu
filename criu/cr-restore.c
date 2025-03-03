@@ -17,6 +17,7 @@
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sched.h>
+#include <linux/elf.h>
 
 #include "types.h"
 #include <compel/ptrace.h>
@@ -1707,6 +1708,9 @@ static int restore_task_with_children(void *_arg)
 				     arg);
 }
 
+int __attribute((weak)) arch_ptrace_restore(int pid, struct pstree_item *item);
+int arch_ptrace_restore(int pid, struct pstree_item *item) { return 0; }
+
 static int attach_to_tasks(bool root_seized)
 {
 	struct pstree_item *item;
@@ -1747,6 +1751,8 @@ static int attach_to_tasks(bool root_seized)
 				pr_perror("Unable to set PTRACE_O_TRACESYSGOOD for %d", pid);
 				return -1;
 			}
+			if (arch_ptrace_restore(pid, item))
+				return -1;
 			/*
 			 * Suspend seccomp if necessary. We need to do this because
 			 * although seccomp is restored at the very end of the
@@ -3103,6 +3109,9 @@ static void *restorer_munmap_addr(CoreEntry *core, void *restorer_blob)
 	return restorer_sym(restorer_blob, arch_export_unmap);
 }
 
+void arch_rsti_init(struct pstree_item *p) __attribute__((weak));
+void arch_rsti_init(struct pstree_item *p) {}
+
 static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, unsigned long alen, CoreEntry *core)
 {
 	void *mem = MAP_FAILED;
@@ -3322,6 +3331,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 */
 	creds_pos_next = creds_pos;
 	siginfo_n = task_args->siginfo_n;
+	arch_rsti_init(current);
 	for (i = 0; i < current->nr_threads; i++) {
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
