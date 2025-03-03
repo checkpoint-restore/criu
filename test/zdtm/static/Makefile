@@ -66,6 +66,7 @@ TST_NOFILE	:=				\
 		pipe01				\
 		pipe02				\
 		pthread00			\
+		pthread00-pac			\
 		pthread01			\
 		pthread02			\
 		pthread_timers			\
@@ -497,6 +498,12 @@ STATE_OUT	= $(TST_STATE:%=%.out)
 
 include ../Makefile.inc
 
+ifeq ($(ARCH),aarch64)
+	PAC_CFLAGS := -mbranch-protection=standard
+else
+	PAC_CFLAGS :=
+endif
+
 all:	$(TST) criu-rtc.so
 install: all
 .PHONY: all install
@@ -588,6 +595,8 @@ uptime_grow:		LDLIBS += -lrt -pthread
 unlink_largefile:	CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 inotify_system_nodel:	CFLAGS += -DNO_DEL
 pthread00:		LDLIBS += -pthread
+pthread00-pac:		CFLAGS += ${PAC_CFLAGS}
+pthread00-pac:		LDLIBS += -pthread
 pthread01:		LDLIBS += -pthread
 pthread02:		LDLIBS += -pthread
 pthread_timers:		LDLIBS += -lrt -pthread
