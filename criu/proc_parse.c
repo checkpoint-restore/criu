@@ -67,6 +67,15 @@
 
 #define BUF_SIZE 4096 /* Good enough value - can be changed */
 
+#define DEC(n, buf) DEC##n##_##buf
+
+#define DEC1(buf) DEC(1, buf)
+#define DEC2(buf) DEC(2, buf)
+
+#define DEC1_4096 4095
+
+#define DEC2_4096 4094
+
 struct buffer {
 	char buf[BUF_SIZE];
 	char end; /* '\0' */
@@ -1442,7 +1451,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 		goto err;
 
 	new->mountpoint[0] = '.';
-	ret = sscanf(str, "%i %i %u:%u %ms %4094s %ms %n", &new->mnt_id, &new->parent_mnt_id, &kmaj, &kmin, &new->root,
+	ret = sscanf(str, "%i %i %u:%u %ms %"__stringify(DEC2(BUF_SIZE))"s %ms %n", &new->mnt_id, &new->parent_mnt_id, &kmaj, &kmin, &new->root,
 		     new->mountpoint + 1, &opt, &n);
 	if (ret != 7)
 		goto err;
