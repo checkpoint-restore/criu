@@ -962,7 +962,7 @@ static int prepare_pstree_kobj_ids(void)
 			 * this namespace is either inherited from the
 			 * criu or is created for the init task (only)
 			 */
-			pr_err("Can't restore sub-task in NS\n");
+			pr_err("Can't restore sub-task in NS (cflags %lx)\n", cflags);
 			return -1;
 		}
 	}
