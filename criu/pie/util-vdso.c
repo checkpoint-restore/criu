@@ -302,7 +302,7 @@ static bool elf_symbol_match(uintptr_t mem, size_t size,
 static unsigned long elf_symbol_lookup(uintptr_t mem, size_t size,
 		const char *symbol, uint32_t symbol_hash, unsigned int sym_off,
 		uintptr_t dynsymbol_names, Dyn_t *dyn_symtab, Phdr_t *load,
-		uint64_t nbucket, uint64_t nchain, void *_bucket, Hash_t *chain,
+		uint32_t nbucket, uint32_t nchain, void *_bucket, Hash_t *chain,
 		const size_t vdso_symbol_length, bool use_gnu_hash)
 {
 	unsigned int j;
@@ -360,7 +360,7 @@ static int parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 
 	void *bucket = NULL;
 	Hash_t *chain = NULL;
-	uint64_t nbucket, nchain = 0;
+	uint32_t nbucket, nchain = 0;
 
 	unsigned int sym_off = 0;
 	unsigned int i = 0;
