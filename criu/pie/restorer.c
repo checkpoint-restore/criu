@@ -704,9 +704,8 @@ static int send_cg_set(int sk, int cg_set)
 }
 
 /*
- * As this socket is shared among threads, recvmsg(MSG_PEEK)
- * from the socket until getting its own thread id as an
- * acknowledge of successful threaded cgroup fixup
+ * As the cgroupd socket is shared among threads and processes, this
+ * should be called with task_entries->cgroupd_sync_lock held.
  */
 static int recv_cg_set_restore_ack(int sk)
 {
@@ -719,33 +718,22 @@ static int recv_cg_set_restore_ack(int sk)
 	h.msg_control = cmsg;
 	h.msg_controllen = sizeof(cmsg);
 
-	while (1) {
-		ret = sys_recvmsg(sk, &h, MSG_PEEK);
-		if (ret < 0) {
-			pr_err("Unable to peek from cgroupd %d\n", ret);
-			return -1;
-		}
+	ret = sys_recvmsg(sk, &h, 0);
+	if (ret < 0) {
+		pr_err("Unable to receive from cgroupd %d\n", ret);
+		return -1;
+	}
 
-		if (h.msg_controllen != sizeof(cmsg)) {
-			pr_err("The message from cgroupd is truncated\n");
-			return -1;
-		}
+	if (h.msg_controllen != sizeof(cmsg)) {
+		pr_err("The message from cgroupd is truncated\n");
+		return -1;
+	}
 
-		ch = CMSG_FIRSTHDR(&h);
-		cred = (struct ucred *)CMSG_DATA(ch);
-		if (cred->pid != sys_gettid())
-			continue;
-
-		/*
-		 * Actual remove message from recv queue of socket
-		 */
-		ret = sys_recvmsg(sk, &h, 0);
-		if (ret < 0) {
-			pr_err("Unable to receive from cgroupd %d\n", ret);
-			return -1;
-		}
-
-		break;
+	ch = CMSG_FIRSTHDR(&h);
+	cred = (struct ucred *)CMSG_DATA(ch);
+	if (cred->pid != sys_gettid()) {
+		pr_err("cred pid %d != gettid\n", cred->pid);
+		return -1;
 	}
 	return 0;
 }
@@ -782,12 +770,21 @@ __visible long __export_restore_thread(struct thread_restore_args *args)
 	rt_sigframe = (void *)&args->mz->rt_sigframe;
 
 	if (args->cg_set != -1) {
+		int err = 0;
+
+		mutex_lock(&task_entries_local->cgroupd_sync_lock);
+
 		pr_info("Restore cg_set in thread cg_set: %d\n", args->cg_set);
-		if (send_cg_set(args->cgroupd_sk, args->cg_set))
-			goto core_restore_end;
-		if (recv_cg_set_restore_ack(args->cgroupd_sk))
-			goto core_restore_end;
+
+		err = send_cg_set(args->cgroupd_sk, args->cg_set);
+		if (!err)
+			err = recv_cg_set_restore_ack(args->cgroupd_sk);
+
+		mutex_unlock(&task_entries_local->cgroupd_sync_lock);
 		sys_close(args->cgroupd_sk);
+
+		if (err)
+			goto core_restore_end;
 	}
 
 	if (restore_thread_common(args))
