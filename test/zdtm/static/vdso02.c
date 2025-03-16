@@ -29,7 +29,8 @@ static int parse_vm_area(char *buf, struct vm_area *vma)
 	return -1;
 }
 
-static int find_blobs(pid_t pid, struct vm_area *vdso, struct vm_area *vvar)
+static int find_blobs(pid_t pid, struct vm_area *vdso,
+		      struct vm_area *vvar, struct vm_area *vvar_vclock)
 {
 	char buf[BUF_SZ];
 	int ret = -1;
@@ -39,6 +40,8 @@ static int find_blobs(pid_t pid, struct vm_area *vdso, struct vm_area *vvar)
 	vdso->end = VDSO_BAD_ADDR;
 	vvar->start = VVAR_BAD_ADDR;
 	vvar->end = VVAR_BAD_ADDR;
+	vvar_vclock->start = VVAR_BAD_ADDR;
+	vvar_vclock->end = VVAR_BAD_ADDR;
 
 	if (snprintf(buf, BUF_SZ, "/proc/%d/maps", pid) < 0) {
 		pr_perror("snprintf() failure for path");
@@ -57,12 +60,18 @@ static int find_blobs(pid_t pid, struct vm_area *vdso, struct vm_area *vvar)
 
 		if (strstr(buf, "[vvar]") && parse_vm_area(buf, vvar))
 			goto err;
+		if (strstr(buf, "[vvar_vclock]") &&
+		    parse_vm_area(buf, vvar_vclock))
+			goto err;
 	}
 
 	if (vdso->start != VDSO_BAD_ADDR)
 		test_msg("[vdso] %lx-%lx\n", vdso->start, vdso->end);
 	if (vvar->start != VVAR_BAD_ADDR)
 		test_msg("[vvar] %lx-%lx\n", vvar->start, vvar->end);
+	if (vvar_vclock->start != VVAR_BAD_ADDR)
+		test_msg("[vvar_vclock] %lx-%lx\n",
+			 vvar_vclock->start, vvar_vclock->end);
 	ret = 0;
 err:
 	fclose(maps);
@@ -143,10 +152,10 @@ void sys_exit(int status)
 
 static int unmap_blobs(void)
 {
-	struct vm_area vdso, vvar;
+	struct vm_area vdso, vvar, vvar_vclock;
 	int ret;
 
-	if (find_blobs(getpid(), &vdso, &vvar))
+	if (find_blobs(getpid(), &vdso, &vvar, &vvar_vclock))
 		return -1;
 
 	if (vdso.start != VDSO_BAD_ADDR) {
@@ -159,13 +168,19 @@ static int unmap_blobs(void)
 		if (ret)
 			return ret;
 	}
+	if (vvar_vclock.start != VVAR_BAD_ADDR) {
+		ret = sys_munmap((void *)vvar_vclock.start,
+				 vvar_vclock.end - vvar_vclock.start);
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }
 
 int main(int argc, char *argv[])
 {
-	struct vm_area vdso, vvar;
+	struct vm_area vdso, vvar, vvar_vclock;
 	pid_t child;
 	int status, ret = -1;
 
@@ -201,9 +216,11 @@ int main(int argc, char *argv[])
 		goto out_kill;
 	}
 
-	if (find_blobs(child, &vdso, &vvar))
+	if (find_blobs(child, &vdso, &vvar, &vvar_vclock))
 		goto out_kill;
-	if (vdso.start != VDSO_BAD_ADDR || vvar.start != VVAR_BAD_ADDR) {
+	if (vdso.start != VDSO_BAD_ADDR ||
+	    vvar.start != VVAR_BAD_ADDR ||
+	    vvar_vclock.start != VVAR_BAD_ADDR) {
 		pr_err("Found vvar or vdso blob(s) in child, which should have unmapped them\n");
 		goto out_kill;
 	}
@@ -211,7 +228,7 @@ int main(int argc, char *argv[])
 	test_daemon();
 	test_waitsig();
 
-	if (find_blobs(child, &vdso, &vvar))
+	if (find_blobs(child, &vdso, &vvar, &vvar_vclock))
 		goto out_kill;
 	if (vdso.start != VDSO_BAD_ADDR || vvar.start != VVAR_BAD_ADDR) {
 		pr_err("Child without vdso got it after C/R\n");
