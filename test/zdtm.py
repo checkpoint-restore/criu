@@ -2386,7 +2386,7 @@ def grep_errors(fname, err=False):
     with open(fname, errors='replace') as fd:
         for line in fd:
             before.append(line)
-            if len(before) > 5:
+            if len(before) > 5000:
                 before.pop(0)
             if "Error" in line or "Warn" in line:
                 if first:

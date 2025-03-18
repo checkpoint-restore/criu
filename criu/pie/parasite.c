@@ -73,6 +73,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	int p, ret, tsock;
 	struct iovec *iovs;
 	int off, nr_segs;
+	long buf_off;
 	unsigned long spliced_bytes = 0;
 
 	tsock = parasite_get_rpc_sock();
@@ -82,22 +83,37 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 
 	iovs = pargs_iovs(args);
 	off = 0;
-	nr_segs = args->nr_segs;
-	if (nr_segs > UIO_MAXIOV)
-		nr_segs = UIO_MAXIOV;
+	buf_off = 0;
 	while (1) {
+		nr_segs = args->nr_segs - off;
+		if (nr_segs > UIO_MAXIOV)
+			nr_segs = UIO_MAXIOV;
+
+		iovs[args->off + off].iov_base += buf_off;
+		iovs[args->off + off].iov_len -= buf_off;
 		ret = sys_vmsplice(p, &iovs[args->off + off], nr_segs, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
+		iovs[args->off + off].iov_base -= buf_off;
+		iovs[args->off + off].iov_len += buf_off;
 		if (ret < 0) {
 			sys_close(p);
+			pr_err("iov_base %p iov_len %lx\n", iovs[args->off + off].iov_base, iovs[args->off + off].iov_len);
 			pr_err("Can't splice pages to pipe (%d/%d/%d)\n", ret, nr_segs, args->off + off);
 			return -1;
 		}
 		spliced_bytes += ret;
-		off += nr_segs;
+		while (ret) {
+			long l = iovs[args->off + off].iov_len - buf_off;
+			if (ret < l) {
+				buf_off += ret;
+				break;
+			}
+			ret -= l;
+			buf_off = 0;
+			off++;
+		}
 		if (off == args->nr_segs)
 			break;
-		if (off + nr_segs > args->nr_segs)
-			nr_segs = args->nr_segs - off;
+		BUG_ON(off > args->nr_segs);
 	}
 	if (spliced_bytes != args->nr_pages * PAGE_SIZE) {
 		sys_close(p);
