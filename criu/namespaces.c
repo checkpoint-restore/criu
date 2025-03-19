@@ -1009,36 +1009,31 @@ int dump_user_ns(pid_t pid, int ns_id)
 
 	ret = parse_id_map(pid, "uid_map", &e->uid_map);
 	if (ret < 0)
-		goto err;
+		/*
+		 * The uid_map and gid_map is clean up in free_userns_maps
+		 * later, so we don't need to clean these up in error cases.
+		 */
+		return -1;
+
 	e->n_uid_map = ret;
 
 	ret = parse_id_map(pid, "gid_map", &e->gid_map);
 	if (ret < 0)
-		goto err;
+		return -1;
 	e->n_gid_map = ret;
 
 	if (check_user_ns(pid))
-		goto err;
+		return -1;
 
 	img = open_image(CR_FD_USERNS, O_DUMP, ns_id);
 	if (!img)
-		goto err;
+		return -1;
 	ret = pb_write_one(img, e, PB_USERNS);
 	close_image(img);
 	if (ret < 0)
-		goto err;
+		return -1;
 
 	return 0;
-err:
-	if (e->uid_map) {
-		xfree(e->uid_map[0]);
-		xfree(e->uid_map);
-	}
-	if (e->gid_map) {
-		xfree(e->gid_map[0]);
-		xfree(e->gid_map);
-	}
-	return -1;
 }
 
 void free_userns_maps(void)
