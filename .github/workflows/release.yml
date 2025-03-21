@@ -22,20 +22,24 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
 
-      - name: Build with Docker
-        run: docker build --build-arg VERSION=$KIND_VERSION --build-arg MINOR=$KIND_MINOR -f release/Dockerfile --output bins .
+      - name: Build amd64 with Docker
+        run: docker build --platform linux/amd64 --build-arg VERSION=$KIND_VERSION --build-arg MINOR=$KIND_MINOR -f release/Dockerfile --output amd64-bins .
+
+      - name: Build arm64 with Docker
+        run: docker build --platform linux/arm64 --build-arg VERSION=$KIND_VERSION --build-arg MINOR=$KIND_MINOR -f release/Dockerfile --output arm64-bins .
 
       - name: List built binaries
-        run: ls -lah bins
+        run: ls -lah amd64-bins arm64-bins
 
       - name: Create tar
         run: |
-          tar -czf criu-${{ github.ref_name}}-kind-v${KIND_VERSION}.${KIND_MINOR}-amd64.tar.gz -C bins .
+          tar -czf criu-${{ github.ref_name}}-kind-v${KIND_VERSION}.${KIND_MINOR}-amd64.tar.gz -C amd64-bins .
+          tar -czf criu-${{ github.ref_name}}-kind-v${KIND_VERSION}.${KIND_MINOR}-arm64.tar.gz -C arm64-bins .
 
       - name: Upload Release Asset
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "criu-${{ github.ref_name}}-kind-v${{ env.KIND_VERSION }}.${{ env.KIND_MINOR }}-amd64.tar.gz"
+          artifacts: "criu-${{ github.ref_name}}-kind-v${{ env.KIND_VERSION }}.${{ env.KIND_MINOR }}-amd64.tar.gz,criu-${{ github.ref_name}}-kind-v${{ env.KIND_VERSION }}.${{ env.KIND_MINOR }}-arm64.tar.gz"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
