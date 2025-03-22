@@ -2,6 +2,7 @@
 #define __CR_COMMON_LOCK_H__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <linux/futex.h>
 #include <sys/time.h>
 #include <limits.h>
@@ -160,6 +161,11 @@ static inline void mutex_lock(mutex_t *m)
 		ret = sys_futex((uint32_t *)&m->raw.counter, FUTEX_WAIT, c, NULL, NULL, 0);
 		LOCK_BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
 	}
+}
+
+static inline bool mutex_trylock(mutex_t *m)
+{
+	return atomic_inc_return(&m->raw) == 1;
 }
 
 static inline void mutex_unlock(mutex_t *m)
