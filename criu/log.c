@@ -132,10 +132,11 @@ static void log_note_err(char *msg)
 		 * anyway, so it doesn't make much sense to try hard
 		 * and optimize this out.
 		 */
-		mutex_lock(&first_err->l);
-		if (first_err->s[0] == '\0')
-			__strlcpy(first_err->s, msg, sizeof(first_err->s));
-		mutex_unlock(&first_err->l);
+		if (mutex_trylock(&first_err->l)) {
+			if (first_err->s[0] == '\0')
+				__strlcpy(first_err->s, msg, sizeof(first_err->s));
+			mutex_unlock(&first_err->l);
+		}
 	}
 }
 
