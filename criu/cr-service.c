@@ -1261,7 +1261,7 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 	if (pid == 0) {
 		int ret = 1;
 
-		opts.mode = CR_CPUINFO;
+		opts.mode = (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP) ? CR_CPUINFO_DUMP : CR_CPUINFO_CHECK;
 		if (setup_opts_from_req(sk, msg->opts))
 			goto cout;
 
