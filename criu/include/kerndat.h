@@ -89,6 +89,7 @@ struct kerndat_s {
 	bool has_pagemap_scan;
 	bool has_shstk;
 	bool has_close_range;
+	bool has_timer_cr_ids;
 };
 
 extern struct kerndat_s kdat;
