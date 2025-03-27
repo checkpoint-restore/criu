@@ -1720,6 +1720,22 @@ static int kerndat_has_close_range(void)
 	return 0;
 }
 
+static int kerndat_has_timer_cr_ids(void)
+{
+	if (prctl(PR_TIMER_CREATE_RESTORE_IDS,
+		  PR_TIMER_CREATE_RESTORE_IDS_GET, 0, 0, 0) == -1) {
+		if (errno == EINVAL) {
+			pr_debug("PR_TIMER_CREATE_RESTORE_IDS isn't supported\n");
+			return 0;
+		}
+		pr_perror("prctl returned unexpected error code");
+		return -1;
+	}
+
+	kdat.has_timer_cr_ids = true;
+	return 0;
+}
+
 /*
  * Some features depend on resource that can be dynamically changed
  * at the OS runtime. There are cases that we cannot determine the
@@ -1979,6 +1995,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_close_range()) {
 		pr_err("kerndat_has_close_range has failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_timer_cr_ids()) {
+		pr_err("kerndat_has_timer_cr_ids has failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
