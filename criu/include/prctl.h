@@ -97,4 +97,11 @@ struct prctl_mm_map {
 #define PR_GET_THP_DISABLE 42
 #endif
 
+#ifndef PR_TIMER_CREATE_RESTORE_IDS
+#define PR_TIMER_CREATE_RESTORE_IDS             77
+# define PR_TIMER_CREATE_RESTORE_IDS_OFF        0
+# define PR_TIMER_CREATE_RESTORE_IDS_ON         1
+# define PR_TIMER_CREATE_RESTORE_IDS_GET        2
+#endif
+
 #endif /* __CR_PRCTL_H__ */

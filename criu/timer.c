@@ -195,6 +195,7 @@ int prepare_posix_timers_from_fd(int pid, struct task_restore_args *ta)
 	if (!img)
 		return -1;
 
+	ta->posix_timer_cr_ids = kdat.has_timer_cr_ids;
 	ta->posix_timers_n = 0;
 	while (1) {
 		PosixTimerEntry *pte;
@@ -234,6 +235,7 @@ int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core)
 		return prepare_posix_timers_from_fd(pid, ta);
 
 	ta->posix_timers_n = tte->n_posix;
+	ta->posix_timer_cr_ids = kdat.has_timer_cr_ids;
 	for (i = 0; i < ta->posix_timers_n; i++) {
 		t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
 		if (!t)

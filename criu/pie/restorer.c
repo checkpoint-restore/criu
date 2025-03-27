@@ -1235,9 +1235,23 @@ static int timerfd_arm(struct task_restore_args *args)
 
 static int create_posix_timers(struct task_restore_args *args)
 {
-	int ret, i;
+	int ret, i, exit_code = -1;
 	kernel_timer_t next_id = 0, timer_id;
 	struct sigevent sev;
+	bool create_restore_ids = false;
+
+	if (!args->posix_timers_n)
+		return 0;
+
+	/* prctl returns EINVAL if PR_TIMER_CREATE_RESTORE_IDS isn't supported. */
+	ret = sys_prctl(PR_TIMER_CREATE_RESTORE_IDS,
+			PR_TIMER_CREATE_RESTORE_IDS_ON, 0, 0, 0);
+	if (ret == 0) {
+		create_restore_ids = true;
+	} else if (ret != -EINVAL) {
+		pr_err("Can't enabled PR_TIMER_CREATE_RESTORE_IDS: %d\n", ret);
+		return -1;
+	}
 
 	for (i = 0; i < args->posix_timers_n; i++) {
 		sev.sigev_notify = args->posix_timers[i].spt.it_sigev_notify;
@@ -1249,16 +1263,36 @@ static int create_posix_timers(struct task_restore_args *args)
 #endif
 		sev.sigev_value.sival_ptr = args->posix_timers[i].spt.sival_ptr;
 
+		if (create_restore_ids) {
+			/*
+			 * With enabled PR_TIMER_CREATE_RESTORE_IDS, the
+			 * timer_create syscall creates a new timer with the
+			 * specified ID.
+			 */
+			timer_id = args->posix_timers[i].spt.it_id;
+			ret = sys_timer_create(args->posix_timers[i].spt.clock_id, &sev, &timer_id);
+			if (ret < 0) {
+				pr_err("Can't create posix timer - %d: %d\n", i, ret);
+				goto out;
+			}
+			if (timer_id != args->posix_timers[i].spt.it_id) {
+				pr_err("Unexpected timer id %u (expected %lu)\n",
+				       timer_id, args->posix_timers[i].spt.it_id);
+				goto out;
+			}
+			continue;
+		}
+
 		while (1) {
 			ret = sys_timer_create(args->posix_timers[i].spt.clock_id, &sev, &timer_id);
 			if (ret < 0) {
 				pr_err("Can't create posix timer - %d\n", i);
-				return ret;
+				goto out;
 			}
 
 			if (timer_id != next_id) {
 				pr_err("Can't create timers, kernel don't give them consequently\n");
-				return -1;
+				goto out;
 			}
 			next_id++;
 
@@ -1268,12 +1302,22 @@ static int create_posix_timers(struct task_restore_args *args)
 			ret = sys_timer_delete(timer_id);
 			if (ret < 0) {
 				pr_err("Can't remove temporaty posix timer 0x%x\n", timer_id);
-				return ret;
+				goto out;
 			}
 		}
 	}
 
-	return 0;
+	exit_code = 0;
+out:
+	if (create_restore_ids) {
+		ret = sys_prctl(PR_TIMER_CREATE_RESTORE_IDS,
+				PR_TIMER_CREATE_RESTORE_IDS_OFF, 0, 0, 0);
+		if (ret != 0) {
+			pr_err("Can't disable PR_TIMER_CREATE_RESTORE_IDS: %d\n", ret);
+			exit_code = -1;
+		}
+	}
+	return exit_code;
 }
 
 static void restore_posix_timers(struct task_restore_args *args)
