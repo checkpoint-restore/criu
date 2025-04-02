@@ -1,0 +1,6 @@
+{
+	'flavor': 'ns uns',
+	'flags': 'suid',
+	'feature': 'mnt_id',
+	'bind': 'zdtm/static',
+}

@@ -423,6 +423,7 @@ TST_DIR		=				\
 		mntns_ghost			\
 		mntns_ghost01			\
 		mntns_ro_root			\
+		mnt_ro_root			\
 		mntns_link_ghost		\
 		mntns_shared_bind		\
 		mntns_shared_bind02		\
