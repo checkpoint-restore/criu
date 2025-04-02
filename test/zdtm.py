@@ -443,6 +443,7 @@ class zdtm_test:
         self._bins = [name]
         self._env = {'TMPDIR': os.environ.get('TMPDIR', '/tmp')}
         self._deps = desc.get('deps', [])
+        self._bind = desc.get('bind')
         self.auto_reap = True
 
     def __make_action(self, act, env=None, root=None):
@@ -513,6 +514,8 @@ class zdtm_test:
         if self.__flavor.ns:
             env['ZDTM_NEWNS'] = "1"
             env['ZDTM_ROOT'] = self.__flavor.root
+            if self._bind:
+                env['ZDTM_BIND'] = self._bind
             env['ZDTM_DEV'] = self.__flavor.devpath
             env['PATH'] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
