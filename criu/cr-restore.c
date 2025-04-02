@@ -2258,7 +2258,7 @@ skip_ns_bouncing:
 		 * might actually be a true error code but that would be also
 		 * captured in the plugin so no need to print the error here.
 		 */
-		if (ret < 0)
+		if (ret < 0 && ret != -ENOTSUP)
 			pr_debug("restore late stage hook for external plugin failed\n");
 	}
 
