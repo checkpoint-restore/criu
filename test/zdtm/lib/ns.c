@@ -57,6 +57,9 @@ static int prepare_mntns(void)
 	if (zdtm_bind) {
 		/*
 		 * Bindmount the directory to itself.
+		 * e.g.: The mnt_ro_root test makes "/" mount readonly, but we
+		 * still want to write logs to /zdtm/static/ so let's make it
+		 * separate writable bind mount.
 		 */
 		snprintf(bind_path, sizeof(bind_path),  "%s/%s", root, zdtm_bind);
 		if (mount(bind_path, bind_path, NULL, MS_BIND, NULL)) {
