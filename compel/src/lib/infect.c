@@ -38,8 +38,6 @@
 #define UNIX_PATH_MAX (sizeof(struct sockaddr_un) - (size_t)((struct sockaddr_un *)0)->sun_path)
 #endif
 
-#define PARASITE_STACK_SIZE (16 << 10)
-
 #ifndef SECCOMP_MODE_DISABLED
 #define SECCOMP_MODE_DISABLED 0
 #endif
@@ -1064,7 +1062,7 @@ int compel_infect_no_daemon(struct parasite_ctl *ctl, unsigned long nr_threads, 
 
 	p += RESTORE_STACK_SIGFRAME;
 	p += PARASITE_STACK_SIZE;
-	ctl->rstack = ctl->remote_map + p;
+	ctl->rstack = ctl->remote_map + p - PARASITE_STACK_REDZONE;
 
 	/*
 	 * x86-64 ABI requires a 16 bytes aligned stack.
@@ -1078,7 +1076,7 @@ int compel_infect_no_daemon(struct parasite_ctl *ctl, unsigned long nr_threads, 
 
 	if (nr_threads > 1) {
 		p += PARASITE_STACK_SIZE;
-		ctl->r_thread_stack = ctl->remote_map + p;
+		ctl->r_thread_stack = ctl->remote_map + p - PARASITE_STACK_REDZONE;
 	}
 
 	ret = arch_fetch_sas(ctl, ctl->rsigframe);

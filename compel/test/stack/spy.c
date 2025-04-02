@@ -50,70 +50,6 @@ static void *get_parasite_rstack_start(struct parasite_ctl *ctl)
 	return rstack_start;
 }
 
-static int page_writable(struct parasite_ctl *ctl, int pid, void *page)
-{
-	FILE *maps;
-	size_t maps_line_len = 0;
-	char *maps_line = NULL;
-	char victim_maps_path[6 + 11 + 5 + 1];
-	int written;
-	int ret = 0;
-
-	if (((uintptr_t)page & (page_size() - 1)) != 0) {
-		fprintf(stderr, "Page address not aligned\n");
-		ret = -1;
-		goto done;
-	}
-
-	written = snprintf(victim_maps_path, sizeof(victim_maps_path), "/proc/%d/maps", pid);
-	if (written < 0 || written >= sizeof(victim_maps_path)) {
-		fprintf(stderr, "Failed to create path string to victim's /proc/%d/maps file\n", pid);
-		ret = -1;
-		goto done;
-	}
-
-	maps = fopen(victim_maps_path, "r");
-	if (maps == NULL) {
-		perror("Can't open victim's /proc/$pid/maps");
-		ret = -1;
-		goto done;
-	}
-
-	while (getline(&maps_line, &maps_line_len, maps) != -1) {
-		unsigned long vmstart, vmend;
-		char r, w;
-
-		if (sscanf(maps_line, "%lx-%lx %c%c", &vmstart, &vmend, &r, &w) < 4) {
-			fprintf(stderr, "Can't parse victim's /proc/%d/maps; line: %s\n", pid, maps_line);
-			ret = -1;
-			goto free_linebuf;
-		}
-
-		if (page >= (void *)vmstart && page < (void *)vmend) {
-			if (w == 'w') {
-				if (r != 'r') {
-					fprintf(stderr, "Expecting writable memory to also be readable");
-					ret = -1;
-					goto free_linebuf;
-				}
-				ret = 1;
-			}
-			break;
-		}
-	}
-
-	if (errno) {
-		perror("Can't read victim's /proc/$pid/maps");
-		ret = -1;
-	}
-
-free_linebuf:
-	free(maps_line);
-	fclose(maps);
-done:
-	return ret;
-}
-
 static void *read_proc_mem(int pid, void *offset, size_t len)
 {
 	char victim_mem_path[6 + 11 + 4 + 1];
@@ -153,51 +89,6 @@ freebuf:
 	return NULL;
 }
 
-static int save_data_near_stack(struct parasite_ctl *ctl, int pid, void *stack, void **saved_data,
-				size_t *saved_data_size)
-{
-	size_t page_mask = page_size() - 1;
-	size_t saved_size = 0;
-	size_t stack_size_last_page = (uintptr_t)stack & page_mask;
-	void *next_page = stack;
-
-	if (stack_size_last_page != 0) {
-		size_t empty_space_last_page = page_size() - stack_size_last_page;
-		saved_size = min(empty_space_last_page, (size_t)SAVED_DATA_MAX);
-		next_page += page_size() - stack_size_last_page;
-	}
-
-	while (saved_size < SAVED_DATA_MAX && next_page != NULL) {
-		switch (page_writable(ctl, pid, next_page)) {
-		case 1:
-			saved_size = min((size_t)(saved_size + page_size()), (size_t)SAVED_DATA_MAX);
-			next_page += page_size();
-			break;
-		case 0:
-			next_page = NULL;
-			break;
-		default:
-			return -1;
-		}
-	}
-
-	if (saved_size > 0) {
-		void *sd;
-
-		sd = read_proc_mem(pid, stack, saved_size);
-		if (sd == NULL)
-			return -1;
-
-		*saved_data = sd;
-	} else {
-		*saved_data = NULL;
-	}
-
-	*saved_data_size = saved_size;
-
-	return 0;
-}
-
 static int check_saved_data(struct parasite_ctl *ctl, int pid, void *stack, void *saved_data, size_t saved_data_size)
 {
 	if (saved_data != NULL) {
@@ -221,7 +112,7 @@ static int do_infection(int pid)
 	struct infect_ctx *ictx;
 	int *arg;
 	void *stack;
-	size_t saved_data_size;
+	size_t saved_data_size = PARASITE_STACK_REDZONE;
 	int saved_data_check;
 
 	compel_log_init(print_vmsg, COMPEL_LOG_DEBUG);
@@ -257,8 +148,6 @@ static int do_infection(int pid)
 		err_and_ret("Can't register cleanup function with atexit\n");
 
 	stack = get_parasite_rstack_start(ctl);
-	if (save_data_near_stack(ctl, pid, stack, &saved_data, &saved_data_size))
-		err_and_ret("Can't save data above stack\n");
 
 	if (compel_start_daemon(ctl))
 		err_and_ret("Can't start daemon in victim\n");
