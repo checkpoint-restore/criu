@@ -2690,8 +2690,15 @@ shared:
 
 static int do_mount_root(struct mount_info *mi)
 {
+	unsigned long mflags = mi->flags & (~MS_PROPAGATE);
+
 	if (restore_shared_options(mi, !mi->shared_id && !mi->master_id, mi->shared_id, mi->master_id))
 		return -1;
+
+	if (mflags && mount(NULL, service_mountpoint(mi), NULL, MS_REMOUNT | MS_BIND | mflags, NULL)) {
+		pr_perror("Unable to apply root mount options");
+		return -1;
+	}
 
 	return fetch_rt_stat(mi, service_mountpoint(mi));
 }

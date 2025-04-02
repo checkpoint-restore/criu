@@ -443,6 +443,7 @@ err:
 /* Mounts root container mount. */
 static int do_mount_root_v2(struct mount_info *mi)
 {
+	unsigned long mflags = mi->flags & (~MS_PROPAGATE);
 	unsigned long flags = MS_BIND;
 	int fd;
 
@@ -474,6 +475,11 @@ static int do_mount_root_v2(struct mount_info *mi)
 	 */
 	if (mount(NULL, mi->plain_mountpoint, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Can't remount %s with MS_PRIVATE", mi->plain_mountpoint);
+		return -1;
+	}
+
+	if (mflags && mount(NULL, mi->plain_mountpoint, NULL, MS_REMOUNT | MS_BIND | mflags, NULL)) {
+		pr_perror("Unable to apply root mount options");
 		return -1;
 	}
 
