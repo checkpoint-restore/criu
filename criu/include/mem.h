@@ -35,6 +35,7 @@ extern int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_l
 #define PME_PRESENT	  (1ULL << 63)
 #define PME_SWAP	  (1ULL << 62)
 #define PME_FILE	  (1ULL << 61)
+#define PME_GUARD_REGION  (1ULL << 58)
 #define PME_SOFT_DIRTY	  (1ULL << 55)
 #define PME_PSHIFT_BITS	  (6)
 #define PME_STATUS_BITS	  (3)
