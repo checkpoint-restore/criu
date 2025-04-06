@@ -28,6 +28,7 @@
 #include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/log.h>
 #include <compel/ksigset.h>
+#include "mman.h"
 #include "signal.h"
 #include "prctl.h"
 #include "criu-log.h"
@@ -1665,6 +1666,30 @@ static int restore_membarrier_registrations(int mask)
 	return ret;
 }
 
+static int restore_madv_guard_regions(struct task_restore_args *args)
+{
+	int i, ret;
+
+	for (i = 0; i < args->vmas_n; i++) {
+		VmaEntry *vma_entry = args->vmas + i;
+		size_t len;
+
+		if (!vma_entry_is(vma_entry, VMA_AREA_GUARD))
+			continue;
+
+		len = vma_entry->end - vma_entry->start;
+		ret = sys_madvise(vma_entry->start, len, MADV_GUARD_INSTALL);
+		if (ret) {
+			pr_err("madvise(%" PRIx64 ", %zu, MADV_GUARD_INSTALL) "
+			       "failed with %d\n",
+			       vma_entry->start, len, ret);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -1971,6 +1996,13 @@ __visible long __export_restore_task(struct task_restore_args *args)
 			}
 		}
 	}
+
+	/*
+	 * Restore madvise(MADV_GUARD_INSTALL)
+	 */
+	ret = restore_madv_guard_regions(args);
+	if (ret)
+		goto core_restore_end;
 
 	/*
 	 * Tune up the task fields.
