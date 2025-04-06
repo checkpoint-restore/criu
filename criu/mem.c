@@ -36,6 +36,13 @@
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 
+struct madv_guard_region {
+	unsigned long start;
+	size_t len;
+
+	struct list_head l;
+};
+
 static int task_reset_dirty_track(int pid)
 {
 	int ret;
@@ -1131,12 +1138,29 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 	return ret;
 }
 
+static int register_madv_guard_region(unsigned long start, size_t len, struct list_head *to)
+{
+	struct madv_guard_region *madv_guard_region;
+
+	madv_guard_region = xzalloc(sizeof(*madv_guard_region));
+	if (!madv_guard_region)
+		return -1;
+
+	madv_guard_region->start = start;
+	madv_guard_region->len = len;
+
+	list_add_tail(&madv_guard_region->l, to);
+
+	return 0;
+}
+
 static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 {
 	struct vma_area *vma;
 	int ret = 0;
 	struct list_head *vmas = &rsti(t)->vmas.h;
 	struct list_head *vma_io = &rsti(t)->vma_io;
+	struct list_head *madv_guard_region = &rsti(t)->madv_guard_region;
 
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
@@ -1170,6 +1194,14 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 			pr_debug("Lazy restore skips %ld pages at %lx\n", nr_pages, va);
 			pr->skip_pages(pr, nr_pages * PAGE_SIZE);
 			nr_lazy += nr_pages;
+			continue;
+		}
+
+		if (pagemap_guard(pr->pe)) {
+			if (register_madv_guard_region(va, nr_pages * PAGE_SIZE, madv_guard_region))
+				return -1;
+
+			pr->skip_pages(pr, nr_pages * PAGE_SIZE);
 			continue;
 		}
 
@@ -1494,6 +1526,29 @@ int open_vmas(struct pstree_item *t)
 	return 0;
 }
 
+static int prepare_madv_guards(struct list_head *from, struct task_restore_args *ta)
+{
+	struct madv_guard_region *madv_guard_region;
+
+	ta->madv_guard_regions = (struct rst_madv_guard_region *)rst_mem_align_cpos(RM_PRIVATE);
+	ta->madv_guard_regions_n = 0;
+
+	list_for_each_entry(madv_guard_region, from, l) {
+		struct rst_madv_guard_region *region;
+
+		region = rst_mem_alloc(sizeof(*region), RM_PRIVATE);
+		if (!region)
+			return -1;
+
+		region->start = madv_guard_region->start;
+		region->len = madv_guard_region->len;
+
+		ta->madv_guard_regions_n++;
+	}
+
+	return 0;
+}
+
 static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 {
 	struct cr_img *pages;
@@ -1526,6 +1581,7 @@ static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 
 int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 {
+	int ret = 0;
 	struct vma_area *vma;
 	struct vm_area_list *vmas = &rsti(t)->vmas;
 
@@ -1549,5 +1605,13 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 			vma_premmaped_start(vme) = vma->premmaped_addr;
 	}
 
-	return prepare_vma_ios(t, ta);
+	ret = prepare_vma_ios(t, ta);
+	if (ret)
+		return ret;
+
+	ret = prepare_madv_guards(&rsti(t)->madv_guard_region, ta);
+	if (ret)
+		return ret;
+
+	return ret;
 }
