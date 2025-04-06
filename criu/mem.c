@@ -143,11 +143,17 @@ int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *pa
 			return 0;
 		}
 
+		if (pmc->regs[pmc->regs_idx].categories & PAGE_IS_GUARD)
+			goto skip_guard_page;
+
 		page_info->softdirty = pmc->regs[pmc->regs_idx].categories & PAGE_IS_SOFT_DIRTY;
 		page_info->next = vaddr;
 		return 0;
 	} else {
 		u64 pme = pmc->map[PAGE_PFN(vaddr - pmc->start)];
+
+		if (pme & PME_GUARD_REGION)
+			goto skip_guard_page;
 
 		/*
 		 * Optimisation for private mapping pages, that haven't
@@ -173,6 +179,10 @@ err:
 	       "%#016" PRIx64 "-%#016" PRIx64 " vaddr=%#016" PRIx64 "\n",
 	       vmae->start, vmae->end, vaddr);
 	return -1;
+
+skip_guard_page:
+	page_info->next = vaddr + PAGE_SIZE;
+	return 0;
 }
 
 bool page_is_zero(u64 pme)
