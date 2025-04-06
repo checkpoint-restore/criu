@@ -139,6 +139,11 @@ struct restore_vma_io {
 	struct iovec iovs[0];
 };
 
+struct rst_madv_guard_region {
+	unsigned long start;
+	size_t len;
+};
+
 #define RIO_SIZE(niovs) (sizeof(struct restore_vma_io) + (niovs) * sizeof(struct iovec))
 
 struct task_restore_args {
@@ -167,6 +172,9 @@ struct task_restore_args {
 	int vma_ios_fd;
 	struct restore_vma_io *vma_ios;
 	unsigned int vma_ios_n;
+
+	struct rst_madv_guard_region *madv_guard_regions;
+	unsigned int madv_guard_regions_n;
 
 	struct restore_posix_timer *posix_timers;
 	unsigned int posix_timers_n;

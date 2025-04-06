@@ -3315,6 +3315,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	RST_MEM_FIXUP_PPTR(task_args->zombies);
 	RST_MEM_FIXUP_PPTR(task_args->vma_ios);
 	RST_MEM_FIXUP_PPTR(task_args->inotify_fds);
+	RST_MEM_FIXUP_PPTR(task_args->madv_guard_regions);
 
 	task_args->compatible_mode = core_is_compat(core);
 	/*
