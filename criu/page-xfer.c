@@ -455,6 +455,8 @@ static int get_hole_flags(struct page_pipe *pp, int n)
 
 	if (hole_flags == PP_HOLE_PARENT)
 		return PE_PARENT;
+	else if (hole_flags == PP_HOLE_GUARD)
+		return PE_GUARD;
 	else
 		BUG();
 

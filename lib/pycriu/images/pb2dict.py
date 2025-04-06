@@ -139,6 +139,7 @@ pmap_flags_map = [
     ('PE_PARENT', 1 << 0),
     ('PE_LAZY', 1 << 1),
     ('PE_PRESENT', 1 << 2),
+    ('PE_GUARD', 1 << 3),
 ]
 
 flags_maps = {

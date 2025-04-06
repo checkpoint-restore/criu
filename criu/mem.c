@@ -143,11 +143,17 @@ int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *pa
 			return 0;
 		}
 
+		if (pmc->regs[pmc->regs_idx].categories & PAGE_IS_GUARD)
+			goto skip_guard_page;
+
 		page_info->softdirty = pmc->regs[pmc->regs_idx].categories & PAGE_IS_SOFT_DIRTY;
 		page_info->next = vaddr;
 		return 0;
 	} else {
 		u64 pme = pmc->map[PAGE_PFN(vaddr - pmc->start)];
+
+		if (pme & PME_GUARD_REGION)
+			goto skip_guard_page;
 
 		/*
 		 * Optimisation for private mapping pages, that haven't
@@ -173,6 +179,16 @@ err:
 	       "%#016" PRIx64 "-%#016" PRIx64 " vaddr=%#016" PRIx64 "\n",
 	       vmae->start, vmae->end, vaddr);
 	return -1;
+
+skip_guard_page:
+	if (!vma_entry_is(vmae, VMA_ANON_PRIVATE)) {
+		pr_err("CRIU doesn't support guard pages on non-VMA_ANON_PRIVATE\n");
+		return -1;
+	}
+
+	page_info->guard = true;
+	page_info->next = vaddr + PAGE_SIZE;
+	return 0;
 }
 
 bool page_is_zero(u64 pme)
@@ -212,7 +228,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			 bool has_parent)
 {
 	unsigned long nr_scanned;
-	unsigned long pages[3] = {};
+	unsigned long pages[4] = {};
 	unsigned long vaddr;
 	bool dump_all_pages;
 	int ret = 0;
@@ -228,6 +244,11 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		/* If dump_all_pages is true, should_dump_page is called to get pme. */
 		if (should_dump_page(pmc, vma->e, vaddr, &page_info))
 			return -1;
+
+		if (page_info.guard) {
+			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_GUARD);
+			st = 3;
+		}
 
 		if (!dump_all_pages && page_info.next != vaddr) {
 			vaddr = page_info.next - PAGE_SIZE;
