@@ -194,6 +194,9 @@ int pmc_fill(pmc_t *pmc, u64 start, u64 end)
 		};
 		long ret;
 
+		if (kdat.has_pagemap_scan_guard_pages)
+			args.return_mask |= PAGE_IS_GUARD;
+
 		ret = ioctl(pmc->fd, PAGEMAP_SCAN, &args);
 		if (ret == -1) {
 			pr_perror("PAGEMAP_SCAN");
