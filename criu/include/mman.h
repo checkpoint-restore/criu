@@ -19,5 +19,8 @@
 #ifndef MADV_WIPEONFORK
 #define MADV_WIPEONFORK 18
 #endif
+#ifndef MADV_GUARD_INSTALL
+#define MADV_GUARD_INSTALL 102
+#endif
 
 #endif /* __CR_MMAN_H__ */
