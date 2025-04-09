@@ -23,6 +23,10 @@
 #include "compel/infect.h"
 #include "pstree.h"
 
+#ifndef NT_ARM_PAC_ENABLED_KEYS
+#define NT_ARM_PAC_ENABLED_KEYS	0x40a	/* AArch64 pointer authentication enabled keys. */
+#endif
+
 extern unsigned long getauxval(unsigned long type);
 
 #define assign_reg(dst, src, e) dst->e = (__typeof__(dst->e))(src)->e
