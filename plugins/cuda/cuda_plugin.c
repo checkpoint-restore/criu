@@ -395,12 +395,9 @@ int cuda_plugin_checkpoint_devices(int pid)
 	status = cuda_process_checkpoint_action(pid, ACTION_CHECKPOINT, 0, msg_buf, sizeof(msg_buf));
 	if (status) {
 		pr_err("CHECKPOINT_DEVICES failed with %s\n", msg_buf);
-		goto interrupt;
 	}
 
-interrupt:
 	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
-
 	return status != 0 ? -1 : int_ret;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, cuda_plugin_checkpoint_devices);
