@@ -93,7 +93,7 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 	int fd[2], buf_off;
 
 	if (pipe(fd) != 0) {
-		pr_err("Couldn't create pipes for reading cuda-checkpoint output\n");
+		pr_perror("Couldn't create pipes for reading cuda-checkpoint output");
 		return -1;
 	}
 
@@ -101,7 +101,7 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 
 	int child_pid = fork();
 	if (child_pid == -1) {
-		pr_err("Failed to fork to exec cuda-checkpoint\n");
+		pr_perror("Failed to fork to exec cuda-checkpoint");
 		close(fd[READ]);
 		close(fd[WRITE]);
 		return -1;
@@ -166,7 +166,6 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 	}
 	if (WIFSIGNALED(status)) {
 		int sig = WTERMSIG(status);
-
 		pr_err("cuda-checkpoint unexpectedly signaled with %d: %s\n", sig, strsignal(sig));
 	} else if (WIFEXITED(status)) {
 		exit_code = WEXITSTATUS(status);
@@ -283,8 +282,8 @@ static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigse
 	 * a compel_interrupt_task()
 	 */
 	if (ptrace(PTRACE_INTERRUPT, restore_tid, NULL, 0)) {
-		pr_err("Could not interrupt cuda restore tid %d after checkpoint, process may be in strange state\n",
-		       restore_tid);
+		pr_perror("Could not interrupt cuda restore tid %d after checkpoint, process may be in strange state",
+			  restore_tid);
 		return -1;
 	}
 
@@ -295,12 +294,12 @@ static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigse
 	}
 
 	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD)) {
-		pr_err("Failed to set ptrace options on interrupt for restore tid %d\n", restore_tid);
+		pr_perror("Failed to set ptrace options on interrupt for restore tid %d", restore_tid);
 		return -1;
 	}
 
 	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*restore_sigset), restore_sigset)) {
-		pr_err("Unable to restore original sigmask to restore tid %d\n", restore_tid);
+		pr_perror("Unable to restore original sigmask to restore tid %d", restore_tid);
 		return -1;
 	}
 
@@ -312,7 +311,7 @@ static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 	k_rtsigset_t block;
 
 	if (ptrace(PTRACE_GETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset)) {
-		pr_err("Failed to get current sigmask for restore tid %d\n", restore_tid);
+		pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
 		return -1;
 	}
 
@@ -320,18 +319,18 @@ static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 	ksigdelset(&block, SIGTRAP);
 
 	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(block), &block)) {
-		pr_err("Failed to block signals on restore tid %d\n", restore_tid);
+		pr_perror("Failed to block signals on restore tid %d", restore_tid);
 		return -1;
 	}
 
 	// Clear out PTRACE_O_SUSPEND_SECCOMP when we resume the restore thread
 	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, 0)) {
-		pr_err("Could not clear ptrace options on restore tid %d\n", restore_tid);
+		pr_perror("Could not clear ptrace options on restore tid %d", restore_tid);
 		return -1;
 	}
 
 	if (ptrace(PTRACE_CONT, restore_tid, NULL, 0)) {
-		pr_err("Could not resume cuda restore tid %d\n", restore_tid);
+		pr_perror("Could not resume cuda restore tid %d", restore_tid);
 		return -1;
 	}
 
