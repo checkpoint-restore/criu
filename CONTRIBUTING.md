@@ -34,7 +34,7 @@ To clone CRIU repo and switch to the proper branch, run:
 
 ### Compile
 
-First, you need to install compile-time dependencies. Check [Installation dependencies](https://criu.org/Installation#Dependencies) for more info.
+First, you need to install compile-time dependencies. Check [Installation dependencies](https://criu.org/Installation#Dependencies) for more info. Alternatively, you can use the Nix flake to set up a development environment by running `nix develop`.
 
 To compile CRIU, run:
 
