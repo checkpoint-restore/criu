@@ -91,6 +91,7 @@ struct kerndat_s {
 	bool has_close_range;
 	bool has_timer_cr_ids;
 	bool has_breakpoints;
+	bool has_madv_guard;
 };
 
 extern struct kerndat_s kdat;
