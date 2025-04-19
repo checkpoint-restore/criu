@@ -92,6 +92,7 @@ struct kerndat_s {
 	bool has_timer_cr_ids;
 	bool has_breakpoints;
 	bool has_madv_guard;
+	bool has_pagemap_scan_guard_pages;
 };
 
 extern struct kerndat_s kdat;
@@ -113,5 +114,7 @@ enum {
 extern int kerndat_fs_virtualized(unsigned int which, u32 kdev);
 
 extern int kerndat_has_nspid(void);
+
+extern void kerndat_warn_about_madv_guards(void);
 
 #endif /* __CR_KERNDAT_H__ */

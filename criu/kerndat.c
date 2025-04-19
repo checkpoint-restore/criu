@@ -87,6 +87,10 @@ static int check_pagemap(void)
 	if (ioctl(fd, PAGEMAP_SCAN, &args) == 0) {
 		pr_debug("PAGEMAP_SCAN is supported\n");
 		kdat.has_pagemap_scan = true;
+
+		args.return_mask |= PAGE_IS_GUARD;
+		if (ioctl(fd, PAGEMAP_SCAN, &args) == 0)
+			kdat.has_pagemap_scan_guard_pages = true;
 	} else {
 		switch (errno) {
 		case EINVAL:
@@ -1839,6 +1843,14 @@ static int kerndat_has_madv_guard(void)
 mmap_cleanup:
 	munmap(map, PAGE_SIZE);
 	return -1;
+}
+
+void kerndat_warn_about_madv_guards(void)
+{
+	if (kdat.has_madv_guard && !kdat.has_pagemap_scan_guard_pages)
+		pr_warn("ioctl(PAGEMAP_SCAN) doesn't support PAGE_IS_GUARD flag. "
+			"CRIU dump will fail if dumped processes use madvise(MADV_GUARD_INSTALL). "
+			"Please, consider updating your kernel.\n");
 }
 
 /*
