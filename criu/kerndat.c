@@ -31,6 +31,7 @@
 #include "kerndat.h"
 #include "fs-magic.h"
 #include "mem.h"
+#include "mman.h"
 #include "common/compiler.h"
 #include "sysctl.h"
 #include "cr_options.h"
@@ -1813,6 +1814,33 @@ err:
 	return exit_code;
 }
 
+static int kerndat_has_madv_guard(void)
+{
+	void *map;
+
+	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	if (map == MAP_FAILED) {
+		pr_perror("Can't mmap a page for has_madv_guard feature test");
+		return -1;
+	}
+
+	if (madvise(map, PAGE_SIZE, MADV_GUARD_INSTALL)) {
+		if (errno != EINVAL) {
+			pr_perror("madvise failed (has_madv_guard check)");
+			goto mmap_cleanup;
+		}
+	} else {
+		kdat.has_madv_guard = true;
+	}
+
+	munmap(map, PAGE_SIZE);
+	return 0;
+
+mmap_cleanup:
+	munmap(map, PAGE_SIZE);
+	return -1;
+}
+
 /*
  * Some features depend on resource that can be dynamically changed
  * at the OS runtime. There are cases that we cannot determine the
@@ -2079,6 +2107,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_breakpoints()) {
 		pr_err("kerndat_breakpoints has failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_madv_guard()) {
+		pr_err("kerndat_has_madv_guard has failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
