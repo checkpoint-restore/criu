@@ -315,6 +315,7 @@ TST_FILE	=				\
 		write_read02			\
 		write_read10			\
 		maps00				\
+		maps12				\
 		link10				\
 		file_attr			\
 		deleted_unix_sock		\
