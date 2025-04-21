@@ -2119,7 +2119,7 @@ static int restore_root_task(struct pstree_item *init)
 		 * the '--empty-ns net' mode no iptables C/R is done and we
 		 * need to return these rules by hands.
 		 */
-		ret = network_lock_internal();
+		ret = network_lock_internal(/* restore = */ true);
 		if (ret)
 			goto out_kill;
 	}
