@@ -136,6 +136,9 @@ static void display_stats(int what, StatsEntry *stats)
 		       stats->dump->pages_written);
 		pr_msg("Lazy memory pages: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_lazy,
 		       stats->dump->pages_lazy);
+		if (stats->dump->has_pages_madv_guard)
+			pr_msg("Guard (MADV_GUARD) pages: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_madv_guard,
+			       stats->dump->pages_madv_guard);
 	} else if (what == RESTORE_STATS) {
 		pr_msg("Displaying restore stats:\n");
 		pr_msg("Pages compared: %" PRIu64 " (0x%" PRIx64 ")\n", stats->restore->pages_compared,
@@ -174,6 +177,9 @@ void write_stats(int what)
 		ds_entry.pages_skipped_parent = dstats->counts[CNT_PAGES_SKIPPED_PARENT];
 		ds_entry.pages_written = dstats->counts[CNT_PAGES_WRITTEN];
 		ds_entry.pages_lazy = dstats->counts[CNT_PAGES_LAZY];
+		ds_entry.pages_madv_guard = dstats->counts[CNT_PAGES_GUARD];
+		ds_entry.has_pages_madv_guard = true;
+
 		ds_entry.page_pipes = dstats->counts[CNT_PAGE_PIPES];
 		ds_entry.has_page_pipes = true;
 		ds_entry.page_pipe_bufs = dstats->counts[CNT_PAGE_PIPE_BUFS];
