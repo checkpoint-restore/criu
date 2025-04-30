@@ -135,14 +135,14 @@ static int create_files(shared_data_t *shared, int *fd, size_t nr_files)
 
 	memset(fd, 0xff, sizeof(*fd) * MAX_CHUNK);
 
-	pr_info("\tCreating %lu files\n", shared->opt_files);
+	pr_info("\tCreating %zu files\n", shared->opt_files);
 
 	for (i = 0; i < shared->opt_files; i++) {
 		if (shared->prev_fd[i] != -1) {
 			close(shared->prev_fd[i]);
 			shared->prev_fd[i] = -1;
 		}
-		snprintf(path, sizeof(path), "%08d-%04d-temp", sys_gettid(), i);
+		snprintf(path, sizeof(path), "%08d-%04zu-temp", sys_gettid(), i);
 		fd[i] = openat(shared->work_dir_fd, path, O_RDWR | O_CREAT | O_TRUNC, 0666);
 		if (fd[i] < 0) {
 			pr_perror("Can't open %s/%s", shared->opt_work_dir, path);

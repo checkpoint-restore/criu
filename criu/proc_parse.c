@@ -212,8 +212,8 @@ static inline int is_anon_shmem_map(dev_t dev)
 }
 
 struct vma_file_info {
-	int dev_maj;
-	int dev_min;
+	unsigned int dev_maj;
+	unsigned int dev_min;
 	unsigned long ino;
 	struct vma_area *vma;
 };
@@ -1227,12 +1227,12 @@ static bool sb_opt_cb(char *opt, char *unknown, size_t *uoff)
 {
 	unsigned int id;
 
-	if (sscanf(opt, "gid=%d", &id) == 1) {
+	if (sscanf(opt, "gid=%u", &id) == 1) {
 		*uoff += sprintf(unknown + *uoff, "gid=%d", userns_gid(id));
 		unknown[*uoff] = ',';
 		(*uoff)++;
 		return true;
-	} else if (sscanf(opt, "uid=%d", &id) == 1) {
+	} else if (sscanf(opt, "uid=%u", &id) == 1) {
 		*uoff += sprintf(unknown + *uoff, "uid=%d", userns_uid(id));
 		unknown[*uoff] = ',';
 		(*uoff)++;
@@ -1898,7 +1898,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 			goto out;
 
 		if (fdinfo_field(str, "pos") || fdinfo_field(str, "flags") || fdinfo_field(str, "mnt_id")) {
-			unsigned long long val;
+			long long val;
 			struct fdinfo_common *fdinfo = arg;
 
 			if (type != FD_TYPES__UND)
@@ -2003,7 +2003,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 			eventpoll_tfd_entry__init(e);
 
 			ret = sscanf(str,
-				     "tfd: %d events: %x data: %llx"
+				     "tfd: %u events: %x data: %llx"
 				     " pos:%lli ino:%lx sdev:%x",
 				     &e->tfd, &e->events, (long long *)&e->data, (long long *)&e->pos,
 				     (long *)&e->inode, &e->dev);
