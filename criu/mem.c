@@ -115,27 +115,37 @@ static bool should_dump_entire_vma(VmaEntry *vmae)
 }
 
 /*
- * should_dump_page returns vaddr if an addressed page has to be dumped.
- * Otherwise, it returns an address that has to be inspected next.
+ * should_dump_page writes vaddr in page_info->next if an addressed page has to be dumped.
+ * Otherwise, it writes an address that has to be inspected next.
  */
-u64 should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, bool *softdirty)
+int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *page_info)
 {
+	if (!page_info)
+		goto err;
+
 	if (vaddr >= pmc->end && pmc_fill(pmc, vaddr, vmae->end))
-		return -1;
+		goto err;
 
 	if (pmc->regs) {
 		while (1) {
-			if (pmc->regs_idx == pmc->regs_len)
-				return pmc->end;
+			if (pmc->regs_idx == pmc->regs_len) {
+				page_info->next = pmc->end;
+				return 0;
+			}
+
 			if (vaddr < pmc->regs[pmc->regs_idx].end)
 				break;
 			pmc->regs_idx++;
 		}
-		if (vaddr < pmc->regs[pmc->regs_idx].start)
-			return pmc->regs[pmc->regs_idx].start;
-		if (softdirty)
-			*softdirty = pmc->regs[pmc->regs_idx].categories & PAGE_IS_SOFT_DIRTY;
-		return vaddr;
+
+		if (vaddr < pmc->regs[pmc->regs_idx].start) {
+			page_info->next = pmc->regs[pmc->regs_idx].start;
+			return 0;
+		}
+
+		page_info->softdirty = pmc->regs[pmc->regs_idx].categories & PAGE_IS_SOFT_DIRTY;
+		page_info->next = vaddr;
+		return 0;
 	} else {
 		u64 pme = pmc->map[PAGE_PFN(vaddr - pmc->start)];
 
@@ -143,16 +153,26 @@ u64 should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, bool *softdirty)
 		 * Optimisation for private mapping pages, that haven't
 		 * yet being COW-ed
 		 */
-		if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE))
-			return vaddr + PAGE_SIZE;
-		if ((pme & (PME_PRESENT | PME_SWAP)) && !__page_is_zero(pme)) {
-			if (softdirty)
-				*softdirty = pme & PME_SOFT_DIRTY;
-			return vaddr;
+		if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE)) {
+			page_info->next = vaddr + PAGE_SIZE;
+			return 0;
 		}
 
-		return vaddr + PAGE_SIZE;
+		if ((pme & (PME_PRESENT | PME_SWAP)) && !__page_is_zero(pme)) {
+			page_info->softdirty = pme & PME_SOFT_DIRTY;
+			page_info->next = vaddr;
+			return 0;
+		}
+
+		page_info->next = vaddr + PAGE_SIZE;
+		return 0;
 	}
+
+err:
+	pr_err("should_dump_page failed on vma "
+	       "%#016" PRIx64 "-%#016" PRIx64 " vaddr=%#016" PRIx64 "\n",
+	       vmae->start, vmae->end, vaddr);
+	return -1;
 }
 
 bool page_is_zero(u64 pme)
@@ -202,14 +222,15 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	nr_scanned = 0;
 	for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {
 		unsigned int ppb_flags = 0;
-		bool softdirty = false;
-		u64 next;
+		struct page_info page_info = {};
 		int st;
 
 		/* If dump_all_pages is true, should_dump_page is called to get pme. */
-		next = should_dump_page(pmc, vma->e, vaddr, &softdirty);
-		if (!dump_all_pages && next != vaddr) {
-			vaddr = next - PAGE_SIZE;
+		if (should_dump_page(pmc, vma->e, vaddr, &page_info))
+			return -1;
+
+		if (!dump_all_pages && page_info.next != vaddr) {
+			vaddr = page_info.next - PAGE_SIZE;
 			continue;
 		}
 
@@ -223,7 +244,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		 * page. The latter would be checked in page-xfer.
 		 */
 
-		if (has_parent && page_in_parent(softdirty)) {
+		if (has_parent && page_in_parent(page_info.softdirty)) {
 			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
 			st = 0;
 		} else {
