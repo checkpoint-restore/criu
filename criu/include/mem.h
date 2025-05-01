@@ -49,5 +49,11 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta);
 int unmap_guard_pages(struct pstree_item *t);
 int prepare_mappings(struct pstree_item *t);
 
-u64 should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, bool *softdirty);
+struct page_info {
+	u64 next;
+	bool softdirty;
+};
+
+int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *page_info);
+
 #endif /* __CR_MEM_H__ */
