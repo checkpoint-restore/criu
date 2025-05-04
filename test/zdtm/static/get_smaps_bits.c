@@ -18,6 +18,10 @@
 #define MADV_DONTDUMP 16
 #endif
 
+#ifndef MADV_WIPEONFORK
+#define MADV_WIPEONFORK 18
+#endif
+
 static void parse_vmflags(char *buf, unsigned long *flags, unsigned long *madv)
 {
 	char *tok;
@@ -57,6 +61,8 @@ static void parse_vmflags(char *buf, unsigned long *flags, unsigned long *madv)
 			*madv |= (1ul << MADV_HUGEPAGE);
 		else if (_vmflag_match(tok, "nh"))
 			*madv |= (1ul << MADV_NOHUGEPAGE);
+		else if (_vmflag_match(tok, "wf"))
+			*madv |= (1ul << MADV_WIPEONFORK);
 
 		/*
 		 * Anything else is just ignored.
