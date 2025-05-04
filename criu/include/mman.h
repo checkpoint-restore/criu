@@ -4,6 +4,9 @@
 #ifndef MAP_HUGETLB
 #define MAP_HUGETLB 0x40000
 #endif
+#ifndef MAP_DROPPABLE
+#define MAP_DROPPABLE 0x08
+#endif
 #ifndef MADV_HUGEPAGE
 #define MADV_HUGEPAGE 14
 #endif

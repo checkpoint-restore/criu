@@ -10,6 +10,7 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "mem.h"
+#include "mman.h"
 #include "parasite-syscall.h"
 #include "parasite.h"
 #include "page-pipe.h"
@@ -396,6 +397,17 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma, str
 	 * be remapped into proper place..
 	 */
 	if (vma_entry_is(vma->e, VMA_AREA_VVAR))
+		return 0;
+
+	/*
+	 * 9651fcedf7b9 ("mm: add MAP_DROPPABLE for designating always lazily freeable mappings")
+	 * tells us that:
+	 * Under memory pressure, mm can just drop the pages (so that they're
+	 * zero when read back again).
+	 *
+	 * Let's just skip MAP_DROPPABLE mappings pages dump logic.
+	 */
+	if (vma->e->flags & MAP_DROPPABLE)
 		return 0;
 
 	/*
