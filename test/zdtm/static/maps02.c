@@ -2,6 +2,10 @@
 #include "zdtmtst.h"
 #include "get_smaps_bits.h"
 
+#ifndef MAP_DROPPABLE
+#define MAP_DROPPABLE 0x08
+#endif
+
 #ifndef MADV_DONTDUMP
 #define MADV_DONTDUMP 16
 #endif
@@ -27,8 +31,14 @@ static int alloc_anon_mmap(struct mmap_data *m, int flags, int adv)
 {
 	m->start = mmap(NULL, MEM_SIZE, PROT_READ | PROT_WRITE, flags, -1, 0);
 	if (m->start == MAP_FAILED) {
-		pr_perror("mmap failed");
-		return -1;
+		if (errno == EINVAL) {
+			test_msg("mmap failed, no kernel support\n");
+			*m = (struct mmap_data){};
+			return 0;
+		} else {
+			pr_perror("mmap failed");
+			return -1;
+		}
 	}
 
 	if (madvise(m->start, MEM_SIZE, adv)) {
@@ -47,7 +57,7 @@ static int alloc_anon_mmap(struct mmap_data *m, int flags, int adv)
 
 int main(int argc, char **argv)
 {
-	struct mmap_data m[6] = {};
+	struct mmap_data m[7] = {};
 	size_t i;
 
 	test_init(argc, argv);
@@ -74,6 +84,10 @@ int main(int argc, char **argv)
 
 	test_msg("Alloc wipeonfork\n");
 	if (alloc_anon_mmap(&m[5], MAP_PRIVATE | MAP_ANONYMOUS, MADV_WIPEONFORK))
+		return -1;
+
+	test_msg("Alloc droppable\n");
+	if (alloc_anon_mmap(&m[6], MAP_DROPPABLE | MAP_ANONYMOUS, MADV_NORMAL))
 		return -1;
 
 	test_msg("Fetch existing flags/adv\n");

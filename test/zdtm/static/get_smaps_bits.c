@@ -6,6 +6,10 @@
 #define MAP_HUGETLB 0x40000
 #endif
 
+#ifndef MAP_DROPPABLE
+#define MAP_DROPPABLE 0x08
+#endif
+
 #ifndef MADV_HUGEPAGE
 #define MADV_HUGEPAGE 14
 #endif
@@ -45,6 +49,8 @@ static void parse_vmflags(char *buf, unsigned long *flags, unsigned long *madv)
 			*flags |= MAP_NORESERVE;
 		else if (_vmflag_match(tok, "ht"))
 			*flags |= MAP_HUGETLB;
+		else if (_vmflag_match(tok, "dp"))
+			*flags |= MAP_DROPPABLE;
 
 		/* madvise() block */
 		if (_vmflag_match(tok, "sr"))
