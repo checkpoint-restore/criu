@@ -144,6 +144,8 @@ static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf,
 			*flags |= MAP_NORESERVE;
 		else if (_vmflag_match(tok, "ht"))
 			*flags |= MAP_HUGETLB;
+		else if (_vmflag_match(tok, "dp"))
+			*flags |= MAP_DROPPABLE;
 
 		/* madvise() block */
 		if (_vmflag_match(tok, "sr"))
@@ -206,6 +208,20 @@ static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
 
 	if (vma_area->e->madv)
 		vma_area->e->has_madv = true;
+
+	/*
+	 * We set MAP_PRIVATE flag on vma_area->e->flags right after parsing
+	 * a first line of VMA entry in /proc/<pid>/smaps file:
+	 * 7fa84fa70000-7fa84fa95000 rw-p 00000000 00:00 0
+	 * but it's too early and we can't distinguish between MAP_DROPPABLE
+	 * and MAP_PRIVATE mappings yet, as they both private mappings in nature
+	 * and at this point we haven't yet read "VmFlags:" line in smaps.
+	 *
+	 * Let's detect this situation and drop MAP_PRIVATE flag while keep
+	 * MAP_DROPPABLE, otherwise restorer's restore_mapping() helper will fail.
+	 */
+	if ((vma_area->e->flags & MAP_PRIVATE) && (vma_area->e->flags & MAP_DROPPABLE))
+		vma_area->e->flags &= ~MAP_PRIVATE;
 }
 
 static inline int is_anon_shmem_map(dev_t dev)
