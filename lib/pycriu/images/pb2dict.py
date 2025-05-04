@@ -83,6 +83,7 @@ mmap_prot_map = [
 mmap_flags_map = [
     ('MAP_SHARED', 0x1),
     ('MAP_PRIVATE', 0x2),
+    ('MAP_DROPPABLE', 0x08),
     ('MAP_ANON', 0x20),
     ('MAP_GROWSDOWN', 0x0100),
 ]
