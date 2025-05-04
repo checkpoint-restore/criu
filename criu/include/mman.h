@@ -13,5 +13,8 @@
 #ifndef MADV_DONTDUMP
 #define MADV_DONTDUMP 16
 #endif
+#ifndef MADV_WIPEONFORK
+#define MADV_WIPEONFORK 18
+#endif
 
 #endif /* __CR_MMAN_H__ */
