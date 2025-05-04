@@ -160,6 +160,8 @@ static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf,
 			*madv |= (1ul << MADV_HUGEPAGE);
 		else if (_vmflag_match(tok, "nh"))
 			*madv |= (1ul << MADV_NOHUGEPAGE);
+		else if (_vmflag_match(tok, "wf"))
+			*madv |= (1ul << MADV_WIPEONFORK);
 
 		/* vmsplice doesn't work for VM_IO and VM_PFNMAP mappings. */
 		if (_vmflag_match(tok, "io") || _vmflag_match(tok, "pf"))
