@@ -6,7 +6,11 @@
 #define MADV_DONTDUMP 16
 #endif
 
-const char *test_doc = "Test shared memory with advises";
+#ifndef MADV_WIPEONFORK
+#define MADV_WIPEONFORK 18
+#endif
+
+const char *test_doc = "Test private memory with advises";
 const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 struct mmap_data {
@@ -43,12 +47,12 @@ static int alloc_anon_mmap(struct mmap_data *m, int flags, int adv)
 
 int main(int argc, char **argv)
 {
-	struct mmap_data m[5] = {};
+	struct mmap_data m[6] = {};
 	size_t i;
 
 	test_init(argc, argv);
 
-	test_msg("Alloc growsdown\n");
+	test_msg("Alloc dontfork\n");
 	if (alloc_anon_mmap(&m[0], MAP_PRIVATE | MAP_ANONYMOUS, MADV_DONTFORK))
 		return -1;
 
@@ -64,8 +68,12 @@ int main(int argc, char **argv)
 	if (alloc_anon_mmap(&m[3], MAP_PRIVATE | MAP_ANONYMOUS, MADV_HUGEPAGE))
 		return -1;
 
-	test_msg("Alloc dontfork/random|mergeable\n");
+	test_msg("Alloc mergeable\n");
 	if (alloc_anon_mmap(&m[4], MAP_PRIVATE | MAP_ANONYMOUS, MADV_MERGEABLE))
+		return -1;
+
+	test_msg("Alloc wipeonfork\n");
+	if (alloc_anon_mmap(&m[5], MAP_PRIVATE | MAP_ANONYMOUS, MADV_WIPEONFORK))
 		return -1;
 
 	test_msg("Fetch existing flags/adv\n");
