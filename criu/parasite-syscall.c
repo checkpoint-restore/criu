@@ -421,7 +421,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		ictx->flags |= INFECT_NO_MEMFD;
 	if (fault_injected(FI_PARASITE_CONNECT))
 		ictx->flags |= INFECT_FAIL_CONNECT;
-	if (fault_injected(FI_NO_BREAKPOINTS))
+	if (fault_injected(FI_NO_BREAKPOINTS) || !kdat.has_breakpoints)
 		ictx->flags |= INFECT_NO_BREAKPOINTS;
 	if (kdat.compat_cr)
 		ictx->flags |= INFECT_COMPATIBLE;
