@@ -1736,6 +1736,83 @@ static int kerndat_has_timer_cr_ids(void)
 	return 0;
 }
 
+static void breakpoint_func(void)
+{
+	if (raise(SIGSTOP))
+		pr_perror("Unable to kill itself with SIGSTOP");
+	exit(1);
+}
+
+/*
+ * kerndat_breakpoints checks that hardware breakpoints work as they should.
+ * In some cases, they might not work in virtual machines if the hypervisor
+ * doesn't virtualize them. For example, they don't work in AMD SEV virtual
+ * machines if the Debug Virtualization extension isn't supported or isn't
+ * enabled in SEV_FEATURES.
+ */
+static int kerndat_breakpoints(void)
+{
+	int status, ret, exit_code = -1;
+	pid_t pid;
+
+	pid = fork();
+	if (pid == -1) {
+		pr_perror("fork");
+		return -1;
+	}
+	if (pid == 0) {
+		if (ptrace(PTRACE_TRACEME, 0, 0, 0)) {
+			pr_perror("ptrace(PTRACE_TRACEME)");
+			exit(1);
+		}
+		raise(SIGSTOP);
+		breakpoint_func();
+		exit(1);
+	}
+	if (waitpid(pid, &status, 0) == -1) {
+		pr_perror("waitpid for initial stop");
+		goto err;
+	}
+	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGSTOP) {
+		pr_err("Child didn't stop as expected: status=%x\n", status);
+		goto err;
+	}
+	ret = ptrace_set_breakpoint(pid, &breakpoint_func);
+	if (ret < 0) {
+		pr_err("Failed to set breakpoint\n");
+		goto err;
+	}
+	if (ret == 0) {
+		pr_debug("Hardware breakpoints appear to be disabled\n");
+		goto out;
+	}
+	if (waitpid(pid, &status, 0) == -1) {
+		pr_perror("waitpid for breakpoint trigger");
+		goto err;
+	}
+	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP) {
+		pr_warn("Hardware breakpoints don't seem to work (status=%x)\n", status);
+		goto out;
+	}
+	kdat.has_breakpoints = true;
+out:
+	exit_code = 0;
+err:
+	if (kill(pid, SIGKILL)) {
+		pr_perror("Failed to kill the child process");
+		exit_code = -1;
+	}
+	if (waitpid(pid, &status, 0) == -1) {
+		pr_perror("Failed to wait for the child process");
+		exit_code = -1;
+	}
+	if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
+		pr_err("The child exited with unexpected code: %x\n", status);
+		exit_code = -1;
+	}
+	return exit_code;
+}
+
 /*
  * Some features depend on resource that can be dynamically changed
  * at the OS runtime. There are cases that we cannot determine the
@@ -1999,6 +2076,9 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_timer_cr_ids()) {
 		pr_err("kerndat_has_timer_cr_ids has failed when initializing kerndat.\n");
+	}
+	if (!ret && kerndat_breakpoints()) {
+		pr_err("kerndat_breakpoints has failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
