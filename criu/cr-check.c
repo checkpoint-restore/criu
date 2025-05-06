@@ -1589,6 +1589,17 @@ static int check_overlayfs_maps(void)
 	return status == 0 ? 0 : -1;
 }
 
+static int check_breakpoints(void)
+{
+	if (!kdat.has_breakpoints) {
+		pr_warn("Hardware breakpoints don't seem to work\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+
 static int (*chk_feature)(void);
 
 /*
@@ -1616,6 +1627,7 @@ static int (*chk_feature)(void);
 			return ret;                 \
 		}                                   \
 	} while (0)
+
 int cr_check(void)
 {
 	struct ns_id *ns;
@@ -1724,6 +1736,10 @@ int cr_check(void)
 		ret |= check_autofs();
 		ret |= check_compat_cr();
 	}
+	/*
+	 * Category 4 - optional.
+	 */
+	check_breakpoints();
 
 	pr_msg("%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
 	return ret;
@@ -1836,6 +1852,7 @@ static struct feature_list feature_list[] = {
 	{ "pagemap_scan", check_pagemap_scan },
 	{ "timer_cr_ids", check_timer_cr_ids },
 	{ "overlayfs_maps", check_overlayfs_maps },
+	{ "breakpoints", check_breakpoints },
 	{ NULL, NULL },
 };
 

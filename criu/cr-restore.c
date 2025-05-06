@@ -1820,6 +1820,7 @@ static int restore_rseq_cs(void)
 static int catch_tasks(bool root_seized)
 {
 	struct pstree_item *item;
+	bool nobp = fault_injected(FI_NO_BREAKPOINTS) || !kdat.has_breakpoints;
 
 	for_each_pstree_item(item) {
 		int status, i, ret;
@@ -1847,7 +1848,7 @@ static int catch_tasks(bool root_seized)
 				return -1;
 			}
 
-			ret = compel_stop_pie(pid, rsti(item)->breakpoint, fault_injected(FI_NO_BREAKPOINTS));
+			ret = compel_stop_pie(pid, rsti(item)->breakpoint, nobp);
 			if (ret < 0)
 				return -1;
 		}
