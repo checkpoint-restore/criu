@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
+#include <sys/mman.h>
 
 #include <fcntl.h>
 
@@ -114,6 +115,9 @@ static struct str_and_lock *first_err;
 
 int log_keep_err(void)
 {
+	if (first_err)
+		return 0;
+
 	first_err = shmalloc(sizeof(struct str_and_lock));
 	if (first_err == NULL)
 		return -1;
