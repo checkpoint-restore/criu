@@ -895,6 +895,11 @@ static int check(int sk, CriuOpts *req)
 
 	resp.type = CRIU_REQ_TYPE__CHECK;
 
+	if (log_keep_err()) {
+		pr_perror("Can't tune log");
+		goto out;
+	}
+
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Can't fork");
@@ -919,6 +924,7 @@ static int check(int sk, CriuOpts *req)
 
 	resp.success = true;
 out:
+	set_resp_err(&resp);
 	return send_criu_msg(sk, &resp);
 }
 
@@ -926,6 +932,11 @@ static int pre_dump_using_req(int sk, CriuOpts *req, bool single)
 {
 	int pid, status;
 	bool success = false;
+
+	if (log_keep_err()) {
+		pr_perror("Can't tune log");
+		goto out;
+	}
 
 	pid = fork();
 	if (pid < 0) {
@@ -1005,6 +1016,11 @@ static int start_page_server_req(int sk, CriuOpts *req, bool daemon_mode)
 	CriuPageServerInfo ps = CRIU_PAGE_SERVER_INFO__INIT;
 	struct ps_info info;
 
+	if (log_keep_err()) {
+		pr_perror("Can't tune log");
+		goto out;
+	}
+
 	if (pipe(start_pipe)) {
 		pr_perror("No start pipe");
 		goto out;
@@ -1078,6 +1094,7 @@ static int start_page_server_req(int sk, CriuOpts *req, bool daemon_mode)
 out:
 	resp.type = CRIU_REQ_TYPE__PAGE_SERVER;
 	resp.success = success;
+	set_resp_err(&resp);
 	return send_criu_msg(sk, &resp);
 }
 
@@ -1252,6 +1269,11 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 	bool success = false;
 	int pid, status;
 
+	if (log_keep_err()) {
+		pr_perror("Can't tune log");
+		goto out;
+	}
+
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Can't fork");
@@ -1301,7 +1323,7 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 out:
 	resp.type = msg->type;
 	resp.success = success;
-
+	set_resp_err(&resp);
 	return send_criu_msg(sk, &resp);
 }
 
