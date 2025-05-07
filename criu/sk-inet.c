@@ -128,6 +128,8 @@ static int can_dump_ipproto(unsigned int ino, int proto, int type)
 		break;
 	default:
 		pr_err("Unsupported proto %d for socket %x\n", proto, ino);
+		if (proto == IPPROTO_MPTCP)
+			pr_err("For Go programs, consider using \"GODEBUG=multipathtcp=0\" to disable MPTCP\n");
 		return 0;
 	}
 
