@@ -35,34 +35,6 @@ int main(void)
 }
 endef
 
-define FEATURE_TEST_STRLCPY
-
-#include <string.h>
-
-#ifdef CONFIG_HAS_LIBBSD
-# include <bsd/string.h>
-#endif
-
-int main(void)
-{
-	return strlcpy(NULL, NULL, 0);
-}
-endef
-
-define FEATURE_TEST_STRLCAT
-
-#include <string.h>
-
-#ifdef CONFIG_HAS_LIBBSD
-# include <bsd/string.h>
-#endif
-
-int main(void)
-{
-	return strlcat(NULL, NULL, 0);
-}
-endef
-
 define FEATURE_TEST_PTRACE_PEEKSIGINFO
 
 #include <sys/ptrace.h>
