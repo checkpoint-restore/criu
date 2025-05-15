@@ -58,13 +58,6 @@ struct vma_metadata {
 
 /************************************ Global Variables ********************************************/
 
-/**
- * FD of KFD device used to checkpoint. On a multi-process
- * tree the order of checkpointing goes from parent to child
- * and so on - so saving the FD will not be overwritten
- */
-static int kfd_checkpoint_fd;
-
 static LIST_HEAD(update_vma_info_list);
 
 size_t kfd_max_buffer_size;
@@ -1050,28 +1043,34 @@ int restore_hsakmt_shared_mem(const uint64_t shared_mem_size, const uint32_t sha
 	return 0;
 }
 
-static int unpause_process(int fd)
+int amdgpu_unpause_processes(int pid)
 {
 	int ret = 0;
 	struct kfd_ioctl_criu_args args = { 0 };
+	struct list_head *l = get_dumped_fds();
+	struct dumped_fd *st;
 
-	args.op = KFD_CRIU_OP_UNPAUSE;
+	list_for_each_entry(st, l, l) {
+		if (st->is_drm) {
+			close(st->fd);
+		} else {
+			args.op = KFD_CRIU_OP_UNPAUSE;
 
-	ret = kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args);
-	if (ret) {
-		pr_perror("Failed to unpause process");
-		goto exit;
+			ret = kmtIoctl(st->fd, AMDKFD_IOC_CRIU_OP, &args);
+			if (ret) {
+				pr_perror("Failed to unpause process");
+				goto exit;
+			}
+		}
 	}
-
-	// Reset the KFD FD
-	kfd_checkpoint_fd = -1;
-	sys_close_drm_render_devices(&src_topology);
 
 exit:
 	pr_info("Process unpaused %s (ret:%d)\n", ret ? "Failed" : "Ok", ret);
+	clear_dumped_fds();
 
 	return ret;
 }
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_DEVICES_LATE, amdgpu_unpause_processes)
 
 int store_dmabuf_fd(int handle, int fd)
 {
@@ -1404,9 +1403,6 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		return -1;
 	}
 
-	/* Initialize number of device files that will be checkpointed */
-	init_gpu_count(&src_topology);
-
 	/* Check whether this plugin was called for kfd or render nodes */
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0) {
 
@@ -1418,11 +1414,9 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		if (ret)
 			return ret;
 
-		/* Invoke unpause process if needed */
-		decrement_checkpoint_count();
-		if (checkpoint_is_complete()) {
-			ret = unpause_process(kfd_checkpoint_fd);
-		}
+		ret = record_dumped_fd(fd, true);
+		if (ret)
+			return ret;
 
 		/* Need to return success here so that criu can call plugins for renderD nodes */
 		return ret;
@@ -1520,14 +1514,11 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	xfree(buf);
 
-exit:
-	/* Restore all queues if conditions permit */
-	kfd_checkpoint_fd = fd;
-	decrement_checkpoint_count();
-	if (checkpoint_is_complete()) {
-		ret = unpause_process(fd);
-	}
+	ret = record_dumped_fd(fd, false);
+	if (ret)
+		goto exit;
 
+exit:
 	xfree((void *)args.devices);
 	xfree((void *)args.bos);
 	xfree((void *)args.priv_data);
