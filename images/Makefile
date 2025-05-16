@@ -58,7 +58,7 @@ proto-obj-y	+= ext-file.o
 proto-obj-y	+= cgroup.o
 proto-obj-y	+= userns.o
 proto-obj-y	+= pidns.o
-proto-obj-y	+= google/protobuf/descriptor.o # To make protoc-c happy and compile opts.proto
+proto-obj-y	+= google/protobuf/descriptor.o # To make protoc happy and compile opts.proto
 proto-obj-y	+= opts.o
 proto-obj-y	+= seccomp.o
 proto-obj-y	+= binfmt-misc.o
@@ -96,7 +96,7 @@ makefile-deps := Makefile $(obj)/Makefile
 define gen-proto-rules
 $(obj)/$(1).pb-c.c $(obj)/$(1).pb-c.h: $(obj)/$(1).proto $(addsuffix .pb-c.c,$(addprefix $(obj)/,$(2))) $(makefile-deps)
 	$$(E) "  PBCC    " $$@
-	$$(Q) protoc-c --proto_path=$(obj)/ --c_out=$(obj)/ $$<
+	$$(Q) protoc --proto_path=$(obj)/ --c_out=$(obj)/ $$<
 ifeq ($(PROTOUFIX),y)
 	$$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $$@
 	$$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $$(patsubst %.c,%.h,$$@)
