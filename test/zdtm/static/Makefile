@@ -734,7 +734,7 @@ criu-rtc.pb-c.c: criu-rtc.proto
 	$(Q)echo $@ >> .gitignore
 	$(Q)echo $(@:%.c=%.h) >> .gitignore
 	$(E) " PBCC     " $@
-	$(Q)protoc-c --proto_path=. --c_out=. criu-rtc.proto
+	$(Q)protoc --proto_path=. --c_out=. criu-rtc.proto
 
 criu-rtc.so: criu-rtc.c criu-rtc.pb-c.c
 	$(E) " LD       " $@

@@ -25,7 +25,7 @@ else
 endif
 
 criu-amdgpu.pb-c.c: criu-amdgpu.proto
-		protoc-c --proto_path=. --c_out=. criu-amdgpu.proto
+		protoc --proto_path=. --c_out=. criu-amdgpu.proto
 
 amdgpu_plugin.so: amdgpu_plugin.c amdgpu_plugin_drm.c amdgpu_plugin_topology.c amdgpu_plugin_util.c criu-amdgpu.pb-c.c
 	$(CC) $(PLUGIN_CFLAGS) $(shell $(COMPEL) includes) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) $(LIBDRM_INC)
