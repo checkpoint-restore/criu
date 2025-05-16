@@ -44,6 +44,11 @@
 #define PB_ALEN_INET  1
 #define PB_ALEN_INET6 4
 
+/* Definition for older kernels without MPTCP support (e.g. Ubuntu 20.04) */
+#ifndef IPPROTO_MPTCP
+#define IPPROTO_MPTCP 262
+#endif
+
 static LIST_HEAD(inet_ports);
 
 struct inet_port {
