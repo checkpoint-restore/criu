@@ -1611,6 +1611,7 @@ class criu:
     def available():
         if not os.access(opts['criu_bin'], os.X_OK):
             print("CRIU binary not found at %s" % opts['criu_bin'])
+            print("Consider building CRIU or using '--criu-bin' option.")
             sys.exit(1)
 
     def kill(self):
@@ -2972,7 +2973,7 @@ if __name__ == '__main__':
     if opts['debug']:
         sys.settrace(traceit)
 
-    if opts['action'] == 'run':
+    if opts['action'] == run_tests:
         criu.available()
     for tst in test_classes.values():
         tst.available()
