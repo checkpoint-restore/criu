@@ -74,40 +74,55 @@ static int image_dir_mode(void)
 	return -1;
 }
 
-static int parse_criu_mode(char *mode, char *subcommand)
-{
-	if (!strcmp(mode, "dump"))
-		opts.mode = CR_DUMP;
-	else if (!strcmp(mode, "pre-dump"))
-		opts.mode = CR_PRE_DUMP;
-	else if (!strcmp(mode, "restore"))
-		opts.mode = CR_RESTORE;
-	else if (!strcmp(mode, "lazy-pages"))
-		opts.mode = CR_LAZY_PAGES;
-	else if (!strcmp(mode, "check"))
-		opts.mode = CR_CHECK;
-	else if (!strcmp(mode, "page-server"))
-		opts.mode = CR_PAGE_SERVER;
-	else if (!strcmp(mode, "service"))
-		opts.mode = CR_SERVICE;
-	else if (!strcmp(mode, "swrk"))
-		opts.mode = CR_SWRK;
-	else if (!strcmp(mode, "dedup"))
-		opts.mode = CR_DEDUP;
-	else if (!strcmp(mode, "cpuinfo") && subcommand == NULL)
-		return -2;
-	else if (!strcmp(mode, "cpuinfo") && !strcmp(subcommand, "dump"))
-		opts.mode = CR_CPUINFO_DUMP;
-	else if (!strcmp(mode, "cpuinfo") && !strcmp(subcommand, "check"))
-		opts.mode = CR_CPUINFO_CHECK;
-	else if (!strcmp(mode, "exec"))
-		opts.mode = CR_EXEC_DEPRECATED;
-	else if (!strcmp(mode, "show"))
-		opts.mode = CR_SHOW_DEPRECATED;
-	else
-		return -1;
+struct {
+	char *cmd;
+	int mode;
+} commands[] = {
+	{ "dump", CR_DUMP },
+	{ "pre-dump", CR_PRE_DUMP },
+	{ "restore", CR_RESTORE },
+	{ "lazy-pages", CR_LAZY_PAGES },
+	{ "check", CR_CHECK },
+	{ "page-server", CR_PAGE_SERVER },
+	{ "service", CR_SERVICE },
+	{ "swrk", CR_SWRK },
+	{ "dedup", CR_DEDUP },
+	{ "exec", CR_EXEC_DEPRECATED },
+	{ "show", CR_SHOW_DEPRECATED },
+};
 
-	return 0;
+static int parse_criu_mode(int argc, char **argv, int *optind)
+{
+	char *cmd = argv[*optind];
+	bool has_sub_command = (argc - *optind) > 1;
+	char *subcommand = has_sub_command ? argv[*optind + 1] : NULL;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+		if (strcmp(cmd, commands[i].cmd))
+			continue;
+		opts.mode = commands[i].mode;
+		return 0;
+	}
+
+	if (!strcmp(cmd, "cpuinfo")) {
+		if (subcommand == NULL) {
+			pr_err("cpuinfo requires an action: dump or check\n");
+			return -1;
+		}
+		if (!strcmp(subcommand, "dump"))
+			opts.mode = CR_CPUINFO_DUMP;
+		else if (!strcmp(subcommand, "check"))
+			opts.mode = CR_CPUINFO_CHECK;
+		else {
+			pr_err("unknown cpuinfo sub-command: %s\n", subcommand);
+			return -1;
+		}
+		(*optind)++;
+		return 0;
+	}
+	pr_err("unknown command: %s\n", argv[*optind]);
+	return -1;
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -117,7 +132,7 @@ int main(int argc, char *argv[], char *envp[])
 	bool has_exec_cmd = false;
 	bool has_sub_command;
 	int state = PARSING_GLOBAL_CONF;
-	char *subcommand;
+	char *cmd;
 
 	BUILD_BUG_ON(CTL_32 != SYSCTL_TYPE__CTL_32);
 	BUILD_BUG_ON(__CTL_STR != SYSCTL_TYPE__CTL_STR);
@@ -168,16 +183,11 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	has_sub_command = (argc - optind) > 1;
-	subcommand = has_sub_command ? argv[optind + 1] : NULL;
-	ret = parse_criu_mode(argv[optind], subcommand);
-	if (ret == -1) {
-		pr_err("unknown command: %s\n", argv[optind]);
+	cmd = argv[optind];
+	ret = parse_criu_mode(argc, argv, &optind);
+	if (ret)
 		goto usage;
-	} else if (ret == -2) {
-		pr_err("cpuinfo requires an action: dump or check\n");
-		goto usage;
-	}
+
 	/*
 	 * util_init initializes criu_run_id and compel_run_id so that sockets
 	 * are generated with an unique name identifying the specific process
@@ -232,14 +242,13 @@ int main(int argc, char *argv[], char *envp[])
 			return 1;
 		memcpy(opts.exec_cmd, &argv[optind + 1], (argc - optind - 1) * sizeof(char *));
 		opts.exec_cmd[argc - optind - 1] = NULL;
-	} else if (opts.mode != CR_CPUINFO_DUMP && opts.mode != CR_CPUINFO_CHECK && has_sub_command) {
-		/* No subcommands except for cpuinfo and restore --exec-cmd */
-		pr_err("excessive parameter%s for command %s\n", (argc - optind) > 2 ? "s" : "", argv[optind]);
+	} else if (has_sub_command) {
+		pr_err("excessive parameter%s for command %s\n", (argc - optind) > 2 ? "s" : "", cmd);
 		goto usage;
 	}
 
 	if (opts.stream && image_dir_mode() == -1) {
-		pr_err("--stream cannot be used with the %s command\n", argv[optind]);
+		pr_err("--stream cannot be used with the %s command\n", cmd);
 		goto usage;
 	}
 
@@ -290,14 +299,13 @@ int main(int argc, char *argv[], char *envp[])
 	if (opts.img_parent)
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
-	if (opts.mode == CR_DUMP) {
+	switch (opts.mode) {
+	case CR_DUMP:
 		if (!opts.tree_id)
 			goto opt_pid_missing;
 
 		return cr_dump_tasks(opts.tree_id);
-	}
-
-	if (opts.mode == CR_PRE_DUMP) {
+	case CR_PRE_DUMP:
 		if (!opts.tree_id)
 			goto opt_pid_missing;
 
@@ -307,9 +315,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		return cr_pre_dump_tasks(opts.tree_id) != 0;
-	}
-
-	if (opts.mode == CR_RESTORE) {
+	case CR_RESTORE:
 		if (opts.tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
 
@@ -322,43 +328,41 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		return ret != 0;
-	}
 
-	if (opts.mode == CR_LAZY_PAGES)
+	case CR_LAZY_PAGES:
 		return cr_lazy_pages(opts.daemon_mode) != 0;
 
-	if (opts.mode == CR_CHECK)
+	case CR_CHECK:
 		return cr_check() != 0;
 
-	if (opts.mode == CR_PAGE_SERVER)
+	case CR_PAGE_SERVER:
 		return cr_page_server(opts.daemon_mode, false, -1) != 0;
 
-	if (opts.mode == CR_SERVICE)
+	case CR_SERVICE:
 		return cr_service(opts.daemon_mode);
 
-	if (opts.mode == CR_DEDUP)
+	case CR_DEDUP:
 		return cr_dedup() != 0;
 
-	if (opts.mode == CR_CPUINFO_DUMP) {
+	case CR_CPUINFO_DUMP:
 		return cpuinfo_dump();
-	}
 
-	if (opts.mode == CR_CPUINFO_CHECK) {
+	case CR_CPUINFO_CHECK:
 		return cpuinfo_check();
-	}
 
-	if (opts.mode == CR_EXEC_DEPRECATED) {
+	case CR_EXEC_DEPRECATED:
 		pr_err("The \"exec\" action is deprecated by the Compel library.\n");
 		return -1;
-	}
 
-	if (opts.mode == CR_SHOW_DEPRECATED) {
+	case CR_SHOW_DEPRECATED:
 		pr_err("The \"show\" action is deprecated by the CRIT utility.\n");
 		pr_err("To view an image use the \"crit decode -i $name --pretty\" command.\n");
 		return -1;
-	}
 
-	pr_err("unknown command: %s\n", argv[optind]);
+	case CR_UNSET:
+	default:
+		pr_err("unknown command: %s\n", cmd);
+	}
 usage:
 	pr_msg("\n"
 	       "Usage:\n"
