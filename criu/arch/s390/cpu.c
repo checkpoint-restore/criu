@@ -87,6 +87,12 @@ int cpu_validate_cpuinfo(void)
 	if (!img)
 		return -1;
 
+	if (empty_image(img)) {
+		pr_err("No cpuinfo image\n");
+		close_image(img);
+		return -1;
+	}
+
 	ret = 0;
 	if (pb_read_one(img, &cpu_info, PB_CPUINFO) < 0)
 		goto error;
