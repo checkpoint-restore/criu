@@ -145,6 +145,7 @@ message criu_opts {
 	optional bool			leave_stopped		= 69;
 	optional bool			display_stats		= 70;
 	optional bool			log_to_stderr		= 71;
+	optional bool			stream			= 72;
 /*	optional bool			check_mounts		= 128;	*/
 }
 
