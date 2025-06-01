@@ -394,6 +394,7 @@ TST_DIR		=				\
 		cwd01				\
 		cwd02				\
 		detached_mount                  \
+		anonymous_mount			\
 		overmount_dev			\
 		overmount_file			\
 		overmount_fifo			\
