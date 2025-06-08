@@ -2147,7 +2147,7 @@ static int ipv4_sysctls_op(SysctlEntry ***rsysctl, size_t *pn, int op)
 	size_t n = *pn;
 
 	if (n != ARRAY_SIZE(ipv4_sysctl_entries)) {
-		pr_err("unix: Unexpected entries in sysctlig (%zu %zu)\n", n, ARRAY_SIZE(ipv4_sysctl_entries));
+		pr_err("unix: Unexpected entries in sysctl (%zu %zu)\n", n, ARRAY_SIZE(ipv4_sysctl_entries));
 		return -EINVAL;
 	}
 
