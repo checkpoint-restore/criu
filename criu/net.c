@@ -2201,6 +2201,37 @@ static int ipv4_sysctls_op(SysctlEntry ***rsysctl, size_t *pn, int op)
 	return 0;
 }
 
+static int ipv4_sysctls_ping_group_range_map_gid(char *ping_group_range, size_t size)
+{
+	int start, end, ret;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+
+	if (sscanf(ping_group_range, "%d %d", &start, &end) != 2) {
+		pr_err("Failed to parse ping_group_range: %s\n", ping_group_range);
+		return -1;
+	}
+
+	/*
+	 * The default is "1 0", which means no group
+	 * is allowed to create ICMP Echo sockets.
+	 */
+	if (start > end)
+		return 0;
+
+	start = userns_gid(start);
+	end = userns_gid(end);
+
+	ret = snprintf(ping_group_range, size, "%d\t%d\n", start, end);
+	if (ret < 0 || ret >= size) {
+		pr_err("Failed to map ping_group_range: %s\n", ping_group_range);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 {
 	void *buf, *o_buf;
@@ -2333,6 +2364,10 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 		goto err_free;
 
 	ret = ipv4_sysctls_op(&netns.ipv4_sysctl, &netns.n_ipv4_sysctl, CTL_READ);
+	if (ret < 0)
+		goto err_free;
+
+	ret = ipv4_sysctls_ping_group_range_map_gid(ping_group_range, MAX_STR_IPV4_SYSCTL_LEN + 1);
 	if (ret < 0)
 		goto err_free;
 
