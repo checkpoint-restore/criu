@@ -2203,6 +2203,42 @@ static int ipv4_sysctls_op(SysctlEntry ***rsysctl, size_t *pn, int op)
 	return 0;
 }
 
+static int ipv4_sysctls_ping_group_range_map_gid(SysctlEntry *ent, size_t size)
+{
+	int start, end, ustart, uend, ret;
+
+	if (sscanf(ent->sarg, "%d %d", &start, &end) != 2) {
+		pr_err("Failed to parse ping_group_range: %s\n", ent->sarg);
+		return -1;
+	}
+
+	/*
+	 * The default is "1 0", which means no group
+	 * is allowed to create ICMP Echo sockets.
+	 */
+	if (start == 1 && end == 0) {
+		pr_debug("The ping_group_range is set to default, skipping it.\n");
+		ent->sarg = NULL;
+		return 0;
+	}
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+
+	ustart = userns_gid(start);
+	uend = userns_gid(end);
+	pr_debug("Mapping ping_group_range %d %d to userns -> %d %d\n",
+		 start, end, ustart, uend);
+
+	ret = snprintf(ent->sarg, size, "%d\t%d\n", ustart, uend);
+	if (ret < 0 || ret >= size) {
+		pr_err("Failed to map ping_group_range: %d\t%d\n", ustart, uend);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 {
 	void *buf, *o_buf;
@@ -2220,6 +2256,7 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	SysctlEntry *ipv4_sysctls = NULL;
 	size_t ipv4_sysctl_size = ARRAY_SIZE(ipv4_sysctl_entries);
 	char ping_group_range[MAX_STR_IPV4_SYSCTL_LEN + 1] = {};
+	int ping_group_range_id = -1;
 	NetnsId *ids;
 	struct netns_id *p;
 
@@ -2310,6 +2347,7 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 		if (!strcmp(ipv4_sysctl_entries[i], "ping_group_range")) {
 			netns.ipv4_sysctl[i]->type = SYSCTL_TYPE__CTL_STR;
 			netns.ipv4_sysctl[i]->sarg = ping_group_range;
+			ping_group_range_id = i;
 		} else {
 			/* Need to handle this case when we have more sysctls */
 			BUG();
@@ -2335,6 +2373,12 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 		goto err_free;
 
 	ret = ipv4_sysctls_op(&netns.ipv4_sysctl, &netns.n_ipv4_sysctl, CTL_READ);
+	if (ret < 0)
+		goto err_free;
+
+	BUG_ON(ping_group_range_id == -1);
+	ret = ipv4_sysctls_ping_group_range_map_gid(netns.ipv4_sysctl[ping_group_range_id],
+						    MAX_STR_IPV4_SYSCTL_LEN + 1);
 	if (ret < 0)
 		goto err_free;
 
