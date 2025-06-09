@@ -76,7 +76,7 @@ endef
 
 %.d: %.c
 	$(E) " DEP      " $@
-	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -MM -MP -c $< -o $@
+	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -MM -MP $< -o $@
 
 %.o: %.c | %.d
 	$(E) " CC       " $@
