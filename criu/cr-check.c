@@ -1400,6 +1400,17 @@ static int check_timer_cr_ids(void)
 	return 0;
 }
 
+static int check_statmount_fd(void)
+{
+	if (!kdat.has_statmount_fd) {
+		pr_warn("statmount syscall with STATMOUNT_BY_FD is unavailable,"
+				" files on unmounted mounts will not be supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 /* musl doesn't have a statx wrapper... */
 struct staty {
 	__u32 stx_dev_major;
@@ -1731,6 +1742,7 @@ int cr_check(void)
 		ret |= check_overlayfs_maps();
 		ret |= check_timer_cr_ids();
 		ret |= check_pagemap_scan_guard_pages();
+		ret |= check_statmount_fd();
 
 		if (kdat.lsm == LSMTYPE__APPARMOR)
 			ret |= check_apparmor_stacking();

@@ -93,6 +93,7 @@ struct kerndat_s {
 	bool has_breakpoints;
 	bool has_madv_guard;
 	bool has_pagemap_scan_guard_pages;
+	bool has_statmount_fd;
 };
 
 extern struct kerndat_s kdat;

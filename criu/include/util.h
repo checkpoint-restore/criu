@@ -67,6 +67,7 @@ extern int set_proc_fd(int fd);
 
 extern pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid, void *child_tid,
 			       unsigned long newtls);
+struct statmount *do_statmount_fd(int fd, u64 mask);
 
 /*
  * Values for pid argument of the proc opening routines below.

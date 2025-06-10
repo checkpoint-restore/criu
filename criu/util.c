@@ -1425,6 +1425,48 @@ static int epoll_hangup_event(int epollfd, struct epoll_rfd *rfd)
 	return ret;
 }
 
+static int __statmount(struct mnt_id_req *req, struct statmount *stmnt,
+		       size_t bufsize, int flags)
+{
+	return syscall(__NR_statmount, req, stmnt, bufsize, flags);
+}
+
+struct statmount *do_statmount_fd(int fd, u64 mask)
+{
+	size_t bufsize = 1 << 15;
+	struct statmount *stmnt = NULL, *tmp = NULL;
+	int ret;
+
+	struct mnt_id_req req = {
+		.size	= MNT_ID_REQ_SIZE_VER1,
+		.fd	= fd,
+		.param	= mask
+	};
+
+	for (;;) {
+		tmp = xrealloc(stmnt, bufsize);
+		if (!tmp)
+			goto out;
+
+		stmnt = tmp;
+		ret = __statmount(&req, stmnt, bufsize, STATMOUNT_BY_FD);
+		if (!ret) {
+			return stmnt;
+		}
+
+		if (errno != EOVERFLOW)
+			goto out;
+
+		bufsize <<= 1;
+		if (bufsize >= UINT_MAX / 2)
+			goto out;
+	}
+
+out:
+	free(stmnt);
+	return NULL;
+}
+
 int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
 {
 	int ret, i, nr_events;
