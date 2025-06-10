@@ -13,6 +13,8 @@
 #include <sys/sysmacros.h>
 #include <dirent.h>
 #include <poll.h>
+#include <linux/types.h>
+#include <sys/syscall.h>
 
 #include "int.h"
 #include "common/compiler.h"
@@ -430,5 +432,220 @@ extern char dump_criu_run_id[RUN_ID_HASH_LENGTH];
 extern char *resolve_mountpoint(char *path);
 
 extern int cr_close_range(unsigned int fd, unsigned int max_fd, unsigned int flags);
+
+/*
+ * Timestamp structure for the timestamps in struct statx.
+ *
+ * tv_sec holds the number of seconds before (negative) or after (positive)
+ * 00:00:00 1st January 1970 UTC.
+ *
+ * tv_nsec holds a number of nanoseconds (0..999,999,999) after the tv_sec time.
+ *
+ * __reserved is held in case we need a yet finer resolution.
+ */
+struct cr_statx_timestamp {
+	__s64	tv_sec;
+	__u32	tv_nsec;
+	__s32	__reserved;
+};
+
+/*
+ * Structures for the extended file attribute retrieval system call
+ * (statx()).
+ *
+ * The caller passes a mask of what they're specifically interested in as a
+ * parameter to statx().  What statx() actually got will be indicated in
+ * st_mask upon return.
+ *
+ * For each bit in the mask argument:
+ *
+ * - if the datum is not supported:
+ *
+ *   - the bit will be cleared, and
+ *
+ *   - the datum will be set to an appropriate fabricated value if one is
+ *     available (eg. CIFS can take a default uid and gid), otherwise
+ *
+ *   - the field will be cleared;
+ *
+ * - otherwise, if explicitly requested:
+ *
+ *   - the datum will be synchronised to the server if AT_STATX_FORCE_SYNC is
+ *     set or if the datum is considered out of date, and
+ *
+ *   - the field will be filled in and the bit will be set;
+ *
+ * - otherwise, if not requested, but available in approximate form without any
+ *   effort, it will be filled in anyway, and the bit will be set upon return
+ *   (it might not be up to date, however, and no attempt will be made to
+ *   synchronise the internal state first);
+ *
+ * - otherwise the field and the bit will be cleared before returning.
+ *
+ * Items in STATX_BASIC_STATS may be marked unavailable on return, but they
+ * will have values installed for compatibility purposes so that stat() and
+ * co. can be emulated in userspace.
+ */
+struct cr_statx {
+	/* 0x00 */
+	/* What results were written [uncond] */
+	__u32	stx_mask;
+
+	/* Preferred general I/O size [uncond] */
+	__u32	stx_blksize;
+
+	/* Flags conveying information about the file [uncond] */
+	__u64	stx_attributes;
+
+	/* 0x10 */
+	/* Number of hard links */
+	__u32	stx_nlink;
+
+	/* User ID of owner */
+	__u32	stx_uid;
+
+	/* Group ID of owner */
+	__u32	stx_gid;
+
+	/* File mode */
+	__u16	stx_mode;
+	__u16	__spare0[1];
+
+	/* 0x20 */
+	/* Inode number */
+	__u64	stx_ino;
+
+	/* File size */
+	__u64	stx_size;
+
+	/* Number of 512-byte blocks allocated */
+	__u64	stx_blocks;
+
+	/* Mask to show what's supported in stx_attributes */
+	__u64	stx_attributes_mask;
+
+	/* 0x40 */
+	/* Last access time */
+	struct cr_statx_timestamp	stx_atime;
+
+	/* File creation time */
+	struct cr_statx_timestamp	stx_btime;
+
+	/* Last attribute change time */
+	struct cr_statx_timestamp	stx_ctime;
+
+	/* Last data modification time */
+	struct cr_statx_timestamp	stx_mtime;
+
+	/* 0x80 */
+	/* Device ID of special file [if bdev/cdev] */
+	__u32	stx_rdev_major;
+	__u32	stx_rdev_minor;
+
+	/* ID of device containing file [uncond] */
+	__u32	stx_dev_major;
+	__u32	stx_dev_minor;
+
+	/* 0x90 */
+	__u64	stx_mnt_id;
+
+	/* Memory buffer alignment for direct I/O */
+	__u32	stx_dio_mem_align;
+
+	/* File offset alignment for direct I/O */
+	__u32	stx_dio_offset_align;
+
+	/* 0xa0 */
+	/* Subvolume identifier */
+	__u64	stx_subvol;
+
+	/* Min atomic write unit in bytes */
+	__u32	stx_atomic_write_unit_min;
+
+	/* Max atomic write unit in bytes */
+	__u32	stx_atomic_write_unit_max;
+
+	/* 0xb0 */
+	/* Max atomic write segment count */
+	__u32   stx_atomic_write_segments_max;
+
+	/* File offset alignment for direct I/O reads */
+	__u32	stx_dio_read_offset_align;
+
+	/* Optimised max atomic write unit in bytes */
+	__u32	stx_atomic_write_unit_max_opt;
+	__u32	__spare2[1];
+
+	/* 0xc0 */
+	__u64	__spare3[8];	/* Spare space for future expansion */
+
+	/* 0x100 */
+};
+
+/*
+ * Flags to be stx_mask
+ *
+ * Query request/result mask for statx() and struct statx::stx_mask.
+ *
+ * These bits should be set in the mask argument of statx() to request
+ * particular items when calling statx().
+ */
+#ifndef STATX_TYPE
+#define STATX_TYPE		0x00000001U	/* Want/got stx_mode & S_IFMT */
+#endif
+#ifndef STATX_MODE
+#define STATX_MODE		0x00000002U	/* Want/got stx_mode & ~S_IFMT */
+#endif
+#ifndef STATX_NLINK
+#define STATX_NLINK		0x00000004U	/* Want/got stx_nlink */
+#endif
+#ifndef STATX_UID
+#define STATX_UID		0x00000008U	/* Want/got stx_uid */
+#endif
+#ifndef STATX_GID
+#define STATX_GID		0x00000010U	/* Want/got stx_gid */
+#endif
+#ifndef STATX_ATIME
+#define STATX_ATIME		0x00000020U	/* Want/got stx_atime */
+#endif
+#ifndef STATX_MTIME
+#define STATX_MTIME		0x00000040U	/* Want/got stx_mtime */
+#endif
+#ifndef STATX_CTIME
+#define STATX_CTIME		0x00000080U	/* Want/got stx_ctime */
+#endif
+#ifndef STATX_INO
+#define STATX_INO		0x00000100U	/* Want/got stx_ino */
+#endif
+#ifndef STATX_SIZE
+#define STATX_SIZE		0x00000200U	/* Want/got stx_size */
+#endif
+#ifndef STATX_BLOCKS
+#define STATX_BLOCKS		0x00000400U	/* Want/got stx_blocks */
+#endif
+#ifndef STATX_BASIC_STATS
+#define STATX_BASIC_STATS	0x000007ffU	/* The stuff in the normal stat struct */
+#endif
+#ifndef STATX_BTIME
+#define STATX_BTIME		0x00000800U	/* Want/got stx_btime */
+#endif
+#ifndef STATX_MNT_ID
+#define STATX_MNT_ID		0x00001000U	/* Got stx_mnt_id */
+#endif
+#ifndef STATX_DIOALIGN
+#define STATX_DIOALIGN		0x00002000U	/* Want/got direct I/O alignment info */
+#endif
+#ifndef STATX_MNT_ID_UNIQUE
+#define STATX_MNT_ID_UNIQUE	0x00004000U	/* Want/got extended stx_mount_id */
+#endif
+#ifndef STATX_SUBVOL
+#define STATX_SUBVOL		0x00008000U	/* Want/got stx_subvol */
+#endif
+#ifndef STATX_WRITE_ATOMIC
+#define STATX_WRITE_ATOMIC	0x00010000U	/* Want/got atomic_write_* fields */
+#endif
+#ifndef STATX_DIO_READ_ALIGN
+#define STATX_DIO_READ_ALIGN	0x00020000U	/* Want/got dio read alignment info */
+#endif
 
 #endif /* __CR_UTIL_H__ */

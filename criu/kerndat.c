@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -1736,6 +1737,106 @@ static int kerndat_has_timer_cr_ids(void)
 	return 0;
 }
 
+static int kerndat_has_statmount(void)
+{
+	struct cr_statmount smbuf = {};
+	struct cr_statx stx = {};
+	struct cr_mnt_id_req req = {
+		.size = MNT_ID_REQ_SIZE_VER1,
+		.param = STATMOUNT_SUPPORTED_MASK
+	};
+	int ret = 0, fd = -1;
+
+	kdat.has_statmount = false;
+	kdat.statmount_supported_mask = 0;
+
+	fd = open("/", O_PATH);
+	if (fd < 0) {
+		pr_perror("failed to open fd to /");
+		return -1;
+	}
+
+	ret = syscall(SYS_statx, fd, "", AT_EMPTY_PATH, STATX_MNT_ID_UNIQUE, &stx);
+	if (ret < 0) {
+		pr_debug("failed to call statx() on fd, assuming statmount() is not supported: %s\n", strerror(errno));
+		ret = 0;
+		goto out;
+	}
+
+	if (stx.stx_mask & STATX_MNT_ID_UNIQUE) {
+		req.mnt_id = stx.stx_mnt_id;
+	} else {
+		pr_debug("failed to get mnt_id from statx(), assuming statmount() is not supported\n");
+		goto out;
+	}
+
+	if (!sys_statmount(&req, &smbuf, sizeof(smbuf), 0)) {
+		kdat.has_statmount = true;
+		if (smbuf.mask & STATMOUNT_SUPPORTED_MASK) {
+			kdat.statmount_supported_mask = smbuf.supported_mask;
+		} else {
+			/*
+			 * STATMOUNT_SUPPORTED_MASK may not be supported by kernel,
+			 * so return the minimum mask we know is supported because
+			 * it was introduced alongside statmount().
+			 */
+			kdat.statmount_supported_mask = STATMOUNT_SB_BASIC |
+							STATMOUNT_MNT_BASIC |
+							STATMOUNT_PROPAGATE_FROM |
+							STATMOUNT_MNT_ROOT |
+							STATMOUNT_MNT_POINT |
+							STATMOUNT_FS_TYPE;
+		}
+		goto out;
+	}
+
+	switch (errno) {
+		case ENOMEM:
+		case EFAULT:
+			pr_perror("failed to check for statmount() support");
+			ret = -1;
+			goto out;
+		default:
+			pr_info("statmount() isn't supported\n");
+	}
+out:
+	close(fd);
+	return ret;
+}
+
+static int kerndat_has_statmount_by_fd(void)
+{
+	struct cr_statmount smbuf = {};
+	struct cr_mnt_id_req req = {
+		.size = MNT_ID_REQ_SIZE_VER1,
+		.param = STATMOUNT_MNT_BASIC,
+		.mnt_fd = -1,
+	};
+
+	kdat.has_statmount_by_fd = false;
+	if (!kdat.has_statmount)
+		return 0;
+
+	if (!sys_statmount(&req, &smbuf, sizeof(smbuf), STATMOUNT_BY_FD)) {
+		pr_err("statmount() with STATMOUNT_BY_FD unexpectedly succeeded\n");
+		return -1;
+	}
+
+	switch (errno) {
+	case ENOMEM:
+	case EFAULT:
+		pr_perror("failed to check for statmount() with STATMOUNT_BY_FD flag support");
+		return -1;
+	case EBADF:
+		kdat.has_statmount_by_fd = true;
+		return 0;
+	/* anything else means syscall is not supported */
+	default:
+		pr_info("statmount() with STATMOUNT_BY_FD flag isn't supported\n");
+	}
+	return 0;
+}
+
 static int kerndat_has_madv_guard(void)
 {
 	void *map;
@@ -2128,6 +2229,14 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_binfmt_misc_sandboxing()) {
 		pr_err("kerndat_has_binfmt_misc_sandboxing has failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_statmount()) {
+		pr_err("kerndat_has_statmount failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_statmount_by_fd()) {
+		pr_err("kerndat_has_statmount_by_fd failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
