@@ -1,4 +1,6 @@
 #include <sched.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 #include "sysctl.h"
@@ -20,6 +22,7 @@ typedef struct {
 	int new;
 	char s_old[MAX_STR_SYSCTL_LEN];
 	char s_new[MAX_STR_SYSCTL_LEN];
+	bool set;
 } sysctl_opt_t;
 
 #define CONF_UNIX_BASE "/proc/sys/net/unix"
@@ -38,6 +41,11 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	for (p = net_unix_params; p->path != NULL; p++) {
+		if (access(p->path, W_OK) != 0) {
+			test_msg("%s doesn't exist\n", p->path);
+			continue;
+		}
+		p->set = true;
 		if (p->type == SYSCTL_INT) {
 			p->old = (((unsigned)lrand48()) % 1023) + 1;
 			if (sysctl_write_int(p->path, p->old)) {
@@ -56,6 +64,8 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	for (p = net_unix_params; p->path != NULL; p++) {
+		if (!p->set)
+			continue;
 		if (p->type == SYSCTL_INT) {
 			if (sysctl_read_int(p->path, &p->new))
 				ret = 1;
