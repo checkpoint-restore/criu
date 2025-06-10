@@ -120,3 +120,4 @@ __NR_pidfd_getfd		438		sys_pidfd_getfd		(int pidfd, int targetfd, unsigned int f
 __NR_rseq       		334		sys_rseq		(void *rseq, uint32_t rseq_len, int flags, uint32_t sig)
 __NR_membarrier 		324		sys_membarrier		(int cmd, unsigned int flags, int cpu_id)
 __NR_map_shadow_stack		453		sys_map_shadow_stack	(unsigned long addr, unsigned long size, unsigned int flags)
+__NR_statmount			457		sys_statmount		(struct mnt_id_req *req, struct statmount *smbuf, size_t bufsize, unsigned long flags)
