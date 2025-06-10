@@ -2144,51 +2144,53 @@ static int ipv4_sysctls_op(SysctlEntry ***rsysctl, size_t *pn, int op)
 	char path[ARRAY_SIZE(ipv4_sysctl_entries)][MAX_IPV4_SYSCTL_PATH] = {};
 	struct sysctl_req req[ARRAY_SIZE(ipv4_sysctl_entries)] = {};
 	SysctlEntry **sysctl = *rsysctl;
-	size_t n = *pn;
+	size_t n = *pn, ri;
 
 	if (n != ARRAY_SIZE(ipv4_sysctl_entries)) {
-		pr_err("unix: Unexpected entries in sysctl (%zu %zu)\n", n, ARRAY_SIZE(ipv4_sysctl_entries));
+		pr_err("ipv4: Unexpected entries in sysctl (%zu %zu)\n", n, ARRAY_SIZE(ipv4_sysctl_entries));
 		return -EINVAL;
 	}
 
 	if (opts.weak_sysctls || op == CTL_READ)
 		flags = CTL_FLAGS_OPTIONAL;
 
-	for (i = 0; i < n; i++) {
-		snprintf(path[i], MAX_IPV4_SYSCTL_PATH, IPV4_SYSCTL_FMT, ipv4_sysctl_entries[i]);
-		req[i].name = path[i];
-		req[i].flags = flags;
+	for (i = 0, ri = 0; i < n; i++) {
+		snprintf(path[ri], MAX_IPV4_SYSCTL_PATH, IPV4_SYSCTL_FMT, ipv4_sysctl_entries[i]);
+		req[ri].name = path[ri];
+		req[ri].flags = flags;
 
 		switch (sysctl[i]->type) {
 		case SYSCTL_TYPE__CTL_STR:
-			req[i].type = CTL_STR(MAX_STR_IPV4_SYSCTL_LEN);
+			req[ri].type = CTL_STR(MAX_STR_IPV4_SYSCTL_LEN);
 
 			/* skip write if have no value */
 			if (op == CTL_WRITE && !sysctl[i]->sarg)
 				continue;
 
-			req[i].arg = sysctl[i]->sarg;
+			req[ri].arg = sysctl[i]->sarg;
 			break;
 		default:
 			pr_err("ipv4: Unknown sysctl type %d\n", sysctl[i]->type);
 			return -1;
 		}
+		ri++;
 	}
 
-	ret = sysctl_op(req, n, op, CLONE_NEWNET);
+	ret = sysctl_op(req, ri, op, CLONE_NEWNET);
 	if (ret < 0) {
-		pr_err("unix: Failed to %s %s/<sysctls>\n", (op == CTL_READ) ? "read" : "write", IPV4_SYSCTL_BASE);
+		pr_err("ipv4: Failed to %s %s/<sysctls>\n", (op == CTL_READ) ? "read" : "write", IPV4_SYSCTL_BASE);
 		return -1;
 	}
 
 	if (op == CTL_READ) {
 		bool has_entries = false;
 
+		BUG_ON(ri != n);
 		for (i = 0; i < n; i++) {
 			if (req[i].flags & CTL_FLAGS_HAS) {
-				sysctl[i]->has_iarg = true;
-				if (!has_entries)
-					has_entries = true;
+				has_entries = true;
+			} else {
+				sysctl[i]->sarg = NULL;
 			}
 		}
 
