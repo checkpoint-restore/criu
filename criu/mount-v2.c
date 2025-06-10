@@ -45,6 +45,36 @@ int check_mount_v2(void)
 	return 0;
 }
 
+struct statmount *do_statmount(struct mnt_id_req *req, unsigned int flags)
+{
+	size_t bufsize = 1 << 15;
+	struct statmount *stmnt = NULL, *tmp = NULL;
+	int ret;
+
+	for (;;) {
+		tmp = xrealloc(stmnt, bufsize);
+		if (!tmp)
+			goto out;
+
+		stmnt = tmp;
+		ret = sys_statmount(req, stmnt, bufsize, flags);
+		if (!ret)
+			return stmnt;
+
+		if (errno != EOVERFLOW)
+			goto out;
+
+		bufsize <<= 1;
+		if (bufsize >= UINT_MAX / 2)
+			goto out;
+	}
+
+out:
+	free(stmnt);
+	return NULL;
+}
+
+
 static struct sharing_group *get_sharing_group(int shared_id, int master_id)
 {
 	struct sharing_group *sg;
