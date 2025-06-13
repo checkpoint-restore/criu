@@ -196,4 +196,16 @@ extern int set_fds_event(pid_t virt);
 extern void wait_fds_event(void);
 
 int find_unused_fd_pid(pid_t pid);
+
+extern int collect_remaps_and_regfiles(void);
+
+extern const struct fdtype_ops regfile_dump_ops;
+extern const struct fdtype_ops posix_sem_dump_ops;
+
+extern struct file_desc *try_collect_special_file(u32 id, int optional);
+extern struct collect_image_info posix_sem_cinfo;
+
+extern bool should_dump_posix_semaphore(const char *path, const struct fd_parms *parms);
+extern int try_dump_posix_semaphore(const char *path, int lfd, u32 id, const struct fd_parms *parms);
+
 #endif /* __CR_FILES_H__ */

@@ -43,6 +43,7 @@
 #include "memfd.h"
 #include "hugetlb.h"
 #include "pidfd.h"
+#include "fs-magic.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -603,6 +604,40 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 			goto err;
 	} else if (!strcmp(file_path, "[heap]")) {
 		vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
+	} else if (vfi->dev_maj == 0 && vfi->dev_min == 0 && vfi->ino == 0 && 
+			   file_path[0] != '/') {
+		/* Anonymous mapping with special name */
+		vma_area->e->status = VMA_AREA_REGULAR;
+	} else if (file_path[0] == '/' && strstr(file_path, "/dev/shm/sem.")) {
+		pr_info("Found POSIX semaphore VMA mapping: %s\n", file_path);
+		
+		if (opts.posix_sem_migration) {
+			pr_info("POSIX semaphore migration mode enabled, dumping as object: %s\n", file_path);
+			if (access(file_path, F_OK) != 0) {
+				pr_info("POSIX semaphore VMA mapping for deleted semaphore: %s\n", file_path);
+				
+				/* create a POSIX semaphore file entry for this VMA */
+				if (try_dump_posix_semaphore(file_path + 1, *vm_file_fd, vma_area->vmst->st_ino, 
+											 &(struct fd_parms){
+												 .stat = *vma_area->vmst,
+												 .mnt_id = vma_area->mnt_id,
+												 .fs_type = TMPFS_MAGIC
+											 }) == 1) {
+					pr_info("Skipping refular file processing for POSIX semaphore VMA\n");
+					close_safe(vm_file_fd);
+					vma_area->e->status = VMA_AREA_REGULAR | VMA_AREA_POSIX_SEM;
+					return 0;
+				} else {
+					pr_warn("Failed to handle as POSIX semaphore, continuing with regular file processing\n");
+				}
+			} else {
+				pr_info("POSIX semaphore VMA mapping for non-deleted semaphore: %s\n", file_path);
+				vma_area->e->status = VMA_AREA_REGULAR | VMA_AREA_POSIX_SEM;
+			}
+		} else {
+            /* link remap would be needed for this case */
+			vma_area->e->status = VMA_AREA_REGULAR;
+		}
 	} else {
 		vma_area->e->status = VMA_AREA_REGULAR;
 	}

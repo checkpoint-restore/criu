@@ -246,6 +246,7 @@ struct cr_options {
 	 * explicitly request it as it comes with many limitations.
 	 */
 	int unprivileged;
+    bool posix_sem_migration;
 };
 
 extern struct cr_options opts;
