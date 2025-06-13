@@ -879,6 +879,25 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 		return arch_shmat(vma_entry->fd, shmaddr, att_flags, shmsize);
 	}
 
+    if (vma_entry_is(vma_entry, VMA_AREA_POSIX_SEM)) {
+		/*
+		 * POSIX semaphore VMA are handled by the POSIX semaphore
+		 * restore code which recreates the semaphore and maps it properly.
+		 * create an anonymous mapping as a placeholder.
+		 */
+		pr_info("Restoring POSIX semaphore VMA at %" PRIx64 "-%" PRIx64 "\n", 
+				vma_entry->start, vma_entry->end);
+		
+		flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED;
+		addr = sys_mmap(decode_pointer(vma_entry->start), vma_entry_len(vma_entry), 
+						prot | PROT_WRITE, flags, -1, 0);
+		
+		if ((vma_entry->fd != -1) && (vma_entry->status & VMA_CLOSE))
+			sys_close(vma_entry->fd);
+			
+		return addr;
+	}
+
 	/*
 	 * Restore or shared mappings are tricky, since
 	 * we open anonymous mapping via map_files/
@@ -1843,7 +1862,7 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
 
-		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR) && !vma_entry_is(vma_entry, VMA_AREA_AIORING))
+		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR) || vma_entry_is(vma_entry, VMA_AREA_POSIX_SEM)))
 			continue;
 
 		if (vma_entry_is(vma_entry, VMA_PREMMAPED))
@@ -1931,7 +1950,7 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
 
-		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
+		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR) || vma_entry_is(vma_entry, VMA_AREA_POSIX_SEM)))
 			continue;
 
 		if ((vma_entry->prot & PROT_WRITE) || (vma_entry->status & VMA_NO_PROT_WRITE))

@@ -1789,6 +1789,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 	case FD_TYPES__PIDFD:
 		ret = collect_one_file_entry(fe, fe->pidfd->id, &fe->pidfd->base, &pidfd_cinfo);
 		break;
+    case FD_TYPES__POSIX_SEM:
+        ret = collect_one_file_entry(fe, fe->psm->fd_id, &fe->psm->base, &posix_sem_cinfo);
+        break;
 #ifdef CONFIG_HAS_LIBBPF
 	case FD_TYPES__BPFMAP:
 		ret = collect_one_file_entry(fe, fe->bpf->id, &fe->bpf->base, &bpfmap_cinfo);
@@ -1812,5 +1815,10 @@ int prepare_files(void)
 	init_fdesc_hash();
 	init_sk_info_hash();
 	init_dead_pidfd_hash();
-	return collect_image(&files_cinfo);
+	if (collect_image(&files_cinfo))
+        return -1;
+    /* get posix semaphore info */
+    if (collect_image(&posix_sem_cinfo))
+        return -1;
+    return 0;
 }
