@@ -207,5 +207,6 @@ extern struct collect_image_info posix_sem_cinfo;
 
 extern bool should_dump_posix_semaphore(const char *path, const struct fd_parms *parms);
 extern int try_dump_posix_semaphore(const char *path, int lfd, u32 id, const struct fd_parms *parms);
+extern int open_posix_sem_vma(int pid, struct vma_area *vma);
 
 #endif /* __CR_FILES_H__ */

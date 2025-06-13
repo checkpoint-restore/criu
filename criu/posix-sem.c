@@ -401,6 +401,7 @@ retry_create:
 	sem_close(sem);
 	
 	*new_fd = fd;
+	
 	pr_info("Successfully restored POSIX semaphore %s with fd %d (cross-host migration)\n", 
 			pse->name, fd);
 	return 0;
@@ -480,4 +481,46 @@ int try_dump_posix_semaphore(const char *path, int lfd, u32 id, const struct fd_
 	} else {
 		return -1;
 	}
+}
+
+/*
+ * Open POSIX semaphore for VMA mapping during restore
+ * This function is called during VMA preparation to assign the correct
+ * file descriptor to POSIX semaphore VMAs
+ */
+int open_posix_sem_vma(int pid, struct vma_area *vma)
+{
+	struct file_desc *fd_desc;
+	struct posix_sem_info *psi;
+	int sem_fd;
+	
+	pr_info("Opening POSIX semaphore VMA %" PRIx64 "-%" PRIx64 " (shmid=%" PRIx64 ")\n", 
+			vma->e->start, vma->e->end, vma->e->shmid);
+	
+	/* Find the POSIX semaphore file descriptor by shmid */
+	list_for_each_entry(psi, &posix_sem_list, d.fd_info_head) {
+		if (psi->pse->ino == vma->e->shmid) {
+			pr_info("Found matching POSIX semaphore %s for VMA (ino=%" PRIx64 ")\n", 
+					psi->pse->name, vma->e->shmid);
+			
+			fd_desc = &psi->d;
+			if (!inherited_fd(fd_desc, &sem_fd)) {
+				if (posix_sem_open(fd_desc, &sem_fd) < 0) {
+					pr_err("Failed to open POSIX semaphore %s\n", psi->pse->name);
+					return -1;
+				}
+			}
+			
+			pr_info("Assigned fd %d to POSIX semaphore VMA %" PRIx64 "-%" PRIx64 "\n", 
+					sem_fd, vma->e->start, vma->e->end);
+			
+			vma->e->fd = sem_fd;
+			vma->e->status |= VMA_CLOSE;
+			return 0;
+		}
+	}
+	
+	pr_err("No POSIX semaphore found for VMA %" PRIx64 "-%" PRIx64 " (shmid=%" PRIx64 ")\n", 
+		   vma->e->start, vma->e->end, vma->e->shmid);
+	return -1;
 }

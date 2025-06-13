@@ -623,9 +623,10 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 												 .mnt_id = vma_area->mnt_id,
 												 .fs_type = TMPFS_MAGIC
 											 }) == 1) {
-					pr_info("Skipping refular file processing for POSIX semaphore VMA\n");
+					pr_info("Skipping regular file processing for POSIX semaphore VMA\n");
 					close_safe(vm_file_fd);
 					vma_area->e->status = VMA_AREA_REGULAR | VMA_AREA_POSIX_SEM;
+					vma_area->e->shmid = vma_area->vmst->st_ino;
 					return 0;
 				} else {
 					pr_warn("Failed to handle as POSIX semaphore, continuing with regular file processing\n");
@@ -633,6 +634,7 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 			} else {
 				pr_info("POSIX semaphore VMA mapping for non-deleted semaphore: %s\n", file_path);
 				vma_area->e->status = VMA_AREA_REGULAR | VMA_AREA_POSIX_SEM;
+				vma_area->e->shmid = vma_area->vmst->st_ino;
 			}
 		} else {
             /* link remap would be needed for this case */
