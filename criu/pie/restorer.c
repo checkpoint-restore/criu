@@ -1887,7 +1887,9 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
 
-		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR) || vma_entry_is(vma_entry, VMA_AREA_POSIX_SEM)))
+		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR) || 
+              vma_entry_is(vma_entry, VMA_AREA_AIORING) || 
+              vma_entry_is(vma_entry, VMA_AREA_POSIX_SEM)))
 			continue;
 
 		if (vma_entry_is(vma_entry, VMA_PREMMAPED))
