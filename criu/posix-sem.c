@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <dirent.h>
+#include <ctype.h>
 
 #include "imgset.h"
 #include "image.h"
@@ -244,6 +246,88 @@ static int get_semaphore_value_from_fd(int fd, const char *sem_name, bool is_del
 } 
 
 /*
+ * Find the real semaphore name by correlating the mapped file 
+ * with actual semaphore files in /dev/shm/
+ */
+static char *find_real_semaphore_name(dev_t dev, ino_t ino, const char *fallback_name)
+{
+	DIR *shm_dir;
+	struct dirent *entry;
+	char path[PATH_MAX];
+	struct stat st;
+	char *real_name = NULL;
+	char *cleaned_name;
+	char *suffix_pos;
+	
+	pr_debug("Looking for real semaphore name for ino=%lu, dev=%lu\n", (unsigned long)ino, (unsigned long)dev);
+	
+	shm_dir = opendir("/dev/shm");
+	if (!shm_dir) {
+		pr_debug("Can't open /dev/shm directory, using fallback name: %s\n", fallback_name);
+		return xstrdup(fallback_name);
+	}
+	
+	while ((entry = readdir(shm_dir)) != NULL) {
+		/* Skip non-semaphore files and directories */
+		if (strncmp(entry->d_name, "sem.", 4) != 0)
+			continue;
+			
+		snprintf(path, sizeof(path), "/dev/shm/%s", entry->d_name);
+		
+		if (stat(path, &st) == 0) {
+			if (st.st_ino == ino && st.st_dev == dev) {
+				/* Found matching file, extract the real name */
+				const char *name_start = entry->d_name + 4; /* Skip "sem." */
+				real_name = xstrdup(name_start);
+				pr_info("Found real semaphore name '%s' for inode %lu (path: %s)\n", 
+						real_name ? real_name : "(null)", (unsigned long)ino, path);
+				break;
+			}
+		}
+	}
+	
+	closedir(shm_dir);
+	
+	if (!real_name) {
+		pr_debug("No matching semaphore file found in /dev/shm, using fallback name: %s\n", fallback_name);
+		/*
+		 * If we can't find the file in /dev/shm (possibly because it was unlinked),
+		 * try to clean up the fallback name by removing common temporary suffixes
+		 * that glibc might add. This is a heuristic approach to recover the original name.
+		 */
+		cleaned_name = xstrdup(fallback_name);
+		
+		/* Remove common glibc temporary suffixes like ".XXXXXX" */
+		suffix_pos = strrchr(cleaned_name, '.');
+		if (suffix_pos) {
+			/* Check if the suffix looks like a temporary identifier */
+			char *check_pos = suffix_pos + 1;
+			bool is_temp_suffix = true;
+			int suffix_len = strlen(check_pos);
+			
+			/* Temporary suffixes are usually 6+ characters of alphanumeric */
+			if (suffix_len >= 6) {
+				for (int i = 0; i < suffix_len; i++) {
+					if (!isalnum(check_pos[i])) {
+						is_temp_suffix = false;
+						break;
+					}
+				}
+				
+				if (is_temp_suffix) {
+					*suffix_pos = '\0';
+					pr_info("Cleaned up temporary suffix from '%s' to '%s'\n", fallback_name, cleaned_name);
+				}
+			}
+		}
+		
+		real_name = cleaned_name;
+	}
+	
+	return real_name;
+}
+
+/*
  * Dump one POSIX semaphore
  */
 static int dump_one_posix_sem(int lfd, u32 id, const struct fd_parms *p)
@@ -251,6 +335,7 @@ static int dump_one_posix_sem(int lfd, u32 id, const struct fd_parms *p)
 	struct fd_link _link, *link;
 	struct cr_img *img;
 	char *sem_name;
+	char *real_sem_name;
 	int sem_value;
 	PosixSemEntry pse = POSIX_SEM_ENTRY__INIT;
 	FileEntry fe = FILE_ENTRY__INIT;
@@ -276,15 +361,25 @@ static int dump_one_posix_sem(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 	}
 	
+	/* Try to find the real semaphore name by correlating with /dev/shm files */
+	real_sem_name = find_real_semaphore_name(p->stat.st_dev, p->stat.st_ino, sem_name);
+	if (!real_sem_name) {
+		pr_err("Failed to determine real semaphore name\n");
+		xfree(sem_name);
+		return -1;
+	}
+	
+	pr_info("Using real semaphore name '%s' (extracted name was '%s')\n", real_sem_name, sem_name);
+	
 	/* Get current semaphore value from the file descriptor */
-	sem_value = get_semaphore_value_from_fd(lfd, is_deleted ? NULL : sem_name, is_deleted);
+	sem_value = get_semaphore_value_from_fd(lfd, is_deleted ? NULL : real_sem_name, is_deleted);
 	if (sem_value < 0) {
-		pr_warn("Can't get semaphore value for %s, defaulting to 0\n", sem_name);
+		pr_warn("Can't get semaphore value for %s, defaulting to 0\n", real_sem_name);
 		sem_value = 0;
 	}
 	
-	/* Semaphore entry */
-	pse.name = sem_name;
+	/* Semaphore entry - use the real name */
+	pse.name = real_sem_name;
 	pse.value = sem_value;
 	pse.mode = p->stat.st_mode;
 	pse.uid = p->stat.st_uid;
@@ -302,13 +397,15 @@ static int dump_one_posix_sem(int lfd, u32 id, const struct fd_parms *p)
 	if (pb_write_one(img, &fe, PB_FILE) < 0) {
 		pr_err("Failed to write POSIX semaphore entry\n");
 		xfree(sem_name);
+		xfree(real_sem_name);
 		return -1;
 	}
 	
 	pr_info("Successfully dumped POSIX semaphore %s (value=%d, deleted=%s)\n", 
-			sem_name, sem_value, is_deleted ? "yes" : "no");
+			real_sem_name, sem_value, is_deleted ? "yes" : "no");
 	
 	xfree(sem_name);
+	xfree(real_sem_name);
 	return 0;
 }
 
