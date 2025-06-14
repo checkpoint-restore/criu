@@ -146,6 +146,7 @@ TST_NOFILE	:=				\
 		ipc_namespace			\
 		selfexe00			\
 		sem				\
+		posix_sem			\
 		maps01				\
 		maps02				\
 		maps04				\
@@ -189,7 +190,7 @@ TST_NOFILE	:=				\
 		unhashed_proc			\
 		cow00				\
 		child_opened_proc		\
-		posix_timers			\
+		posix_timers		\
 		sigpending			\
 		sigaltstack			\
 		sk-netlink			\
@@ -614,6 +615,7 @@ shm:			CFLAGS += -DNEW_IPC_NS
 msgque:			CFLAGS += -DNEW_IPC_NS
 sem:			CFLAGS += -DNEW_IPC_NS
 posix_timers:		LDLIBS += -lrt -pthread
+posix_sem:		LDLIBS += -pthread
 remap_dead_pid_root:	CFLAGS += -DREMAP_PID_ROOT
 sock_filter01:		CFLAGS += -DSOCK_FILTER01
 socket-tcp6:		CFLAGS += -D ZDTM_IPV6

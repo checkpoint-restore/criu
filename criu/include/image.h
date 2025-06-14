@@ -93,11 +93,10 @@
 #define VMA_AREA_SHSTK	 (1 << 15)
 
 #define VMA_EXT_PLUGIN	  (1 << 27)
-#define VMA_FORCE_READ	  (1 << 28)
-#define VMA_CLOSE	  (1 << 29)
-#define VMA_NO_PROT_WRITE (1 << 30)
-#define VMA_PREMMAPED	  (1U << 31)
-#define VMA_UNSUPP	  (1ULL << 32)
+#define VMA_CLOSE	  (1 << 28)
+#define VMA_NO_PROT_WRITE (1 << 29)
+#define VMA_PREMMAPED	  (1U << 30)
+#define VMA_UNSUPP	  (1ULL << 31)
 
 #define CR_CAP_SIZE 2
 
