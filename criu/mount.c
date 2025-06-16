@@ -1,3 +1,7 @@
+#include "common/list.h"
+#include <fcntl.h>
+#include <linux/stat.h>
+#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -6,6 +10,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <stdlib.h>
+#include <linux/mount.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
 #include <sched.h>
@@ -29,6 +34,7 @@
 #include "clone-noasan.h"
 #include "fdstore.h"
 #include "rst-malloc.h"
+#include "proc_parse.h"
 
 #include "images/mnt.pb-c.h"
 
@@ -111,7 +117,7 @@ static char *ext_mount_lookup(char *key)
  */
 struct mount_info *mntinfo;
 
-static void mntinfo_add_list(struct mount_info *new)
+void mntinfo_add_list(struct mount_info *new)
 {
 	if (!mntinfo)
 		mntinfo = new;
@@ -351,6 +357,19 @@ static bool mounts_equal(struct mount_info *a, struct mount_info *b)
  * non-root namespaces.
  */
 char *mnt_roots;
+LIST_HEAD(detached_mounts);
+
+struct mount_info* mnt_is_detached(int mnt_id)
+{
+	struct mount_info *detached;
+
+	list_for_each_entry(detached, &detached_mounts, mnt_detached_list) {
+		if (detached->mnt_id == mnt_id)
+			return detached;
+	}
+
+	return NULL;
+}
 
 static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 {
@@ -366,10 +385,16 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 
 		pr_debug("\t\tWorking on %d->%d\n", m->mnt_id, m->parent_mnt_id);
 
-		if (m->mnt_id != m->parent_mnt_id)
+		if (m->mnt_id != m->parent_mnt_id) {
 			parent = __lookup_mnt_id(list, m->parent_mnt_id);
-		else /* a circular mount reference. It's rootfs or smth like it. */
+		} else /* a circular mount reference. It's rootfs or detached mount or smth like it. */ {
+			if (m->detached_mnt) {
+				list_add(&m->mnt_detached_list, &detached_mounts);
+				continue;
+			}
+
 			parent = NULL;
+		}
 
 		if (!parent) {
 			/* Only a root mount can be without parent */
@@ -1867,6 +1892,11 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 		 * for reverse mapping details.
 		 */
 		me.ext_key = pm->external;
+
+	if (pm->detached_mnt) {
+		me.has_detached_mnt = true;
+		me.detached_mnt = pm->detached_mnt;
+	}
 	me.root = pm->root;
 
 	if (pb_write_one(img, &me, PB_MNT))
@@ -3035,6 +3065,7 @@ struct mount_info *mnt_entry_alloc(bool rst)
 		INIT_LIST_HEAD(&new->mnt_unbindable);
 		INIT_LIST_HEAD(&new->postpone);
 		INIT_LIST_HEAD(&new->deleted_list);
+		INIT_LIST_HEAD(&new->mnt_detached_list);
 	}
 	return new;
 }
@@ -3152,6 +3183,27 @@ out:
 static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root, int root_len)
 {
 	int len;
+
+	if (mi->detached_mnt) {
+		/*
+		 * ns_mountpoint, mountpoint don't really make sense for detached mounts
+		 * since, detached mounts are not really part of the filesystem.
+		 * We just need to create some temporary mountpoints to open fds and
+		 * then MNT_DETACH.
+		 * In the future, we can set them to NULL and just use plain_mountpoint.
+		 */
+		mi->ns_mountpoint = xmalloc(PATH_MAX);
+		if (!mi->ns_mountpoint) {
+			pr_debug("Could not allocate memory for mountpoint: mnt_id:%d\n", mi->mnt_id);
+			return -1;
+		}
+
+		snprintf(mi->ns_mountpoint, PATH_MAX, "/.criu.detached.%010d", mi->mnt_id);
+
+		mi->mountpoint = mi->ns_mountpoint;
+		mi->plain_mountpoint = mi->ns_mountpoint;
+		return 0;
+	}
 
 	len = strlen(mountpoint) + root_len + 1;
 	mi->mountpoint = xmalloc(len);
@@ -3293,6 +3345,9 @@ static int collect_mnt_from_image(struct mount_info **head, struct mount_info **
 		pm->is_ns_root = is_root(me->mountpoint);
 		if (me->has_internal_sharing)
 			pm->internal_sharing = me->internal_sharing;
+
+		if (me->has_detached_mnt)
+			pm->detached_mnt = me->detached_mnt;
 
 		pm->source = xstrdup(me->source);
 		if (!pm->source)
@@ -4053,7 +4108,6 @@ int dump_mnt_namespaces(void)
 		if (dump_mnt_ns(nsid, nsid->mnt.mntinfo_list))
 			return -1;
 	}
-
 	return 0;
 }
 
@@ -4237,6 +4291,128 @@ int remount_readonly_mounts(void)
 	 */
 	return call_helper_process(ns_remount_readonly_mounts, NULL);
 }
+
+static unsigned int parse_mnt_flags(unsigned int flags)
+{
+	unsigned int mount_flags = 0;
+	if (flags & MOUNT_ATTR_RDONLY)
+		flags |= MS_RDONLY;
+	if (flags & MOUNT_ATTR_NOSUID)
+		flags |= MS_NOSUID;
+	if (flags & MOUNT_ATTR_NODEV)
+		flags |= MS_NODEV;
+	if (flags & MOUNT_ATTR_NOEXEC)
+		flags |= MS_NOATIME;
+	if (flags & MOUNT_ATTR_NODIRATIME)
+		flags |= MS_NODIRATIME;
+	if (flags & MOUNT_ATTR_RELATIME)
+		flags |= MS_RELATIME;
+
+	return mount_flags;
+}
+
+struct mount_info* mount_info_from_statmount(int lfd)
+{
+	int ret;
+	char *options;
+	struct mount_info *cur;
+	struct mount_info *mnt = NULL;
+	cleanup_free struct statmount *statmnt = NULL;
+	u64 statmount_mask = STATMOUNT_MNT_BASIC | STATMOUNT_FS_TYPE |
+		STATMOUNT_SB_BASIC | STATMOUNT_PROPAGATE_FROM |
+		STATMOUNT_MNT_POINT | STATMOUNT_MNT_ROOT | STATMOUNT_SB_SOURCE | STATMOUNT_MNT_OPTS | STATMOUNT_OPT_ARRAY;
+
+	statmnt = do_statmount_fd(lfd, statmount_mask);
+	if (!statmnt)
+		return NULL;
+
+	mnt = mnt_entry_alloc(false);
+	if (!mnt)
+		return NULL;
+
+	mnt->detached_mnt = true;
+	mnt->s_dev = MKKDEV(statmnt->sb_dev_major, statmnt->sb_dev_minor);
+	mnt->mnt_id = statmnt->mnt_id_old;
+	mnt->parent_mnt_id = statmnt->mnt_parent_id_old;
+
+	/* parse flags */
+	mnt->flags = parse_mnt_flags(statmnt->mnt_attr) | statmnt->mnt_propagation;
+	mnt->sb_flags = statmnt->sb_flags;
+
+	if (mnt->flags & MS_SLAVE)
+		mnt->shared_id = statmnt->mnt_peer_group;
+	else if (mnt->flags & MS_SHARED)
+		mnt->master_id = statmnt->mnt_master;
+
+	/* detached mount does not have a mountpoint */
+	mnt->mountpoint = NULL;
+
+	/* needed for mnt_is_overmounted */
+	mnt->parent = NULL;
+
+	mnt->fsname = xstrdup(statmnt->str + statmnt->fs_type);
+	if (!mnt->fsname)
+		goto err;
+
+	mnt->source = xstrdup(statmnt->str + statmnt->sb_source);
+	if (!mnt->source)
+		goto err;
+
+	options = xstrdup(statmnt->str + statmnt->mnt_opts);
+	if (!options)
+		goto err;
+
+	mnt->options = xmalloc(strlen(options));
+	if (!mnt->options)
+		goto err;
+
+	if (parse_sb_opt(options, &mnt->sb_flags, mnt->options))
+		goto err;
+
+	mnt->fstype = find_fstype_by_name(mnt->fsname);
+	if (mnt->fstype->parse) {
+		ret = mnt->fstype->parse(mnt);
+		if (ret < 0) {
+			pr_err("Failed to parse FS specific data on %s\n", service_mountpoint(mnt));
+			goto err;
+		}
+
+		if (ret > 0) {
+			pr_info("\tskipping fs mounted at %s\n", service_mountpoint(mnt) + 1);
+			goto err;
+		}
+	}
+
+	mnt->root = xstrdup(statmnt->str + statmnt->mnt_root);
+	if (!mnt->root)
+		goto err;
+
+	mnt->ns_mountpoint = xstrdup(statmnt->str + statmnt->mnt_point);
+	if (!mnt->ns_mountpoint)
+		goto err;
+
+	/* check whether this is bind mount of a normal mount */
+	for (cur = mntinfo; cur; cur = cur->next) {
+		if (mounts_sb_equal(mnt, cur)) {
+			mnt->nsid = cur->nsid;
+			list_add(&cur->mnt_bind, &mnt->mnt_bind);
+			cur->mnt_bind_is_populated = true;
+		}
+	}
+
+	if (!mnt->nsid) {
+		pr_err("detached mount is not a bind mount\n");
+		goto err;
+	}
+
+	mnt->mnt_bind_is_populated = true;
+	mntinfo_add_list(mnt);
+	return mnt;
+err:
+	mnt_entry_free(mnt);
+	return NULL;
+}
+
 
 static struct mount_info *mnt_subtree_next(struct mount_info *mi, struct mount_info *root)
 {
