@@ -1760,7 +1760,7 @@ static int kerndat_has_statmount(void)
 	if (!statmnt && (errno == EINVAL || errno == ENOENT)) {
 		kdat.has_statmount = true;
 		/*
-		 * these are the flags that we can gurantee that statmount supports
+		 * these are the flags that we can guarantee that statmount supports
 		 * as they were introduced alongside the syscall.
 		 */
 		kdat.statmount_supported_mask = STATMOUNT_SB_BASIC |
@@ -1804,7 +1804,7 @@ static int kerndat_has_statmount_by_fd(void)
 	}
 	kdat.has_statmount_by_fd = true;
 	if (statmnt->mask & STATMOUNT_SUPPORTED_MASK)
-		kdat.statmount_supported_mask = statmnt->mask;
+		kdat.statmount_supported_mask = statmnt->supported_mask;
 	free(statmnt);
 	return 0;
 }

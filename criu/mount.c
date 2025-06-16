@@ -29,6 +29,7 @@
 #include "clone-noasan.h"
 #include "fdstore.h"
 #include "rst-malloc.h"
+#include "proc_parse.h"
 
 #include "images/mnt.pb-c.h"
 
@@ -111,7 +112,7 @@ static char *ext_mount_lookup(char *key)
  */
 struct mount_info *mntinfo;
 
-static void mntinfo_add_list(struct mount_info *new)
+void mntinfo_add_list(struct mount_info *new)
 {
 	if (!mntinfo)
 		mntinfo = new;
@@ -351,6 +352,19 @@ static bool mounts_equal(struct mount_info *a, struct mount_info *b)
  * non-root namespaces.
  */
 char *mnt_roots;
+LIST_HEAD(unmounted_mounts);
+
+struct mount_info *is_unmounted_mnt(int mnt_id)
+{
+	struct mount_info *detached;
+
+	list_for_each_entry(detached, &unmounted_mounts, unmounted_mnt_list) {
+		if (detached->mnt_id == mnt_id)
+			return detached;
+	}
+
+	return NULL;
+}
 
 static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 {
@@ -366,10 +380,16 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 
 		pr_debug("\t\tWorking on %d->%d\n", m->mnt_id, m->parent_mnt_id);
 
-		if (m->mnt_id != m->parent_mnt_id)
+		if (m->mnt_id != m->parent_mnt_id) {
 			parent = __lookup_mnt_id(list, m->parent_mnt_id);
-		else /* a circular mount reference. It's rootfs or smth like it. */
+		} else /* a circular mount reference. It's rootfs or detached mount or smth like it. */ {
+			if (m->unmounted) {
+				list_add(&m->unmounted_mnt_list, &unmounted_mounts);
+				continue;
+			}
+
 			parent = NULL;
+		}
 
 		if (!parent) {
 			/* Only a root mount can be without parent */
@@ -1697,23 +1717,25 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 {
 	MntEntry me = MNT_ENTRY__INIT;
 
-	pr_info("\t%d: %x:%s @ %s\n", pm->mnt_id, pm->s_dev, pm->root, pm->ns_mountpoint);
+	pr_info("\t%d: %x:%s @ %s\n", pm->mnt_id, pm->s_dev, pm->root, pm->unmounted ? "unmounted" : pm->ns_mountpoint);
 
 	me.fstype = pm->fstype->code;
 
 	if (me.fstype == FSTYPE__AUTO)
 		me.fsname = pm->fsname;
 
-	if (!pm->dumped && dump_one_fs(pm))
-		return -1;
+	if (!pm->unmounted) {
+		if (!pm->dumped && dump_one_fs(pm))
+			return -1;
 
-	if (!mnt_is_external_bind(pm) && !fsroot_mounted(pm) && pm->fstype->check_bindmount &&
-	    pm->fstype->check_bindmount(pm))
-		return -1;
+		if (!mnt_is_external_bind(pm) && !fsroot_mounted(pm) && pm->fstype->check_bindmount &&
+		    pm->fstype->check_bindmount(pm))
+			return -1;
 
-	if (pm->mnt_id == HELPER_MNT_ID) {
-		pr_info("Skip dumping helper mountpoint: %s\n", pm->ns_mountpoint);
-		return 0;
+		if (pm->mnt_id == HELPER_MNT_ID) {
+			pr_info("Skip dumping helper mountpoint: %s\n", pm->ns_mountpoint);
+			return 0;
+		}
 	}
 
 	me.mnt_id = pm->mnt_id;
@@ -1722,7 +1744,6 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	me.flags = pm->flags;
 	me.sb_flags = pm->sb_flags;
 	me.has_sb_flags = true;
-	me.mountpoint = pm->ns_mountpoint + 1;
 	me.source = pm->source;
 	me.options = pm->options;
 	me.shared_id = pm->shared_id;
@@ -1750,6 +1771,18 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 		 * for reverse mapping details.
 		 */
 		me.ext_key = pm->external;
+
+	if (pm->unmounted) {
+		me.has_unmounted = true;
+		me.unmounted = pm->unmounted;
+		/* we do not have a mountpoint in case of unmounted mount */
+		me.mountpoint = xzalloc(sizeof(char));
+		if (!me.mountpoint)
+			return -1;
+		me.mountpoint[0] = '\0';
+	} else {
+		me.mountpoint = pm->ns_mountpoint + 1;
+	}
 	me.root = pm->root;
 
 	if (pb_write_one(img, &me, PB_MNT))
@@ -2918,6 +2951,7 @@ struct mount_info *mnt_entry_alloc(bool rst)
 		INIT_LIST_HEAD(&new->mnt_unbindable);
 		INIT_LIST_HEAD(&new->postpone);
 		INIT_LIST_HEAD(&new->deleted_list);
+		INIT_LIST_HEAD(&new->unmounted_mnt_list);
 	}
 	return new;
 }
@@ -3035,6 +3069,27 @@ out:
 static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root, int root_len)
 {
 	int len;
+
+	if (mi->unmounted) {
+		/*
+		 * ns_mountpoint, mountpoint don't really make sense for unmounted mounts
+		 * since, unmounted mounts are not really part of the filesystem.
+		 * We just need to create some temporary mountpoints to open fds and
+		 * then MNT_DETACH.
+		 * So, we just set plain mountpoint and set mountpoint, ns_mountpoint to be NULL.
+		 */
+		mi->plain_mountpoint = xmalloc(PATH_MAX);
+		if (!mi->plain_mountpoint) {
+			pr_debug("Could not allocate memory for mountpoint: mnt_id:%d\n", mi->mnt_id);
+			return -1;
+		}
+
+		snprintf(mi->plain_mountpoint, PATH_MAX, "/.criu.unmounted_mnt.%010d", mi->mnt_id);
+
+		mi->mountpoint = NULL;
+		mi->ns_mountpoint = NULL;
+		return 0;
+	}
 
 	len = strlen(mountpoint) + root_len + 1;
 	mi->mountpoint = xmalloc(len);
@@ -3176,6 +3231,9 @@ static int collect_mnt_from_image(struct mount_info **head, struct mount_info **
 		pm->is_ns_root = is_root(me->mountpoint);
 		if (me->has_internal_sharing)
 			pm->internal_sharing = me->internal_sharing;
+
+		if (me->has_unmounted)
+			pm->unmounted = me->unmounted;
 
 		pm->source = xstrdup(me->source);
 		if (!pm->source)
@@ -4057,6 +4115,209 @@ int remount_readonly_mounts(void)
 	return call_helper_process(ns_remount_readonly_mounts, NULL);
 }
 
+static char *copy_mount_path(char *mount_path)
+{
+	char *path = xmalloc(PATH_MAX);
+	if (!path)
+		return NULL;
+	if (strlen(mount_path) > PATH_MAX - 1) {
+		pr_err("path %s exceeds PATH_MAX\n", mount_path);
+		xfree(path);
+		return NULL;
+	}
+	strcpy(path, mount_path);
+	cure_path(path);
+	return path;
+}
+
+static unsigned int parse_mnt_flags(unsigned int flags)
+{
+	unsigned int mount_flags = 0;
+	if (flags & MOUNT_ATTR_RDONLY)
+		flags |= MS_RDONLY;
+	if (flags & MOUNT_ATTR_NOSUID)
+		flags |= MS_NOSUID;
+	if (flags & MOUNT_ATTR_NODEV)
+		flags |= MS_NODEV;
+	if (flags & MOUNT_ATTR_NOEXEC)
+		flags |= MS_NOATIME;
+	if (flags & MOUNT_ATTR_NODIRATIME)
+		flags |= MS_NODIRATIME;
+	if (flags & MOUNT_ATTR_RELATIME)
+		flags |= MS_RELATIME;
+
+	if ((flags & (MS_RELATIME | MS_NOATIME)) == 0)
+		flags |= MS_STRICTATIME;
+
+	return mount_flags;
+}
+
+static struct statmount *statmount_by_fd(int lfd)
+{
+	u64 statmount_param = STATMOUNT_MNT_BASIC | STATMOUNT_SB_BASIC
+		| STATMOUNT_MNT_POINT | STATMOUNT_FS_TYPE | STATMOUNT_MNT_NS_ID
+		| STATMOUNT_MNT_OPTS | STATMOUNT_FS_SUBTYPE | STATMOUNT_SB_SOURCE
+		| STATMOUNT_MNT_ROOT;
+	struct statmount *statmnt = NULL;
+	struct mnt_id_req req = {
+		.size = MNT_ID_REQ_SIZE_VER1,
+		.mnt_fd = lfd,
+		.param = statmount_param
+	};
+
+	statmnt = do_statmount(&req, STATMOUNT_BY_FD);
+	if (!statmnt) {
+		pr_perror("could not call statmount() on fd=%d", lfd);
+		return NULL;
+	}
+
+	/* the filesystem may not have a subtype */
+	if (statmnt->mask & ~STATMOUNT_FS_SUBTYPE)
+		statmount_param &= ~STATMOUNT_FS_SUBTYPE;
+
+	/*
+	 * If the mount is an unmounted mount we should've
+	 * been able to get everything except
+	 * STATMOUNT_MNT_NS_ID and STATMOUNT_MNT_POINT.
+	 */
+	if (statmnt->mask != (statmount_param & ~(STATMOUNT_MNT_NS_ID | STATMOUNT_MNT_POINT))) {
+		pr_err("could not get mount info from statmount()\n");
+		xfree(statmnt);
+		return NULL;
+	}
+	return statmnt;
+}
+
+struct mount_info *mount_info_for_unmounted_mount(int lfd)
+{
+	int ret;
+	size_t len;
+	char *options;
+	struct mount_info *cur;
+	struct mount_info *mnt = NULL;
+	cleanup_free struct statmount *statmnt = NULL;
+
+	if (!kdat.has_statmount || !kdat.has_statmount_by_fd) {
+		pr_err("statmount() with STATMOUNT_BY_FD flag is required for unmounted mounts\n");
+		return NULL;
+	}
+
+	statmnt = statmount_by_fd(lfd);
+	if (!statmnt)
+		return NULL;
+
+	mnt = mnt_entry_alloc(false);
+	if (!mnt)
+		return NULL;
+
+	/*
+	 * unmounted mount does not have a mountpoint,
+	 * parent mount or a namespace specific mountpoint.
+	 * When writing mountpoint to image file
+	 * we make it just the '\0' character.
+	 */
+	mnt->unmounted = true;
+	mnt->ns_mountpoint = NULL;
+	mnt->mountpoint = NULL;
+	mnt->parent = NULL;
+	mnt->external = NULL;
+	mnt->is_ns_root = false;
+	mnt->mnt_id = statmnt->mnt_id_old;
+	mnt->parent_mnt_id = statmnt->mnt_parent_id_old;
+	mnt->s_dev = mnt->s_dev_rt = MKKDEV(statmnt->sb_dev_major, statmnt->sb_dev_minor);
+
+	mnt->flags = parse_mnt_flags(statmnt->mnt_attr) | statmnt->mnt_propagation;
+	if (mnt->flags & MS_SLAVE)
+		mnt->shared_id = statmnt->mnt_peer_group;
+	else if (mnt->flags & MS_SHARED)
+		mnt->master_id = statmnt->mnt_master;
+
+	/* statmount() also mangles the path */
+	mnt->root = copy_mount_path(statmnt->str + statmnt->mnt_root);
+	if (!mnt->root)
+		goto err;
+
+	mnt->source = copy_mount_path(statmnt->str + statmnt->sb_source);
+	if (!mnt->source)
+		goto err;
+
+	options = xstrdup(statmnt->str + statmnt->mnt_opts);
+	if (!options)
+		goto err;
+	mnt->options = xmalloc(strlen(options) + 1);
+	if (!mnt->options)
+		goto err;
+	/*
+	 * we still use the old parse function because
+	 * it modifies the gid and uid options
+	 * see sb_opt_cb() for more details.
+	 */
+	if (parse_sb_opt(options, &mnt->sb_flags, mnt->options))
+		goto err;
+
+	mnt->fstype = find_fstype_by_name(statmnt->str + statmnt->fs_type);
+	if (mnt->fstype->parse) {
+		ret = mnt->fstype->parse(mnt);
+		if (ret < 0) {
+			pr_err("Failed to parse FS specific data on %s\n", service_mountpoint(mnt));
+			goto err;
+		}
+
+		if (ret > 0) {
+			pr_info("\tskipping fs mounted at %s\n", service_mountpoint(mnt) + 1);
+			goto err;
+		}
+	}
+
+	if (statmnt->mask & STATMOUNT_FS_SUBTYPE) {
+		len = strlen(statmnt->str + statmnt->fs_type) + strlen(statmnt->str + statmnt->fs_subtype) + 2;
+		mnt->fsname = xmalloc(len);
+		if (!mnt->fsname)
+			goto err;
+
+		snprintf(mnt->fsname, len, "%s.%s", statmnt->str + statmnt->fs_type, statmnt->str + statmnt->fs_subtype);
+	} else {
+		mnt->fsname = xstrdup(statmnt->str + statmnt->fs_type);
+		if (!mnt->fsname)
+			goto err;
+	}
+
+	/*
+	 * check whether this is bind mount of a normal mount,
+	 * we currently only support unmounted mounts that are
+	 * a bind mount of a regular mount.
+	 */
+	mnt->mnt_bind_is_populated = false;
+	for (cur = mntinfo; cur; cur = cur->next) {
+		if (mounts_sb_equal(mnt, cur)) {
+			/*
+			 * This nsid is a lie, the mount no longer
+			 * belongs to any mount namespace, for the
+			 * convenience of dumping we just put it in
+			 * the same namespace of mount it is a
+			 * bind mount of. Otherwise, we would have
+			 * to create a separate fake namespace for
+			 * these mounts.
+			 */
+			mnt->nsid = cur->nsid;
+			list_add(&cur->mnt_bind, &mnt->mnt_bind);
+			mnt->mnt_bind_is_populated = true;
+			break;
+		}
+	}
+
+	if (!mnt->mnt_bind_is_populated) {
+		pr_err("only unmounted bind mounts are supported.\n");
+		goto err;
+	}
+
+	mntinfo_add_list(mnt);
+	return mnt;
+err:
+	mnt_entry_free(mnt);
+	return NULL;
+}
+
 static struct mount_info *mnt_subtree_next(struct mount_info *mi, struct mount_info *root)
 {
 	if (!list_empty(&mi->children))
@@ -4070,4 +4331,62 @@ static struct mount_info *mnt_subtree_next(struct mount_info *mi, struct mount_i
 	}
 
 	return NULL;
+}
+
+static int do_remove_unmounted_mountpoints(void *arg)
+{
+	int ret = 0;
+	int orig_nsfd, nsfd;
+	struct mount_info *unmounted_mnt;
+
+	if (list_empty(&unmounted_mounts))
+		return 0;
+
+	orig_nsfd = open_proc(PROC_SELF, "ns/mnt");
+	if (orig_nsfd < 0) {
+		pr_err("failed to get original mount namespace fd\n");
+		return -1;
+	}
+
+	list_for_each_entry(unmounted_mnt, &unmounted_mounts, unmounted_mnt_list) {
+		BUG_ON(!unmounted_mnt->unmounted);
+
+		nsfd = fdstore_get(unmounted_mnt->nsid->mnt.nsfd_id);
+		if (nsfd < 0) {
+			pr_err("failed to get mount namespace fd\n");
+			ret = -1;
+			goto out;
+		}
+
+		if (switch_ns_by_fd(nsfd, &mnt_ns_desc, NULL)) {
+			pr_err("failed to switch to mount namespace\n");
+			ret = -1;
+			goto out;
+		}
+		close(nsfd);
+
+		if (umount2(unmounted_mnt->plain_mountpoint, MNT_DETACH)) {
+			pr_perror("failed to umount mountpoint: %s", unmounted_mnt->plain_mountpoint);
+			ret = -1;
+			goto out;
+		}
+
+		if (remove(unmounted_mnt->plain_mountpoint)) {
+			pr_perror("failed to remove temporary name for unmounted mount: %s", unmounted_mnt->plain_mountpoint);
+			ret = -1;
+			goto out;
+		}
+		pr_debug("successfully restored unmounted mount mnt_id=%d\n", unmounted_mnt->mnt_id);
+	}
+out:
+	if (restore_ns(orig_nsfd, &mnt_ns_desc)) {
+		pr_perror("failed to restore original mount namespace");
+		ret = -1;
+	}
+	return ret;
+}
+
+int remove_unmounted_mountpoints(void)
+{
+	return call_helper_process(do_remove_unmounted_mountpoints, NULL);
 }
