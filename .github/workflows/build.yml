@@ -1,0 +1,156 @@
+name: Build
+
+permissions:
+  contents: read
+  packages: read
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        description: "The branch, tag, or SHA to run on"
+        required: false
+        default: ""
+      debug:
+        type: boolean
+        description: "Run with debugging enabled"
+        required: false
+        default: false
+      criu:
+        type: boolean
+        description: "Build CRIU"
+        required: false
+        default: false
+      cuda_plugin:
+        type: boolean
+        description: "Build CUDA plugin"
+        required: false
+        default: false
+
+jobs:
+  criu:
+    name: CRIU
+    runs-on: runs-on=${{github.run_id}}/runner=1cpu-4g-${{ matrix.arch }}/extras=s3-cache
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+    if: inputs.criu
+    container:
+      image: ubuntu:22.04
+    steps:
+      - uses: runs-on/action@v1
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt -y update
+          apt -y install make gcc \
+            libnet-dev \
+            libnl-route-3-dev \
+            bsdmainutils \
+            build-essential \
+            git-core \
+            iptables \
+            libaio-dev \
+            libbsd-dev \
+            libcap-dev \
+            libgnutls28-dev \
+            libgnutls30 \
+            libnftables-dev \
+            libnl-3-dev \
+            libprotobuf-c-dev \
+            libprotobuf-dev \
+            libselinux-dev \
+            iproute2 \
+            kmod \
+            pkg-config \
+            protobuf-c-compiler \
+            protobuf-compiler \
+            python3-minimal \
+            python3-protobuf \
+            uuid-dev \
+            python3-yaml
+
+      - name: Build criu
+        run: |
+          make criu
+          make install-criu
+          mv criu criu-src
+          mv criu-src/criu ./
+
+      - name: Upload binary
+        id: upload-binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: criu-${{ matrix.arch }}
+          path: |
+            criu
+
+  cuda-plugin:
+    name: CUDA plugin
+    runs-on: runs-on=${{github.run_id}}/runner=1cpu-4g-${{ matrix.arch }}/extras=s3-cache
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+    if: inputs.cuda_plugin
+    container:
+      image: ubuntu:22.04
+    steps:
+      - uses: runs-on/action@v1
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt -y update
+          apt -y install make gcc \
+            libnet-dev \
+            libnl-route-3-dev \
+            bsdmainutils \
+            build-essential \
+            git-core \
+            iptables \
+            libaio-dev \
+            libbsd-dev \
+            libcap-dev \
+            libgnutls28-dev \
+            libgnutls30 \
+            libnftables-dev \
+            libnl-3-dev \
+            libprotobuf-c-dev \
+            libprotobuf-dev \
+            libselinux-dev \
+            iproute2 \
+            kmod \
+            pkg-config \
+            protobuf-c-compiler \
+            protobuf-compiler \
+            python3-minimal \
+            python3-protobuf \
+            uuid-dev \
+            python3-yaml
+
+      - name: Build CUDA plugin
+        run: |
+          make cuda_plugin
+          mv plugins/cuda/cuda_plugin.so ./
+
+      - name: Upload cuda plugin
+        id: upload-cuda-plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: criu-cuda-${{ matrix.arch }}
+          path: |
+            cuda_plugin.so

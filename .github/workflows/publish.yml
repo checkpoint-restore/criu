@@ -1,0 +1,260 @@
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      debug:
+        type: boolean
+        description: "Run with debugging enabled"
+        required: false
+        default: false
+      github:
+        type: boolean
+        description: "Publish to GitHub releases"
+        required: false
+        default: false
+      cloudsmith:
+        type: boolean
+        description: "Publish to Cloudsmith"
+        required: false
+        default: false
+      cloudsmith_repo:
+        type: string
+        description: "Cloudsmith repository to publish to"
+        required: false
+        default: criu
+      post_summary:
+        type: boolean
+        description: "Post summary to Slack"
+        required: false
+        default: false
+
+jobs:
+  github:
+    name: GitHub
+    if: inputs.github
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+      max-parallel: 1 # DO NOT CHANGE: required to run in order
+    steps:
+      - uses: runs-on/action@v1
+
+      - name: Download CRIU binary
+        uses: actions/download-artifact@v4
+        id: download-binary-criu
+        with:
+          name: criu-${{ matrix.arch }}
+
+      - name: Download CUDA plugin
+        uses: actions/download-artifact@v4
+        id: download-cuda-plugin
+        with:
+          name: criu-cuda-${{ matrix.arch }}
+
+      - name: Setup debugging session
+        uses: mxschmitt/action-tmate@v3
+        if: inputs.debug
+        with:
+          limit-access-to-actor: true
+
+      - name: Create tarballs
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          tar -czf criu-${{ matrix.arch }}.tar.gz criu
+          tar -czf cuda_plugin-${{ matrix.arch }}.tar.gz cuda_plugin.so
+          if [ "$ARCH" = "amd64" ]; then
+            wget https://github.com/NVIDIA/cuda-checkpoint/raw/refs/heads/main/bin/x86_64_Linux/cuda-checkpoint
+            tar -czf cuda-checkpoint-${{ matrix.arch }}.tar.gz cuda-checkpoint
+          fi
+
+      - name: Create release
+        id: create-release
+        if: ${{ matrix.arch == 'amd64' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.head_ref || github.ref_name }}
+        run: |
+          gh release create "$tag" \
+              --repo="$GITHUB_REPOSITORY" \
+              --title="$tag" \
+              --generate-notes
+
+      - name: Upload assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.head_ref || github.ref_name }}
+        run: |
+          gh release upload --clobber "$tag" \
+              --repo="$GITHUB_REPOSITORY" \
+              *.tar.gz \
+
+  cloudsmith:
+    name: Cloudsmith
+    if: inputs.cloudsmith
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+      max-parallel: 1 # to avoid unknown cloudsmith failures
+    steps:
+      - uses: runs-on/action@v1
+
+      - name: Download CRIU binary
+        uses: actions/download-artifact@v4
+        id: download-binary-criu
+        with:
+          name: criu-${{ matrix.arch }}
+
+      - name: Download CUDA plugin
+        uses: actions/download-artifact@v4
+        id: download-cuda-plugin
+        with:
+          name: criu-cuda-${{ matrix.arch }}
+
+      - name: Download CUDA checkpoint
+        if: ${{ matrix.arch == 'amd64' }}
+        id: download-cuda-checkpoint
+        run: |
+          wget https://github.com/NVIDIA/cuda-checkpoint/raw/refs/heads/main/bin/x86_64_Linux/cuda-checkpoint
+
+      - name: Push criu
+        id: push-criu
+        uses: cloudsmith-io/action@master
+        with:
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          command: "push"
+          format: "raw"
+          owner: "cedana"
+          repo: ${{ inputs.cloudsmith_repo }}
+          file: "criu"
+          name: "criu-${{ matrix.arch }}"
+          version: ${{ github.ref_name }}
+          republish: "true"
+          tags: ${{ matrix.arch }}, ${{ github.head_ref || github.ref_name }}, ${{ github.sha }}
+
+      - name: Push CUDA plugin
+        id: push-cuda
+        uses: cloudsmith-io/action@master
+        with:
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          command: "push"
+          format: "raw"
+          owner: "cedana"
+          repo: ${{ inputs.cloudsmith_repo }}
+          file: "cuda_plugin.so"
+          name: "cuda_plugin.so-${{ matrix.arch }}"
+          version: ${{ github.ref_name }}
+          republish: "true"
+          tags: ${{ matrix.arch }}, ${{ github.head_ref || github.ref_name }}, ${{ github.sha }}
+
+      - name: Push CUDA checkpoint
+        if: ${{ matrix.arch == 'amd64' }}
+        id: push-checkpoint
+        uses: cloudsmith-io/action@master
+        with:
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          command: "push"
+          format: "raw"
+          owner: "cedana"
+          repo: ${{ inputs.cloudsmith_repo }}
+          file: "cuda-checkpoint"
+          name: "cuda-checkpoint-${{ matrix.arch }}"
+          version: ${{ github.ref_name }}
+          republish: "true"
+          tags: ${{ matrix.arch }}, ${{ github.head_ref || github.ref_name }}, ${{ github.sha }}
+
+  post-summary:
+    name: Post Summary
+    runs-on: ubuntu-latest
+    needs: ["github", "cloudsmith"]
+    if: inputs.post_summary
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          fetch-tags: true
+
+      - name: Get tag
+        id: tag
+        run: |
+          echo ::set-output name=tag::$(git tag --sort=-creatordate | sed -n '1p')
+
+      - name: Get previous tag
+        id: previous-tag
+        run: |
+          echo ::set-output name=tag::$(git tag --sort=-creatordate | sed -n '2p')
+
+      - name: Get release info
+        id: release-info
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          token: ${{ github.token }}
+          excludes: draft
+          repository: ${{ github.repository }}
+
+      - name: Download binaries
+        id: download
+        env:
+          API_KEY: ${{ secrets.CLOUDSMITH_ENTITLEMENT_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          ARCH: amd64
+          REPO: ${{ inputs.cloudsmith_repo }}
+        run: |
+          mkdir current
+          cd current
+          curl -1sLf -O https://dl.cloudsmith.io/$API_KEY/cedana/criu/raw/names/criu-$ARCH/versions/$TAG/criu
+          curl -1sLf -O https://dl.cloudsmith.io/$API_KEY/cedana/criu/raw/names/cuda_plugin.so-$ARCH/versions/$TAG/cuda_plugin.so
+          curl -1sLf -O https://dl.cloudsmith.io/$API_KEY/cedana/criu/raw/names/cuda-checkpoint-$ARCH/versions/$TAG/cuda-checkpoint || true
+
+      - name: Download previous binary
+        id: download-previous
+        env:
+          API_KEY: ${{ secrets.CLOUDSMITH_ENTITLEMENT_TOKEN }}
+          TAG: ${{ steps.previous-tag.outputs.tag }}
+          ARCH: amd64
+          REPO: ${{ inputs.cloudsmith_repo }}
+        run: |
+          mkdir previous
+          cd previous
+          curl -1sLf -O https://dl.cloudsmith.io/$API_KEY/cedana/criu/raw/names/criu-$ARCH/versions/$TAG/criu || true
+          curl -1sLf -O https://dl.cloudsmith.io/$API_KEY/cedana/criu/raw/names/cuda_plugin.so-$ARCH/versions/$TAG/cuda_plugin.so || true
+          curl -1sLf -O https://dl.cloudsmith.io/$API_KEY/cedana/criu/raw/names/cuda-checkpoint-$ARCH/versions/$TAG/cuda-checkpoint || true
+
+      - name: Generate summary
+        id: summary
+        env:
+          RELEASE_TITLE: "criu"
+          RELEASE_DESCRIPTION: "**${{ steps.tag.outputs.tag }}**"
+          RELEASE_NOTES_URL: https://github.com/${{ github.repository }}/releases/${{ steps.tag.outputs.tag }}
+          RELEASE_BODY: "${{ steps.release-info.outputs.description }}"
+          TAG: ${{ steps.tag.outputs.tag }}
+          BINARIES_DIR: current
+          PREVIOUS_TAG: ${{ steps.previous-tag.outputs.tag }}
+          PREVIOUS_BINARIES_DIR: previous
+        run: |
+          echo $RELEASE_BODY > $GITHUB_STEP_SUMMARY
+          echo ::set-output name=slack-summary::$(scripts/ci/release-summary-slack)
+
+      - name: Post summary
+        id: slack-patch
+        uses: slackapi/slack-github-action@v1.26.0
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_RELEASE }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        with:
+          payload: |
+            ${{ steps.summary.outputs.slack-summary }}

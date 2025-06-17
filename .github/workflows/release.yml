@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      debug_build:
+        type: boolean
+        description: "Run build with debugging enabled"
+        required: false
+        default: false
+      debug_test:
+        type: boolean
+        description: "Run tests with debugging enabled"
+        required: false
+        default: false
+      debug_publish:
+        type: boolean
+        description: "Run publish with debugging enabled"
+        required: false
+        default: false
+
+concurrency:
+  group: criu-release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  pull-requests: write
+  checks: write
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      debug: ${{ startsWith(github.event_name, 'workflow') && inputs.debug_build }}
+      criu: true
+      cuda_plugin: true
+
+  download:
+    name: Download
+    uses: cedana/cedana/.github/workflows/download.yml@main
+    secrets: inherit
+    with:
+      cedana_version: main
+      gpu_version: main
+      streamer_version: main
+
+  test:
+    name: Test
+    uses: cedana/cedana/.github/workflows/test.yml@main
+    needs: [build, download]
+    secrets: inherit
+    with:
+      ref: main
+      debug: ${{ startsWith(github.event_name, 'workflow') && inputs.debug_test }}
+      gpu: true
+      streamer: true
+
+  publish:
+    name: Publish
+    uses: ./.github/workflows/publish.yml
+    needs: test
+    secrets: inherit
+    with:
+      debug: ${{ startsWith(github.event_name, 'workflow') && inputs.debug_publish }}
+      github: true
+      cloudsmith: true
+      post_summary: true
