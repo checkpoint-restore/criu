@@ -381,6 +381,7 @@ TST_FILE	=				\
 		sk-unix-listen02		\
 		sk-unix-listen03		\
 		sk-unix-listen04		\
+		mnt_ext_file_bind_auto		\
 
 TST_DIR		=				\
 		cwd00				\
