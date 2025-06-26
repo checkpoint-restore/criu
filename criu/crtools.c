@@ -54,7 +54,7 @@ void flush_early_log_to_stderr(void)
 	flush_early_log_buffer(STDERR_FILENO);
 }
 
-static int image_dir_mode(void)
+int image_dir_mode(void)
 {
 	switch (opts.mode) {
 	case CR_DUMP:

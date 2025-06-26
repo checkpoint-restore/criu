@@ -127,6 +127,7 @@ message criu_opts {
 	optional bool			orphan_pts_master	= 50;
 	optional string			config_file		= 51;
 	optional bool			tcp_close		= 52;
+  optional bool stream = 72;
 	optional string			lsm_profile		= 53;
 	optional string			tls_cacert		= 54;
 	optional string			tls_cacrl		= 55;
