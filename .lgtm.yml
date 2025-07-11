@@ -23,8 +23,3 @@ extraction:
       - "python3-yaml"
       - "libnl-route-3-dev"
       - "gnutls-dev"
-    configure:
-      command:
-      - "ls -laR images/google"
-      - "ln -s /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto"
-      - "ls -laR images/google"
