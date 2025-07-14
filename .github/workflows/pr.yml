@@ -53,8 +53,6 @@ jobs:
     with:
       ref: main
       debug: ${{ startsWith(github.event_name, 'workflow') && inputs.debug_test }}
-      gpu: false
-      streamer: true
 
   publish:
     name: Publish
