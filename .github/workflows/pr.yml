@@ -2,7 +2,7 @@ name: PR
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
     branches:
       - criu-dev
   workflow_dispatch:
