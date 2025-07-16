@@ -1054,6 +1054,12 @@ int compel_infect_no_daemon(struct parasite_ctl *ctl, unsigned long nr_threads, 
 
 	memcpy(ctl->local_map, ctl->pblob.hdr.mem, ctl->pblob.hdr.bsize);
 	compel_relocs_apply(ctl->local_map, ctl->remote_map, &ctl->pblob);
+	/*
+	 * Ensure the infected thread sees the updated code by flushing instruction and/or data caches as required by the
+	 * target architecture.
+	 * For arm64, it is important that the code in d-cache is flushed to RAM.
+ 	*/
+	__builtin___clear_cache(ctl->local_map, ctl->local_map + ctl->pblob.hdr.bsize);
 
 	p = parasite_size;
 
