@@ -2569,6 +2569,17 @@ static int remap_restorer_blob(void *addr)
 	restorer_setup_c_header_desc(&pbd, true);
 	compel_relocs_apply(addr, addr, &pbd);
 
+	/*
+	 * Ensure the infected thread sees the updated code.
+	 *
+	 * On architectures like ARM64, the Data Cache (D-cache) and
+	 * Instruction Cache (I-cache) are not automatically coherent.
+	 * Modifications land in the D-cache, so we must flush (clean) the
+	 * D-cache to push changes to RAM to ensure the CPU fetches the updated
+	 * instructions.
+	 */
+	__builtin___clear_cache(addr, addr + pbd.hdr.bsize);
+
 	return 0;
 }
 
