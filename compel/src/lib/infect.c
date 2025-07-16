@@ -1054,6 +1054,16 @@ int compel_infect_no_daemon(struct parasite_ctl *ctl, unsigned long nr_threads, 
 
 	memcpy(ctl->local_map, ctl->pblob.hdr.mem, ctl->pblob.hdr.bsize);
 	compel_relocs_apply(ctl->local_map, ctl->remote_map, &ctl->pblob);
+	/*
+	 * Ensure the infected thread sees the updated code.
+	 *
+	 * On architectures like ARM64, the Data Cache (D-cache) and
+	 * Instruction Cache (I-cache) are not automatically coherent.
+	 * Modifications land in the D-cache, so we must flush (clean) the
+	 * D-cache to push changes to RAM to ensure the CPU fetches the updated
+	 * instructions.
+	 */
+	__builtin___clear_cache(ctl->local_map, ctl->local_map + ctl->pblob.hdr.bsize);
 
 	p = parasite_size;
 
