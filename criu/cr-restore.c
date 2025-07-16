@@ -2569,6 +2569,13 @@ static int remap_restorer_blob(void *addr)
 	restorer_setup_c_header_desc(&pbd, true);
 	compel_relocs_apply(addr, addr, &pbd);
 
+	/*
+	 * Ensure the infected thread sees the updated code by flushing instruction and/or data caches as required by the
+	 * target architecture.
+	 * For arm64, it is important that the code in d-cache is flushed to RAM.
+ 	*/
+	__builtin___clear_cache(addr, addr + pbd.hdr.bsize);
+
 	return 0;
 }
 
