@@ -96,13 +96,13 @@ PROTOBUF_DIR := images/google
 DESCRIPTOR_DIR := $(PROTOBUF_DIR)/protobuf
 GOOGLE_INCLUDE=$(shell pkg-config protobuf --variable=includedir)/google/protobuf
 $(DESCRIPTOR_DIR)/descriptor.pb-c.c: $(GOOGLE_INCLUDE)/descriptor.proto
-	$$(Q) echo "Generating descriptor.pb-c.c"
-	$$(Q) protoc --proto_path=/usr/include --proto_path=$(obj)/ --c_out=$(obj)/ $<
+	$(Q) echo "Generating descriptor.pb-c.c"
+	$(Q) protoc --proto_path=/usr/include --proto_path=$(obj)/ --c_out=$(obj)/ $<
 
 cleanup-y += $(DESCRIPTOR_DIR)/descriptor.pb-c.d
 
 submrproper:
-	$$(Q) rm -rf $(PROTOBUF_DIR)
+	$(Q) rm -rf $(PROTOBUF_DIR)
 .PHONY: submrproper
 mrproper: submrproper
 
