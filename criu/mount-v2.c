@@ -933,12 +933,19 @@ static int move_mount_set_group(int src_id, char *source, int dst_id)
 
 static int restore_one_sharing(struct sharing_group *sg, struct mount_info *target)
 {
-	char target_path[PATH_MAX];
+	char tfd_path[PATH_MAX] = {0};
+	char target_path[PATH_MAX] = {0};
 	int target_fd;
 
 	target_fd = fdstore_get(target->mnt_fd_id);
 	BUG_ON(target_fd < 0);
-	snprintf(target_path, sizeof(target_path), "/proc/self/fd/%d", target_fd);
+	snprintf(tfd_path, sizeof(tfd_path), "/proc/self/fd/%d", target_fd);
+
+	if (readlink(tfd_path, target_path, sizeof(target_path)) < 0) {
+		pr_perror("Failed to readlink %s", tfd_path);
+		close(target_fd);
+		return -1;
+	}
 
 	/* Restore target's master_id from shared_id of the source */
 	if (sg->master_id) {
