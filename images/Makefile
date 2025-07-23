@@ -95,7 +95,7 @@ makefile-deps := Makefile $(obj)/Makefile
 DESCRIPTOR_DIR := images/google/protobuf
 GOOGLE_INCLUDE=$(shell pkg-config protobuf --variable=includedir)/google/protobuf
 $(DESCRIPTOR_DIR)/descriptor.pb-c.c: $(GOOGLE_INCLUDE)/descriptor.proto
-	$(Q) echo "Generating descriptor.pb-c.c"
+	$(call msg-gen, $@)
 	$(Q) protoc --proto_path=/usr/include --proto_path=$(obj)/ --c_out=$(obj)/ $<
 
 cleanup-y += $(DESCRIPTOR_DIR)/descriptor.pb-c.d
