@@ -20,8 +20,6 @@ compel/compel
 compel/compel-host-bin
 images/*.c
 images/*.h
-images/google/protobuf/*.c
-images/google/protobuf/*.h
 .gitid
 criu/criu
 criu/unittest/unittest

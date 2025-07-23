@@ -92,8 +92,7 @@ makefile-deps := Makefile $(obj)/Makefile
 
 #
 # Generate descriptor.pb-c.c and descriptor.pb-c.h to compile opts.proto.
-PROTOBUF_DIR := images/google
-DESCRIPTOR_DIR := $(PROTOBUF_DIR)/protobuf
+DESCRIPTOR_DIR := images/google/protobuf
 GOOGLE_INCLUDE=$(shell pkg-config protobuf --variable=includedir)/google/protobuf
 $(DESCRIPTOR_DIR)/descriptor.pb-c.c: $(GOOGLE_INCLUDE)/descriptor.proto
 	$(Q) echo "Generating descriptor.pb-c.c"
@@ -102,7 +101,7 @@ $(DESCRIPTOR_DIR)/descriptor.pb-c.c: $(GOOGLE_INCLUDE)/descriptor.proto
 cleanup-y += $(DESCRIPTOR_DIR)/descriptor.pb-c.d
 
 submrproper:
-	$(Q) rm -rf $(PROTOBUF_DIR)
+	$(Q) rm -f $(DESCRIPTOR_DIR)/*
 .PHONY: submrproper
 mrproper: submrproper
 
