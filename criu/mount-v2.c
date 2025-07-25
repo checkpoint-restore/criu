@@ -927,8 +927,12 @@ static int move_mount_set_group(int src_id, char *source, int dst_id)
 
 static int restore_one_sharing(struct sharing_group *sg, struct mount_info *target)
 {
+	int nsfd = -1, orig_nsfd = -1, exit_code = -1;
 	char target_path[PATH_MAX];
-	int target_fd;
+	int target_fd = -1;
+
+	if (!sg->master_id && !sg->shared_id)
+		return 0;
 
 	target_fd = fdstore_get(target->mnt_fd_id);
 	BUG_ON(target_fd < 0);
@@ -943,8 +947,7 @@ static int restore_one_sharing(struct sharing_group *sg, struct mount_info *targ
 			first = get_first_mount(sg->parent);
 			if (move_mount_set_group(first->mnt_fd_id, NULL, target->mnt_fd_id)) {
 				pr_err("Failed to copy sharing from %d to %d\n", first->mnt_id, target->mnt_id);
-				close(target_fd);
-				return -1;
+				goto err;
 			}
 		} else {
 			/*
@@ -956,16 +959,23 @@ static int restore_one_sharing(struct sharing_group *sg, struct mount_info *targ
 			 */
 			if (move_mount_set_group(-1, sg->source, target->mnt_fd_id)) {
 				pr_err("Failed to copy sharing from source %s to %d\n", sg->source, target->mnt_id);
-				close(target_fd);
-				return -1;
+				goto err;
 			}
 		}
+	}
 
+	nsfd = fdstore_get(target->nsid->mnt.nsfd_id);
+	if (nsfd < 0)
+		goto err;
+
+	if (switch_ns_by_fd(nsfd, &mnt_ns_desc, &orig_nsfd))
+		goto err;
+
+	if (sg->master_id) {
 		/* Convert shared_id to master_id */
 		if (mount(NULL, target_path, NULL, MS_SLAVE, NULL)) {
 			pr_perror("Failed to make mount %d slave", target->mnt_id);
-			close(target_fd);
-			return -1;
+			goto err;
 		}
 	}
 
@@ -973,13 +983,16 @@ static int restore_one_sharing(struct sharing_group *sg, struct mount_info *targ
 	if (sg->shared_id) {
 		if (mount(NULL, target_path, NULL, MS_SHARED, NULL)) {
 			pr_perror("Failed to make mount %d shared", target->mnt_id);
-			close(target_fd);
-			return -1;
+			goto err;
 		}
 	}
-	close(target_fd);
-
-	return 0;
+	exit_code = 0;
+err:
+	close_safe(&target_fd);
+	close_safe(&nsfd);
+	if (orig_nsfd >= 0 && restore_ns(orig_nsfd, &mnt_ns_desc))
+		exit_code = -1;
+	return exit_code;
 }
 
 static int restore_one_sharing_group(struct sharing_group *sg)
