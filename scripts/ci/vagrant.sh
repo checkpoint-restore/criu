@@ -17,7 +17,7 @@ setup() {
 	fi
 
 	# Tar up the git checkout to have vagrant rsync it to the VM
-	tar cf criu.tar ../../../criu
+	tar cf /tmp/criu.tar -C ../../../ criu
 	# Cirrus has problems with the following certificate.
 	wget --no-check-certificate https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}-1_"$(dpkg --print-architecture)".deb -O /tmp/vagrant.deb && \
 		dpkg -i /tmp/vagrant.deb
@@ -28,10 +28,16 @@ setup() {
 	systemctl restart libvirtd
 	vagrant plugin install vagrant-libvirt
 	vagrant init cloud-image/fedora-${FEDORA_VERSION} --box-version ${FEDORA_BOX_VERSION}
+
 	# The default libvirt Vagrant VM uses 512MB.
 	# Travis VMs should have around 7.5GB.
 	# Increasing it to 4GB should work.
 	sed -i Vagrantfile -e 's,^end$,  config.vm.provider :libvirt do |libvirt|'"\n"'    libvirt.memory = 4096;end'"\n"'end,g'
+	# Sync /tmp/criu.tar into the VM
+	# We want to use $HOME without expansion
+	# shellcheck disable=SC2016
+	sed -i Vagrantfile -e 's|^end$|  config.vm.provision "file", source: "/tmp/criu.tar", destination: "$HOME/criu.tar"'"\n"'end|g'
+
 	vagrant up --provider=libvirt --no-tty
 	mkdir -p /root/.ssh
 	vagrant ssh-config >> /root/.ssh/config
@@ -40,8 +46,11 @@ setup() {
 		libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make protobuf-c-devel \
 		protobuf-devel python3-protobuf python3-importlib-metadata python3-junit_xml \
 		rubygem-asciidoctor iptables libselinux-devel libbpf-devel python3-yaml libuuid-devel
+
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	ssh default sudo systemctl mask sssd
+
+	ssh default 'sudo mkdir -p --mode=777 /vagrant && mv $HOME/criu.tar /vagrant && cd /vagrant && tar xf criu.tar'
 	ssh default cat /proc/cmdline
 }
 
@@ -49,7 +58,7 @@ fedora-no-vdso() {
 	ssh default sudo grubby --update-kernel ALL --args="vdso=0"
 	vagrant reload
 	ssh default cat /proc/cmdline
-	ssh default 'cd /vagrant; tar xf criu.tar; cd criu; make -j 4'
+	ssh default 'cd /vagrant/criu; make -j'
 	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -a --keep-going'
 	# This test (pidfd_store_sk) requires pidfd_getfd syscall which is guaranteed in Fedora 33.
 	# It is also skipped from -a because it runs in RPC mode only
@@ -74,12 +83,12 @@ fedora-rawhide() {
 	# In the container it is not possible to change the state of selinux.
 	# Let's just disable it for this test run completely.
 	ssh default 'sudo setenforce Permissive'
-	ssh default 'cd /vagrant; tar xf criu.tar; cd criu; sudo -E make -C scripts/ci fedora-rawhide CONTAINER_RUNTIME=podman BUILD_OPTIONS="--security-opt seccomp=unconfined"'
+	ssh default 'cd /vagrant/criu; sudo -E make -C scripts/ci fedora-rawhide CONTAINER_RUNTIME=podman BUILD_OPTIONS="--security-opt seccomp=unconfined"'
 }
 
 fedora-non-root() {
 	ssh default uname -a
-	ssh default 'cd /vagrant; tar xf criu.tar; cd criu; make -j 4'
+	ssh default 'cd /vagrant/criu; make -j'
 	# Setting the capability should be the only line needed to run as non-root on Fedora
 	# In other environments either set /proc/sys/kernel/yama/ptrace_scope to 0 or grant cap_sys_ptrace to criu
 	ssh default 'sudo setcap cap_checkpoint_restore+eip /vagrant/criu/criu/criu'
