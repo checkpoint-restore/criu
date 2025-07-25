@@ -2124,6 +2124,8 @@ int cr_dump_tasks(pid_t pid)
 	int pre_dump_ret = 0;
 	int ret = -1;
 
+	kerndat_warn_about_madv_guards();
+
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d comm: %s)\n", pid, __task_comm_info(pid));
 	pr_info("========================================\n");

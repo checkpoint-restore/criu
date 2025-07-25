@@ -36,6 +36,13 @@
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 
+struct madv_guard_region {
+	unsigned long start;
+	size_t len;
+
+	struct list_head l;
+};
+
 static int task_reset_dirty_track(int pid)
 {
 	int ret;
@@ -115,44 +122,80 @@ static bool should_dump_entire_vma(VmaEntry *vmae)
 }
 
 /*
- * should_dump_page returns vaddr if an addressed page has to be dumped.
- * Otherwise, it returns an address that has to be inspected next.
+ * should_dump_page writes vaddr in page_info->next if an addressed page has to be dumped.
+ * Otherwise, it writes an address that has to be inspected next.
  */
-u64 should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, bool *softdirty)
+int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *page_info)
 {
+	if (!page_info)
+		goto err;
+
 	if (vaddr >= pmc->end && pmc_fill(pmc, vaddr, vmae->end))
-		return -1;
+		goto err;
 
 	if (pmc->regs) {
 		while (1) {
-			if (pmc->regs_idx == pmc->regs_len)
-				return pmc->end;
+			if (pmc->regs_idx == pmc->regs_len) {
+				page_info->next = pmc->end;
+				return 0;
+			}
+
 			if (vaddr < pmc->regs[pmc->regs_idx].end)
 				break;
 			pmc->regs_idx++;
 		}
-		if (vaddr < pmc->regs[pmc->regs_idx].start)
-			return pmc->regs[pmc->regs_idx].start;
-		if (softdirty)
-			*softdirty = pmc->regs[pmc->regs_idx].categories & PAGE_IS_SOFT_DIRTY;
-		return vaddr;
+
+		if (vaddr < pmc->regs[pmc->regs_idx].start) {
+			page_info->next = pmc->regs[pmc->regs_idx].start;
+			return 0;
+		}
+
+		if (pmc->regs[pmc->regs_idx].categories & PAGE_IS_GUARD)
+			goto skip_guard_page;
+
+		page_info->softdirty = pmc->regs[pmc->regs_idx].categories & PAGE_IS_SOFT_DIRTY;
+		page_info->next = vaddr;
+		return 0;
 	} else {
 		u64 pme = pmc->map[PAGE_PFN(vaddr - pmc->start)];
+
+		if (pme & PME_GUARD_REGION)
+			goto skip_guard_page;
 
 		/*
 		 * Optimisation for private mapping pages, that haven't
 		 * yet being COW-ed
 		 */
-		if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE))
-			return vaddr + PAGE_SIZE;
-		if ((pme & (PME_PRESENT | PME_SWAP)) && !__page_is_zero(pme)) {
-			if (softdirty)
-				*softdirty = pme & PME_SOFT_DIRTY;
-			return vaddr;
+		if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE)) {
+			page_info->next = vaddr + PAGE_SIZE;
+			return 0;
 		}
 
-		return vaddr + PAGE_SIZE;
+		if ((pme & (PME_PRESENT | PME_SWAP)) && !__page_is_zero(pme)) {
+			page_info->softdirty = pme & PME_SOFT_DIRTY;
+			page_info->next = vaddr;
+			return 0;
+		}
+
+		page_info->next = vaddr + PAGE_SIZE;
+		return 0;
 	}
+
+err:
+	pr_err("should_dump_page failed on vma "
+	       "%#016" PRIx64 "-%#016" PRIx64 " vaddr=%#016" PRIx64 "\n",
+	       vmae->start, vmae->end, vaddr);
+	return -1;
+
+skip_guard_page:
+	if (!vma_entry_is(vmae, VMA_ANON_PRIVATE)) {
+		pr_err("CRIU doesn't support guard pages on non-VMA_ANON_PRIVATE\n");
+		return -1;
+	}
+
+	page_info->guard = true;
+	page_info->next = vaddr + PAGE_SIZE;
+	return 0;
 }
 
 bool page_is_zero(u64 pme)
@@ -192,7 +235,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			 bool has_parent)
 {
 	unsigned long nr_scanned;
-	unsigned long pages[3] = {};
+	unsigned long pages[4] = {};
 	unsigned long vaddr;
 	bool dump_all_pages;
 	int ret = 0;
@@ -202,14 +245,20 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	nr_scanned = 0;
 	for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {
 		unsigned int ppb_flags = 0;
-		bool softdirty = false;
-		u64 next;
+		struct page_info page_info = {};
 		int st;
 
 		/* If dump_all_pages is true, should_dump_page is called to get pme. */
-		next = should_dump_page(pmc, vma->e, vaddr, &softdirty);
-		if (!dump_all_pages && next != vaddr) {
-			vaddr = next - PAGE_SIZE;
+		if (should_dump_page(pmc, vma->e, vaddr, &page_info))
+			return -1;
+
+		if (page_info.guard) {
+			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_GUARD);
+			st = 3;
+		}
+
+		if (!dump_all_pages && page_info.next != vaddr) {
+			vaddr = page_info.next - PAGE_SIZE;
 			continue;
 		}
 
@@ -223,7 +272,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		 * page. The latter would be checked in page-xfer.
 		 */
 
-		if (has_parent && page_in_parent(softdirty)) {
+		if (has_parent && page_in_parent(page_info.softdirty)) {
 			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
 			st = 0;
 		} else {
@@ -248,8 +297,9 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	cnt_add(CNT_PAGES_SKIPPED_PARENT, pages[0]);
 	cnt_add(CNT_PAGES_LAZY, pages[1]);
 	cnt_add(CNT_PAGES_WRITTEN, pages[2]);
+	cnt_add(CNT_PAGES_GUARD, pages[3]);
 
-	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes\n", pages[2] + pages[1], pages[1], pages[0]);
+	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes %lu guard pages\n", pages[2] + pages[1], pages[1], pages[0], pages[3]);
 	return ret;
 }
 
@@ -1088,12 +1138,29 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 	return ret;
 }
 
+static int register_madv_guard_region(unsigned long start, size_t len, struct list_head *to)
+{
+	struct madv_guard_region *madv_guard_region;
+
+	madv_guard_region = xzalloc(sizeof(*madv_guard_region));
+	if (!madv_guard_region)
+		return -1;
+
+	madv_guard_region->start = start;
+	madv_guard_region->len = len;
+
+	list_add_tail(&madv_guard_region->l, to);
+
+	return 0;
+}
+
 static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 {
 	struct vma_area *vma;
 	int ret = 0;
 	struct list_head *vmas = &rsti(t)->vmas.h;
 	struct list_head *vma_io = &rsti(t)->vma_io;
+	struct list_head *madv_guard_region = &rsti(t)->madv_guard_region;
 
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
@@ -1127,6 +1194,14 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 			pr_debug("Lazy restore skips %ld pages at %lx\n", nr_pages, va);
 			pr->skip_pages(pr, nr_pages * PAGE_SIZE);
 			nr_lazy += nr_pages;
+			continue;
+		}
+
+		if (pagemap_guard(pr->pe)) {
+			if (register_madv_guard_region(va, nr_pages * PAGE_SIZE, madv_guard_region))
+				return -1;
+
+			pr->skip_pages(pr, nr_pages * PAGE_SIZE);
 			continue;
 		}
 
@@ -1451,6 +1526,29 @@ int open_vmas(struct pstree_item *t)
 	return 0;
 }
 
+static int prepare_madv_guards(struct list_head *from, struct task_restore_args *ta)
+{
+	struct madv_guard_region *madv_guard_region;
+
+	ta->madv_guard_regions = (struct rst_madv_guard_region *)rst_mem_align_cpos(RM_PRIVATE);
+	ta->madv_guard_regions_n = 0;
+
+	list_for_each_entry(madv_guard_region, from, l) {
+		struct rst_madv_guard_region *region;
+
+		region = rst_mem_alloc(sizeof(*region), RM_PRIVATE);
+		if (!region)
+			return -1;
+
+		region->start = madv_guard_region->start;
+		region->len = madv_guard_region->len;
+
+		ta->madv_guard_regions_n++;
+	}
+
+	return 0;
+}
+
 static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 {
 	struct cr_img *pages;
@@ -1483,6 +1581,7 @@ static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 
 int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 {
+	int ret = 0;
 	struct vma_area *vma;
 	struct vm_area_list *vmas = &rsti(t)->vmas;
 
@@ -1506,5 +1605,13 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 			vma_premmaped_start(vme) = vma->premmaped_addr;
 	}
 
-	return prepare_vma_ios(t, ta);
+	ret = prepare_vma_ios(t, ta);
+	if (ret)
+		return ret;
+
+	ret = prepare_madv_guards(&rsti(t)->madv_guard_region, ta);
+	if (ret)
+		return ret;
+
+	return ret;
 }

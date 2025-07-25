@@ -54,6 +54,7 @@ struct rst_info {
 	struct vm_area_list vmas;
 	MmEntry *mm;
 	struct list_head vma_io;
+	struct list_head madv_guard_region;
 	unsigned int pages_img_id;
 
 	u32 cg_set;

@@ -35,6 +35,7 @@ extern int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_l
 #define PME_PRESENT	  (1ULL << 63)
 #define PME_SWAP	  (1ULL << 62)
 #define PME_FILE	  (1ULL << 61)
+#define PME_GUARD_REGION  (1ULL << 58)
 #define PME_SOFT_DIRTY	  (1ULL << 55)
 #define PME_PSHIFT_BITS	  (6)
 #define PME_STATUS_BITS	  (3)
@@ -49,5 +50,12 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta);
 int unmap_guard_pages(struct pstree_item *t);
 int prepare_mappings(struct pstree_item *t);
 
-u64 should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, bool *softdirty);
+struct page_info {
+	u64 next;
+	bool softdirty;
+	bool guard;
+};
+
+int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *page_info);
+
 #endif /* __CR_MEM_H__ */

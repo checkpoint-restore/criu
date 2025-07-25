@@ -14,6 +14,7 @@
 #define PAGE_IS_PFNZERO	   (1 << 5)
 #define PAGE_IS_HUGE	   (1 << 6)
 #define PAGE_IS_SOFT_DIRTY (1 << 7)
+#define PAGE_IS_GUARD	   (1 << 8)
 
 /*
  * struct page_region - Page region with flags

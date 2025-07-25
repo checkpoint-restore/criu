@@ -1599,6 +1599,12 @@ static int check_breakpoints(void)
 	return 0;
 }
 
+static int check_pagemap_scan_guard_pages(void)
+{
+	kerndat_warn_about_madv_guards();
+
+	return kdat.has_pagemap_scan_guard_pages ? 0 : -1;
+}
 
 static int (*chk_feature)(void);
 
@@ -1724,6 +1730,7 @@ int cr_check(void)
 		ret |= check_pagemap_scan();
 		ret |= check_overlayfs_maps();
 		ret |= check_timer_cr_ids();
+		ret |= check_pagemap_scan_guard_pages();
 
 		if (kdat.lsm == LSMTYPE__APPARMOR)
 			ret |= check_apparmor_stacking();
@@ -1853,6 +1860,7 @@ static struct feature_list feature_list[] = {
 	{ "timer_cr_ids", check_timer_cr_ids },
 	{ "overlayfs_maps", check_overlayfs_maps },
 	{ "breakpoints", check_breakpoints },
+	{ "pagemap_scan_guard_pages", check_pagemap_scan_guard_pages },
 	{ NULL, NULL },
 };
 

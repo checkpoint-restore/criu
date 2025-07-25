@@ -310,6 +310,7 @@ endif
 
 TST_FILE	=				\
 		maps06				\
+		maps12				\
 		write_read00			\
 		write_read01			\
 		write_read02			\
