@@ -1446,18 +1446,40 @@ static int __legacy_mount_proc(void)
 	return fd;
 }
 
+static int userns_mount_proc(void *arg, int pid, int fd)
+{
+	int ret;
+
+	if (root_ns_mask == 0)
+		ret = open("/proc", O_DIRECTORY);
+	else {
+		if (kdat.has_fsopen)
+			ret = mount_detached_fs("proc");
+		else
+			ret = __legacy_mount_proc();
+	}
+
+	return ret;
+}
+
 static int mount_proc(void)
 {
 	int fd, ret;
 
-	if (root_ns_mask == 0)
-		fd = ret = open("/proc", O_DIRECTORY);
-	else {
-		if (kdat.has_fsopen)
-			fd = ret = mount_detached_fs("proc");
-		else
-			fd = ret = __legacy_mount_proc();
-	}
+	/* 
+	 *  In most cases, self-mounting procfs in the containerized process will work.
+	 *  But in the case where the process only has its isolated user namespace
+	 *  but shares the mount namespace and pid namespace with the host,
+	 *  it won't work due to the lack of privilege to do the proc-mount job.
+	 *  A Userns call is needed to deal with such scenerios.
+	 *
+	 *  See linux/fs/fsopen.c and linux/fs/proc/root.c for more info.
+	 * */
+
+	if ((root_ns_mask & CLONE_NEWUSER) && !(root_ns_mask & CLONE_NEWNS) && !(root_ns_mask & CLONE_NEWPID))
+		fd = ret = userns_call(userns_mount_proc, UNS_FDOUT, NULL, sizeof(NULL), -1);
+	else
+		fd = ret = userns_mount_proc(NULL, -1, -1);
 
 	if (fd >= 0) {
 		ret = set_proc_fd(fd);
