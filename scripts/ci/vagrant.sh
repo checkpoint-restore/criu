@@ -22,7 +22,7 @@ setup() {
 	wget --no-check-certificate https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}-1_"$(dpkg --print-architecture)".deb -O /tmp/vagrant.deb && \
 		dpkg -i /tmp/vagrant.deb
 
-	./apt-install libvirt-clients libvirt-daemon-system libvirt-dev qemu-utils qemu \
+	./apt-install libvirt-clients libvirt-daemon-system libvirt-dev qemu-utils qemu-system \
 		ruby build-essential libxml2-dev qemu-kvm rsync ebtables dnsmasq-base \
 		openssh-client
 	systemctl restart libvirtd
