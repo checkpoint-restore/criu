@@ -6,9 +6,9 @@
 set -e
 set -x
 
-VAGRANT_VERSION=2.4.1
-FEDORA_VERSION=40
-FEDORA_BOX_VERSION=40.20240414.0
+VAGRANT_VERSION=2.4.7
+FEDORA_VERSION=42
+FEDORA_BOX_VERSION=1.1.0
 
 setup() {
 	if [ -n "$TRAVIS" ]; then
@@ -27,7 +27,7 @@ setup() {
 		openssh-client
 	systemctl restart libvirtd
 	vagrant plugin install vagrant-libvirt
-	vagrant init fedora/${FEDORA_VERSION}-cloud-base --box-version ${FEDORA_BOX_VERSION}
+	vagrant init cloud-image/fedora-${FEDORA_VERSION} --box-version ${FEDORA_BOX_VERSION}
 	# The default libvirt Vagrant VM uses 512MB.
 	# Travis VMs should have around 7.5GB.
 	# Increasing it to 4GB should work.
