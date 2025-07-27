@@ -32,6 +32,7 @@
 #include "prctl.h"
 #include "compel/infect-util.h"
 #include "pidfd-store.h"
+#include "files.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -765,7 +766,11 @@ int prepare_mm_pid(struct pstree_item *i)
 			ret = collect_filemap(vma);
 		else if (vma_area_is(vma, VMA_AREA_SOCKET))
 			ret = collect_socket_map(vma);
-		else
+		else if (vma_area_is(vma, VMA_AREA_POSIX_SEM)) {
+			/* Set up vm_open function for POSIX semaphore VMAs */
+			vma->vm_open = open_posix_sem_vma;
+			ret = 0;
+		} else
 			ret = 0;
 		if (ret)
 			break;

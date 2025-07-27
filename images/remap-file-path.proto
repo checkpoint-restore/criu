@@ -9,6 +9,7 @@ enum remap_type {
   // Reserved for spfs manager
   // SPFS		= 3;
   // SPFS_LINKED	= 4;
+  REMAP_MEMFD   = 3;
 };
 
 message remap_file_path_entry {
