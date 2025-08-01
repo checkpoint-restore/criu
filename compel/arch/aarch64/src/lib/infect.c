@@ -13,6 +13,8 @@
 #include "infect.h"
 #include "infect-priv.h"
 #include "asm/breakpoints.h"
+#include "asm/gcs-types.h"
+#include <linux/prctl.h>
 
 unsigned __page_size = 0;
 unsigned __page_shift = 0;
@@ -33,11 +35,22 @@ static inline void __always_unused __check_code_syscall(void)
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
+static bool __compel_gcs_enabled(struct user_gcs *gcs)
+{
+	if (gcs->features_enabled & PR_SHADOW_STACK_ENABLE)
+		return true;
+
+	return false;
+}
+
 int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	struct fpsimd_context *fpsimd = RT_SIGFRAME_FPU(sigframe);
+	struct gcs_context *gcs = RT_SIGFRAME_GCS(sigframe);
 
 	memcpy(sigframe->uc.uc_mcontext.regs, regs->regs, sizeof(regs->regs));
+
+	pr_debug("sigreturn_prep_regs_plain: sp %lx pc %lx\n", (long)regs->sp, (long)regs->pc);
 
 	sigframe->uc.uc_mcontext.sp = regs->sp;
 	sigframe->uc.uc_mcontext.pc = regs->pc;
@@ -50,6 +63,19 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *
 
 	fpsimd->head.magic = FPSIMD_MAGIC;
 	fpsimd->head.size = sizeof(*fpsimd);
+
+	if (__compel_gcs_enabled(&fpregs->gcs)) {
+		gcs->head.magic = GCS_MAGIC;
+		gcs->head.size = sizeof(*gcs);
+		gcs->reserved = 0;
+		gcs->gcspr = fpregs->gcs.gcspr_el0 - 8;
+		gcs->features_enabled = fpregs->gcs.features_enabled;
+
+		pr_debug("sigframe gcspr=%llx features_enabled=%llx\n", fpregs->gcs.gcspr_el0 - 8, fpregs->gcs.features_enabled);
+	} else {
+		pr_debug("sigframe gcspr=[disabled]\n");
+		memset(gcs, 0, sizeof(*gcs));
+	}
 
 	return 0;
 }
@@ -80,6 +106,8 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct
 		pr_perror("Failed to obtain FPU registers for %d", pid);
 		goto err;
 	}
+
+	memset(&ext_regs->gcs, 0, sizeof(ext_regs->gcs));
 
 	ret = save(pid, arg, regs, ext_regs);
 err:

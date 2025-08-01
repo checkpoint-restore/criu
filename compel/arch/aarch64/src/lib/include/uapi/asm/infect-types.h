@@ -17,8 +17,18 @@
 
 typedef struct user_pt_regs user_regs_struct_t;
 
+/*
+ * GCS (Guarded Control Stack)
+ */
+struct user_gcs {
+	__u64 features_enabled;
+	__u64 features_locked;
+	__u64 gcspr_el0;
+};
+
 struct user_fpregs_struct {
 	struct user_fpsimd_state fpstate;
+	struct user_gcs gcs;
 };
 typedef struct user_fpregs_struct user_fpregs_struct_t;
 
