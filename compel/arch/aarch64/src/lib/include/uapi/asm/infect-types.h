@@ -2,6 +2,7 @@
 #define UAPI_COMPEL_ASM_TYPES_H__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <signal.h>
 #include <sys/mman.h>
 #include <asm/ptrace.h>
@@ -17,8 +18,18 @@
 
 typedef struct user_pt_regs user_regs_struct_t;
 
+/*
+ * GCS (Guarded Control Stack)
+ */
+struct user_gcs {
+	__u64 features_enabled;
+	__u64 features_locked;
+	__u64 gcspr_el0;
+};
+
 struct user_fpregs_struct {
 	struct user_fpsimd_state fpstate;
+	struct user_gcs gcs;
 };
 typedef struct user_fpregs_struct user_fpregs_struct_t;
 
@@ -42,5 +53,8 @@ typedef struct user_fpregs_struct user_fpregs_struct_t;
 		(void)compat;   \
 		__NR_##syscall; \
 	})
+
+extern bool __compel_host_supports_gcs(void);
+#define compel_host_supports_gcs __compel_host_supports_gcs
 
 #endif /* UAPI_COMPEL_ASM_TYPES_H__ */
