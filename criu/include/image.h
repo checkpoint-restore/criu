@@ -68,6 +68,12 @@
  *  	processing exiting with error; while the rest of bits
  *  	are part of image ABI, this particular one must never
  *  	be used in image.
+ *  - guard
+ *  	stands for a fake VMA (not represented in the kernel
+ *  	by a struct vm_area_struct). Used to keep an information
+ *  	about virtual address space ranges covered by
+ *  	MADV_GUARD_INSTALL guards. These ones must be always at
+ *  	the end of the vma_area_list and properly skipped a.e.
  */
 #define VMA_AREA_NONE	  (0 << 0)
 #define VMA_AREA_REGULAR  (1 << 0)
@@ -87,6 +93,7 @@
 #define VMA_AREA_AIORING (1 << 13)
 #define VMA_AREA_MEMFD	 (1 << 14)
 #define VMA_AREA_SHSTK	 (1 << 15)
+#define VMA_AREA_GUARD	 (1 << 16)
 
 #define VMA_EXT_PLUGIN	  (1 << 27)
 #define VMA_CLOSE	  (1 << 28)
