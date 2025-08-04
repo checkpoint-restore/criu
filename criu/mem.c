@@ -599,6 +599,9 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		parent_predump_mode = mdc->parent_ie->pre_dump_mode;
 
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
+		if (vma_area_is(vma_area, VMA_AREA_GUARD))
+			continue;
+
 		ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl, &pmc, has_parent, mdc->pre_dump,
 					parent_predump_mode);
 		if (ret < 0)
@@ -861,14 +864,14 @@ static void prepare_cow_vmas_for(struct vm_area_list *vmas, struct vm_area_list 
 		/* <= here to shift from matching VMAs and ... */
 		while (vma->e->start <= pvma->e->start) {
 			vma = vma_next(vma);
-			if (&vma->list == &vmas->h)
+			if ((&vma->list == &vmas->h) || vma_area_is(vma, VMA_AREA_GUARD))
 				return;
 		}
 
 		/* ... no == here since we must stop on matching pair */
 		while (pvma->e->start < vma->e->start) {
 			pvma = vma_next(pvma);
-			if (&pvma->list == &pvmas->h)
+			if ((&pvma->list == &pvmas->h) || vma_area_is(pvma, VMA_AREA_GUARD))
 				return;
 		}
 	}
@@ -1069,6 +1072,9 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 	filemap_ctx_init(true);
 
 	list_for_each_entry(vma, &vmas->h, list) {
+		if (vma_area_is(vma, VMA_AREA_GUARD))
+			continue;
+
 		if (task_size_check(vpid(t), vma->e)) {
 			ret = -1;
 			break;
@@ -1275,6 +1281,9 @@ err_read:
 	list_for_each_entry(vma, vmas, list) {
 		unsigned long size, i = 0;
 		void *addr = decode_pointer(vma->premmaped_addr);
+
+		if (vma_area_is(vma, VMA_AREA_GUARD))
+			continue;
 
 		if (!vma_inherited(vma))
 			continue;
