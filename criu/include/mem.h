@@ -31,6 +31,7 @@ extern int do_task_reset_dirty_track(int pid);
 extern unsigned long dump_pages_args_size(struct vm_area_list *vmas);
 extern int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vma_area_list,
 				      struct mem_dump_ctl *mdc, struct parasite_ctl *ctl);
+extern int collect_madv_guards(pid_t pid, struct vm_area_list *vma_area_list);
 
 #define PME_PRESENT	  (1ULL << 63)
 #define PME_SWAP	  (1ULL << 62)

@@ -1548,3 +1548,72 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 
 	return prepare_vma_ios(t, ta);
 }
+
+int collect_madv_guards(pid_t pid, struct vm_area_list *vma_area_list)
+{
+	int pagemap_fd = -1;
+	struct page_region *regs = NULL;
+	long regs_len = 0;
+	int i, ret = -1;
+
+	struct pm_scan_arg args = {
+		.size = sizeof(struct pm_scan_arg),
+		.flags = 0,
+		.start = 0,
+		.end = kdat.task_size,
+		.walk_end = 0,
+		.vec_len = 1000, /* this should be enough for most cases */
+		.max_pages = 0,
+		.category_mask = PAGE_IS_GUARD,
+		.return_mask = PAGE_IS_GUARD,
+	};
+
+	if (!kdat.has_pagemap_scan_guard_pages) {
+		ret = 0;
+		goto out;
+	}
+
+	pagemap_fd = open_proc(pid, "pagemap");
+	if (pagemap_fd < 0)
+		goto out;
+
+	regs = xmalloc(args.vec_len * sizeof(struct page_region));
+	if (!regs)
+		goto out;
+	args.vec = (long)regs;
+
+	do {
+		/* start from where we finished the last time */
+		args.start = args.walk_end;
+		regs_len = ioctl(pagemap_fd, PAGEMAP_SCAN, &args);
+		if (regs_len == -1) {
+			pr_perror("PAGEMAP_SCAN");
+			goto out;
+		}
+
+		for (i = 0; i < regs_len; i++) {
+			struct vma_area *vma;
+
+			BUG_ON(!(regs[i].categories & PAGE_IS_GUARD));
+
+			vma = alloc_vma_area();
+			if (!vma)
+				goto out;
+
+			vma->e->start = regs[i].start;
+			vma->e->end = regs[i].end;
+			vma->e->status = VMA_AREA_GUARD;
+
+			list_add_tail(&vma->list, &vma_area_list->h);
+			vma_area_list->nr++;
+		}
+	} while (args.walk_end != kdat.task_size);
+
+	ret = 0;
+
+out:
+	xfree(regs);
+	if (pagemap_fd >= 0)
+		close(pagemap_fd);
+	return ret;
+}
