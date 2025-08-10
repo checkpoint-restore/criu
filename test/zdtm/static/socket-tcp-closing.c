@@ -31,9 +31,12 @@ static int port = 8880;
 
 int fill_sock_buf(int fd)
 {
+	char zdtm[512];
 	int flags;
 	int size;
 	int ret;
+
+	memset(zdtm, 5, sizeof(zdtm));
 
 	flags = fcntl(fd, F_GETFL, 0);
 	if (flags == -1) {
@@ -47,7 +50,6 @@ int fill_sock_buf(int fd)
 
 	size = 0;
 	while (1) {
-		char zdtm[] = "zdtm test packet";
 		ret = write(fd, zdtm, sizeof(zdtm));
 		if (ret == -1) {
 			if (errno == EAGAIN)
