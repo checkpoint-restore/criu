@@ -1,0 +1,32 @@
+name: aarch64 test
+
+on: [push, pull_request]
+
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: aarch64-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        target: [GCC=1, CLANG=1]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Tests ${{ matrix.target }}
+      # Following tests are failing on the VMs:
+      #  ./change_mnt_context --pidfile=change_mnt_context.pid --outfile=change_mnt_context.out
+      #   45: ERR: change_mnt_context.c:23: mount (errno = 22 (Invalid argument))
+      #
+      # In combination with '--remote-lazy-pages' following error occurs:
+      #  138: FAIL: maps05.c:84: Data corrupted at page 1639 (errno = 11 (Resource temporarily unavailable))
+      run: |
+        # The 'sched_policy00' needs the following:
+        sudo sysctl -w kernel.sched_rt_runtime_us=-1
+        # etc/hosts entry is needed for netns_lock_iptables
+        echo "127.0.0.1   localhost" | sudo tee -a /etc/hosts
+        sudo -E make -C scripts/ci local ${{ matrix.target }} RUN_TESTS=1 \
+          ZDTM_OPTS="-x zdtm/static/change_mnt_context -x zdtm/static/maps05"
