@@ -66,6 +66,10 @@ fedora-no-vdso() {
 }
 
 fedora-rawhide() {
+	# Upgrade the kernel to the latest vanilla one
+	ssh default sudo dnf -y copr enable @kernel-vanilla/stable
+	ssh default sudo dnf upgrade -y
+
 	# The 6.2 kernel of Fedora 38 in combination with rawhide userspace breaks
 	# zdtm/static/socket-tcp-nfconntrack. To activate the new kernel previously
 	# installed this reboots the VM.
