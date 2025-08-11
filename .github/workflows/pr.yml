@@ -44,6 +44,10 @@ jobs:
     with:
       cedana_version: main
       streamer_version: main
+      gpu_version: main
+      helm_chart_version: main
+      controller_version: staging
+      runtime_shim_version: release
 
   test:
     name: Test
