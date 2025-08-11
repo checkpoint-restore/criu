@@ -15,7 +15,6 @@ task:
   setup_script: |
     scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
     sudo kvm-ok
-    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
   build_script: |
     make -C scripts/ci vagrant-fedora-no-vdso
 
@@ -33,7 +32,6 @@ task:
     memory: 8G
 
   setup_script: |
-    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
     dnf config-manager --set-enabled crb # Same as CentOS 8 powertools
     dnf -y install epel-release epel-next-release
     dnf -y install --allowerasing asciidoc gcc git gnutls-devel libaio-devel libasan libcap-devel libnet-devel libnl3-devel libbsd-devel libselinux-devel make protobuf-c-devel protobuf-devel python-devel python-PyYAML python-protobuf python-junit_xml python3-importlib-metadata xmlto libdrm-devel libuuid-devel
@@ -67,7 +65,6 @@ task:
   setup_script: |
     scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
     sudo kvm-ok
-    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
   build_script: |
     make -C scripts/ci vagrant-fedora-rawhide
 
@@ -88,7 +85,6 @@ task:
   setup_script: |
     scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
     sudo kvm-ok
-    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
   build_script: |
     make -C scripts/ci vagrant-fedora-non-root
 
@@ -101,7 +97,6 @@ task:
   script: uname -a
   build_script: |
     scripts/ci/apt-install make
-    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
     make -C scripts/ci local
 
 task:
@@ -113,7 +108,6 @@ task:
   script: uname -a
   build_script: |
     scripts/ci/apt-install make
-    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
     make -C scripts/ci local CLANG=1
 
 task:
@@ -125,6 +119,5 @@ task:
   script: uname -a
   build_script: |
     scripts/ci/prepare-for-fedora-rawhide.sh
-    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
     make -C scripts/ci/ local CC=gcc SKIP_CI_PREP=1 SKIP_CI_TEST=1 CD_TO_TOP=1
     make -C test/zdtm -j 4

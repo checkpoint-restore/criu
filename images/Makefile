@@ -58,7 +58,6 @@ proto-obj-y	+= ext-file.o
 proto-obj-y	+= cgroup.o
 proto-obj-y	+= userns.o
 proto-obj-y	+= pidns.o
-proto-obj-y	+= google/protobuf/descriptor.o # To make protoc happy and compile opts.proto
 proto-obj-y	+= opts.o
 proto-obj-y	+= seccomp.o
 proto-obj-y	+= binfmt-misc.o
@@ -90,6 +89,21 @@ $(shell grep "^[[:blank:]]*import[[:blank:]]" $(1)      |       \
 endef
 
 makefile-deps := Makefile $(obj)/Makefile
+
+#
+# Generate descriptor.pb-c.c and descriptor.pb-c.h to compile opts.proto.
+DESCRIPTOR_DIR := images/google/protobuf
+GOOGLE_INCLUDE=$(shell pkg-config protobuf --variable=includedir)/google/protobuf
+$(DESCRIPTOR_DIR)/descriptor.pb-c.c: $(GOOGLE_INCLUDE)/descriptor.proto
+	$(call msg-gen, $@)
+	$(Q) protoc --proto_path=/usr/include --proto_path=$(obj)/ --c_out=$(obj)/ $<
+
+cleanup-y += $(DESCRIPTOR_DIR)/descriptor.pb-c.d
+
+submrproper:
+	$(Q) rm -f $(DESCRIPTOR_DIR)/*
+.PHONY: submrproper
+mrproper: submrproper
 
 #
 # Generates rules needed to compile protobuf files.

@@ -888,7 +888,11 @@ static int resolve_external_mounts(struct mount_info *info)
 
 		cut_root = cut_root_for_bind(m->root, match->root);
 
-		p = xsprintf("%s/%s", match->ns_mountpoint + 1, cut_root);
+		if (cut_root[0] == '\0') {
+			p = xstrdup(match->ns_mountpoint + 1);
+		} else {
+			p = xsprintf("%s/%s", match->ns_mountpoint + 1, cut_root);
+		}
 		if (!p)
 			return -1;
 
