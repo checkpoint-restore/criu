@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""
+Release summary JSON for Slack using Block Kit
+"""
+
+import json
+import os
+
+TITLE = os.getenv('RELEASE_TITLE') or 'Release summary'
+DESCRIPTION = os.getenv('RELEASE_DESCRIPTION') or os.getenv('TAG') or '...'
+RELEASE_NOTES_URL = (
+    os.getenv('RELEASE_NOTES_URL')
+    or 'https://github.com/cedana/cedana/releases'
+)
+BODY = os.getenv('RELEASE_BODY')
+TAG = os.getenv('TAG')
+BINARIES_DIR = os.getenv('BINARIES_DIR')
+PREVIOUS_TAG = os.getenv('PREVIOUS_TAG')
+PREVIOUS_BINARIES_DIR = os.getenv('PREVIOUS_BINARIES_DIR')
+
+TITLE = TITLE.replace('**', '*')
+DESCRIPTION = DESCRIPTION.replace('**', '*')
+
+blocks = []
+blocks.append(
+    {
+        'type': 'header',
+        'text': {'type': 'plain_text', 'text': TITLE, 'emoji': True},
+    }
+)
+blocks.append(
+    {
+        'type': 'section',
+        'text': {'type': 'mrkdwn', 'text': DESCRIPTION},
+        'accessory': {
+            'type': 'button',
+            'text': {
+                'type': 'plain_text',
+                'text': 'Release notes',
+                'emoji': True,
+            },
+            'url': RELEASE_NOTES_URL,
+            'action_id': 'button-action',
+        },
+    }
+)
+blocks.append({'type': 'divider'})
+
+if BODY:
+    blocks.append(
+        {
+            'type': 'section',
+            'text': {'type': 'mrkdwn', 'text': BODY},
+        }
+    )
+    blocks.append({'type': 'divider'})
+
+if PREVIOUS_TAG:
+    blocks.append(
+        {
+            'type': 'context',
+            'elements': [
+                {
+                    'type': 'mrkdwn',
+                    'text': f'Version *{TAG}*',
+                },
+                {
+                    'type': 'mrkdwn',
+                    'text': f'_Previously {PREVIOUS_TAG}_',
+                },
+            ],
+        }
+    )
+
+if TAG and PREVIOUS_TAG and BINARIES_DIR and PREVIOUS_BINARIES_DIR:
+    binaries = [
+        f
+        for f in os.listdir(BINARIES_DIR)
+        if os.path.isfile(os.path.join(BINARIES_DIR, f))
+    ]
+    for binary in binaries:
+        if not os.path.exists(os.path.join(BINARIES_DIR, binary)):
+            binary_size_mib = f'{binary} *Unavailable*'
+        else:
+            size = (
+                os.path.getsize(os.path.join(BINARIES_DIR, binary))
+                / 1024
+                / 1024
+            )
+            binary_size_mib = f'{binary} *{size:.2f} MiB*'
+        if not os.path.exists(os.path.join(PREVIOUS_BINARIES_DIR, binary)):
+            previous_binary_size_mib = '_Previously Unavailable_'
+        else:
+            previous_size = (
+                os.path.getsize(os.path.join(PREVIOUS_BINARIES_DIR, binary))
+                / 1024
+                / 1024
+            )
+            previous_binary_size_mib = f'_Previously {previous_size:.2f} MiB_'
+        blocks.append(
+            {
+                'type': 'context',
+                'elements': [
+                    {
+                        'type': 'mrkdwn',
+                        'text': binary_size_mib,
+                    },
+                    {
+                        'type': 'mrkdwn',
+                        'text': previous_binary_size_mib,
+                    },
+                ],
+            }
+        )
+
+summary = {'blocks': blocks}
+print(json.dumps(summary))
