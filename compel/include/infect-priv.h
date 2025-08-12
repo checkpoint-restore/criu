@@ -72,6 +72,7 @@ extern bool arch_can_dump_task(struct parasite_ctl *ctl);
 extern int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
 				void *arg, unsigned long flags);
 extern int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs);
+extern int compel_set_task_gcs_regs(pid_t pid, user_fpregs_struct_t *ext_regs);
 extern int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s);
 extern int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *regs,
 				     user_fpregs_struct_t *fpregs);
