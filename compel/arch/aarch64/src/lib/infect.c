@@ -43,10 +43,10 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *
 	sigframe->uc.uc_mcontext.pc = regs->pc;
 	sigframe->uc.uc_mcontext.pstate = regs->pstate;
 
-	memcpy(fpsimd->vregs, fpregs->vregs, 32 * sizeof(__uint128_t));
+	memcpy(fpsimd->vregs, fpregs->fpstate.vregs, 32 * sizeof(__uint128_t));
 
-	fpsimd->fpsr = fpregs->fpsr;
-	fpsimd->fpcr = fpregs->fpcr;
+	fpsimd->fpsr = fpregs->fpstate.fpsr;
+	fpsimd->fpcr = fpregs->fpstate.fpcr;
 
 	fpsimd->head.magic = FPSIMD_MAGIC;
 	fpsimd->head.size = sizeof(*fpsimd);
@@ -59,7 +59,7 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe, struct rt_sigfr
 	return 0;
 }
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
 			 void *arg, __maybe_unused unsigned long flags)
 {
 	struct iovec iov;
@@ -74,14 +74,14 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct
 		goto err;
 	}
 
-	iov.iov_base = fpsimd;
-	iov.iov_len = sizeof(*fpsimd);
+	iov.iov_base = &ext_regs->fpstate;
+	iov.iov_len = sizeof(ext_regs->fpstate);
 	if ((ret = ptrace(PTRACE_GETREGSET, pid, NT_PRFPREG, &iov))) {
 		pr_perror("Failed to obtain FPU registers for %d", pid);
 		goto err;
 	}
 
-	ret = save(pid, arg, regs, fpsimd);
+	ret = save(pid, arg, regs, ext_regs);
 err:
 	return ret;
 }
@@ -92,8 +92,8 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 
 	pr_info("Restoring GP/FPU registers for %d\n", pid);
 
-	iov.iov_base = ext_regs;
-	iov.iov_len = sizeof(*ext_regs);
+	iov.iov_base = &ext_regs->fpstate;
+	iov.iov_len = sizeof(ext_regs->fpstate);
 	if (ptrace(PTRACE_SETREGSET, pid, NT_PRFPREG, &iov)) {
 		pr_perror("Failed to set FPU registers for %d", pid);
 		return -1;

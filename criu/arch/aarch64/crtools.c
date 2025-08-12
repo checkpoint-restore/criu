@@ -157,11 +157,11 @@ int save_task_regs(pid_t pid, void *x, user_regs_struct_t *regs, user_fpregs_str
 
 	// Save the FP/SIMD state
 	for (i = 0; i < 32; ++i) {
-		core->ti_aarch64->fpsimd->vregs[2 * i] = fpsimd->vregs[i];
-		core->ti_aarch64->fpsimd->vregs[2 * i + 1] = fpsimd->vregs[i] >> 64;
+		core->ti_aarch64->fpsimd->vregs[2 * i] = fpsimd->fpstate.vregs[i];
+		core->ti_aarch64->fpsimd->vregs[2 * i + 1] = fpsimd->fpstate.vregs[i] >> 64;
 	}
-	assign_reg(core->ti_aarch64->fpsimd, fpsimd, fpsr);
-	assign_reg(core->ti_aarch64->fpsimd, fpsimd, fpcr);
+	assign_reg(core->ti_aarch64->fpsimd, &fpsimd->fpstate, fpsr);
+	assign_reg(core->ti_aarch64->fpsimd, &fpsimd->fpstate, fpcr);
 
 	if (save_pac_keys(pid, core))
 		return -1;
