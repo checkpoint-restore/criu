@@ -127,6 +127,9 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 {
 	struct iovec iov;
 
+	struct user_gcs gcs;
+	struct iovec gcs_iov = { .iov_base = &gcs, .iov_len = sizeof(gcs) };
+
 	pr_info("Restoring GP/FPU registers for %d\n", pid);
 
 	iov.iov_base = &ext_regs->fpstate;
@@ -135,6 +138,33 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 		pr_perror("Failed to set FPU registers for %d", pid);
 		return -1;
 	}
+
+	if (ptrace(PTRACE_GETREGSET, pid, NT_ARM_GCS, &gcs_iov) < 0) {
+		pr_warn("gcs: Failed to get GCS for %d\n", pid);
+	} else {
+		ext_regs->gcs = gcs;
+		compel_set_task_gcs_regs(pid, ext_regs);
+	}
+
+	return 0;
+}
+
+int compel_set_task_gcs_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	struct iovec iov;
+
+	pr_info("gcs: restoring GCS registers for %d\n", pid);
+	pr_info("gcs: restoring GCS: gcspr=%llx features=%llx\n",
+		ext_regs->gcs.gcspr_el0, ext_regs->gcs.features_enabled);
+
+	iov.iov_base = &ext_regs->gcs;
+	iov.iov_len = sizeof(ext_regs->gcs);
+
+	if (ptrace(PTRACE_SETREGSET, pid, NT_ARM_GCS, &iov)) {
+		pr_perror("gcs: Failed to set GCS registers for %d", pid);
+		return -1;
+	}
+
 	return 0;
 }
 
