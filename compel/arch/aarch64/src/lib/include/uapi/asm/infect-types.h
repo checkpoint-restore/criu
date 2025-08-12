@@ -57,4 +57,9 @@ typedef struct user_fpregs_struct user_fpregs_struct_t;
 extern bool __compel_host_supports_gcs(void);
 #define compel_host_supports_gcs __compel_host_supports_gcs
 
+struct parasite_ctl;
+extern int __parasite_setup_shstk(struct parasite_ctl *ctl,
+				  user_fpregs_struct_t *ext_regs);
+#define parasite_setup_shstk __parasite_setup_shstk
+
 #endif /* UAPI_COMPEL_ASM_TYPES_H__ */
