@@ -53,4 +53,9 @@ typedef struct user_fpregs_struct user_fpregs_struct_t;
 		__NR_##syscall; \
 	})
 
+struct parasite_ctl;
+extern int __parasite_setup_shstk(struct parasite_ctl *ctl,
+				  user_fpregs_struct_t *ext_regs);
+#define parasite_setup_shstk __parasite_setup_shstk
+
 #endif /* UAPI_COMPEL_ASM_TYPES_H__ */
