@@ -16,7 +16,11 @@
  */
 
 typedef struct user_pt_regs user_regs_struct_t;
-typedef struct user_fpsimd_state user_fpregs_struct_t;
+
+struct user_fpregs_struct {
+	struct user_fpsimd_state fpstate;
+};
+typedef struct user_fpregs_struct user_fpregs_struct_t;
 
 #define __compel_arch_fetch_thread_area(tid, th) 0
 #define compel_arch_fetch_thread_area(tctl)	 0
