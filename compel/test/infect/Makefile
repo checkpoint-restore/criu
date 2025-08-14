@@ -3,6 +3,11 @@ CFLAGS	?= -O2 -g -Wall -Werror
 
 COMPEL		:= ../../../compel/compel-host
 
+ifeq ($(GCS_ENABLE),1)
+CFLAGS  += -mbranch-protection=standard -DGCS_TEST_ENABLE=1
+LDFLAGS += -z experimental-gcs=check
+endif
+
 all: victim spy
 
 run:
@@ -17,7 +22,7 @@ clean:
 	rm -f parasite.o
 
 victim: victim.c
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 spy: spy.c parasite.h
 	$(CC) $(CFLAGS) $(shell $(COMPEL) includes) -o $@ $< $(shell $(COMPEL) --static libs)
