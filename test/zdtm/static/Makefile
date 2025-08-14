@@ -520,30 +520,30 @@ install: all
 .PHONY: all install
 
 $(TST_NOFILE:%=%.pid):	%.pid:	%
-	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out
 
 $(TST_FILE:%=%.pid):	%.pid:	%
-	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --filename=$<.test
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --filename=$<.test
 
 $(TST_DIR:%=%.pid):	%.pid:	%
-	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --dirname=$<.test
+	$(TEST_ENV) (<D)/$(<F) --pidfile=$@ --outfile=$<.out --dirname=$<.test
 
 $(TST_DIR_FILE:%=%.pid):	%.pid:	%
-	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --dirname=$<.dir.test --filename=$<.test
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --dirname=$<.dir.test --filename=$<.test
 
 cmdlinenv00.pid: cmdlinenv00
-	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --arg1=arg1 --arg2=arg2 --arg3=arg3
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --arg1=arg1 --arg2=arg2 --arg3=arg3
 
 shm-unaligned.pid: shm-unaligned
-	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --shmem_size=5000
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --shmem_size=5000
 
 shm-hugetlb.pid: shm-hugetlb
-	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --shmem_size=4194304
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --shmem_size=4194304
 
 env00.pid:	env00
-	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --envname=ENV_00_TEST
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --envname=ENV_00_TEST
 umask00.pid:	umask00
-	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --mask=0345
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --mask=0345
 
 fifo-rowo-pair.pid: fifo-rowo-pair
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --name_master=$<.master.test --name_slave=$<.slave.test
