@@ -64,6 +64,8 @@ endif
 
 ifeq ($(ARCH),aarch64)
         DEFINES		:= -DCONFIG_AARCH64
+        CC_MBRANCH_PROT := $(shell $(CC) -c -x c /dev/null -mbranch-protection=none -o /dev/null >/dev/null 2>&1 && echo "-mbranch-protection=none")
+        CFLAGS_PIE	:= $(CC_MBRANCH_PROT)
 endif
 
 ifeq ($(ARCH),ppc64)
