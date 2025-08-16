@@ -111,7 +111,8 @@ static inline void *mmap_pages(void *addr_hint, unsigned int count, bool filemap
 
 	map = mmap(addr_hint, count * PAGE_SIZE, PROT_WRITE | PROT_READ,
 		   MAP_PRIVATE | (filemap ? 0 : MAP_ANONYMOUS) | (addr_hint ? MAP_FIXED : 0),
-		   filemap ? fd : -1, filemap ? ((off_t)addr_hint - (off_t)map_base) : 0);
+		   filemap ? fd : -1,
+		   filemap ? (off_t)((intptr_t)addr_hint - (intptr_t)map_base) : 0);
 	if (map == MAP_FAILED || (addr_hint && (map != addr_hint)))
 		return MAP_FAILED;
 
