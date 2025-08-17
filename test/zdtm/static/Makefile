@@ -395,6 +395,7 @@ TST_DIR		=				\
 		cwd02				\
 		detached_mount                  \
 		anonymous_mount			\
+		detached_bind_mount		\
 		overmount_dev			\
 		overmount_file			\
 		overmount_fifo			\
