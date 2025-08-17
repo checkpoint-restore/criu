@@ -398,6 +398,7 @@ TST_DIR		=				\
 		cwd00				\
 		cwd01				\
 		cwd02				\
+		unmounted_bind_mount		\
 		overmount_dev			\
 		overmount_file			\
 		overmount_fifo			\
