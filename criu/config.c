@@ -18,6 +18,7 @@
 #include "cr_options.h"
 #include "filesystems.h"
 #include "file-lock.h"
+#include "image.h"
 #include "irmap.h"
 #include "mount.h"
 #include "mount-v2.h"
@@ -703,6 +704,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		BOOL_OPT("mntns-compat-mode", &opts.mntns_compat_mode),
 		BOOL_OPT("unprivileged", &opts.unprivileged),
 		BOOL_OPT("ghost-fiemap", &opts.ghost_fiemap),
+		BOOL_OPT(OPT_ALLOW_UPROBES, &opts.allow_uprobes),
 		{},
 	};
 

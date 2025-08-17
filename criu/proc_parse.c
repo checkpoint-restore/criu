@@ -74,6 +74,8 @@ struct buffer {
 
 static struct buffer __buf;
 static char *buf = __buf.buf;
+/* only ever goes from false to true, if at all */
+static bool uprobes_vma_exists = false;
 
 /*
  * This is how AIO ring buffers look like in proc
@@ -202,8 +204,11 @@ static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
 	 * vmsplice doesn't work for VM_IO and VM_PFNMAP mappings, the
 	 * only exception is VVAR area that mapped by the kernel as
 	 * VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP
+	 *
+	 * The uprobes vma is also mapped by the kernel with VM_IO, among other flags
 	 */
-	if (io_pf && !vma_area_is(vma_area, VMA_AREA_VVAR) && !vma_entry_is(vma_area->e, VMA_FILE_SHARED))
+	if (io_pf && !vma_area_is(vma_area, VMA_AREA_VVAR) && !vma_entry_is(vma_area->e, VMA_FILE_SHARED)
+		  && !vma_area_is(vma_area, VMA_AREA_UPROBES))
 		vma_area->e->status |= VMA_UNSUPP;
 
 	if (vma_area->e->madv)
@@ -603,6 +608,14 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 			goto err;
 	} else if (!strcmp(file_path, "[heap]")) {
 		vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
+	} else if (!strcmp(file_path, "[uprobes]")) {
+		uprobes_vma_exists = true;
+		if (!opts.allow_uprobes) {
+			pr_err("PID %d has uprobes vma. Consider using --" OPT_ALLOW_UPROBES ".\n",
+				pid);
+			goto err;
+		}
+		vma_area->e->status |= VMA_AREA_UPROBES;
 	} else {
 		vma_area->e->status = VMA_AREA_REGULAR;
 	}
@@ -739,6 +752,10 @@ static int vma_list_add(struct vma_area *vma_area, struct vm_area_list *vma_area
 		 */
 		pr_debug("Device file mapping %016" PRIx64 "-%016" PRIx64 " supported via device plugins\n",
 			 vma_area->e->start, vma_area->e->end);
+	} else if (vma_area->e->status & VMA_AREA_UPROBES) {
+		pr_debug("Skipping uprobes vma %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
+		         vma_area->e->end);
+		return 0;
 	} else if (vma_area->e->status & VMA_UNSUPP) {
 		pr_err("Unsupported mapping found %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
 		       vma_area->e->end);
@@ -2928,4 +2945,9 @@ int parse_uptime(uint64_t *upt)
 
 	fclose(f);
 	return 0;
+}
+
+bool found_uprobes_vma(void)
+{
+	return uprobes_vma_exists;
 }

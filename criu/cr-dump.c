@@ -2319,6 +2319,10 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	he.has_pre_dump_mode = false;
+	if (found_uprobes_vma()) {
+		he.has_allow_uprobes = true;
+		he.allow_uprobes = true;
+	}
 
 	ret = write_img_inventory(&he);
 	if (ret)
