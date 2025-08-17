@@ -33,4 +33,5 @@ message inventory_entry {
 	// This is currently used to delete the correct nftables
 	// network locking rule.
 	optional string                 dump_criu_run_id        = 13;
+	optional bool			allow_uprobes	= 14;
 }
