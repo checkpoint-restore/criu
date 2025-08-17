@@ -114,6 +114,8 @@
 
 #define CR_PARENT_LINK "parent"
 
+#define OPT_ALLOW_UPROBES "allow-uprobes"
+
 extern bool ns_per_id;
 extern bool img_common_magic;
 

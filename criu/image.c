@@ -95,6 +95,11 @@ int check_img_inventory(bool restore)
 		goto out_err;
 	}
 
+	if (restore && he->allow_uprobes && !opts.allow_uprobes) {
+		pr_err("Dumped with --" OPT_ALLOW_UPROBES ". Need to set it on restore as well.\n");
+		goto out_err;
+	}
+
 	if (restore) {
 		if (!he->has_network_lock_method) {
 			/*
