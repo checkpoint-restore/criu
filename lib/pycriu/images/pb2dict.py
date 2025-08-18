@@ -105,6 +105,7 @@ mmap_status_map = [
     ('VMA_AREA_AIORING', 1 << 13),
     ('VMA_AREA_MEMFD', 1 << 14),
     ('VMA_AREA_SHSTK', 1 << 15),
+    ('VMA_AREA_UPROBES', 1 << 17),
     ('VMA_UNSUPP', 1 << 31),
 ]
 
