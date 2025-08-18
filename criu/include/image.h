@@ -74,6 +74,12 @@
  *  	about virtual address space ranges covered by
  *  	MADV_GUARD_INSTALL guards. These ones must be always at
  *  	the end of the vma_area_list and properly skipped a.e.
+ *  - uprobes
+ *   	stands for a "[uprobes]" vma that's automatically mapped by
+ *   	the kernel when an active uprobe is hit. Contents of this vma
+ *   	are not dumped and neither are its madvise bits restored,
+ *   	because the kernel is in complete control of this vma. This is
+ *   	just used to track the existence of the uprobes vma.
  */
 #define VMA_AREA_NONE	  (0 << 0)
 #define VMA_AREA_REGULAR  (1 << 0)
@@ -94,6 +100,7 @@
 #define VMA_AREA_MEMFD	 (1 << 14)
 #define VMA_AREA_SHSTK	 (1 << 15)
 #define VMA_AREA_GUARD	 (1 << 16)
+#define VMA_AREA_UPROBES	(1 << 17)
 
 #define VMA_EXT_PLUGIN	  (1 << 27)
 #define VMA_CLOSE	  (1 << 28)
