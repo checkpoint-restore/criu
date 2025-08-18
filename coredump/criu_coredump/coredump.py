@@ -55,6 +55,7 @@ status = {
     "VMA_AREA_VVAR": 1 << 12,
     "VMA_AREA_AIORING": 1 << 13,
     "VMA_AREA_MEMFD": 1 << 14,
+    "VMA_AREA_UPROBES": 1 << 17,
     "VMA_AREA_UNSUPP": 1 << 31
 }
 
