@@ -649,7 +649,7 @@ int do_dump_opt(int sk, int level, int name, void *val, int len)
 	return 0;
 }
 
-int dump_socket_opts(int sk, SkOptsEntry *soe)
+int dump_socket_opts(int sk, int family, SkOptsEntry *soe)
 {
 	int ret = 0, val;
 	struct timeval tv;
@@ -688,13 +688,15 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	soe->so_reuseport = val ? true : false;
 	soe->has_so_reuseport = true;
 
-	ret |= dump_opt(sk, SOL_SOCKET, SO_PASSCRED, &val);
-	soe->has_so_passcred = true;
-	soe->so_passcred = val ? true : false;
+	if (family == AF_UNIX || family == AF_NETLINK) {
+		ret |= dump_opt(sk, SOL_SOCKET, SO_PASSCRED, &val);
+		soe->has_so_passcred = true;
+		soe->so_passcred = val ? true : false;
 
-	ret |= dump_opt(sk, SOL_SOCKET, SO_PASSSEC, &val);
-	soe->has_so_passsec = true;
-	soe->so_passsec = val ? true : false;
+		ret |= dump_opt(sk, SOL_SOCKET, SO_PASSSEC, &val);
+		soe->has_so_passsec = true;
+		soe->so_passsec = val ? true : false;
+	}
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_DONTROUTE, &val);
 	soe->has_so_dontroute = true;
