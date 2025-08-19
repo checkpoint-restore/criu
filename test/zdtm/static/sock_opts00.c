@@ -31,8 +31,9 @@ int main(int argc, char **argv)
 	static const int NOPTS = sizeof(vname) / sizeof(*vname);
 	#undef OPT
 
-	int sock, ret = 0, val[NOPTS], rval, i;
+	int sock, usock, ret = 0, val[NOPTS], rval, i;
 	socklen_t len = sizeof(int);
+	int exit_code = 1;
 
 	test_init(argc, argv);
 
@@ -42,31 +43,40 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	usock = socket(PF_UNIX, SOCK_STREAM, 0);
+	if (usock < 0) {
+		pr_perror("can't create unix socket");
+		close(sock);
+		return 1;
+	}
+
 	for (i = 0; i < NOPTS; i++) {
-		ret = getsockopt(sock, SOL_SOCKET, vname[i].opt, &val[i], &len);
+		int sk = (vname[i].opt == SO_PASSCRED || vname[i].opt == SO_PASSSEC) ? usock : sock;
+
+		ret = getsockopt(sk, SOL_SOCKET, vname[i].opt, &val[i], &len);
 		if (ret) {
 			pr_perror("can't get %s", vname[i].name);
-			return 1;
+			goto out;
 		}
 
 		val[i]++;
 
-		ret = setsockopt(sock, SOL_SOCKET, vname[i].opt, &val[i], len);
+		ret = setsockopt(sk, SOL_SOCKET, vname[i].opt, &val[i], len);
 		if (ret) {
 			pr_perror("can't set %s = %d", vname[i].name, val[i]);
-			return 1;
+			goto out;
 		}
 
-		ret = getsockopt(sock, SOL_SOCKET, vname[i].opt, &rval, &len);
+		ret = getsockopt(sk, SOL_SOCKET, vname[i].opt, &rval, &len);
 		if (ret) {
 			pr_perror("can't re-get %s", vname[i].name);
-			return 1;
+			goto out;
 		}
 
 		if (rval != val[i]) {
 			if (rval + 1 == val[i]) {
 				pr_perror("failed to set %s: want %d have %d", vname[i].name, val[i], rval);
-				return 1;
+				goto out;
 			}
 
 			/* kernel tuned things up on set */
@@ -78,21 +88,26 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	for (i = 0; i < NOPTS; i++) {
-		ret = getsockopt(sock, SOL_SOCKET, vname[i].opt, &rval, &len);
+		int sk = (vname[i].opt == SO_PASSCRED || vname[i].opt == SO_PASSSEC) ? usock : sock;
+
+		ret = getsockopt(sk, SOL_SOCKET, vname[i].opt, &rval, &len);
 		if (ret) {
 			pr_perror("can't verify %s", vname[i].name);
-			return 1;
+			goto out;
 		}
 
 		if (val[i] != rval) {
 			errno = 0;
 			fail("%s changed: %d -> %d", vname[i].name, val[i], rval);
-			return 1;
+			goto out;
 		}
 	}
 
 	pass();
+	exit_code = 0;
+out:
 	close(sock);
+	close(usock);
 
-	return 0;
+	return exit_code;
 }
