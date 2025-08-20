@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 	static const int NOPTS = sizeof(vname) / sizeof(*vname);
 	#undef OPT
 
-	int sock, ret = 0, val[NOPTS], rval, i;
+	int sock, usock, sk, ret = 0, val[NOPTS], rval, i;
 	socklen_t len = sizeof(int);
 
 	test_init(argc, argv);
@@ -42,8 +42,15 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	usock = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (usock < 0) {
+		pr_perror("can't create unix socket");
+		return 1;
+	}
+
 	for (i = 0; i < NOPTS; i++) {
-		ret = getsockopt(sock, SOL_SOCKET, vname[i].opt, &val[i], &len);
+		sk = vname[i].opt == SO_PASSCRED || vname[i].opt == SO_PASSSEC ? usock : sock;
+		ret = getsockopt(sk, SOL_SOCKET, vname[i].opt, &val[i], &len);
 		if (ret) {
 			pr_perror("can't get %s", vname[i].name);
 			return 1;
@@ -51,13 +58,13 @@ int main(int argc, char **argv)
 
 		val[i]++;
 
-		ret = setsockopt(sock, SOL_SOCKET, vname[i].opt, &val[i], len);
+		ret = setsockopt(sk, SOL_SOCKET, vname[i].opt, &val[i], len);
 		if (ret) {
 			pr_perror("can't set %s = %d", vname[i].name, val[i]);
 			return 1;
 		}
 
-		ret = getsockopt(sock, SOL_SOCKET, vname[i].opt, &rval, &len);
+		ret = getsockopt(sk, SOL_SOCKET, vname[i].opt, &rval, &len);
 		if (ret) {
 			pr_perror("can't re-get %s", vname[i].name);
 			return 1;
@@ -78,7 +85,8 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	for (i = 0; i < NOPTS; i++) {
-		ret = getsockopt(sock, SOL_SOCKET, vname[i].opt, &rval, &len);
+		sk = vname[i].opt == SO_PASSCRED || vname[i].opt == SO_PASSSEC ? usock : sock;
+		ret = getsockopt(sk, SOL_SOCKET, vname[i].opt, &rval, &len);
 		if (ret) {
 			pr_perror("can't verify %s", vname[i].name);
 			return 1;
@@ -93,6 +101,7 @@ int main(int argc, char **argv)
 
 	pass();
 	close(sock);
+	close(usock);
 
 	return 0;
 }
