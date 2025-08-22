@@ -15,8 +15,11 @@ pacman -Syu --noconfirm \
 	libbsd \
 	libcap \
 	libdrm \
+	libelf \
 	libnet \
 	libnl \
+	libtraceevent \
+	libtracefs \
 	nftables \
 	pkg-config \
 	protobuf \
