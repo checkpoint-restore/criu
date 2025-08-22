@@ -290,6 +290,7 @@ TST_NOFILE	:=				\
 
 PKG_CONFIG ?= pkg-config
 pkg-config-check = $(shell sh -c '$(PKG_CONFIG) $(1) && echo y')
+pkg-config-atleast-version = $(shell sh -c '$(PKG_CONFIG) --atleast-version=$(2) $(1) && echo y')
 ifeq ($(call pkg-config-check,libbpf),y)
 TST_NOFILE	+=				\
 		bpf_hash			\
@@ -298,7 +299,10 @@ endif
 
 ifneq ($(ARCH),arm)
 ifneq ($(COMPAT_TEST),y)
-        TST_NOFILE += maps03
+	TST_NOFILE += maps03
+ifeq ($(call pkg-config-atleast-version,libtracefs,1.7),y)
+	TST_NOFILE += uprobes
+endif
 endif
 endif
 
@@ -726,6 +730,9 @@ sk-unix-listen03: CFLAGS += -DSK_UNIX_LISTEN03
 sk-unix-listen04: CFLAGS += -DSK_UNIX_LISTEN02 -DSK_UNIX_LISTEN03
 
 cgroupv2_01:		LDLIBS += -pthread
+
+uprobes:		CFLAGS += $(call pkg-cflags, libtracefs libtraceevent)
+uprobes:		LDLIBS += $(call pkg-libs, libtracefs libelf)
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)

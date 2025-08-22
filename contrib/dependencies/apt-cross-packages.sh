@@ -14,6 +14,8 @@ fi
 	libc6-"${DEBIAN_ARCH}"-cross \
 	libc6-dev-"${DEBIAN_ARCH}"-cross \
 	libcap-dev:"${DEBIAN_ARCH}" \
+	libdrm-dev:"${DEBIAN_ARCH}" \
+	libelf-dev:"${DEBIAN_ARCH}" \
 	libexpat1-dev:"${DEBIAN_ARCH}" \
 	libgnutls28-dev:"${DEBIAN_ARCH}" \
 	libnet-dev:"${DEBIAN_ARCH}" \
@@ -23,9 +25,10 @@ fi
 	libprotobuf-c-dev:"${DEBIAN_ARCH}" \
 	libprotobuf-dev:"${DEBIAN_ARCH}" \
 	libssl-dev:"${DEBIAN_ARCH}" \
+	libtraceevent-dev:"${DEBIAN_ARCH}" \
+	libtracefs-dev:"${DEBIAN_ARCH}" \
 	ncurses-dev:"${DEBIAN_ARCH}" \
 	uuid-dev:"${DEBIAN_ARCH}" \
-	libdrm-dev:"${DEBIAN_ARCH}" \
 	build-essential \
 	pkg-config \
 	git \
