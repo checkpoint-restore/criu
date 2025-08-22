@@ -6,6 +6,7 @@ apk add --no-cache \
 	build-base \
 	coreutils \
 	e2fsprogs \
+	elfutils-dev \
 	git \
 	gnutls-dev \
 	go \
@@ -20,6 +21,8 @@ apk add --no-cache \
 	libdrm-dev \
 	libnet-dev \
 	libnl3-dev \
+	libtraceevent-dev \
+	libtracefs-dev \
 	nftables \
 	nftables-dev \
 	perl \
