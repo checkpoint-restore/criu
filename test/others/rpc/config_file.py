@@ -13,6 +13,9 @@ from setup_swrk import setup_swrk
 log_file = 'config_file_test.log'
 does_not_exist = 'does-not.exist'
 
+script_path = os.path.dirname(os.path.abspath(__file__))
+action_script_file = os.path.join(script_path, 'action-script.sh')
+
 
 def setup_config_file(content):
     # Creating a temporary file which will be used as configuration file.
@@ -156,6 +159,7 @@ def test_rpc_with_configuration_file_overwriting_rpc():
     # file settings in the default configuration.
     log = does_not_exist
     content = 'log-file ' + log + '\n'
+    content += 'action-script ' + action_script_file + '\n'
     content += 'no-tcp-established\nno-shell-job'
     path = setup_config_file(content)
     # Only set the configuration file via RPC;
@@ -180,11 +184,18 @@ args = vars(parser.parse_args())
 
 cleanup_output(args['dir'])
 
+print("*** Test broken config file ***")
 test_broken_configuration_file()
 cleanup_output(args['dir'])
+
+print("*** Test RPC without config file ***")
 test_rpc_without_configuration_file()
 cleanup_output(args['dir'])
+
+print("*** Test RPC with config file ***")
 test_rpc_with_configuration_file()
 cleanup_output(args['dir'])
+
+print("*** Test configuration file overwriting RPC ***")
 test_rpc_with_configuration_file_overwriting_rpc()
 cleanup_output(args['dir'])
