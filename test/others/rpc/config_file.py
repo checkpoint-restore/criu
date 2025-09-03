@@ -92,29 +92,37 @@ def test_broken_configuration_file():
         sys.exit(-1)
 
 
-def search_in_log_file(log, message):
-    with open(os.path.join(args['dir'], log)) as f:
+def search_in_log_file(log_path, message):
+    with open(log_path) as f:
         if message not in f.read():
-            print(
-                'FAIL: Missing the expected error message (%s) in the log file'
-                % message)
+            print('FAIL: Missing the expected error message (%s) in the log file' % message)
             sys.exit(-1)
+
+
+def print_log_file(log_path):
+    print("\n--- Begin log file: %s ---" % log_path)
+    with open(log_path, 'r') as f:
+        print(f.read())
+    print("--- End log file ---\n")
 
 
 def check_results(resp, log):
     # Check if the specified log file exists
-    if not os.path.isfile(os.path.join(args['dir'], log)):
+    log_path = os.path.join(args['dir'], log)
+    if not os.path.isfile(log_path):
         print('FAIL: Expected log file %s does not exist' % log)
         sys.exit(-1)
     # Dump should have failed with: 'The criu itself is within dumped tree'
     if resp.type != rpc.DUMP:
         print('FAIL: Unexpected msg type %r' % resp.type)
+        print_log_file(log_path)
         sys.exit(-1)
     if 'The criu itself is within dumped tree' not in resp.cr_errmsg:
         print('FAIL: Missing the expected error message in RPC response')
+        print_log_file(log_path)
         sys.exit(-1)
     # Look into the log file for the same message
-    search_in_log_file(log, 'The criu itself is within dumped tree')
+    search_in_log_file(log_path, 'The criu itself is within dumped tree')
 
 
 def test_rpc_without_configuration_file():
