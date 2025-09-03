@@ -12,6 +12,7 @@ run: all
 	chmod a+rwx build
 	chmod a+rwx build/{imgs_errno,imgs_ps,imgs_c,imgs_loop,imgs_py}
 	rm -f build/status
+	rm -f build/_marker_*
 	@# Create all log files to be accessible for anybody
 	@# so that they can be displayed by any user.
 	for i in imgs_errno/criu.log imgs_ps/page-server.log imgs_ps/dump.log \
