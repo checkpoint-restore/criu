@@ -73,6 +73,17 @@ int arch_shstk_trampoline(struct pstree_item *item, CoreEntry *core,
 		      int (*func)(void *arg), void *arg);
 #define arch_shstk_trampoline arch_shstk_trampoline
 
+static always_inline long shstk_restorer_stack_size(void)
+{
+	return PAGE_SIZE;
+}
+#define shstk_restorer_stack_size shstk_restorer_stack_size
+static always_inline void shstk_set_restorer_stack(struct rst_shstk_info *info, void *ptr)
+{
+	info->tmp_shstk = (unsigned long)ptr;
+}
+#define shstk_set_restorer_stack shstk_set_restorer_stack
+
 #ifdef CR_NOGLIBC
 
 #include <compel/plugins/std/syscall.h>
