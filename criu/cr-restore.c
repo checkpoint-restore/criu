@@ -1820,7 +1820,7 @@ static int restore_rseq_cs(void)
 static int catch_tasks(bool root_seized)
 {
 	struct pstree_item *item;
-	bool nobp = fault_injected(FI_NO_BREAKPOINTS) || !kdat.has_breakpoints;
+	bool nobp = true; /* Always disable breakpoints on the restore path */
 
 	for_each_pstree_item(item) {
 		int status, i, ret;
