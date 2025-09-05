@@ -246,6 +246,11 @@ struct cr_options {
 	 * explicitly request it as it comes with many limitations.
 	 */
 	int unprivileged;
+	/*
+	 * Allow hardware breakpoints during restore operations.
+	 * By default, breakpoints are disabled on restore for reliability.
+	 */
+	int enable_restore_breakpoints;
 };
 
 extern struct cr_options opts;
