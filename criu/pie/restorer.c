@@ -1112,6 +1112,23 @@ static int vma_remap(VmaEntry *vma_entry, int uffd)
 
 	pr_info("Remap %lx->%lx len %lx\n", src, dst, len);
 
+	/*
+	 * SHSTK VMAs are a bit special, in fact we create shstk vma right in the
+	 * shstk_vma_restore() and populate it with contents from a premapped VMA
+	 * (which in turns is just a normal anonymous VMA!). Then, we munmap() this
+	 * premapped VMA. After, we need to adjust vma_premmaped_start(vma_entry)
+	 * to point to a created shstk vma and treat it as a premmaped one in vma_remap().
+	 */
+	if (vma_entry_is(vma_entry, VMA_AREA_SHSTK)) {
+		if (shstk_vma_restore(vma_entry)) {
+			pr_err("Unable to prepare shadow stack vma for remap %lx -> %lx\n", src, dst);
+			return -1;
+		}
+
+		/* shstk_vma_restore() modifies vma premapped address */
+		src = vma_premmaped_start(vma_entry);
+	}
+
 	if (src - dst < len)
 		guard = dst;
 	else if (dst - src < len)
@@ -1811,13 +1828,6 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		if (vma_entry->start > vma_entry->shmid)
 			break;
 
-		/*
-		 * shadow stack VMAs cannot be remapped, they must be
-		 * recreated with map_shadow_stack system call
-		 */
-		if (vma_entry_is(vma_entry, VMA_AREA_SHSTK))
-			continue;
-
 		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
 	}
@@ -1834,13 +1844,6 @@ __visible long __export_restore_task(struct task_restore_args *args)
 
 		if (vma_entry->start < vma_entry->shmid)
 			break;
-
-		/*
-		 * shadow stack VMAs cannot be remapped, they must be
-		 * recreated with map_shadow_stack system call
-		 */
-		if (vma_entry_is(vma_entry, VMA_AREA_SHSTK))
-			continue;
 
 		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
