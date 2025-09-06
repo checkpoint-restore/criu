@@ -164,6 +164,43 @@ static inline int shstk_finalize(void)
 }
 
 /*
+ * Create shadow stack vma and restore its content from premmapped anonymous (non-shstk) vma
+ */
+static always_inline int shstk_vma_restore(VmaEntry *vma_entry)
+{
+	long shstk, i;
+	unsigned long *shstk_data = (void *)vma_premmaped_start(vma_entry);
+	unsigned long vma_size = vma_entry_len(vma_entry);
+	long ret;
+
+	shstk = sys_map_shadow_stack(0, vma_size, SHADOW_STACK_SET_TOKEN);
+	if (shstk < 0) {
+		pr_err("Failed to map shadow stack: %ld\n", shstk);
+		return -1;
+	}
+
+	/* restore shadow stack contents */
+	for (i = 0; i < vma_size / 8; i++)
+		wrssq(shstk + i * 8, shstk_data[i]);
+
+	ret = sys_munmap(shstk_data, vma_size);
+	if (ret < 0) {
+		pr_err("Failed to unmap premmaped shadow stack\n");
+		return ret;
+	}
+
+	/*
+	 * From that point premapped vma is (shstk) and we need
+	 * to mremap() it to the final location. Originally premapped
+	 * (shstk_data) has been unmapped already.
+	 */
+	vma_premmaped_start(vma_entry) = shstk;
+
+	return 0;
+}
+#define shstk_vma_restore shstk_vma_restore
+
+/*
  * Restore contents of the shadow stack and set shadow stack pointer
  */
 static always_inline int shstk_restore(struct rst_shstk_info *cet)
