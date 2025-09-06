@@ -45,7 +45,6 @@ static int shstk_prepare_task(struct vm_area_list *vmas,
 			shstk->vma_start = vma->e->start;
 			shstk->vma_size = size;
 			shstk->premmaped_addr = premmaped_addr;
-			shstk->tmp_shstk = premmaped_addr + size;
 
 			break;
 		}
