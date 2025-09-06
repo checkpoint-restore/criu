@@ -3195,7 +3195,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	rst_mem_size = rst_mem_lock();
 	memzone_size = round_up(sizeof(struct restore_mem_zone) * current->nr_threads, page_size());
-	task_args->bootstrap_len = restorer_len + memzone_size + alen + rst_mem_size;
+	task_args->bootstrap_len = restorer_len + memzone_size + alen + rst_mem_size + shstk_restorer_stack_size();
 	BUG_ON(task_args->bootstrap_len & (PAGE_SIZE - 1));
 	pr_info("%d threads require %ldK of memory\n", current->nr_threads, KBYTES(task_args->bootstrap_len));
 
@@ -3466,6 +3466,10 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 * self-vmas are unmaped.
 	 */
 	mem += rst_mem_size;
+
+	shstk_set_restorer_stack(&task_args->shstk, mem);
+	mem += shstk_restorer_stack_size();
+
 	task_args->vdso_rt_parked_at = (unsigned long)mem;
 	task_args->vdso_maps_rt = vdso_maps_rt;
 	task_args->vdso_rt_size = vdso_rt_size;
