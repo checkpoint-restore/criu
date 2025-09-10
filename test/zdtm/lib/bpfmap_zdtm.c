@@ -57,7 +57,7 @@ int parse_bpfmap_fdinfo(int fd, struct bpfmap_fdinfo_obj *obj, uint32_t expected
 			continue;
 		}
 		if (fdinfo_field(str, "frozen")) {
-			if (sscanf(str, "frozen: %d", &obj->frozen) != 1)
+			if (sscanf(str, "frozen: %u", &obj->frozen) != 1)
 				goto parse_err;
 			met++;
 			continue;
