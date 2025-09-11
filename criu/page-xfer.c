@@ -279,6 +279,7 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 {
 	int ret;
 	unsigned long off, end;
+	struct page_read *curr_parent;
 
 	/*
 	 * Try to find pagemap entry in parent, from which
@@ -294,21 +295,31 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 	while (1) {
 		unsigned long pend;
 
-		ret = p->seek_pagemap(p, off);
-		if (ret <= 0 || !p->pe) {
-			pr_err("Missing %lx in parent pagemap\n", off);
-			return -1;
+		/* Try to find the page in the parent chain */
+		curr_parent = p;
+		while (curr_parent) {
+			ret = curr_parent->seek_pagemap(curr_parent, off);
+			if (ret > 0 && curr_parent->pe) {
+				/* Found it! */
+				pr_debug("\tFound %" PRIx64 "/%lu in parent chain\n", 
+					curr_parent->pe->vaddr, pagemap_len(curr_parent->pe));
+				pend = curr_parent->pe->vaddr + pagemap_len(curr_parent->pe);
+				goto found;
+			}
+			curr_parent = curr_parent->parent;
 		}
 
-		pr_debug("\tFound %" PRIx64 "/%lu\n", p->pe->vaddr, pagemap_len(p->pe));
+		/* Not found in any parent */
+		pr_err("Missing %lx in parent pagemap chain\n", off);
+		return -1;
 
+found:
 		/*
 		 * The pagemap entry in parent may happen to be
 		 * shorter, than the hole we write. In this case
 		 * we should go ahead and check the remainder.
 		 */
 
-		pend = p->pe->vaddr + pagemap_len(p->pe);
 		if (end <= pend)
 			return 0;
 
