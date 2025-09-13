@@ -44,8 +44,10 @@ setup() {
 	ssh default sudo dnf upgrade -y
 	ssh default sudo dnf install -y gcc git gnutls-devel nftables-devel libaio-devel \
 		libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make protobuf-c-devel \
-		protobuf-devel python3-protobuf python3-importlib-metadata python3-junit_xml \
+		protobuf-devel python3-pip python3-protobuf python3-importlib-metadata \
 		rubygem-asciidoctor iptables libselinux-devel libbpf-devel python3-yaml libuuid-devel
+
+	ssh default sudo python3 -m pip install junit-xml
 
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	ssh default sudo systemctl mask sssd

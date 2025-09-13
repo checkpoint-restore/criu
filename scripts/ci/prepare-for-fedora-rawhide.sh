@@ -26,7 +26,6 @@ dnf install -y \
 	protobuf-devel \
 	python3-PyYAML \
 	python3-protobuf \
-	python3-junit_xml \
 	python3-pip \
 	python3-importlib-metadata \
 	python-unversioned-command \
@@ -39,6 +38,8 @@ dnf install -y \
 	libdrm-devel \
 	libuuid-devel \
 	kmod
+
+python3 -m pip install junit-xml
 
 # /tmp is no longer 755 in the rawhide container image and breaks CI - fix it
 chmod 1777 /tmp
