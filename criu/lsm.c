@@ -29,7 +29,9 @@ static int apparmor_get_label(pid_t pid, char **profile_name)
 	FILE *f;
 	char *space;
 
-	f = fopen_proc(pid, "attr/current");
+	f = fopen_proc(pid, "attr/apparmor/current");
+	if (!f)
+		f = fopen_proc(pid, "attr/current");
 	if (!f)
 		return -1;
 
