@@ -1329,7 +1329,6 @@ int prepare_fds(struct pstree_item *me)
 		}
 	}
 
-	BUG_ON(current->pid->state == TASK_HELPER);
 	ret = open_fdinfos(me);
 
 	if (rsti(me)->fdt)
