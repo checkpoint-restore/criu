@@ -26,7 +26,6 @@ dnf install -y \
 	protobuf-devel \
 	python3-PyYAML \
 	python3-protobuf \
-	python3-junit_xml \
 	python3-pip \
 	python3-importlib-metadata \
 	python-unversioned-command \
