@@ -21,7 +21,6 @@ pipeline {
 		stage('Test'){
 			steps {
 				sh './test/jenkins/run_ct sh -c "mount --make-rprivate / && mount --rbind . /mnt && cd /mnt && ./test/jenkins/criu-lazy-migration.sh"'
-				junit 'test/report/criu-testreport*.xml'
 			}
 		}
 	}
