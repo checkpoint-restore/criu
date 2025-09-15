@@ -48,6 +48,4 @@ RUN apk add \
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 -D test
 
-RUN pip3 install junit_xml --break-system-packages
-
 RUN make -C test/zdtm

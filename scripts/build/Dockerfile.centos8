@@ -45,6 +45,4 @@ RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 test
 
-RUN pip3 install junit_xml
-
 RUN make -C test/zdtm -j $(nproc)

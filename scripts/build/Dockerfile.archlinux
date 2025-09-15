@@ -32,7 +32,6 @@ RUN pacman -Syu --noconfirm \
 	go \
 	python-yaml \
 	asciidoctor \
-	python-junit-xml \
 	python-importlib-metadata \
 	libdrm \
 	util-linux-libs \
