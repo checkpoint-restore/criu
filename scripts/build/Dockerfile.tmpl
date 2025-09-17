@@ -1,39 +1,11 @@
 ARG CC=gcc
 
-COPY scripts/ci/apt-install /bin/apt-install
+COPY . /criu
+WORKDIR /criu
 
 # On Ubuntu, kernel modules such as ip_tables and xt_mark may not be loaded by default
 # We need to install kmod to enable iptables to load these modules for us.
-RUN apt-install \
-	libnet-dev \
-	libnl-route-3-dev \
-	$CC \
-	bsdmainutils \
-	build-essential \
-	git-core \
-	iptables \
-	libaio-dev \
-	libbsd-dev \
-	libcap-dev \
-	libgnutls28-dev \
-	libgnutls30 \
-	libnftables-dev \
-	libnl-3-dev \
-	libprotobuf-c-dev \
-	libprotobuf-dev \
-	libselinux-dev \
-	iproute2 \
-	kmod \
-	pkg-config \
-	protobuf-c-compiler \
-	protobuf-compiler \
-	python3-minimal \
-	python3-protobuf \
-	uuid-dev \
-	python3-yaml
-
-COPY . /criu
-WORKDIR /criu
+RUN contrib/apt-install "$CC" && contrib/dependencies/apt-packages.sh
 
 RUN git clean -dfx && date && \
 # Check single object build

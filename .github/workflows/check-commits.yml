@@ -19,7 +19,7 @@ jobs:
         # Checkout pull request HEAD commit instead of merge commit
         ref: ${{ github.event.pull_request.head.sha }}
     - name: Install dependencies
-      run: sudo scripts/ci/apt-install libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnl-3-dev libnet-dev libcap-dev uuid-dev
+      run: sudo contrib/apt-install libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnl-3-dev libnet-dev libcap-dev uuid-dev
     - name: Configure git user details
       run: |
         git config --global user.email "checkpoint-restore@users.noreply.github.com"

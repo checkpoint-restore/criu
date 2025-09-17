@@ -27,19 +27,43 @@ The repository may contain multiple branches. Development happens in the **criu-
 To clone CRIU repo and switch to the proper branch, run:
 
 ```
-        git clone https://github.com/checkpoint-restore/criu criu
-        cd criu
-        git checkout criu-dev
+git clone https://github.com/checkpoint-restore/criu criu
+cd criu
+git checkout criu-dev
 ```
 
-### Compile
+### Building from source
 
-First, you need to install compile-time dependencies. Check [Installation dependencies](https://criu.org/Installation#Dependencies) for more info. Alternatively, you can use the Nix flake to set up a development environment by running `nix develop`.
+Follow these steps to compile CRIU from source code.
 
-To compile CRIU, run:
+#### Installing build dependencies
+
+First, you need to install the required build dependencies. We provide scripts to simplify this process for several Linux distributions in [contrib/dependencies](contrib/dependencies). For a complete list of dependencies, please refer to the [installation guide](https://criu.org/Installation).
+
+##### On Ubuntu/Debian-based systems:
 
 ```
-        make
+./contrib/dependencies/apt-packages.sh
+```
+
+##### On Fedora/CentOS-based systems:
+
+```
+./contrib/dependencies/dnf-packages.sh
+```
+
+##### Using Nix:
+
+```
+nix develop
+```
+
+#### Compiling CRIU
+
+Once the dependencies are installed, you can compile CRIU by running the `make` command from the root of the source directory:
+
+```
+make
 ```
 
 This should create the `./criu/criu` executable.
@@ -63,7 +87,7 @@ The following command can be used to automatically run a code linter for Python 
 text spelling (codespell), and a number of CRIU-specific checks (usage of print macros and EOL whitespace for C files).
 
 ```
-         make lint
+make lint
 ```
 
 In addition, we have adopted a [clang-format configuration file](https://www.kernel.org/doc/Documentation/process/clang-format.rst)
@@ -73,7 +97,7 @@ results in decreased readability, we may choose to ignore these errors.
 Run the following command to check if your changes are compliant with the clang-format rules:
 
 ```
-         make indent
+make indent
 ```
 
 This command is built upon the `git-clang-format` tool and supports two options `BASE` and `OPTS`. The `BASE` option allows you to
@@ -83,7 +107,7 @@ can use `BASE=origin/criu-dev`. The `OPTS` option can be used to pass additional
 to check the last *N* commits for formatting errors, without applying the changes to the codebase you can use the following command.
 
 ```
-         make indent OPTS=--diff BASE=HEAD~N
+make indent OPTS=--diff BASE=HEAD~N
 ```
 
 Note that for pull requests, the "Run code linter" workflow runs these checks for all commits. If a clang-format error is detected
@@ -96,7 +120,7 @@ Here are some bad examples of clang-format-ing:
 ```
 @@ -58,8 +59,7 @@ static int register_membarriers(void)
          }
- 
+
          if (!all_ok) {
 -                fail("can't register membarrier()s - tried %#x, kernel %#x",
 -                     barriers_registered, barriers_supported);
@@ -129,7 +153,7 @@ Here are some bad examples of clang-format-ing:
 CRIU comes with an extensive test suite. To check whether your changes introduce any regressions, run
 
 ```
-         make test
+make test
 ```
 
 The command runs [ZDTM Test Suite](https://criu.org/ZDTM_Test_Suite). Check for any error messages produced by it.
@@ -166,21 +190,21 @@ If your change fixes a bug in a specific commit, e.g. you found an issue using
 the SHA-1 ID, and the one line summary. For example:
 
 ```
-	Fixes: 9433b7b9db3e ("make: use cflags/ldflags for config.h detection mechanism")
+Fixes: 9433b7b9db3e ("make: use cflags/ldflags for config.h detection mechanism")
 ```
 
 The following `git config` settings can be used to add a pretty format for
 outputting the above style in the `git log` or `git show` commands:
 
 ```
-	[pretty]
-		fixes = Fixes: %h (\"%s\")
+[pretty]
+    fixes = Fixes: %h (\"%s\")
 ```
 
 If your change address an issue listed in GitHub, please use `Fixes:` tag with the number of the issue. For instance:
 
 ```
-	Fixes: #339
+Fixes: #339
 ```
 
 The `Fixes:` tags should be put at the end of the detailed description.
@@ -263,7 +287,7 @@ can certify the below:
 then you just add a line saying
 
 ```
-        Signed-off-by: Random J Developer <random at developer.example.org>
+Signed-off-by: Random J Developer <random at developer.example.org>
 ```
 
 using your real name (please, no pseudonyms or anonymous contributions if
@@ -275,14 +299,14 @@ commit message. To append such line to a commit you already made, use
 
 ```
  From: Random J Developer <random at developer.example.org>
- Subject: [PATCH] component: Short patch description
+Subject: [PATCH] component: Short patch description
 
- Long patch description (could be skipped if patch
- is trivial enough)
+Long patch description (could be skipped if patch
+is trivial enough)
 
- Signed-off-by: Random J Developer <random at developer.example.org>
- ---
- Patch body here
+Signed-off-by: Random J Developer <random at developer.example.org>
+---
+Patch body here
 ```
 
 ## Submit your work upstream
@@ -316,8 +340,8 @@ contains the following:
   revisions should be listed. For example:
 
 ```
-	v3: rebase on the current criu-dev
-	v2: add commit to foo() and update bar() coding style
+v3: rebase on the current criu-dev
+v2: add commit to foo() and update bar() coding style
 ```
 
 If there are only minor updates to the commits in a pull request, it is
@@ -335,7 +359,7 @@ Historically, CRIU worked with mailing lists and patches so if you still prefer 
 To create a patch, run
 
 ```
-    git format-patch --signoff origin/criu-dev
+git format-patch --signoff origin/criu-dev
 ```
 
 You might need to read GIT documentation on how to prepare patches
@@ -346,8 +370,8 @@ at all.
 We recommend to post patches using `git send-email`
 
 ```
-  git send-email --cover-letter --no-chain-reply-to --annotate \
-                 --confirm=always --to=criu@openvz.org criu-dev
+git send-email --cover-letter --no-chain-reply-to --annotate \
+               --confirm=always --to=criu@openvz.org criu-dev
 ```
 
 Note that the `git send-email` subcommand may not be in
@@ -359,14 +383,14 @@ If this is your first time using git send-email, you might need to
 configure it to point it to your SMTP server with something like:
 
 ```
-    git config --global sendemail.smtpServer stmp.example.net
+git config --global sendemail.smtpServer stmp.example.net
 ```
 
 If you get tired of typing `--to=criu@openvz.org` all the time,
 you can configure that to be automatically handled as well:
 
 ```
-    git config sendemail.to criu@openvz.org
+git config sendemail.to criu@openvz.org
 ```
 
 If a developer is sending another version of the patch (e.g. to address
