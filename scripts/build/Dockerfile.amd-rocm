@@ -12,6 +12,8 @@ ENV BRANCH=$BRANCH \
 #
 # Package installation
 #
+
+COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
 RUN apt-get clean -qqy && apt-get update -qqy && apt-get install -qqy --no-install-recommends \
 	--no-upgrade -yq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
 	apt-utils \
@@ -68,7 +70,9 @@ RUN apt-get clean -qqy && apt-get update -qqy && apt-get install -qqy --no-insta
 	libdrm-dev \
 	libdrm-amdgpu1 \
 	asciidoc \
+	$(sed 's/\#.*$//' /tmp/apt-packages.txt) \
 	&& \
+	rm /tmp/apt-packages.txt && \
 	rm -rf /var/lib/apt/lists/* && \
 	apt-get purge --auto-remove && \
 	apt-get clean

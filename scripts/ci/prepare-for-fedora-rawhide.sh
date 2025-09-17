@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e -x
 
+COMMON_PACKAGES_LIST_FILE="${1:-contrib/dependencies/dnf-packages.txt}"
+
+# SC2046 is "Quote this to prevent word splitting". We do want word splitting
+# so that each line is passed as a separate argument
+# shellcheck disable=SC2046
 dnf install -y \
 	diffutils \
 	findutils \
@@ -37,7 +42,8 @@ dnf install -y \
 	rubygem-asciidoctor \
 	libdrm-devel \
 	libuuid-devel \
-	kmod
+	kmod \
+	$(sed 's/\#.*$//' "${COMMON_PACKAGES_LIST_FILE}")
 
 # /tmp is no longer 755 in the rawhide container image and breaks CI - fix it
 chmod 1777 /tmp

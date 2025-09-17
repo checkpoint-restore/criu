@@ -8,6 +8,10 @@ CI_PKGS=(protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libperl-dev pkg-config python3-protobuf python3-pip
 		python3-importlib-metadata libdrm-dev)
 
+while IFS='' read -r line; do
+	CI_PKGS+=("$line");
+done < <(sed 's/\#.*$//' ../../contrib/dependencies/apt-packages.txt)
+
 X86_64_PKGS=(gcc-multilib)
 
 # Convert from string to array.

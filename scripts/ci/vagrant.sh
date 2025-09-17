@@ -47,6 +47,12 @@ setup() {
 		protobuf-devel python3-protobuf python3-importlib-metadata \
 		rubygem-asciidoctor iptables libselinux-devel libbpf-devel python3-yaml libuuid-devel
 
+	# SC2046 is "Quote this to prevent word splitting". We do want word splitting
+	# so that each line is passed as a separate argument
+	# shellcheck disable=SC2046
+	ssh default sudo dnf install -y \
+		$(sed 's/\#.*$//' ../../contrib/dependencies/dnf-packages.txt)
+
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	ssh default sudo systemctl mask sssd
 

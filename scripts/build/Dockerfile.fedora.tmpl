@@ -1,7 +1,9 @@
 ARG CC=gcc
 
 COPY scripts/ci/prepare-for-fedora-rawhide.sh /bin/prepare-for-fedora-rawhide.sh
-RUN /bin/prepare-for-fedora-rawhide.sh
+COPY contrib/dependencies/dnf-packages.txt /tmp/dnf-packages.txt
+RUN /bin/prepare-for-fedora-rawhide.sh /tmp/dnf-packages.txt && \
+	rm /tmp/dnf-packages.txt
 
 COPY . /criu
 WORKDIR /criu

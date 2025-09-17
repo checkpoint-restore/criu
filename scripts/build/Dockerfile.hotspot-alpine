@@ -1,7 +1,9 @@
 FROM docker.io/library/eclipse-temurin:11-alpine
 ARG CC=gcc
 
-RUN apk update && apk add \
+COPY contrib/dependencies/apk-packages.txt /tmp/apk-packages.txt
+
+RUN apk add --no-cache \
 	bash \
 	build-base \
 	coreutils \
@@ -20,7 +22,10 @@ RUN apk update && apk add \
 	ip6tables \
 	iptables \
 	util-linux-dev \
-	bash
+	bash \
+	$(sed 's/\#.*$//' /tmp/apk-packages.txt) \
+	&& \
+	rm /tmp/apk-packages.txt
 
 COPY . /criu
 WORKDIR /criu

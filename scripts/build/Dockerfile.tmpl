@@ -1,6 +1,7 @@
 ARG CC=gcc
 
 COPY scripts/ci/apt-install /bin/apt-install
+COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
 
 # On Ubuntu, kernel modules such as ip_tables and xt_mark may not be loaded by default
 # We need to install kmod to enable iptables to load these modules for us.
@@ -30,7 +31,10 @@ RUN apt-install \
 	python3-minimal \
 	python3-protobuf \
 	uuid-dev \
-	python3-yaml
+	python3-yaml \
+	$(sed 's/\#.*$//' /tmp/apt-packages.txt) \
+	&& \
+	rm /tmp/apt-packages.txt
 
 COPY . /criu
 WORKDIR /criu

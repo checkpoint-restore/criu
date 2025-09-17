@@ -5,6 +5,8 @@ ARG CC=gcc
 # Initialize machine ID
 RUN systemd-machine-id-setup
 
+COPY contrib/dependencies/pacman-packages.txt /tmp/pacman-packages.txt
+
 RUN pacman -Syu --noconfirm \
 	$CC \
 	bash \
@@ -35,7 +37,10 @@ RUN pacman -Syu --noconfirm \
 	python-importlib-metadata \
 	libdrm \
 	util-linux-libs \
-	diffutils
+	diffutils \
+	$(sed 's/\#.*$//' /tmp/pacman-packages.txt) \
+	&& \
+	rm /tmp/pacman-packages.txt
 
 COPY . /criu
 WORKDIR /criu

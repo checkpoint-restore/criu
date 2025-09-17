@@ -2,6 +2,7 @@ FROM docker.io/library/eclipse-temurin:11-focal
 ARG CC=gcc
 
 COPY scripts/ci/apt-install /bin/apt-install
+COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
 
 RUN apt-install protobuf-c-compiler \
 	libprotobuf-c-dev \
@@ -23,7 +24,10 @@ RUN apt-install protobuf-c-compiler \
 	iptables \
 	gcc \
 	uuid-dev \
-	maven
+	maven \
+	$(sed 's/\#.*$//' /tmp/apt-packages.txt) \
+	&& \
+	rm /tmp/apt-packages.txt
 
 COPY . /criu
 WORKDIR /criu

@@ -1,4 +1,5 @@
 COPY scripts/ci/apt-install /bin/apt-install
+COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
 
 # Add the cross compiler sources
 RUN echo "deb http://deb.debian.org/debian/ unstable main" >> /etc/apt/sources.list && \
@@ -22,7 +23,10 @@ RUN apt-install \
 	libprotobuf-c-dev:${DEBIAN_ARCH}	\
 	libcap-dev:${DEBIAN_ARCH}		\
 	libaio-dev:${DEBIAN_ARCH}		\
-	libnl-route-3-dev:${DEBIAN_ARCH}
+	libnl-route-3-dev:${DEBIAN_ARCH}	\
+	$(awk '!/^#/ && NF {print $0 ":'"${DEBIAN_ARCH}"'"}' /tmp/apt-packages.txt) \
+	&& \
+	rm /tmp/apt-packages.txt
 
 ENV CROSS_COMPILE=${CROSS_TRIPLET}-				\
 	CROSS_ROOT=/usr/${CROSS_TRIPLET}			\

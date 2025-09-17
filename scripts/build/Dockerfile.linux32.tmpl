@@ -1,6 +1,7 @@
 ARG CC=gcc
 
 COPY scripts/ci/apt-install /bin/apt-install
+COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
 
 RUN apt-install \
 	libnet-dev \
@@ -22,7 +23,10 @@ RUN apt-install \
 	protobuf-c-compiler \
 	protobuf-compiler \
 	uuid-dev \
-	python3-minimal
+	python3-minimal \
+	$(sed 's/\#.*$//' /tmp/apt-packages.txt) \
+	&& \
+	rm /tmp/apt-packages.txt
 
 COPY . /criu
 WORKDIR /criu

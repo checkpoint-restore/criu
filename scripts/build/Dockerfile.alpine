@@ -1,7 +1,9 @@
 FROM alpine
 ARG CC=gcc
 
-RUN apk update && apk add \
+COPY contrib/dependencies/apk-packages.txt /tmp/apk-packages.txt
+
+RUN apk add --no-cache \
 	$CC \
 	bash \
 	build-base \
@@ -25,7 +27,10 @@ RUN apk update && apk add \
 	libcap-utils \
 	libdrm-dev \
 	util-linux \
-	util-linux-dev
+	util-linux-dev \
+	$(sed 's/\#.*$//' /tmp/apk-packages.txt) \
+	&& \
+	rm /tmp/apk-packages.txt
 
 COPY . /criu
 WORKDIR /criu

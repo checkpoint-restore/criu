@@ -9,6 +9,8 @@ COPY scripts/ci/riscv64-cross/amd64-sources.list /etc/apt/sources.list
 
 COPY scripts/ci/riscv64-cross/riscv64-sources.list /etc/apt/sources.list.d/
 
+COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
+
 RUN dpkg --add-architecture ${DEBIAN_ARCH} && \
 	apt-get update -y
 
@@ -37,7 +39,10 @@ RUN apt-get install -y --no-install-recommends \
 	libnl-route-3-dev:${DEBIAN_ARCH}	\
 	libnftables-dev:${DEBIAN_ARCH}	\
 	libgnutls28-dev:${DEBIAN_ARCH}	\
-	iproute2:${DEBIAN_ARCH}
+	iproute2:${DEBIAN_ARCH}	\
+	$(awk '!/^#/ && NF {print $0 ":'"${DEBIAN_ARCH}"'"}' /tmp/apt-packages.txt) \
+	&& \
+	rm /tmp/apt-packages.txt
 
 ENV CROSS_COMPILE=${CROSS_TRIPLET}-				\
 	CROSS_ROOT=/usr/${CROSS_TRIPLET}			\
