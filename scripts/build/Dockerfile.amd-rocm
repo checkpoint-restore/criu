@@ -12,64 +12,46 @@ ENV BRANCH=$BRANCH \
 #
 # Package installation
 #
-
 COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
 RUN apt-get clean -qqy && apt-get update -qqy && apt-get install -qqy --no-install-recommends \
 	--no-upgrade -yq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
-	apt-utils \
-	apt-transport-https\
-	gnupg \
-	gnupg2 \
-	gettext \
-	locales \
-	iproute2 \
-	iputils-ping \
-	moreutils \
-	net-tools \
-	psmisc\
-	supervisor \
-	cifs-utils \
-	nfs-common \
-	systemd \
-	fuse \
-	xmlto \
-	autossh \
-	netbase \
-	libnet-dev \
-	libnl-route-3-dev \
 	$CC \
+	apt-transport-https\
+	apt-utils \
+	asciidoc \
+	autossh \
 	bsdmainutils \
 	ca-certificates \
-	build-essential \
+	cifs-utils \
+	curl \
+	fuse \
+	gettext \
 	git-core \
+	gnupg \
+	gnupg2 \
 	iptables \
-	libaio-dev \
-	libbsd-dev \
-	libcap-dev \
-	libgnutls28-dev \
+	iputils-ping \
+	libdrm-amdgpu1 \
 	libgnutls30 \
-	libnl-3-dev \
-	libprotobuf-c-dev \
-	libprotobuf-dev \
+	libnuma1 \
 	libselinux-dev \
-	pkg-config \
-	protobuf-c-compiler \
-	protobuf-compiler \
-	python-protobuf \
+	locales \
+	moreutils \
+	netbase \
+	net-tools \
+	nfs-common \
+	openssh-server \
+	openssl \
+	psmisc\
+	python \
 	python3-minimal \
 	python-ipaddress \
-	uuid-dev \
-	curl \
-	wget \
-	vim \
-	openssl \
-	openssh-server \
-	python \
 	sudo \
-	libnuma1 \
-	libdrm-dev \
-	libdrm-amdgpu1 \
-	asciidoc \
+	supervisor \
+	systemd \
+	vim \
+	wget \
+	xmlto \
 	$(sed 's/\#.*$//' /tmp/apt-packages.txt) \
 	&& \
 	rm /tmp/apt-packages.txt && \

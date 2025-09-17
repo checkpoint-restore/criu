@@ -1,0 +1,22 @@
+# From https://criu.org/Installation
+build-essential
+iproute2
+libaio-dev
+libbsd-dev
+libcap-dev
+libdrm-dev
+libgnutls28-dev
+libnet-dev
+libnftables-dev
+libnl-3-dev
+libprotobuf-c-dev
+libprotobuf-dev
+pkg-config
+protobuf-c-compiler
+protobuf-compiler
+python3-protobuf
+python3-yaml
+uuid-dev
+
+# Other packages
+libnl-route-3-dev

@@ -4,26 +4,11 @@ ARG CC=gcc
 COPY scripts/ci/apt-install /bin/apt-install
 COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
 
-RUN apt-install protobuf-c-compiler \
-	libprotobuf-c-dev \
-	libaio-dev \
-	libprotobuf-dev \
-	protobuf-compiler \
-	libcap-dev \
-	libnl-3-dev \
-	gdb \
+RUN apt-install \
 	bash \
-	python3-protobuf \
-	python3-yaml \
-	libnet-dev \
-	libnl-route-3-dev \
-	libbsd-dev \
-	make \
+	gdb \
 	git \
-	pkg-config \
 	iptables \
-	gcc \
-	uuid-dev \
 	maven \
 	$(sed 's/\#.*$//' /tmp/apt-packages.txt) \
 	&& \

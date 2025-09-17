@@ -4,25 +4,12 @@ COPY scripts/ci/apt-install /bin/apt-install
 COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
 
 RUN apt-install \
-	libnet-dev \
-	libnl-route-3-dev \
 	$CC \
 	bsdmainutils \
-	build-essential \
 	git-core \
 	iptables \
-	libaio-dev \
-	libcap-dev \
-	libgnutls28-dev \
 	libgnutls30 \
-	libnl-3-dev \
-	libprotobuf-c-dev \
-	libprotobuf-dev \
 	libselinux-dev \
-	pkg-config \
-	protobuf-c-compiler \
-	protobuf-compiler \
-	uuid-dev \
 	python3-minimal \
 	$(sed 's/\#.*$//' /tmp/apt-packages.txt) \
 	&& \

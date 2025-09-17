@@ -6,32 +6,14 @@ COPY contrib/dependencies/apt-packages.txt /tmp/apt-packages.txt
 # On Ubuntu, kernel modules such as ip_tables and xt_mark may not be loaded by default
 # We need to install kmod to enable iptables to load these modules for us.
 RUN apt-install \
-	libnet-dev \
-	libnl-route-3-dev \
 	$CC \
 	bsdmainutils \
-	build-essential \
 	git-core \
 	iptables \
-	libaio-dev \
-	libbsd-dev \
-	libcap-dev \
-	libgnutls28-dev \
-	libgnutls30 \
-	libnftables-dev \
-	libnl-3-dev \
-	libprotobuf-c-dev \
-	libprotobuf-dev \
-	libselinux-dev \
-	iproute2 \
 	kmod \
-	pkg-config \
-	protobuf-c-compiler \
-	protobuf-compiler \
+	libgnutls30 \
+	libselinux-dev \
 	python3-minimal \
-	python3-protobuf \
-	uuid-dev \
-	python3-yaml \
 	$(sed 's/\#.*$//' /tmp/apt-packages.txt) \
 	&& \
 	rm /tmp/apt-packages.txt
