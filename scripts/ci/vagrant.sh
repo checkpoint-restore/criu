@@ -22,9 +22,8 @@ setup() {
 	wget --no-check-certificate https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}-1_"$(dpkg --print-architecture)".deb -O /tmp/vagrant.deb && \
 		dpkg -i /tmp/vagrant.deb
 
-	./apt-install libvirt-clients libvirt-daemon-system libvirt-dev qemu-utils qemu-system \
-		ruby build-essential libxml2-dev qemu-kvm rsync ebtables dnsmasq-base \
-		openssh-client
+	../../contrib/apt-install libvirt-clients libvirt-daemon-system libvirt-dev qemu-utils qemu-system \
+		ruby build-essential libxml2-dev qemu-kvm rsync ebtables dnsmasq-base openssh-client
 	systemctl restart libvirtd
 	vagrant plugin install vagrant-libvirt
 	vagrant init cloud-image/fedora-${FEDORA_VERSION} --box-version ${FEDORA_BOX_VERSION}
@@ -41,16 +40,13 @@ setup() {
 	vagrant up --provider=libvirt --no-tty
 	mkdir -p /root/.ssh
 	vagrant ssh-config >> /root/.ssh/config
-	ssh default sudo dnf upgrade -y
-	ssh default sudo dnf install -y gcc git gnutls-devel nftables-devel libaio-devel \
-		libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make protobuf-c-devel \
-		protobuf-devel python3-protobuf python3-importlib-metadata \
-		rubygem-asciidoctor iptables libselinux-devel libbpf-devel python3-yaml libuuid-devel
 
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	ssh default sudo systemctl mask sssd
 
 	ssh default 'sudo mkdir -p --mode=777 /vagrant && mv $HOME/criu.tar /vagrant && cd /vagrant && tar xf criu.tar'
+	ssh default sudo dnf upgrade -y
+	ssh default sudo /vagrant/criu/contrib/dependencies/dnf-packages.sh
 	ssh default cat /proc/cmdline
 }
 

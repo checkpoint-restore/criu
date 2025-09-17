@@ -1,12 +1,7 @@
 #!/bin/bash
 set -x -e
 
-CI_PKGS=(protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
-		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
-		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
-		libnl-route-3-dev time libbsd-dev python3-yaml uuid-dev
-		libperl-dev pkg-config python3-protobuf python3-pip
-		python3-importlib-metadata libdrm-dev)
+CI_PKGS=()
 
 X86_64_PKGS=(gcc-multilib)
 
@@ -60,7 +55,8 @@ ci_prep () {
 		CI_PKGS+=("${X86_64_PKGS[@]}")
 	fi
 
-	scripts/ci/apt-install "${CI_PKGS[@]}"
+	contrib/dependencies/apt-packages.sh
+	contrib/apt-install "${CI_PKGS[@]}"
 	chmod a+x "$HOME"
 }
 
@@ -187,7 +183,7 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	done
 	apt-get remove "${INCOMPATIBLE_LIBS[@]}"
 	dpkg --add-architecture i386
-	scripts/ci/apt-install "${IA32_PKGS[@]}"
+	contrib/apt-install "${IA32_PKGS[@]}"
 	mkdir -p /usr/lib/x86_64-linux-gnu/
 	mv "$REFUGE"/* /usr/lib/x86_64-linux-gnu/
 fi

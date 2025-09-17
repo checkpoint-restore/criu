@@ -13,7 +13,7 @@ task:
     nested_virtualization: true
 
   setup_script: |
-    scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
+    contrib/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
     sudo kvm-ok
   build_script: |
     make -C scripts/ci vagrant-fedora-no-vdso
@@ -34,7 +34,7 @@ task:
   setup_script: |
     dnf config-manager --set-enabled crb # Same as CentOS 8 powertools
     dnf -y install epel-release epel-next-release
-    dnf -y install --allowerasing asciidoc gcc git gnutls-devel libaio-devel libasan libcap-devel libnet-devel libnl3-devel libbsd-devel libselinux-devel make protobuf-c-devel protobuf-devel python-devel python-PyYAML python-protobuf python3-importlib-metadata xmlto libdrm-devel libuuid-devel
+    contrib/dependencies/dnf-packages.sh
     # The image has a too old version of nettle which does not work with gnutls.
     # Just upgrade to the latest to make the error go away.
     dnf -y upgrade nettle nettle-devel
@@ -63,7 +63,7 @@ task:
     nested_virtualization: true
 
   setup_script: |
-    scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
+    contrib/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
     sudo kvm-ok
   build_script: |
     make -C scripts/ci vagrant-fedora-rawhide
@@ -83,7 +83,7 @@ task:
     nested_virtualization: true
 
   setup_script: |
-    scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
+    contrib/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
     sudo kvm-ok
   build_script: |
     make -C scripts/ci vagrant-fedora-non-root
@@ -96,7 +96,7 @@ task:
     memory: 4G
   script: uname -a
   build_script: |
-    scripts/ci/apt-install make
+    contrib/apt-install make
     make -C scripts/ci local
 
 task:
@@ -107,7 +107,7 @@ task:
     memory: 4G
   script: uname -a
   build_script: |
-    scripts/ci/apt-install make
+    contrib/apt-install make
     make -C scripts/ci local CLANG=1
 
 task:

@@ -1,5 +1,5 @@
 FROM ubuntu:24.04
 
-COPY scripts/ci/apt-install /bin/apt-install
+COPY contrib/apt-install /bin/apt-install
 
 RUN apt-install gcc-multilib
