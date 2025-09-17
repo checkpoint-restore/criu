@@ -9,35 +9,6 @@ COPY contrib/dependencies/pacman-packages.txt /tmp/pacman-packages.txt
 
 RUN pacman -Syu --noconfirm \
 	$CC \
-	bash \
-	make \
-	coreutils \
-	git \
-	gnutls \
-	libaio \
-	libcap \
-	libnet \
-	libnl \
-	nftables \
-	pkgconfig \
-	protobuf-c \
-	protobuf \
-	python-pip \
-	python-protobuf \
-	which \
-	sudo \
-	iptables \
-	nftables \
-	iproute2 \
-	tar \
-	bash \
-	go \
-	python-yaml \
-	asciidoctor \
-	python-importlib-metadata \
-	libdrm \
-	util-linux-libs \
-	diffutils \
 	$(sed 's/\#.*$//' /tmp/pacman-packages.txt) \
 	&& \
 	rm /tmp/pacman-packages.txt
