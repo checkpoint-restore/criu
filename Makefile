@@ -464,7 +464,8 @@ ruff:
 shellcheck:
 	shellcheck --version
 	shellcheck scripts/*.sh
-	shellcheck scripts/ci/*.sh scripts/ci/apt-install
+	shellcheck scripts/ci/*.sh
+	shellcheck contrib/apt-install contrib/dependencies/*.sh
 	shellcheck -x test/others/crit/*.sh
 	shellcheck -x test/others/libcriu/*.sh
 	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh

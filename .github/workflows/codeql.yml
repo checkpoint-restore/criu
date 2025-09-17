@@ -34,7 +34,7 @@ jobs:
       - name: Install Packages (cpp)
         if: ${{ matrix.language == 'cpp' }}
         run: |
-          sudo scripts/ci/apt-install protobuf-c-compiler libprotobuf-c-dev libprotobuf-dev build-essential libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnet-dev pkg-config libnl-3-dev libbsd0 libbsd-dev iproute2 libcap-dev libaio-dev libbsd-dev python3-yaml libnl-route-3-dev gnutls-dev
+          sudo contrib/apt-install protobuf-c-compiler libprotobuf-c-dev libprotobuf-dev build-essential libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnet-dev pkg-config libnl-3-dev libbsd0 libbsd-dev iproute2 libcap-dev libaio-dev libbsd-dev python3-yaml libnl-route-3-dev gnutls-dev
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:

@@ -15,7 +15,7 @@ jobs:
     - name: Remove iptables
       run: sudo apt remove -y iptables
     - name: Install libnftables-dev
-      run: sudo scripts/ci/apt-install libnftables-dev
+      run: sudo contrib/apt-install libnftables-dev
     - name: chmod 755 /home/runner
       # CRIU's tests are sometimes running as some random user and need
       # to be able to access the test files.
