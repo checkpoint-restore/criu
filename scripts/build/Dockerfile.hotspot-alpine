@@ -3,28 +3,7 @@ ARG CC=gcc
 
 COPY contrib/dependencies/apk-packages.txt /tmp/apk-packages.txt
 
-RUN apk add --no-cache \
-	bash \
-	build-base \
-	coreutils \
-	git \
-	gnutls-dev \
-	libaio-dev \
-	libcap-dev \
-	libnet-dev \
-	libnl3-dev \
-	pkgconfig \
-	protobuf-c-dev \
-	protobuf-dev \
-	python3 \
-	sudo \
-	maven \
-	ip6tables \
-	iptables \
-	util-linux-dev \
-	bash \
-	$(sed 's/\#.*$//' /tmp/apk-packages.txt) \
-	&& \
+RUN apk add --no-cache $(sed 's/\#.*$//' /tmp/apk-packages.txt) && \
 	rm /tmp/apk-packages.txt
 
 COPY . /criu

@@ -1,0 +1,28 @@
+# Equivalents of packages mentioned in https://criu.org/Installation
+build-base
+gnutls-dev
+iproute2
+libaio-dev
+libbsd-dev
+libcap-dev
+libdrm-dev
+libnet-dev
+libnl3-dev
+nftables-dev
+pkgconfig
+protobuf-c-compiler
+protobuf-c-dev
+protobuf-dev
+protobuf-dev
+py3-protobuf
+py3-yaml
+util-linux-dev
+
+# Other packages
+bash
+coreutils
+git
+ip6tables
+iptables
+python3
+sudo

@@ -5,29 +5,18 @@ COPY contrib/dependencies/apk-packages.txt /tmp/apk-packages.txt
 
 RUN apk add --no-cache \
 	$CC \
+	asciidoctor \
 	bash \
-	build-base \
-	coreutils \
-	procps \
-	git \
-	gnutls-dev \
-	libaio-dev \
-	libcap-dev \
-	libnet-dev \
-	libnl3-dev \
-	nftables \
-	nftables-dev \
-	pkgconfig \
-	protobuf-c-dev \
-	protobuf-dev \
-	py3-pip \
-	py3-protobuf \
-	python3 \
-	sudo \
+	e2fsprogs \
+	go \
+	iptables-legacy \
 	libcap-utils \
-	libdrm-dev \
+	nftables \
+	procps \
+	py3-importlib-metadata \
+	py3-pip \
+	tar \
 	util-linux \
-	util-linux-dev \
 	$(sed 's/\#.*$//' /tmp/apk-packages.txt) \
 	&& \
 	rm /tmp/apk-packages.txt
@@ -35,20 +24,6 @@ RUN apk add --no-cache \
 COPY . /criu
 WORKDIR /criu
 RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
-
-RUN apk add \
-	ip6tables \
-	iptables \
-	iptables-legacy \
-	nftables \
-	iproute2 \
-	tar \
-	bash \
-	go \
-	e2fsprogs \
-	py-yaml \
-	py3-importlib-metadata \
-	asciidoctor
 
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 -D test
