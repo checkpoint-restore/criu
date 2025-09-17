@@ -42,10 +42,7 @@ setup() {
 	mkdir -p /root/.ssh
 	vagrant ssh-config >> /root/.ssh/config
 	ssh default sudo dnf upgrade -y
-	ssh default sudo dnf install -y gcc git gnutls-devel nftables-devel libaio-devel \
-		libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make protobuf-c-devel \
-		protobuf-devel python3-protobuf python3-importlib-metadata \
-		rubygem-asciidoctor iptables libselinux-devel libbpf-devel python3-yaml libuuid-devel
+	ssh default sudo dnf install -y libselinux-devel libbpf-devel
 
 	# SC2046 is "Quote this to prevent word splitting". We do want word splitting
 	# so that each line is passed as a separate argument
