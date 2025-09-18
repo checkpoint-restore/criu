@@ -121,7 +121,7 @@ extern int dedup_one_iovec(struct page_read *pr, unsigned long base, unsigned lo
 
 static inline unsigned long pagemap_len(PagemapEntry *pe)
 {
-	return (unsigned long)pe->nr_pages * PAGE_SIZE;
+	return pe->nr_pages * PAGE_SIZE;
 }
 
 static inline bool page_read_has_parent(struct page_read *pr)
