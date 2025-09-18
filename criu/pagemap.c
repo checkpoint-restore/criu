@@ -168,15 +168,15 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 	return 0;
 }
 
-static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, int nr)
+static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, unsigned long int nr)
 {
 	if (vaddr < pe->vaddr || (vaddr - pe->vaddr) / PAGE_SIZE + nr > pe->nr_pages) {
-		pr_err("Page read err %" PRIx64 ":%lu vs %lx:%u\n", pe->vaddr, pe->nr_pages, vaddr, nr);
+		pr_err("Page read err %" PRIx64 ":%lu vs %lx:%lu\n", pe->vaddr, pe->nr_pages, vaddr, nr);
 		BUG();
 	}
 }
 
-static int read_parent_page(struct page_read *pr, unsigned long vaddr, int nr, void *buf, unsigned flags)
+static int read_parent_page(struct page_read *pr, unsigned long vaddr, unsigned long int nr, void *buf, unsigned flags)
 {
 	struct page_read *ppr = pr->parent;
 	int ret;
@@ -195,7 +195,7 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr, int nr, v
 	 */
 
 	do {
-		int p_nr;
+		unsigned long int p_nr;
 
 		pr_debug("\tpr%lu-%u Read from parent\n", pr->img_id, pr->id);
 		ret = ppr->seek_pagemap(ppr, vaddr);
@@ -210,7 +210,7 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr, int nr, v
 		 * read as much as we can.
 		 */
 		p_nr = ppr->pe->nr_pages - (vaddr - ppr->pe->vaddr) / PAGE_SIZE;
-		pr_info("\tparent has %u pages in\n", p_nr);
+		pr_info("\tparent has %lu pages in\n", p_nr);
 		if (p_nr > nr)
 			p_nr = nr;
 
@@ -374,7 +374,7 @@ int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, st
 	return 0;
 }
 
-static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr, int nr, void *buf, unsigned flags)
+static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
 {
 	int ret;
 	unsigned long len = nr * PAGE_SIZE;
@@ -402,7 +402,7 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr, int 
  * We cannot use maybe_read_page_local() for streaming images as it uses
  * pread(), seeking in the file. Instead, we use this custom page reader.
  */
-static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vaddr, int nr, void *buf, unsigned flags)
+static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
 {
 	unsigned long len = nr * PAGE_SIZE;
 	int fd;
@@ -445,7 +445,7 @@ static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vadd
 	return ret;
 }
 
-static int read_page_complete(unsigned long img_id, unsigned long vaddr, int nr_pages, void *priv)
+static int read_page_complete(unsigned long img_id, unsigned long vaddr, unsigned long int nr_pages, void *priv)
 {
 	int ret = 0;
 	struct page_read *pr = priv;
@@ -463,7 +463,7 @@ static int read_page_complete(unsigned long img_id, unsigned long vaddr, int nr_
 	return ret;
 }
 
-static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, int nr, void *buf, unsigned flags)
+static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
 {
 	int ret;
 
@@ -474,9 +474,9 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, int
 	return ret;
 }
 
-static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, void *buf, unsigned flags)
+static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
 {
-	pr_info("pr%lu-%u Read %lx %u pages\n", pr->img_id, pr->id, vaddr, nr);
+	pr_info("pr%lu-%u Read %lx %lu pages\n", pr->img_id, pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
 	if (pagemap_in_parent(pr->pe)) {

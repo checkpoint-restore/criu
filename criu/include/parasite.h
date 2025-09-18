@@ -63,7 +63,7 @@ struct parasite_dump_pages_args {
 	unsigned int add_prot;
 	unsigned int off;
 	unsigned int nr_segs;
-	unsigned int nr_pages;
+	unsigned long nr_pages;
 };
 
 static inline struct parasite_vma_entry *pargs_vmas(struct parasite_dump_pages_args *a)
