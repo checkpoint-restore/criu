@@ -32,7 +32,7 @@ static int page_server_sk = -1;
 
 struct page_server_iov {
 	u32 cmd;
-	u32 nr_pages;
+	u64 nr_pages;
 	u64 vaddr;
 	u64 dst_id;
 };
@@ -886,7 +886,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		unsigned int i;
 
-		pr_debug("\tbuf %d/%d\n", ppb->pages_in, ppb->nr_segs);
+		pr_debug("\tbuf %ld/%d\n", ppb->pages_in, ppb->nr_segs);
 
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec iov = ppb->iov[i];
@@ -1071,7 +1071,7 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 	struct page_xfer *lxfer = &cxfer.loc_xfer;
 	struct iovec iov;
 
-	pr_debug("Adding %" PRIx64 "/%u\n", pi->vaddr, pi->nr_pages);
+	pr_debug("Adding %" PRIx64 "/%lu\n", pi->vaddr, pi->nr_pages);
 
 	if (prep_loc_xfer(pi))
 		return -1;
@@ -1348,7 +1348,7 @@ static int fill_page_pipe(struct page_read *pr, struct page_pipe *pp)
 static int page_pipe_from_pagemap(struct page_pipe **pp, int pid)
 {
 	struct page_read pr;
-	int nr_pages = 0;
+	unsigned long nr_pages = 0;
 
 	if (open_page_read(pid, &pr, PR_TASK) <= 0) {
 		pr_err("Failed to open page read for %d\n", pid);
@@ -1551,13 +1551,13 @@ struct ps_async_read {
 
 static LIST_HEAD(async_reads);
 
-static inline void async_read_set_goal(struct ps_async_read *ar, int nr_pages)
+static inline void async_read_set_goal(struct ps_async_read *ar, unsigned long nr_pages)
 {
 	ar->goal = sizeof(ar->pi) + nr_pages * PAGE_SIZE;
 	ar->nr_pages = nr_pages;
 }
 
-static void init_ps_async_read(struct ps_async_read *ar, void *buf, int nr_pages, ps_async_read_complete complete,
+static void init_ps_async_read(struct ps_async_read *ar, void *buf, unsigned long nr_pages, ps_async_read_complete complete,
 			       void *priv)
 {
 	ar->pages = buf;
@@ -1567,7 +1567,7 @@ static void init_ps_async_read(struct ps_async_read *ar, void *buf, int nr_pages
 	async_read_set_goal(ar, nr_pages);
 }
 
-static int page_server_start_async_read(void *buf, int nr_pages, ps_async_read_complete complete, void *priv)
+static int page_server_start_async_read(void *buf, unsigned long nr_pages, ps_async_read_complete complete, void *priv)
 {
 	struct ps_async_read *ar;
 
@@ -1667,7 +1667,7 @@ int connect_to_page_server_to_recv(int epfd)
 	return epoll_add_rfd(epfd, &ps_rfd);
 }
 
-int request_remote_pages(unsigned long img_id, unsigned long addr, int nr_pages)
+int request_remote_pages(unsigned long img_id, unsigned long addr, unsigned long nr_pages)
 {
 	struct page_server_iov pi = {
 		.cmd = PS_IOV_GET,
@@ -1684,7 +1684,7 @@ int request_remote_pages(unsigned long img_id, unsigned long addr, int nr_pages)
 	return 0;
 }
 
-static int page_server_start_sync_read(void *buf, int nr, ps_async_read_complete complete, void *priv)
+static int page_server_start_sync_read(void *buf, unsigned long nr, ps_async_read_complete complete, void *priv)
 {
 	struct ps_async_read ar;
 	int ret = 1;
@@ -1695,7 +1695,7 @@ static int page_server_start_sync_read(void *buf, int nr, ps_async_read_complete
 	return ret;
 }
 
-int page_server_start_read(void *buf, int nr, ps_async_read_complete complete, void *priv, unsigned flags)
+int page_server_start_read(void *buf, unsigned long nr, ps_async_read_complete complete, void *priv, unsigned flags)
 {
 	if (flags & PR_ASYNC)
 		return page_server_start_async_read(buf, nr, complete, priv);

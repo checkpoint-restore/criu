@@ -101,7 +101,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	}
 	if (spliced_bytes != args->nr_pages * PAGE_SIZE) {
 		sys_close(p);
-		pr_err("Can't splice all pages to pipe (%ld/%d)\n", spliced_bytes, args->nr_pages);
+		pr_err("Can't splice all pages to pipe (%ld/%ld)\n", spliced_bytes, args->nr_pages);
 		return -1;
 	}
 
