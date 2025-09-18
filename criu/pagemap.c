@@ -171,7 +171,7 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, int nr)
 {
 	if (vaddr < pe->vaddr || (vaddr - pe->vaddr) / PAGE_SIZE + nr > pe->nr_pages) {
-		pr_err("Page read err %" PRIx64 ":%u vs %lx:%u\n", pe->vaddr, pe->nr_pages, vaddr, nr);
+		pr_err("Page read err %" PRIx64 ":%lu vs %lx:%u\n", pe->vaddr, pe->nr_pages, vaddr, nr);
 		BUG();
 	}
 }
@@ -682,6 +682,9 @@ static void init_compat_pagemap_entry(PagemapEntry *pe)
 		pe->flags |= PE_PARENT;
 	else if (!pe->has_flags)
 		pe->flags = PE_PRESENT;
+
+	if (!pe->has_nr_pages)
+		pe->nr_pages = pe->compat_nr_pages;
 }
 
 /*
