@@ -326,6 +326,7 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
 	pe.has_flags = true;
 	pe.flags = flags;
+	pe.has_nr_pages = true;
 
 	if (flags & PE_PRESENT) {
 		if (opts.auto_dedup && xfer->parent != NULL) {
