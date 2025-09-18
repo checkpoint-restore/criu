@@ -336,7 +336,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		args->nr_segs = ppb->nr_segs;
 		args->nr_pages = ppb->pages_in;
-		pr_debug("PPB: %d pages %d segs %u pipe %d off\n", args->nr_pages, args->nr_segs, ppb->pipe_size,
+		pr_debug("PPB: %ld pages %d segs %u pipe %d off\n", args->nr_pages, args->nr_segs, ppb->pipe_size,
 			 args->off);
 
 		ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
