@@ -87,7 +87,8 @@ static int cr_dedup_one_pagemap(unsigned long img_id, int flags)
 		if (ret <= 0)
 			goto exit;
 
-		pr_debug("dedup iovec base=%" PRIx64 ", len=%lu\n", pr.pe->vaddr, pagemap_len(pr.pe));
+		pr_debug("dedup iovec %" PRIx64 " - %" PRIx64 "\n",
+			 pr.pe->vaddr, pr.pe->vaddr + pagemap_len(pr.pe));
 		if (!pagemap_in_parent(pr.pe)) {
 			ret = dedup_one_iovec(prp, pr.pe->vaddr, pagemap_len(pr.pe));
 			if (ret)

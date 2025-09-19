@@ -446,17 +446,17 @@ void debug_show_page_pipe(struct page_pipe *pp)
 	pr_debug("Page pipe:\n");
 	pr_debug("* %u pipes %u/%u iovs:\n", pp->nr_pipes, pp->free_iov, pp->nr_iovs);
 	list_for_each_entry(ppb, &pp->bufs, l) {
-		pr_debug("\tbuf %lu pages, %u iovs, flags: %x pipe_off: %lx :\n", ppb->pages_in, ppb->nr_segs, ppb->flags,
+		pr_debug("\tbuf %lx pages, %u iovs, flags: %x pipe_off: %lx :\n", ppb->pages_in, ppb->nr_segs, ppb->flags,
 			 ppb->pipe_off);
 		for (i = 0; i < ppb->nr_segs; i++) {
 			iov = &ppb->iov[i];
-			pr_debug("\t\t%p %lu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
+			pr_debug("\t\t%p - %p\n", iov->iov_base, iov->iov_base + iov->iov_len);
 		}
 	}
 
 	pr_debug("* %u holes:\n", pp->free_hole);
 	for (i = 0; i < pp->free_hole; i++) {
 		iov = &pp->holes[i];
-		pr_debug("\t%p %lu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
+		pr_debug("\t%p - %p\n", iov->iov_base, iov->iov_base + iov->iov_len);
 	}
 }
