@@ -178,12 +178,12 @@ static int write_pages_to_server(struct page_xfer *xfer, int p, unsigned long le
 	ssize_t ret, left = len;
 
 	if (opts.tls) {
-		pr_debug("Sending %lu bytes / %lu pages\n", len, len / PAGE_SIZE);
+		pr_debug("Sending %lx bytes\n", len);
 
 		if (tls_send_data_from_fd(p, len))
 			return -1;
 	} else {
-		pr_debug("Splicing %lu bytes / %lu pages into socket\n", len, len / PAGE_SIZE);
+		pr_debug("Splicing %lx bytes into socket\n", len);
 
 		while (left > 0) {
 			ret = splice(p, NULL, xfer->sk, NULL, left, SPLICE_F_MOVE);
@@ -192,7 +192,7 @@ static int write_pages_to_server(struct page_xfer *xfer, int p, unsigned long le
 				return -1;
 			}
 
-			pr_debug("\tSpliced: %lu bytes sent\n", (unsigned long)ret);
+			pr_debug("\tSpliced: %lx bytes sent\n", (unsigned long)ret);
 			left -= ret;
 		}
 	}
@@ -288,7 +288,7 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 	 * read_pagemap_page routine.
 	 */
 
-	pr_debug("Checking %p/%zu hole\n", iov->iov_base, iov->iov_len);
+	pr_debug("Checking %p - %p hole\n", iov->iov_base, iov->iov_base + iov->iov_len);
 	off = (unsigned long)iov->iov_base;
 	end = off + iov->iov_len;
 	while (1) {
@@ -300,7 +300,8 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 			return -1;
 		}
 
-		pr_debug("\tFound %" PRIx64 "/%lu\n", p->pe->vaddr, pagemap_len(p->pe));
+		pr_debug("\tFound %" PRIx64 " - %" PRIx64 "\n",
+			 p->pe->vaddr, p->pe->vaddr + pagemap_len(p->pe));
 
 		/*
 		 * The pagemap entry in parent may happen to be
@@ -340,7 +341,8 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 		if (xfer->parent != NULL) {
 			ret = check_pagehole_in_parent(xfer->parent, iov);
 			if (ret) {
-				pr_err("Hole %p/%zu not found in parent\n", iov->iov_base, iov->iov_len);
+				pr_err("Hole %p - %p not found in parent\n",
+				       iov->iov_base, iov->iov_base + iov->iov_len);
 				return -1;
 			}
 		}
@@ -850,7 +852,7 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 
 			BUG_ON(iov.iov_base < (void *)xfer->offset);
 			iov.iov_base -= xfer->offset;
-			pr_debug("\t p %p [%u]\n", iov.iov_base, (unsigned int)(iov.iov_len / PAGE_SIZE));
+			pr_debug("\t p %p - %p\n", iov.iov_base, iov.iov_base + iov.iov_len);
 
 			flags = ppb_xfer_flags(xfer, ppb);
 
@@ -886,7 +888,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		unsigned int i;
 
-		pr_debug("\tbuf %ld/%d\n", ppb->pages_in, ppb->nr_segs);
+		pr_debug("\tbuf %lx/%d\n", ppb->pages_in, ppb->nr_segs);
 
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec iov = ppb->iov[i];
@@ -898,7 +900,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 
 			BUG_ON(iov.iov_base < (void *)xfer->offset);
 			iov.iov_base -= xfer->offset;
-			pr_debug("\tp %p [%u]\n", iov.iov_base, (unsigned int)(iov.iov_len / PAGE_SIZE));
+			pr_debug("\tp %p - %p\n", iov.iov_base, iov.iov_base + iov.iov_len);
 
 			flags = ppb_xfer_flags(xfer, ppb);
 
@@ -1071,7 +1073,8 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 	struct page_xfer *lxfer = &cxfer.loc_xfer;
 	struct iovec iov;
 
-	pr_debug("Adding %" PRIx64 "/%lu\n", pi->vaddr, pi->nr_pages);
+	pr_debug("Adding %" PRIx64 " - %" PRIx64 "\n",
+		 pi->vaddr, pi->vaddr + pi->nr_pages * PAGE_SIZE);
 
 	if (prep_loc_xfer(pi))
 		return -1;
