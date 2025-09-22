@@ -98,25 +98,45 @@ static unsigned long elf_gnu_hash(const unsigned char *name)
 
 static int has_elf_identity(Ehdr_t *ehdr)
 {
-	/*
-	 * See Elf specification for this magic values.
-	 */
+	/* check ELF magic */
+
+	if (ehdr->e_ident[EI_MAG0] != ELFMAG0 ||
+	    ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
+	    ehdr->e_ident[EI_MAG2] != ELFMAG2 ||
+	    ehdr->e_ident[EI_MAG3] != ELFMAG3) {
+		pr_err("Invalid ELF magic\n");
+		return false;
+	};
+
+	/* check ELF class */
 #if defined(CONFIG_VDSO_32)
-	static const char elf_ident[] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x01, BORD, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	if (ehdr->e_ident[EI_CLASS] != ELFCLASS32) {
+		pr_err("Unsupported ELF class: %d\n", ehdr->e_ident[EI_CLASS]);
+		return false;
 	};
 #else
-	static const char elf_ident[] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x02, BORD, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
+		pr_err("Unsupported ELF class: %d\n", ehdr->e_ident[EI_CLASS]);
+		return false;
 	};
 #endif
 
-	BUILD_BUG_ON(sizeof(elf_ident) != sizeof(ehdr->e_ident));
-
-	if (memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident))) {
-		pr_err("ELF header magic mismatch\n");
+	/* check ELF data encoding */
+	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB) {
+		pr_err("Unsupported ELF data encoding: %d\n", ehdr->e_ident[EI_DATA]);
 		return false;
-	}
+	};
+	/* check ELF version */
+	if (ehdr->e_ident[EI_VERSION] != EV_CURRENT) {
+		pr_err("Unsupported ELF version: %d\n", ehdr->e_ident[EI_VERSION]);
+		return false;
+	};
+	/* check ELF OSABI */
+	if (ehdr->e_ident[EI_OSABI] != ELFOSABI_NONE &&
+	    ehdr->e_ident[EI_OSABI] != ELFOSABI_LINUX) {
+		pr_err("Unsupported OSABI version: %d\n", ehdr->e_ident[EI_OSABI]);
+		return false;
+	};
 
 	return true;
 }
