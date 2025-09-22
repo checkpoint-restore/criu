@@ -48,7 +48,8 @@ int get_gem_handle(amdgpu_device_handle h_dev, int dmabuf_fd)
 		return -1;
 	}
 
-	drmPrimeFDToHandle(fd, dmabuf_fd, &handle);
+	if (drmPrimeFDToHandle(fd, dmabuf_fd, &handle))
+		return -1;
 
 	return handle;
 }
