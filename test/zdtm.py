@@ -2232,7 +2232,6 @@ class Launcher:
             # The following wait() is not useful for our domain logic.
             # It's useful for taming warnings in subprocess.Popen.__del__()
             sub['sub'].wait()
-            tc = None
             if status != 0:
                 self.__fail = True
                 failed_flavor = decode_flav(os.WEXITSTATUS(status))
@@ -2243,7 +2242,6 @@ class Launcher:
                     with open(sub['log']) as sublog:
                         output = sublog.read()
                     details = {'output': output}
-                    tc.add_error_info(output=output)
                     print(testline, file=self.__file_report)
                     print("%s" % yaml.safe_dump(details,
                                                 explicit_start=True,
