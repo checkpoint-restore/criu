@@ -266,6 +266,7 @@ class criu:
         """
         req = rpc.criu_req()
         req.type = rpc.CHECK
+        req.opts.MergeFrom(self.opts)
 
         resp = self._send_req_and_recv_resp(req)
 
