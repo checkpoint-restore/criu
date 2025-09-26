@@ -1,4 +1,4 @@
-FROM docker.io/library/eclipse-temurin:11-focal
+FROM docker.io/library/eclipse-temurin:11-jammy
 ARG CC=gcc
 
 COPY . /criu
