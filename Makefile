@@ -43,7 +43,7 @@ ifeq ($(ARCH),arm)
         endif
 
         ifeq ($(ARMV),8)
-                # Running 'setarch linux32 uname -m' returns armv8l on travis aarch64.
+                # Running 'setarch linux32 uname -m' returns armv8l on aarch64.
                 # This tells CRIU to handle armv8l just as armv7hf. Right now this is
                 # only used for compile testing. No further verification of armv8l exists.
                 ARCHCFLAGS += -march=armv7-a

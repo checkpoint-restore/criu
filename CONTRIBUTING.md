@@ -158,11 +158,6 @@ make test
 
 The command runs [ZDTM Test Suite](https://criu.org/ZDTM_Test_Suite). Check for any error messages produced by it.
 
-In case you'd rather have someone else run the tests, you can use travis-ci for your
-own GitHub fork of CRIU. It will check the compilation for various supported platforms,
-as well as run most of the tests from the suite. See https://travis-ci.org/checkpoint-restore/criu
-for more details.
-
 ## Describe your changes
 
 Describe your problem.  Whether your change is a one-line bug fix or
@@ -420,5 +415,3 @@ sometimes a patch may fly around a week before it gets reviewed.
 Wiki article: [Continuous integration](https://criu.org/Continuous_integration)
 
 CRIU tests are run for each series sent to the mailing list. If you get a message from our patchwork that patches failed to pass the tests, you have to investigate what is wrong.
-
-We also recommend you to [enable Travis CI for your repo](https://criu.org/Continuous_integration#Enable_Travis_CI_for_your_repo) to check patches in your git branch, before sending them to the mailing list.
