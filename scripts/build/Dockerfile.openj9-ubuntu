@@ -1,4 +1,4 @@
-FROM docker.io/library/ibm-semeru-runtimes:open-11-jdk-focal
+FROM docker.io/library/ibm-semeru-runtimes:open-11-jdk-jammy
 ARG CC=gcc
 
 RUN mkdir -p /etc/criu && echo 'ghost-limit 16777216' > /etc/criu/default.conf
