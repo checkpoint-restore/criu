@@ -11,11 +11,6 @@ FEDORA_VERSION=42
 FEDORA_BOX_VERSION=1.1.0
 
 setup() {
-	if [ -n "$TRAVIS" ]; then
-		# Load the kvm modules for vagrant to use qemu
-		modprobe kvm kvm_intel
-	fi
-
 	# Tar up the git checkout to have vagrant rsync it to the VM
 	tar cf /tmp/criu.tar -C ../../../ criu
 	# Cirrus has problems with the following certificate.
@@ -29,7 +24,7 @@ setup() {
 	vagrant init cloud-image/fedora-${FEDORA_VERSION} --box-version ${FEDORA_BOX_VERSION}
 
 	# The default libvirt Vagrant VM uses 512MB.
-	# Travis VMs should have around 7.5GB.
+	# VMs in our CI typically have around 16GB.
 	# Increasing it to 4GB should work.
 	sed -i Vagrantfile -e 's,^end$,  config.vm.provider :libvirt do |libvirt|'"\n"'    libvirt.memory = 4096;end'"\n"'end,g'
 	# Sync /tmp/criu.tar into the VM

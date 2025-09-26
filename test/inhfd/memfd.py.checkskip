@@ -3,5 +3,5 @@
 import ctypes
 libc = ctypes.CDLL(None)
 
-# libc may not have memfd_create (e.g., centos on travis)
+# libc may not have memfd_create (e.g., centos)
 libc.memfd_create("test".encode('utf8'), 0)
