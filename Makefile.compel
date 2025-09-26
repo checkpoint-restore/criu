@@ -50,8 +50,8 @@ compel/plugins/%: $(compel-deps) .FORCE
 
 #
 # GNU make 4.x supports targets matching via wide
-# match targeting, where GNU make 3.x series (used on
-# Travis) is not, so we have to write them here explicitly.
+# match targeting, where GNU make 3.x series is not,
+# so we have to write them here explicitly.
 compel/plugins/std.lib.a: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
