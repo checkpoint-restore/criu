@@ -11,11 +11,10 @@ IFS=" " read -r -a ZDTM_OPTS <<< "$ZDTM_OPTS"
 UNAME_M=$(uname -m)
 
 if [ "$UNAME_M" != "x86_64" ]; then
-	# Some tests rely on kernel features that may not be availble
-	# when running in a container. Here we assume that x86_64
-	# systems are baremetal, and skip the tests for all other
-	# CPU architectures. We can override this using the RUN_TESTS
-	# environment variable (e.g., for aarch64).
+	# Some tests rely on kernel features that may not be available
+	# when running in a container. Here we assume that x86_64 systems
+	# are baremetal, and skip the tests for all other  CPU architectures.
+	# The RUN_TESTS environment variable can override this, e.g., for aarch64.
 	[ -n "$RUN_TESTS" ] || SKIP_CI_TEST=1
 fi
 
