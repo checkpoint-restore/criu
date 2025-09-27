@@ -9,14 +9,16 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
+        os: [ubuntu-24.04-arm, ubuntu-22.04-arm]
         target: [GCC=1, CLANG=1]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
-    - name: Run Tests ${{ matrix.target }}
+    - name: Run Tests ${{ matrix.target }} on ${{ matrix.os }}
       # Following tests are failing on the VMs:
       #  ./change_mnt_context --pidfile=change_mnt_context.pid --outfile=change_mnt_context.out
       #   45: ERR: change_mnt_context.c:23: mount (errno = 22 (Invalid argument))
