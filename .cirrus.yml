@@ -89,28 +89,6 @@ task:
     make -C scripts/ci vagrant-fedora-non-root
 
 task:
-  name: aarch64 build GCC (native)
-  arm_container:
-    image: docker.io/library/ubuntu:jammy
-    cpu: 4
-    memory: 4G
-  script: uname -a
-  build_script: |
-    contrib/apt-install make
-    make -C scripts/ci local
-
-task:
-  name: aarch64 build CLANG (native)
-  arm_container:
-    image: docker.io/library/ubuntu:jammy
-    cpu: 4
-    memory: 4G
-  script: uname -a
-  build_script: |
-    contrib/apt-install make
-    make -C scripts/ci local CLANG=1
-
-task:
   name: aarch64 Fedora Rawhide
   arm_container:
     image: registry.fedoraproject.org/fedora:rawhide
