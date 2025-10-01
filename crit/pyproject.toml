@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "crit"
 description = "CRiu Image Tool"
 authors = [
-    {name = "CRIU team", email = "criu@openvz.org"},
+    {name = "CRIU team", email = "criu@lists.linux.dev"},
 ]
 license = {text = "GPLv2"}
 dynamic = ["version"]
