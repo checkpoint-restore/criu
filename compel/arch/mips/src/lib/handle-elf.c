@@ -5,18 +5,31 @@
 #include "piegen.h"
 #include "log.h"
 
-static const unsigned char __maybe_unused elf_ident_64_le[EI_NIDENT] = {
-	0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00, /* clang-format */
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-};
-
 extern int __handle_elf(void *mem, size_t size);
 
 int handle_binary(void *mem, size_t size)
 {
-	if (memcmp(mem, elf_ident_64_le, sizeof(elf_ident_64_le)) == 0)
-		return __handle_elf(mem, size);
+	Elf64_Ehdr *ehdr = (Elf64_Ehdr *)mem;
 
-	pr_err("Unsupported Elf format detected\n");
-	return -EINVAL;
+	/* check ELF magic */
+	if (ehdr->e_ident[EI_MAG0] != ELFMAG0 ||
+	    ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
+	    ehdr->e_ident[EI_MAG2] != ELFMAG2 ||
+	    ehdr->e_ident[EI_MAG3] != ELFMAG3) {
+		pr_err("Invalid ELF magic\n");
+		return -EINVAL;
+	}
+
+	/* check ELF class and data encoding */
+	if (ehdr->e_ident[EI_CLASS] != ELFCLASS64 ||
+	    ehdr->e_ident[EI_DATA] != ELFDATA2LSB) {
+		pr_err("Unsupported ELF class or data encoding\n");
+		return -EINVAL;
+	}
+
+	if (ehdr->e_ident[EI_ABIVERSION] != 0) {
+		pr_warn("Unusual ABI version: %d\n", ehdr->e_ident[EI_ABIVERSION]);
+	}
+
+	return __handle_elf(mem, size);
 }

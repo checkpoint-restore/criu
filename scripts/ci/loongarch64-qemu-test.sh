@@ -4,7 +4,7 @@ set -o nounset
 set -o errexit
 set -x
 
-./apt-install \
+../../contrib/apt-install \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -19,7 +19,7 @@ add-apt-repository \
    $(lsb_release -cs) \
    stable test"
 
-./apt-install docker-ce
+../../contrib/apt-install docker-ce
 
 # shellcheck source=/dev/null
 . /etc/lsb-release

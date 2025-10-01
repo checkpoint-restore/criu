@@ -43,7 +43,7 @@ ifeq ($(ARCH),arm)
         endif
 
         ifeq ($(ARMV),8)
-                # Running 'setarch linux32 uname -m' returns armv8l on travis aarch64.
+                # Running 'setarch linux32 uname -m' returns armv8l on aarch64.
                 # This tells CRIU to handle armv8l just as armv7hf. Right now this is
                 # only used for compile testing. No further verification of armv8l exists.
                 ARCHCFLAGS += -march=armv7-a
@@ -64,6 +64,8 @@ endif
 
 ifeq ($(ARCH),aarch64)
         DEFINES		:= -DCONFIG_AARCH64
+        CC_MBRANCH_PROT := $(shell $(CC) -c -x c /dev/null -mbranch-protection=none -o /dev/null >/dev/null 2>&1 && echo "-mbranch-protection=none")
+        CFLAGS_PIE	:= $(CC_MBRANCH_PROT)
 endif
 
 ifeq ($(ARCH),ppc64)
@@ -462,7 +464,8 @@ ruff:
 shellcheck:
 	shellcheck --version
 	shellcheck scripts/*.sh
-	shellcheck scripts/ci/*.sh scripts/ci/apt-install
+	shellcheck scripts/ci/*.sh
+	shellcheck contrib/apt-install contrib/dependencies/*.sh
 	shellcheck -x test/others/crit/*.sh
 	shellcheck -x test/others/libcriu/*.sh
 	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh

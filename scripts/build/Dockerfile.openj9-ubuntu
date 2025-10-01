@@ -1,34 +1,12 @@
-FROM docker.io/library/ibm-semeru-runtimes:open-11-jdk-focal
+FROM docker.io/library/ibm-semeru-runtimes:open-11-jdk-jammy
 ARG CC=gcc
-
-COPY scripts/ci/apt-install /bin/apt-install
-
-RUN apt-install protobuf-c-compiler \
-	libprotobuf-c-dev \
-	libaio-dev \
-	libprotobuf-dev \
-	protobuf-compiler \
-	libcap-dev \
-	libnl-3-dev \
-	gdb \
-	bash \
-	python3-protobuf \
-	python3-yaml \
-	libnet-dev \
-	libnl-route-3-dev \
-	libbsd-dev \
-	make \
-	git \
-	pkg-config \
-	iptables \
-	gcc \
-	uuid-dev \
-	maven
 
 RUN mkdir -p /etc/criu && echo 'ghost-limit 16777216' > /etc/criu/default.conf
 COPY . /criu
 WORKDIR /criu
 
+RUN contrib/apt-install maven "$CC" && contrib/dependencies/apt-packages.sh
+
 RUN make mrproper && make -j $(nproc) CC="$CC"
 
-ENTRYPOINT mvn -f test/javaTests/pom.xml test
+ENTRYPOINT ["mvn", "-f", "test/javaTests/pom.xml", "test"]

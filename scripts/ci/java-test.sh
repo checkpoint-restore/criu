@@ -2,6 +2,8 @@
 
 cd ../.. || exit 1
 
+sudo modprobe iptable_filter
+
 failures=""
 
 docker build -t criu-openj9-ubuntu-test:latest -f scripts/build/Dockerfile.openj9-ubuntu .

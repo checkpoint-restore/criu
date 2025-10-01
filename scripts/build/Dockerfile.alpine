@@ -1,53 +1,14 @@
 FROM alpine
 ARG CC=gcc
 
-RUN apk update && apk add \
-	$CC \
-	bash \
-	build-base \
-	coreutils \
-	procps \
-	git \
-	gnutls-dev \
-	libaio-dev \
-	libcap-dev \
-	libnet-dev \
-	libnl3-dev \
-	nftables \
-	nftables-dev \
-	pkgconfig \
-	protobuf-c-dev \
-	protobuf-dev \
-	py3-pip \
-	py3-protobuf \
-	python3 \
-	sudo \
-	libcap-utils \
-	libdrm-dev \
-	util-linux \
-	util-linux-dev
-
 COPY . /criu
 WORKDIR /criu
-RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
-RUN apk add \
-	ip6tables \
-	iptables \
-	iptables-legacy \
-	nftables \
-	iproute2 \
-	tar \
-	bash \
-	go \
-	e2fsprogs \
-	py-yaml \
-	py3-importlib-metadata \
-	asciidoctor
+RUN apk add --no-cache "$CC" && /criu/contrib/dependencies/apk-packages.sh
+
+RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 -D test
-
-RUN pip3 install junit_xml --break-system-packages
 
 RUN make -C test/zdtm

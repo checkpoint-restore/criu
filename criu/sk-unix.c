@@ -527,7 +527,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 			}
 	}
 dump:
-	if (dump_socket_opts(lfd, skopts))
+	if (dump_socket_opts(lfd, AF_UNIX, skopts))
 		goto err;
 
 	pr_info("Dumping unix socket at %d\n", p->fd);

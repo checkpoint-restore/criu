@@ -1,33 +1,11 @@
-FROM docker.io/library/eclipse-temurin:11-focal
+FROM docker.io/library/eclipse-temurin:11-jammy
 ARG CC=gcc
-
-COPY scripts/ci/apt-install /bin/apt-install
-
-RUN apt-install protobuf-c-compiler \
-	libprotobuf-c-dev \
-	libaio-dev \
-	libprotobuf-dev \
-	protobuf-compiler \
-	libcap-dev \
-	libnl-3-dev \
-	gdb \
-	bash \
-	python3-protobuf \
-	python3-yaml \
-	libnet-dev \
-	libnl-route-3-dev \
-	libbsd-dev \
-	make \
-	git \
-	pkg-config \
-	iptables \
-	gcc \
-	uuid-dev \
-	maven
 
 COPY . /criu
 WORKDIR /criu
 
+RUN contrib/apt-install maven "$CC" && contrib/dependencies/apt-packages.sh
+
 RUN make mrproper && make -j $(nproc) CC="$CC"
 
-ENTRYPOINT mvn -q -f test/javaTests/pom.xml test
+ENTRYPOINT ["mvn", "-q", "-f", "test/javaTests/pom.xml", "test"]

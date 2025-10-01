@@ -165,7 +165,7 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 	ne.fown = (FownEntry *)&p->fown;
 	ne.opts = &skopts;
 
-	if (dump_socket_opts(lfd, &skopts))
+	if (dump_socket_opts(lfd, AF_NETLINK, &skopts))
 		goto err;
 
 	fe.type = FD_TYPES__NETLINKSK;

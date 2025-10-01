@@ -581,7 +581,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	if (dump_ip_opts(lfd, family, type, proto, &ipopts))
 		goto err;
 
-	if (dump_socket_opts(lfd, &skopts))
+	if (dump_socket_opts(lfd, family, &skopts))
 		goto err;
 
 	pr_info("Dumping inet socket at %d\n", p->fd);

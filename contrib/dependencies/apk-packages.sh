@@ -1,0 +1,38 @@
+#!/usr/bin/env sh
+
+apk add --no-cache \
+	asciidoctor \
+	bash \
+	build-base \
+	coreutils \
+	e2fsprogs \
+	git \
+	gnutls-dev \
+	go \
+	ip6tables \
+	iproute2 \
+	iptables \
+	iptables-legacy \
+	libaio-dev \
+	libbsd-dev \
+	libcap-dev \
+	libcap-utils \
+	libdrm-dev \
+	libnet-dev \
+	libnl3-dev \
+	nftables \
+	nftables-dev \
+	pkgconfig \
+	procps \
+	protobuf-c-compiler \
+	protobuf-c-dev \
+	protobuf-dev \
+	py3-importlib-metadata \
+	py3-pip \
+	py3-protobuf \
+	py3-yaml \
+	python3 \
+	sudo \
+	tar \
+	util-linux \
+	util-linux-dev

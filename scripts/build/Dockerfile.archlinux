@@ -5,41 +5,11 @@ ARG CC=gcc
 # Initialize machine ID
 RUN systemd-machine-id-setup
 
-RUN pacman -Syu --noconfirm \
-	$CC \
-	bash \
-	make \
-	coreutils \
-	git \
-	gnutls \
-	libaio \
-	libcap \
-	libnet \
-	libnl \
-	nftables \
-	pkgconfig \
-	protobuf-c \
-	protobuf \
-	python-pip \
-	python-protobuf \
-	which \
-	sudo \
-	iptables \
-	nftables \
-	iproute2 \
-	tar \
-	bash \
-	go \
-	python-yaml \
-	asciidoctor \
-	python-junit-xml \
-	python-importlib-metadata \
-	libdrm \
-	util-linux-libs \
-	diffutils
-
 COPY . /criu
 WORKDIR /criu
+
+RUN pacman -Syu --noconfirm "$CC" && contrib/dependencies/pacman-packages.sh
+
 RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
 # The rpc test cases are running as user #1000, let's add the user

@@ -92,9 +92,9 @@ struct kernel_pipe_buffer {
 struct page_pipe_buf {
 	int p[2];		/* pipe with pages */
 	unsigned int pipe_size; /* how many pages can be fit into pipe */
-	unsigned int pipe_off;	/* where this buf is started in a pipe */
-	unsigned int pages_in;	/* how many pages are there */
 	unsigned int nr_segs;	/* how many iov-s are busy */
+	unsigned long pipe_off;	/* where this buf is started in a pipe */
+	unsigned long pages_in;	/* how many pages are there */
 #define PPB_LAZY (1 << 0)
 	unsigned int flags;
 	struct iovec *iov;  /* vaddr:len map */
@@ -149,7 +149,7 @@ struct pipe_read_dest {
 };
 
 extern int pipe_read_dest_init(struct pipe_read_dest *prd);
-extern int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned long addr, unsigned int *nr_pages,
+extern int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned long addr, unsigned long *nr_pages,
 			  unsigned int ppb_flags);
 
 #endif /* __CR_PAGE_PIPE_H__ */

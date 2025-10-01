@@ -115,44 +115,74 @@ static bool should_dump_entire_vma(VmaEntry *vmae)
 }
 
 /*
- * should_dump_page returns vaddr if an addressed page has to be dumped.
- * Otherwise, it returns an address that has to be inspected next.
+ * should_dump_page writes vaddr in page_info->next if an addressed page has to be dumped.
+ * Otherwise, it writes an address that has to be inspected next.
  */
-u64 should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, bool *softdirty)
+int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *page_info)
 {
+	if (!page_info)
+		goto err;
+
 	if (vaddr >= pmc->end && pmc_fill(pmc, vaddr, vmae->end))
-		return -1;
+		goto err;
 
 	if (pmc->regs) {
 		while (1) {
-			if (pmc->regs_idx == pmc->regs_len)
-				return pmc->end;
+			if (pmc->regs_idx == pmc->regs_len) {
+				page_info->next = pmc->end;
+				return 0;
+			}
+
 			if (vaddr < pmc->regs[pmc->regs_idx].end)
 				break;
 			pmc->regs_idx++;
 		}
-		if (vaddr < pmc->regs[pmc->regs_idx].start)
-			return pmc->regs[pmc->regs_idx].start;
-		if (softdirty)
-			*softdirty = pmc->regs[pmc->regs_idx].categories & PAGE_IS_SOFT_DIRTY;
-		return vaddr;
+
+		if (vaddr < pmc->regs[pmc->regs_idx].start) {
+			page_info->next = pmc->regs[pmc->regs_idx].start;
+			return 0;
+		}
+
+		if (pmc->regs[pmc->regs_idx].categories & PAGE_IS_GUARD)
+			goto skip_guard_page;
+
+		page_info->softdirty = pmc->regs[pmc->regs_idx].categories & PAGE_IS_SOFT_DIRTY;
+		page_info->next = vaddr;
+		return 0;
 	} else {
 		u64 pme = pmc->map[PAGE_PFN(vaddr - pmc->start)];
+
+		if (pme & PME_GUARD_REGION)
+			goto skip_guard_page;
 
 		/*
 		 * Optimisation for private mapping pages, that haven't
 		 * yet being COW-ed
 		 */
-		if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE))
-			return vaddr + PAGE_SIZE;
-		if ((pme & (PME_PRESENT | PME_SWAP)) && !__page_is_zero(pme)) {
-			if (softdirty)
-				*softdirty = pme & PME_SOFT_DIRTY;
-			return vaddr;
+		if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE)) {
+			page_info->next = vaddr + PAGE_SIZE;
+			return 0;
 		}
 
-		return vaddr + PAGE_SIZE;
+		if ((pme & (PME_PRESENT | PME_SWAP)) && !__page_is_zero(pme)) {
+			page_info->softdirty = pme & PME_SOFT_DIRTY;
+			page_info->next = vaddr;
+			return 0;
+		}
+
+		page_info->next = vaddr + PAGE_SIZE;
+		return 0;
 	}
+
+err:
+	pr_err("should_dump_page failed on vma "
+	       "%#016" PRIx64 "-%#016" PRIx64 " vaddr=%#016" PRIx64 "\n",
+	       vmae->start, vmae->end, vaddr);
+	return -1;
+
+skip_guard_page:
+	page_info->next = vaddr + PAGE_SIZE;
+	return 0;
 }
 
 bool page_is_zero(u64 pme)
@@ -202,14 +232,15 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	nr_scanned = 0;
 	for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {
 		unsigned int ppb_flags = 0;
-		bool softdirty = false;
-		u64 next;
+		struct page_info page_info = {};
 		int st;
 
 		/* If dump_all_pages is true, should_dump_page is called to get pme. */
-		next = should_dump_page(pmc, vma->e, vaddr, &softdirty);
-		if (!dump_all_pages && next != vaddr) {
-			vaddr = next - PAGE_SIZE;
+		if (should_dump_page(pmc, vma->e, vaddr, &page_info))
+			return -1;
+
+		if (!dump_all_pages && page_info.next != vaddr) {
+			vaddr = page_info.next - PAGE_SIZE;
 			continue;
 		}
 
@@ -223,7 +254,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		 * page. The latter would be checked in page-xfer.
 		 */
 
-		if (has_parent && page_in_parent(softdirty)) {
+		if (has_parent && page_in_parent(page_info.softdirty)) {
 			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
 			st = 0;
 		} else {
@@ -305,7 +336,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		args->nr_segs = ppb->nr_segs;
 		args->nr_pages = ppb->pages_in;
-		pr_debug("PPB: %d pages %d segs %u pipe %d off\n", args->nr_pages, args->nr_segs, ppb->pipe_size,
+		pr_debug("PPB: %ld pages %d segs %u pipe %d off\n", args->nr_pages, args->nr_segs, ppb->pipe_size,
 			 args->off);
 
 		ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
@@ -568,6 +599,9 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		parent_predump_mode = mdc->parent_ie->pre_dump_mode;
 
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
+		if (vma_area_is(vma_area, VMA_AREA_GUARD))
+			continue;
+
 		ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl, &pmc, has_parent, mdc->pre_dump,
 					parent_predump_mode);
 		if (ret < 0)
@@ -830,14 +864,14 @@ static void prepare_cow_vmas_for(struct vm_area_list *vmas, struct vm_area_list 
 		/* <= here to shift from matching VMAs and ... */
 		while (vma->e->start <= pvma->e->start) {
 			vma = vma_next(vma);
-			if (&vma->list == &vmas->h)
+			if ((&vma->list == &vmas->h) || vma_area_is(vma, VMA_AREA_GUARD))
 				return;
 		}
 
 		/* ... no == here since we must stop on matching pair */
 		while (pvma->e->start < vma->e->start) {
 			pvma = vma_next(pvma);
-			if (&pvma->list == &pvmas->h)
+			if ((&pvma->list == &pvmas->h) || vma_area_is(pvma, VMA_AREA_GUARD))
 				return;
 		}
 	}
@@ -1038,6 +1072,9 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 	filemap_ctx_init(true);
 
 	list_for_each_entry(vma, &vmas->h, list) {
+		if (vma_area_is(vma, VMA_AREA_GUARD))
+			continue;
+
 		if (task_size_check(vpid(t), vma->e)) {
 			ret = -1;
 			break;
@@ -1244,6 +1281,9 @@ err_read:
 	list_for_each_entry(vma, vmas, list) {
 		unsigned long size, i = 0;
 		void *addr = decode_pointer(vma->premmaped_addr);
+
+		if (vma_area_is(vma, VMA_AREA_GUARD))
+			continue;
 
 		if (!vma_inherited(vma))
 			continue;
@@ -1507,4 +1547,73 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 	}
 
 	return prepare_vma_ios(t, ta);
+}
+
+int collect_madv_guards(pid_t pid, struct vm_area_list *vma_area_list)
+{
+	int pagemap_fd = -1;
+	struct page_region *regs = NULL;
+	long regs_len = 0;
+	int i, ret = -1;
+
+	struct pm_scan_arg args = {
+		.size = sizeof(struct pm_scan_arg),
+		.flags = 0,
+		.start = 0,
+		.end = kdat.task_size,
+		.walk_end = 0,
+		.vec_len = 1000, /* this should be enough for most cases */
+		.max_pages = 0,
+		.category_mask = PAGE_IS_GUARD,
+		.return_mask = PAGE_IS_GUARD,
+	};
+
+	if (!kdat.has_pagemap_scan_guard_pages) {
+		ret = 0;
+		goto out;
+	}
+
+	pagemap_fd = open_proc(pid, "pagemap");
+	if (pagemap_fd < 0)
+		goto out;
+
+	regs = xmalloc(args.vec_len * sizeof(struct page_region));
+	if (!regs)
+		goto out;
+	args.vec = (long)regs;
+
+	do {
+		/* start from where we finished the last time */
+		args.start = args.walk_end;
+		regs_len = ioctl(pagemap_fd, PAGEMAP_SCAN, &args);
+		if (regs_len == -1) {
+			pr_perror("PAGEMAP_SCAN");
+			goto out;
+		}
+
+		for (i = 0; i < regs_len; i++) {
+			struct vma_area *vma;
+
+			BUG_ON(!(regs[i].categories & PAGE_IS_GUARD));
+
+			vma = alloc_vma_area();
+			if (!vma)
+				goto out;
+
+			vma->e->start = regs[i].start;
+			vma->e->end = regs[i].end;
+			vma->e->status = VMA_AREA_GUARD;
+
+			list_add_tail(&vma->list, &vma_area_list->h);
+			vma_area_list->nr++;
+		}
+	} while (args.walk_end != kdat.task_size);
+
+	ret = 0;
+
+out:
+	xfree(regs);
+	if (pagemap_fd >= 0)
+		close(pagemap_fd);
+	return ret;
 }

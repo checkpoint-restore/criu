@@ -1,12 +1,7 @@
 #!/bin/bash
 set -x -e
 
-CI_PKGS=(protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
-		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
-		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
-		libnl-route-3-dev time libbsd-dev python3-yaml uuid-dev
-		libperl-dev pkg-config python3-protobuf python3-pip
-		python3-importlib-metadata python3-junit.xml libdrm-dev)
+CI_PKGS=()
 
 X86_64_PKGS=(gcc-multilib)
 
@@ -16,13 +11,10 @@ IFS=" " read -r -a ZDTM_OPTS <<< "$ZDTM_OPTS"
 UNAME_M=$(uname -m)
 
 if [ "$UNAME_M" != "x86_64" ]; then
-	# For Travis only x86_64 seems to be baremetal. Other
-	# architectures are running in unprivileged LXD containers.
-	# That seems to block most of CRIU's interfaces.
-
-	# But with the introduction of baremetal aarch64 systems in
-	# Travis (arch: arm64-graviton2) we can override this using
-	# an environment variable
+	# Some tests rely on kernel features that may not be available
+	# when running in a container. Here we assume that x86_64 systems
+	# are baremetal, and skip the tests for all other  CPU architectures.
+	# The RUN_TESTS environment variable can override this, e.g., for aarch64.
 	[ -n "$RUN_TESTS" ] || SKIP_CI_TEST=1
 fi
 
@@ -36,7 +28,7 @@ ci_prep () {
 	# not run anymore with 'sudo -u \#1000' if the UID does not exist.
 	adduser -u 1000 --disabled-password --gecos "criutest" criutest || :
 
-	# This can fail on aarch64 travis
+	# This can fail on aarch64
 	service apport stop || :
 
 	# Ubuntu has set up AppArmor in 24.04 so that it blocks use of user
@@ -60,7 +52,8 @@ ci_prep () {
 		CI_PKGS+=("${X86_64_PKGS[@]}")
 	fi
 
-	scripts/ci/apt-install "${CI_PKGS[@]}"
+	contrib/dependencies/apt-packages.sh
+	contrib/apt-install "${CI_PKGS[@]}"
 	chmod a+x "$HOME"
 }
 
@@ -187,7 +180,7 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	done
 	apt-get remove "${INCOMPATIBLE_LIBS[@]}"
 	dpkg --add-architecture i386
-	scripts/ci/apt-install "${IA32_PKGS[@]}"
+	contrib/apt-install "${IA32_PKGS[@]}"
 	mkdir -p /usr/lib/x86_64-linux-gnu/
 	mv "$REFUGE"/* /usr/lib/x86_64-linux-gnu/
 fi
@@ -262,7 +255,7 @@ if [ -z "$SKIP_EXT_DEV_TEST" ]; then
 fi
 
 make -C test/others/make/ run CC="$CC"
-if [ -n "$TRAVIS" ] || [ -n "$CIRCLECI" ]; then
+if [ -n "$CIRCLECI" ]; then
        # GitHub Actions (and Cirrus CI) does not provide a real TTY and CRIU will fail with:
        # Error (criu/tty.c:1014): tty: Don't have tty to inherit session from, aborting
        make -C test/others/shell-job/ run

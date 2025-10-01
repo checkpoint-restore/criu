@@ -130,6 +130,23 @@ int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap
 	if (ret < 0)
 		goto err;
 
+	/*
+	 * In addition to real process VMAs we should keep an info about
+	 * madvise(MADV_GUARD_INSTALL) pages. While these are not represented
+	 * as a struct vm_area_struct in the kernel, it is convenient to treat
+	 * them as mappings in CRIU and reuse the same VMA images but with only
+	 * VMA_AREA_GUARD flag set.
+	 *
+	 * Also, we don't need to dump them during pre-dump.
+	 */
+	if (dump_file) {
+		ret = collect_madv_guards(pid, vma_area_list);
+		if (ret < 0) {
+			pr_err("Collect MADV_GUARD_INSTALL pages (pid: %d) failed with %d\n", pid, ret);
+			goto err;
+		}
+	}
+
 	pr_info("Collected, longest area occupies %lu pages\n", vma_area_list->nr_priv_pages_longest);
 	pr_info_vma_list(&vma_area_list->h);
 
@@ -2123,6 +2140,8 @@ int cr_dump_tasks(pid_t pid)
 	struct pstree_item *item;
 	int pre_dump_ret = 0;
 	int ret = -1;
+
+	kerndat_warn_about_madv_guards();
 
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d comm: %s)\n", pid, __task_comm_info(pid));

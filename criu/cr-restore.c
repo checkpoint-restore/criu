@@ -2447,7 +2447,8 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_he
 
 	while (1) {
 		if (prev_vma_end + vma_len > s_vma->e->start) {
-			if (s_vma->list.next == self_vma_list) {
+			if ((s_vma->list.next == self_vma_list) ||
+			    vma_area_is(vma_next(s_vma), VMA_AREA_GUARD)) {
 				s_vma = &end_vma;
 				continue;
 			}
@@ -2460,7 +2461,8 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_he
 		}
 
 		if (prev_vma_end + vma_len > t_vma->e->start) {
-			if (t_vma->list.next == tgt_vma_list) {
+			if ((t_vma->list.next == tgt_vma_list) ||
+			    vma_area_is(vma_next(t_vma), VMA_AREA_GUARD)) {
 				t_vma = &end_vma;
 				continue;
 			}

@@ -668,12 +668,11 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from, unsigned 
  */
 static int collect_iovs(struct lazy_pages_info *lpi)
 {
+	unsigned long start, end, len, nr_pages = 0;
+	int n_vma = 0, max_iov_len = 0, ret = -1;
 	struct page_read *pr = &lpi->pr;
 	struct lazy_iov *iov;
 	MmEntry *mm;
-	int nr_pages = 0, n_vma = 0, max_iov_len = 0;
-	int ret = -1;
-	unsigned long start, end, len;
 
 	mm = init_mm_entry(lpi);
 	if (!mm)
@@ -728,7 +727,7 @@ free_mm:
 	return ret;
 }
 
-static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, int nr);
+static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, unsigned long nr);
 
 static int ud_open(int client, struct lazy_pages_info **_lpi)
 {
@@ -822,7 +821,7 @@ static bool uffd_recoverable_error(int mcopy_rc)
 	return false;
 }
 
-static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, int *nr_pages, long mcopy_rc)
+static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsigned long *nr_pages, long mcopy_rc)
 {
 	if (errno == ENOSPC || errno == ESRCH) {
 		handle_exit(lpi);
@@ -844,7 +843,7 @@ static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, int 
 	return 0;
 }
 
-static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int *nr_pages)
+static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *nr_pages)
 {
 	struct uffdio_copy uffdio_copy;
 	unsigned long len = *nr_pages * page_size();
@@ -865,12 +864,12 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int *nr_pages)
 	return 0;
 }
 
-static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr)
+static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsigned long nr)
 {
 	struct lazy_pages_info *lpi;
-	unsigned long addr = 0;
-	int req_pages, ret;
+	unsigned long addr = 0, req_pages;
 	struct lazy_iov *req;
+	int ret;
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
 
@@ -920,7 +919,7 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 	return drop_iovs(lpi, addr, nr * PAGE_SIZE);
 }
 
-static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
+static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long nr_pages)
 {
 	struct uffdio_zeropage uffdio_zeropage;
 	unsigned long len = page_size() * nr_pages;
@@ -946,7 +945,7 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
  * Returns 0 for zero pages, 1 for "real" pages and negative value on
  * error
  */
-static int uffd_seek_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
+static int uffd_seek_pages(struct lazy_pages_info *lpi, __u64 address, unsigned long nr)
 {
 	int ret;
 
@@ -961,7 +960,7 @@ static int uffd_seek_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 	return 0;
 }
 
-static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr, unsigned flags)
+static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, unsigned long nr, unsigned flags)
 {
 	int ret;
 
@@ -1003,7 +1002,7 @@ static void update_xfer_len(struct lazy_pages_info *lpi, bool pf)
 static int xfer_pages(struct lazy_pages_info *lpi)
 {
 	struct lazy_iov *iov;
-	unsigned int nr_pages;
+	unsigned long nr_pages;
 	unsigned long len;
 	int err;
 

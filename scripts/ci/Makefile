@@ -11,7 +11,7 @@ ifdef CLANG
 	target-suffix = -clang
 endif
 
-TARGETS := alpine fedora-rawhide centos8 archlinux
+TARGETS := alpine fedora-rawhide archlinux
 ZDTM_OPTS :=
 UNAME := $(shell uname -m)
 export UNAME
@@ -30,9 +30,9 @@ endif
 
 export CONTAINER_TERMINAL
 
+# Here we assume that any CPU architecture besides x86_64 is running in containers
+# that may not support running docker with '--privileged'.
 ifeq ($(UNAME),x86_64)
-	# On anything besides x86_64 Travis is running unprivileged LXD
-	# containers which do not support running docker with '--privileged'.
 	CONTAINER_OPTS := --rm $(CONTAINER_TERMINAL) --privileged --userns=host --cgroupns=host -v /lib/modules:/lib/modules --tmpfs /run
 else
 	CONTAINER_OPTS := --rm -v /lib/modules:/lib/modules --tmpfs /run

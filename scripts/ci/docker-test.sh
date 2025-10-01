@@ -2,6 +2,24 @@
 
 set -x -e -o pipefail
 
+# Workaround: Docker 28.x has a known regression that breaks the checkpoint and
+# restore (C/R) feature. Let's install previous, or next major version. See
+# https://github.com/moby/moby/issues/50750 for details on the bug.
+export DEBIAN_FRONTEND=noninteractive
+apt remove -y docker-ce docker-ce-cli
+../../contrib/apt-install -y ca-certificates curl
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+# shellcheck disable=SC1091
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" > /etc/apt/sources.list.d/docker.list
+apt update -y
+apt-cache madison docker-ce | awk '{ print $3 }'
+verstr="$(apt-cache madison docker-ce | awk '{ print $3 }' | sort | grep -v ':28\.'| tail -n 1)"
+../../contrib/apt-install -y "docker-ce=$verstr" "docker-ce-cli=$verstr"
+
 # docker checkpoint and restore is an experimental feature
 echo '{ "experimental": true }' > /etc/docker/daemon.json
 service docker restart

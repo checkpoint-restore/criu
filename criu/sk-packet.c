@@ -173,7 +173,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	psk.fown = (FownEntry *)&p->fown;
 	psk.opts = &skopts;
 
-	if (dump_socket_opts(lfd, &skopts))
+	if (dump_socket_opts(lfd, AF_PACKET, &skopts))
 		return -1;
 
 	psk.protocol = sd->proto;
