@@ -171,7 +171,7 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, unsigned long int nr)
 {
 	if (vaddr < pe->vaddr || (vaddr - pe->vaddr) / PAGE_SIZE + nr > pe->nr_pages) {
-		pr_err("Page read err %" PRIx64 ":%lx vs %lx:%lx\n", pe->vaddr, pe->nr_pages, vaddr, nr);
+		pr_err("Page read err %" PRIx64 ":%" PRIx64 " vs %lx:%lx\n", pe->vaddr, pe->nr_pages, vaddr, nr);
 		BUG();
 	}
 }
