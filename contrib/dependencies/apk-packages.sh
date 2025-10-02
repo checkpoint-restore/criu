@@ -22,6 +22,7 @@ apk add --no-cache \
 	libnl3-dev \
 	nftables \
 	nftables-dev \
+	perl \
 	pkgconfig \
 	procps \
 	protobuf-c-compiler \
