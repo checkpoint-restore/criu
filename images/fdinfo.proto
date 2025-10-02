@@ -21,6 +21,7 @@ import "pidfd.proto";
 import "tty.proto";
 import "memfd.proto";
 import "bpfmap-file.proto";
+import "posix-sem.proto";
 
 enum fd_types {
 	UND		= 0;
@@ -44,6 +45,7 @@ enum fd_types {
 	MEMFD		= 18;
 	BPFMAP		= 19;
 	PIDFD           = 20;
+    POSIX_SEM       = 21;
 
 	/* Any number above the real used. Not stored to image */
 	CTL_TTY		= 65534;
@@ -81,4 +83,5 @@ message file_entry {
 	optional memfd_file_entry	memfd	= 20;
 	optional bpfmap_file_entry	bpf	= 21;
 	optional pidfd_entry		pidfd   = 22;
+    optional posix_sem_entry    psm = 23;
 }

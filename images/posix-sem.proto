@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+message posix_sem_entry {
+	required string	name		= 1;
+	required uint32	value		= 2;
+	required uint32	mode		= 3;
+	required uint32	uid		= 4;
+	required uint32	gid		= 5;
+	required uint64	dev		= 6;
+	required uint64	ino		= 7;
+	required uint32	fd_id		= 8;
+}

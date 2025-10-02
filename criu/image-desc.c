@@ -108,6 +108,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY_F(BPFMAP_DATA,	"bpfmap-data", O_NOBUF),
 	FD_ENTRY(APPARMOR,	"apparmor"),
 	FD_ENTRY(PIDFD,		"pidfd"),
+    FD_ENTRY(POSIX_SEM, "posix-sem"),
 
 	[CR_FD_STATS] = {
 		.fmt	= "stats-%s",
