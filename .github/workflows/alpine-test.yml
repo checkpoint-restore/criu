@@ -9,10 +9,11 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
     strategy:
       matrix:
+        os: [ubuntu-22.04, ubuntu-22.04-arm]
         target: [GCC=1, CLANG=1]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
