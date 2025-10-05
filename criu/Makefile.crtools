@@ -102,6 +102,7 @@ CFLAGS_REMOVE_vdso-compat.o	+= $(CFLAGS-ASAN) $(CFLAGS-GCOV)
 obj-y			+= pidfd-store.o
 obj-y			+= hugetlb.o
 obj-y			+= pidfd.o
+obj-y			+= posix-sem.o
 
 PROTOBUF_GEN := scripts/protobuf-gen.sh
 

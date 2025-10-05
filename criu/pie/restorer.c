@@ -880,6 +880,50 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 		return arch_shmat(vma_entry->fd, shmaddr, att_flags, shmsize);
 	}
 
+    if (vma_entry_is(vma_entry, VMA_AREA_POSIX_SEM)) {
+		/*
+		 * POSIX semaphore VMAs need special handling.
+		 * The semaphore file should already exist from FD restoration.
+		 * If the VMA doesn't have an fd, we'll try to find semaphore files -> Same node
+		 */
+		void *addr;
+		int sem_fd = (int)vma_entry->fd;
+		
+		pr_info("Restoring POSIX semaphore VMA at %" PRIx64 "-%" PRIx64 " (fd=%d)\n", 
+				vma_entry->start, vma_entry->end, sem_fd);
+		
+		if (sem_fd == -1) {
+		    return -1; // No semaphore file to restore	
+		}
+		
+		/* Map the semaphore file to the original VMA address */
+		addr = (void *)sys_mmap(decode_pointer(vma_entry->start), 
+						vma_entry_len(vma_entry),
+						vma_entry->prot, 
+						vma_entry->flags | MAP_FIXED, 
+						sem_fd, 
+						vma_entry->pgoff);
+		
+		if (addr == MAP_FAILED) {
+			pr_err("Failed to map semaphore VMA: %p (fd=%d)\n", addr, sem_fd);
+			return -1;
+		}
+		
+		if ((unsigned long)addr != vma_entry->start) {
+			pr_err("VMA mapping failed: expected %" PRIx64 ", got %lx\n", 
+				   vma_entry->start, (unsigned long)addr);
+			return -1;
+		}
+		
+		pr_info("Successfully mapped semaphore VMA %" PRIx64 "-%" PRIx64 " (fd=%d)\n",
+				vma_entry->start, vma_entry->end, sem_fd);
+		
+		if ((vma_entry->fd != -1) && (vma_entry->status & VMA_CLOSE))
+			sys_close(vma_entry->fd);
+			
+		return vma_entry->start;
+	}
+
 	/*
 	 * Restore or shared mappings are tricky, since
 	 * we open anonymous mapping via map_files/
@@ -1868,7 +1912,9 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
 
-		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR) && !vma_entry_is(vma_entry, VMA_AREA_AIORING))
+		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR) || 
+              vma_entry_is(vma_entry, VMA_AREA_AIORING) || 
+              vma_entry_is(vma_entry, VMA_AREA_POSIX_SEM)))
 			continue;
 
 		if (vma_entry_is(vma_entry, VMA_PREMMAPED))
@@ -1956,7 +2002,7 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
 
-		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
+		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR) || vma_entry_is(vma_entry, VMA_AREA_POSIX_SEM)))
 			continue;
 
 		if ((vma_entry->prot & PROT_WRITE) || (vma_entry->status & VMA_NO_PROT_WRITE))

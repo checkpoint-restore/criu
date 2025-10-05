@@ -37,6 +37,9 @@
  *  	should be careful about guard page here
  *  - shadow stack
  *      the memory area is used by shadow stack
+ *  - posix semaphore
+ *  	POSIX semaphore memory mapping (/dev/shm/sem.*) that
+ *  	requires special handling for cross host migration
  *  - vsyscall
  *  	special memory area injected into the task memory
  *  	space by the kernel itself, represent virtual syscall
@@ -80,6 +83,7 @@
 #define VMA_AREA_STACK	  (1 << 1)
 #define VMA_AREA_VSYSCALL (1 << 2)
 #define VMA_AREA_VDSO	  (1 << 3)
+#define VMA_AREA_POSIX_SEM (1 << 4)
 #define VMA_AREA_HEAP	  (1 << 5)
 
 #define VMA_FILE_PRIVATE (1 << 6)
@@ -98,8 +102,8 @@
 #define VMA_EXT_PLUGIN	  (1 << 27)
 #define VMA_CLOSE	  (1 << 28)
 #define VMA_NO_PROT_WRITE (1 << 29)
-#define VMA_PREMMAPED	  (1 << 30)
-#define VMA_UNSUPP	  (1 << 31)
+#define VMA_PREMMAPED	  (1U << 30)
+#define VMA_UNSUPP	  (1ULL << 31)
 
 #define CR_CAP_SIZE 2
 
