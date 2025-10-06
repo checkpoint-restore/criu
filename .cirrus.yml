@@ -1,5 +1,5 @@
 task:
-  name: Vagrant Fedora based test (no VDSO)
+  name: Vagrant Fedora (no VDSO)
   environment:
     HOME: "/root"
     CIRRUS_WORKING_DIR: "/tmp/criu"
@@ -19,7 +19,7 @@ task:
     make -C scripts/ci vagrant-fedora-no-vdso
 
 task:
-  name: CentOS Stream 9 based test
+  name: CentOS Stream 9
   environment:
     HOME: "/root"
     CIRRUS_WORKING_DIR: "/tmp/criu"
@@ -49,7 +49,7 @@ task:
     make -C scripts/ci local SKIP_CI_PREP=1 CC=gcc CD_TO_TOP=1 ZDTM_OPTS="-x zdtm/static/socket-raw"
 
 task:
-  name: Vagrant Fedora Rawhide based test
+  name: Vagrant Fedora Rawhide
   environment:
     HOME: "/root"
     CIRRUS_WORKING_DIR: "/tmp/criu"
@@ -69,7 +69,7 @@ task:
     make -C scripts/ci vagrant-fedora-rawhide
 
 task:
-  name: Vagrant Fedora based test (non-root)
+  name: Vagrant Fedora (non-root)
   environment:
     HOME: "/root"
     CIRRUS_WORKING_DIR: "/tmp/criu"
