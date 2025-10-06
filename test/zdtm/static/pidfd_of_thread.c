@@ -5,6 +5,7 @@
 
 #include "zdtmtst.h"
 #include "lock.h"
+#include "pidfd.h"
 
 const char *test_doc = "Check C/R of pidfds that point to threads\n";
 const char *test_author = "Bhavik Sachdev <b.sachdev1904@gmail.com>";
@@ -19,10 +20,6 @@ const char *test_author = "Bhavik Sachdev <b.sachdev1904@gmail.com>";
 #define PIDFD_SIGNAL_THREAD		(1UL << 0)
 #endif
 
-#ifndef PID_FS_MAGIC
-#define PID_FS_MAGIC 0x50494446
-#endif
-
 static long get_fs_type(int lfd)
 {
 	struct statfs fst;
@@ -31,16 +28,6 @@ static long get_fs_type(int lfd)
 		return -1;
 	}
 	return fst.f_type;
-}
-
-static int pidfd_open(pid_t pid, unsigned int flags)
-{
-	return syscall(__NR_pidfd_open, pid, flags);
-}
-
-static int pidfd_send_signal(int pidfd, int sig, siginfo_t* info, unsigned int flags)
-{
-	return syscall(__NR_pidfd_send_signal, pidfd, sig, info, flags);
 }
 
 static int thread_func(void *a)

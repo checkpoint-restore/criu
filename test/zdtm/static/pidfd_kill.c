@@ -3,19 +3,10 @@
 #include <sys/wait.h>
 
 #include "zdtmtst.h"
+#include "pidfd.h"
 
 const char *test_doc = "Kill child and grandchild process using pidfds\n";
 const char *test_author = "Bhavik Sachdev <b.sachdev1904@gmail.com>";
-
-static int pidfd_open(pid_t pid, unsigned int flags)
-{
-	return syscall(__NR_pidfd_open, pid, flags);
-}
-
-static int pidfd_send_signal(int pidfd, int sig, siginfo_t* info, unsigned int flags)
-{
-	return syscall(__NR_pidfd_send_signal, pidfd, sig, info, flags);
-}
 
 static int wait_for_child(int child)
 {

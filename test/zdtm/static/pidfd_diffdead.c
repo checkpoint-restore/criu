@@ -6,13 +6,10 @@
 #include <sys/stat.h>
 
 #include "zdtmtst.h"
+#include "pidfd.h"
 
 const char *test_doc = "Check C/R of processes that point to a common dead pidfd\n";
 const char *test_author = "Bhavik Sachdev <b.sachdev1904@gmail.com>";
-
-#ifndef PID_FS_MAGIC
-#define PID_FS_MAGIC 0x50494446
-#endif
 
 /*
  * main
@@ -32,16 +29,6 @@ static long get_fs_type(int lfd)
 		return -1;
 	}
 	return fst.f_type;
-}
-
-static int pidfd_open(pid_t pid, unsigned int flags)
-{
-	return syscall(__NR_pidfd_open, pid, flags);
-}
-
-static int pidfd_send_signal(int pidfd, int sig, siginfo_t *info, unsigned int flags)
-{
-	return syscall(__NR_pidfd_send_signal, pidfd, sig, info, flags);
 }
 
 static int check_for_pidfs(void)
