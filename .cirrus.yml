@@ -49,6 +49,29 @@ task:
     make -C scripts/ci local SKIP_CI_PREP=1 CC=gcc CD_TO_TOP=1 ZDTM_OPTS="-x zdtm/static/socket-raw"
 
 task:
+  name: AlmaLinux 8
+  environment:
+    HOME: "/root"
+    CIRRUS_WORKING_DIR: "/tmp/criu"
+
+  compute_engine_instance:
+    image_project: almalinux-cloud
+    image: family/almalinux-8
+    platform: linux
+    cpu: 4
+    memory: 8G
+
+  setup_script: |
+    dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm dnf-plugins-core
+    dnf config-manager --set-enabled powertools
+    contrib/dependencies/dnf-packages.sh
+    setenforce 0
+
+  build_script: |
+    make -j $(nproc) CC=gcc
+    make -C scripts/ci/ local CC=gcc SKIP_CI_PREP=1 CD_TO_TOP=1 ZDTM_OPTS="-x zdtm/static/socket-raw"
+
+task:
   name: Vagrant Fedora Rawhide
   environment:
     HOME: "/root"

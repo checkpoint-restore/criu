@@ -33,6 +33,6 @@ dnf install -y \
 	python3-importlib-metadata \
 	python3-protobuf \
 	python3-pyyaml \
-	python-devel \
 	rubygem-asciidoctor \
+	which \
 	xmlto
