@@ -359,13 +359,15 @@ make -C test/others/action-script run
 make -C compel/test
 
 # amdgpu and cuda plugin testing
-make amdgpu_plugin
-make -C plugins/amdgpu/ test_topology_remap
-./plugins/amdgpu/test_topology_remap
+# Skip amdgpu libdrm is not installed
+if pkg-config --exists libdrm; then
+	make amdgpu_plugin
+	make -C plugins/amdgpu/ test_topology_remap
+	./plugins/amdgpu/test_topology_remap
+	./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu
+	./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu cuda
+fi
 
 ./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin cuda
-./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu
-./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu cuda
 ./test/zdtm.py run -t zdtm/static/busyloop00 --criu-plugin inventory_test_enabled inventory_test_disabled
-
 ./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 --mocked-cuda-checkpoint --fault 138
