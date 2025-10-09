@@ -3,6 +3,7 @@ include ../../../../criu/Makefile.versions
 TESTS += test_sub
 TESTS += test_self
 TESTS += test_notify
+TESTS += test_rpc_config
 TESTS += test_iters
 TESTS += test_errno
 TESTS += test_join_ns
