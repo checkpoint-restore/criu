@@ -1536,7 +1536,7 @@ static int __restore_task_with_children(void *_arg)
 
 	pid = getpid();
 	if (vpid(current) != pid) {
-		pr_err("Pid %d do not match expected %d\n", pid, vpid(current));
+		pr_err("Pid %d does not match expected %d\n", pid, vpid(current));
 		set_task_cr_err(EEXIST);
 		goto err;
 	}
