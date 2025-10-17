@@ -2431,16 +2431,15 @@ err:
 	return ret;
 }
 
-static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_head *self_vma_list, long vma_len)
+static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_head *self_vma_list, long min_addr, long vma_len)
 {
 	struct vma_area *t_vma, *s_vma;
-	long prev_vma_end = 0;
+	long prev_vma_end = min_addr;
 	struct vma_area end_vma;
 	VmaEntry end_e;
 
 	end_vma.e = &end_e;
 	end_e.start = end_e.end = kdat.task_size;
-	prev_vma_end = kdat.mmap_min_addr;
 
 	s_vma = list_first_entry(self_vma_list, struct vma_area, list);
 	t_vma = list_first_entry(tgt_vma_list, struct vma_area, list);
@@ -3226,7 +3225,9 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 * or inited from scratch).
 	 */
 
-	mem = (void *)restorer_get_vma_hint(&vmas->h, &self_vmas.h, task_args->bootstrap_len);
+	mem = (void *)restorer_get_vma_hint(&vmas->h, &self_vmas.h,
+					    shstk_min_mmap_addr(&task_args->shstk, kdat.mmap_min_addr),
+					    task_args->bootstrap_len);
 	if (mem == (void *)-1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n", task_args->bootstrap_len);
 		goto err;
