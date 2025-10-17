@@ -11,6 +11,7 @@ authors = [
 license = {text = "GPLv2"}
 dynamic = ["version"]
 requires-python = ">=3.6"
+dependencies = ["protobuf"]
 
 [tool.setuptools]
 packages = ["pycriu", "pycriu.images"]
