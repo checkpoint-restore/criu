@@ -8,7 +8,7 @@ description = "Python bindings for CRIU"
 authors = [
     {name = "CRIU team", email = "criu@lists.linux.dev"},
 ]
-license = {text = "GPLv2"}
+license = {text = "LGPLv2.1"}
 dynamic = ["version"]
 requires-python = ">=3.6"
 
