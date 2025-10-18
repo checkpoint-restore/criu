@@ -181,15 +181,14 @@ class CRIUExceptionExternal(CRIUException):
         if self.errno == errno.EBADRQC:
             s += "Bad options"
 
-        if self.typ == rpc.DUMP:
-            if self.errno == errno.ESRCH:
-                s += "No process with such pid"
+        elif self.typ == rpc.DUMP and self.errno == errno.ESRCH:
+            s += "No process with such pid"
 
-        if self.typ == rpc.RESTORE:
-            if self.errno == errno.EEXIST:
-                s += "Process with requested pid already exists"
+        elif self.typ == rpc.RESTORE and self.errno == errno.EEXIST:
+            s += "Process with requested pid already exists"
 
-        s += "Unknown"
+        else:
+            s += "Unknown"
 
         return s
 
