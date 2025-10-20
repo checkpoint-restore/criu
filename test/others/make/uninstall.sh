@@ -12,9 +12,15 @@ make uninstall DESTDIR=$DESTDIR
 set +x
 
 # There should be no files left (directories are OK for now)
-if [ $(find $DESTDIR -type f | wc -l) -gt 0 ]; then
+# except protobuf under Python site-packages
+
+ALLOW_RE='/python[0-9.]+/(site|dist)-packages/(google/.*|protobuf-[0-9.]+\.dist-info/.*)$'
+
+LEFT=$(find "$DESTDIR" -type f | grep -vE "$ALLOW_RE" || true)
+
+if [ -n "$LEFT" ]; then
 	echo "Files left after uninstall:"
-	find $DESTDIR -type f
+	echo "$LEFT"
 	echo "FAIL"
 	exit 1
 fi
