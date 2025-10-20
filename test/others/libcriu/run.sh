@@ -63,6 +63,7 @@ if [ "$(uname -m)" = "x86_64" ]; then
 fi
 run_test test_errno
 run_test test_join_ns
+run_test test_check
 if criu check --feature mem_dirty_track > /dev/null; then
 	export CRIU_FEATURE_MEM_TRACK=1
 fi
