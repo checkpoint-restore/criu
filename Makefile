@@ -451,6 +451,7 @@ ruff:
 		test/zdtm.py \
 		test/inhfd/*.py \
 		test/others/rpc/config_file.py \
+		test/others/action-script/check_actions.py \
 		lib/pycriu/images/pb2dict.py \
 		lib/pycriu/images/images.py \
 		scripts/criu-ns \
