@@ -37,4 +37,5 @@ dnf install -y \
 	python3-setuptools \
 	python3-wheel \
 	rubygem-asciidoctor \
+	which \
 	xmlto
