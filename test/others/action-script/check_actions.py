@@ -1,41 +1,54 @@
 #!/usr/bin/env python3
 
-import sys
 import os
+import sys
 
-actions = set(['pre-dump', 'pre-restore', 'post-dump', 'setup-namespaces', \
-  'post-setup-namespaces', 'post-restore', 'post-resume', \
-  'network-lock', 'network-unlock' ])
+EXPECTED_ACTIONS = [
+    'pre-dump',
+    'network-lock',
+    'post-dump',
+    'pre-restore',
+    'setup-namespaces',
+    'post-setup-namespaces',
+    'post-restore',
+    'network-unlock',
+    'pre-resume',
+    'post-resume',
+]
+
 errors = []
-af = os.path.dirname(os.path.abspath(__file__)) + '/actions_called.txt'
+actions_called = []
+actions_called_file = os.path.join(os.path.dirname(__file__), 'actions_called.txt')
 
-for act in open(af):
-    act = act.strip().split()
-    act.append('EMPTY')
-    act.append('EMPTY')
+with open(actions_called_file) as f:
+    for index, line in enumerate(f):
+        parts = line.strip().split()
+        parts += ['EMPTY'] * (3 - len(parts))
+        action_hook, image_dir, pid = parts
 
-    if act[0] == 'EMPTY':
-        raise Exception("Error in test, bogus actions line")
+        if action_hook == 'EMPTY':
+            raise ValueError("Error in test: bogus actions line")
 
-    if act[1] == 'EMPTY':
-        errors.append('Action %s misses CRTOOLS_IMAGE_DIR' % act[0])
+        expected_action = EXPECTED_ACTIONS[index] if index < len(EXPECTED_ACTIONS) else None
+        if action_hook != expected_action:
+            raise ValueError(f"Invalid action: {action_hook} != {expected_action}")
 
-    if act[0] in ('post-dump', 'setup-namespaces', 'post-setup-namespaces', \
-      'post-restore', 'post-resume', 'network-lock', 'network-unlock'):
-        if act[2] == 'EMPTY':
-            errors.append('Action %s misses CRTOOLS_INIT_PID' % act[0])
-        elif not act[2].isdigit() or int(act[2]) == 0:
-            errors.append('Action %s PID is not number (%s)' %
-                          (act[0], act[2]))
+        if image_dir == 'EMPTY':
+            errors.append(f'Action {action_hook} misses CRTOOLS_IMAGE_DIR')
 
-    actions -= set([act[0]])
+        if action_hook != 'pre-restore':
+            if pid == 'EMPTY':
+                errors.append(f'Action {action_hook} misses CRTOOLS_INIT_PID')
+            elif not pid.isdigit() or int(pid) == 0:
+                errors.append(f'Action {action_hook} PID is not a valid number ({pid})')
 
-if actions:
-    errors.append('Not all actions called: %r' % actions)
+        actions_called.append(action_hook)
+
+if actions_called != EXPECTED_ACTIONS:
+    errors.append(f'Not all actions called: {actions_called!r}')
 
 if errors:
-    for x in errors:
-        print(x)
+    print('\n'.join(errors))
     sys.exit(1)
 
-print('PASS')
+print('Check Actions PASS')
