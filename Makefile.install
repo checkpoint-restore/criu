@@ -46,9 +46,13 @@ endif
 endif
 
 # Default flags for pip install:
-# --upgrade: Upgrade crit/pycriu packages
-# --ignore-installed: Ignore existing packages and reinstall them
-PIPFLAGS ?= --upgrade --ignore-installed
+# --ignore-installed: Overwrite already installed pycriu/crit packages
+# --no-build-isolation: Use current Python environment to build pycriu/crit packages
+# --no-deps: Don't install any dependencies
+# --no-index: Don't use PyPI index to find packages
+# --progress-bar: Cleaner output
+# --upgrade: Treat the install as an upgrade when replacing the installed version
+PIPFLAGS ?= --ignore-installed --no-build-isolation --no-deps --no-index --progress-bar off --upgrade
 
 export SKIP_PIP_INSTALL PIPFLAGS
 
