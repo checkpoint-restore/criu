@@ -30,9 +30,11 @@ dnf install -y \
 	protobuf-c-devel \
 	protobuf-compiler \
 	protobuf-devel \
+	python-devel \
 	python3-importlib-metadata \
 	python3-protobuf \
 	python3-pyyaml \
-	python-devel \
+	python3-setuptools \
+	python3-wheel \
 	rubygem-asciidoctor \
 	xmlto
