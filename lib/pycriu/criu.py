@@ -103,7 +103,7 @@ class _criu_comm_bin(_criu_comm):
                 os.close(2)
 
                 css[0].send(struct.pack('i', os.getpid()))
-                os.execv(self.comm,
+                os.execvp(self.comm,
                          [self.comm, 'swrk',
                           "%d" % css[0].fileno()])
                 os._exit(1)
