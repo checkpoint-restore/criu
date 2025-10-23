@@ -265,6 +265,8 @@ class criu:
         """
         req = rpc.criu_req()
         req.type = rpc.CHECK
+        req.opts.MergeFrom(self.opts)
+        req.opts.images_dir_fd = self.opts.images_dir_fd
 
         resp = self._send_req_and_recv_resp(req)
 

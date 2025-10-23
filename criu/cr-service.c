@@ -673,6 +673,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		xfree(tmp_work);
 	}
 
+	if (opts.mode == CR_CHECK)
+		goto after_dump_restore_specific;
+
 	/*
 	 * open images_dir - images_dir_fd is a required RPC parameter
 	 *
@@ -732,6 +735,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		pr_perror("Can't chdir to work_dir");
 		goto err;
 	}
+
+after_dump_restore_specific:
 
 	if (req->n_irmap_scan_paths) {
 		for (i = 0; i < req->n_irmap_scan_paths; i++) {
