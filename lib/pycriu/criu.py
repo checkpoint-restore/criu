@@ -204,6 +204,9 @@ class criu:
     def __init__(self):
         self.use_binary('criu')
         self.opts = rpc.criu_opts()
+        # Since images_dir_fd is a required field in rpc.proto
+        # we need to explicitly pass it into opts
+        self.opts.images_dir_fd = self.opts.images_dir_fd
         self.sk = None
 
     def use_sk(self, sk_name):
