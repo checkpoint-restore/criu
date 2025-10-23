@@ -714,9 +714,22 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	/* get full path to images_dir to use in process title */
-	if (readlink(images_dir_path, images_dir, PATH_MAX) == -1) {
-		pr_perror("Can't readlink %s", images_dir_path);
-		goto err;
+	if (strncmp(images_dir_path, "/proc/", 6) == 0) {
+		ssize_t ret = readlink(images_dir_path, images_dir, PATH_MAX - 1);
+		if (ret == -1) {
+			pr_perror("Can't readlink %s", images_dir_path);
+			goto err;
+		}
+		if (ret >= PATH_MAX - 1) {
+			pr_perror("Resolved path too long for %s", images_dir_path);
+			goto err;
+		}
+		images_dir[ret] = '\0';
+	} else {
+		if (!realpath(images_dir_path, images_dir)) {
+			pr_perror("Can't resolve path %s", images_dir_path);
+			goto err;
+		}
 	}
 
 	if (work_changed_by_rpc_conf)
