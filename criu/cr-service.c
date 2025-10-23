@@ -674,7 +674,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	/*
-	 * open images_dir - images_dir_fd is a required RPC parameter
+	 * open images_dir - images_dir_fd is -1 by default
 	 *
 	 * This assumes that if opts.imgs_dir is set we have a value
 	 * from the configuration file parser. The test to see that

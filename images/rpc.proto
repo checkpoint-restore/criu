@@ -61,7 +61,7 @@ enum criu_pre_dump_mode {
 };
 
 message criu_opts {
-	required int32			images_dir_fd	= 1 [default = -1];
+	optional int32			images_dir_fd	= 1 [default = -1];
 	optional string			images_dir	= 68; /* used only if images_dir_fd == -1 */
 	optional int32			pid		= 2; /* if not set on dump, will dump requesting process */
 
