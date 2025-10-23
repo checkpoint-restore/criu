@@ -181,6 +181,9 @@ class CRIUExceptionExternal(CRIUException):
         if self.errno == errno.EBADRQC:
             s += "Bad options"
 
+        elif self.typ == rpc.DUMP and self.errno == errno.ENOENT:
+            s += "Dump folder not found. Please create it first."
+
         elif self.typ == rpc.DUMP and self.errno == errno.ESRCH:
             s += "No process with such pid"
 

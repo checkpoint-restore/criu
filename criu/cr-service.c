@@ -710,7 +710,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	 */
 	if (open_image_dir(images_dir_path, -1) < 0) {
 		pr_perror("Can't open images directory");
-		goto err;
+		set_cr_errno(ENOENT);
+		return -1;
 	}
 
 	/* get full path to images_dir to use in process title */
