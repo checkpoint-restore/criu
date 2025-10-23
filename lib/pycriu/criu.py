@@ -72,6 +72,15 @@ class _criu_comm_fd(_criu_comm):
         self.sk.close()
 
 
+def ensure_root_class_method(func):
+    def wrapper(self, *args, **kwargs):
+        if os.geteuid() != 0:
+            raise PermissionError("Please run with sudo or use service socket instead.")
+        
+        setattr(type(self), func.__name__, func)
+        return func(self, *args, **kwargs)
+    return wrapper
+
 class _criu_comm_bin(_criu_comm):
     """
     Communication class for binary.
@@ -83,6 +92,7 @@ class _criu_comm_bin(_criu_comm):
         self.swrk = None
         self.daemon = None
 
+    @ensure_root_class_method
     def connect(self, daemon):
         # Kind of the same thing we do in libcriu
         css = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
