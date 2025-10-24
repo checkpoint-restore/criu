@@ -311,6 +311,12 @@ static int resolve_images_dir_path(char *images_dir_path,
 		strncpy(images_dir_path, req->images_dir, PATH_MAX - 1);
 		images_dir_path[PATH_MAX - 1] = '\0';
 	} else {
+		/*
+		 * Since images dir is not required in CHECK mode, we need to
+		 * check for work_dir_fd in setup_images_and_workdir()
+		 */
+		if (opts.mode == CR_CHECK)
+			return 0;
 		pr_err("Neither images_dir_fd nor images_dir was passed by RPC client.\n");
 		return -1;
 	}
@@ -323,18 +329,21 @@ static int setup_images_and_workdir(const char *images_dir_path,
 				    CriuOpts *req,
 				    pid_t peer_pid)
 {
-	char work_dir_path[PATH_MAX];
+	char work_dir_path[PATH_MAX] = "";
 
-	/*
-	 * Image streaming is not supported with CRIU's service feature as
-	 * the streamer must be started for each dump/restore operation.
-	 * It is unclear how to do that with RPC, so we punt for now.
-	 * This explains why we provide the argument mode=-1 instead of
-	 * O_RSTR or O_DUMP.
-	 */
-	if (open_image_dir(images_dir_path, -1) < 0) {
-		pr_perror("Can't open images directory");
-		return -1;
+	/* We don't need to open images dir in CHECK mode. */
+	if (opts.mode != CR_CHECK) {
+		/*
+		 * Image streaming is not supported with CRIU's service feature as
+		 * the streamer must be started for each dump/restore operation.
+		 * It is unclear how to do that with RPC, so we punt for now.
+		 * This explains why we provide the argument mode=-1 instead of
+		 * O_RSTR or O_DUMP.
+		 */
+		if (open_image_dir(images_dir_path, -1) < 0) {
+			pr_perror("Can't open images directory");
+			return -1;
+		}
 	}
 
 	if (work_changed_by_rpc_conf)
@@ -343,8 +352,13 @@ static int setup_images_and_workdir(const char *images_dir_path,
 		sprintf(work_dir_path, "/proc/%d/fd/%d", peer_pid, req->work_dir_fd);
 	else if (opts.work_dir)
 		strncpy(work_dir_path, opts.work_dir, PATH_MAX - 1);
-	else
+	else if (images_dir_path[0] != '\0')
 		strcpy(work_dir_path, images_dir_path);
+
+	if (work_dir_path[0] == '\0') {
+		pr_err("images-dir or work-dir is required when using log file\n");
+		return -1;
+	}
 
 	if (chdir(work_dir_path)) {
 		pr_perror("Can't chdir to work_dir");
@@ -384,7 +398,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	struct ucred ids;
 	struct stat st;
 	socklen_t ids_len = sizeof(struct ucred);
-	char images_dir_path[PATH_MAX];
+	char images_dir_path[PATH_MAX] = "";
 	char status_fd[PATH_MAX];
 	bool output_changed_by_rpc_conf = false;
 	bool work_changed_by_rpc_conf = false;
@@ -395,6 +409,23 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &ids, &ids_len)) {
 		pr_perror("Can't get socket options");
 		goto err;
+	}
+
+	/*
+	 * The options relevant in CHECK mode are: log_file, log_to_stderr, and log_level.
+	 * When logging to a file, we also need to resolve images_dir and work_dir.
+	 */
+	if (opts.mode == CR_CHECK) {
+		if (!req)
+			return 0; /* nothing to do */
+
+		/*
+		 * A log file is needed only if:
+		 *   - log_file is explicitly set, or
+		 *   - log_to_stderr is NOT requested (i.e., using DEFAULT_LOG_FILENAME)
+		 */
+		if (!req->log_file || (req->has_log_to_stderr && req->log_to_stderr))
+			return 0; /* no log file, don't require images_dir or work_dir */
 	}
 
 	if (fstat(sk, &st)) {
