@@ -49,8 +49,8 @@ class test:
 
         if err and resp.cr_errno != err:
             raise Exception('Unexpected cr_errno ' + str(resp.cr_errno))
-        
-        if errmsg and errmsg not in resp.cr_errmsg:
+
+        if errmsg and errmsg not in str(resp.cr_errmsg):
             raise Exception('Unexpected cr_msg \'' + str(resp.cr_errmsg) + '\'')
 
     def no_process(self):
@@ -134,20 +134,19 @@ class test:
         self.check_resp(resp, rpc.EMPTY, None)
 
         print('Success')
-        
+
     def child_first_err(self):
         print('Receive correct first error message')
 
         req = self.get_base_req()
         req.type = rpc.CHECK
-        
-        # mntns_compat_mode options is only allowed on restore
-        req.opts.mntns_compat_mode = True
+        # Log file must not have subdirectory
+        req.opts.log_file = "/foo/bar.log"
 
         self.send_req(req)
         resp = self.recv_resp()
 
-        self.check_resp(resp, rpc.CHECK, None, "Option --mntns-compat-mode is only valid on restore\n")
+        self.check_resp(resp, rpc.CHECK, None, "No subdirs are allowed in log_file name")
 
         print('Success')
 
