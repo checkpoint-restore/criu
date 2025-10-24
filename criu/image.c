@@ -717,7 +717,7 @@ struct cr_img *img_from_fd(int fd)
  * This is used when opts.stream is enabled for picking the right streamer
  * socket name. `mode` is ignored when opts.stream is not enabled.
  */
-int open_image_dir(char *dir, int mode)
+int open_image_dir(const char *dir, int mode)
 {
 	int fd, ret;
 
