@@ -285,13 +285,54 @@ int exec_rpc_query_external_files(char *name, int sk)
 
 static char images_dir[PATH_MAX];
 
+static int setup_images_and_workdir(const char *images_dir_path,
+				    bool work_changed_by_rpc_conf,
+				    CriuOpts *req,
+				    pid_t peer_pid)
+{
+	char work_dir_path[PATH_MAX];
+
+	/*
+	 * Image streaming is not supported with CRIU's service feature as
+	 * the streamer must be started for each dump/restore operation.
+	 * It is unclear how to do that with RPC, so we punt for now.
+	 * This explains why we provide the argument mode=-1 instead of
+	 * O_RSTR or O_DUMP.
+	 */
+	if (open_image_dir(images_dir_path, -1) < 0) {
+		pr_perror("Can't open images directory");
+		return -1;
+	}
+
+	/* get full path to images_dir to use in process title */
+	if (readlink(images_dir_path, images_dir, PATH_MAX) == -1) {
+		pr_perror("Can't readlink %s", images_dir_path);
+		return -1;
+	}
+
+	if (work_changed_by_rpc_conf)
+		strncpy(work_dir_path, opts.work_dir, PATH_MAX - 1);
+	else if (req->has_work_dir_fd)
+		sprintf(work_dir_path, "/proc/%d/fd/%d", peer_pid, req->work_dir_fd);
+	else if (opts.work_dir)
+		strncpy(work_dir_path, opts.work_dir, PATH_MAX - 1);
+	else
+		strcpy(work_dir_path, images_dir_path);
+
+	if (chdir(work_dir_path)) {
+		pr_perror("Can't chdir to work_dir");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int setup_opts_from_req(int sk, CriuOpts *req)
 {
 	struct ucred ids;
 	struct stat st;
 	socklen_t ids_len = sizeof(struct ucred);
 	char images_dir_path[PATH_MAX];
-	char work_dir_path[PATH_MAX];
 	char status_fd[PATH_MAX];
 	bool output_changed_by_rpc_conf = false;
 	bool work_changed_by_rpc_conf = false;
@@ -701,37 +742,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->parent_img)
 		SET_CHAR_OPTS(img_parent, req->parent_img);
 
-	/*
-	 * Image streaming is not supported with CRIU's service feature as
-	 * the streamer must be started for each dump/restore operation.
-	 * It is unclear how to do that with RPC, so we punt for now.
-	 * This explains why we provide the argument mode=-1 instead of
-	 * O_RSTR or O_DUMP.
-	 */
-	if (open_image_dir(images_dir_path, -1) < 0) {
-		pr_perror("Can't open images directory");
+	if (setup_images_and_workdir(images_dir_path, work_changed_by_rpc_conf, req, ids.pid))
 		goto err;
-	}
-
-	/* get full path to images_dir to use in process title */
-	if (readlink(images_dir_path, images_dir, PATH_MAX) == -1) {
-		pr_perror("Can't readlink %s", images_dir_path);
-		goto err;
-	}
-
-	if (work_changed_by_rpc_conf)
-		strncpy(work_dir_path, opts.work_dir, PATH_MAX - 1);
-	else if (req->has_work_dir_fd)
-		sprintf(work_dir_path, "/proc/%d/fd/%d", ids.pid, req->work_dir_fd);
-	else if (opts.work_dir)
-		strncpy(work_dir_path, opts.work_dir, PATH_MAX - 1);
-	else
-		strcpy(work_dir_path, images_dir_path);
-
-	if (chdir(work_dir_path)) {
-		pr_perror("Can't chdir to work_dir");
-		goto err;
-	}
 
 	if (req->n_irmap_scan_paths) {
 		for (i = 0; i < req->n_irmap_scan_paths; i++) {

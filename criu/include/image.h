@@ -165,7 +165,7 @@ static inline int img_raw_fd(struct cr_img *img)
 
 extern off_t img_raw_size(struct cr_img *img);
 
-extern int open_image_dir(char *dir, int mode);
+extern int open_image_dir(const char *dir, int mode);
 extern void close_image_dir(void);
 /*
  * Return -1 -- parent symlink points to invalid target
