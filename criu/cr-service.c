@@ -283,6 +283,41 @@ int exec_rpc_query_external_files(char *name, int sk)
 	return ret;
 }
 
+static int resolve_images_dir_path(char *images_dir_path,
+				   bool imgs_changed_by_rpc_conf,
+				   const CriuOpts *req,
+				   pid_t peer_pid)
+{
+	/*
+	 * images_dir_fd is a required RPC parameter with -1 as default value.
+	 *
+	 * This assumes that if opts.imgs_dir is set, we have a value
+	 * from the configuration file parser. The test to see that
+	 * imgs_changed_by_rpc_conf is true is used to make sure the value
+	 * is from the RPC configuration file. The idea is that only the
+	 * RPC configuration file is able to overwrite RPC settings:
+	 *  * apply_config(global_conf)
+	 *  * apply_config(user_conf)
+	 *  * apply_config(environment variable)
+	 *  * apply_rpc_options()
+	 *  * apply_config(rpc_conf)
+	 */
+	if (imgs_changed_by_rpc_conf) {
+		strncpy(images_dir_path, opts.imgs_dir, PATH_MAX - 1);
+		images_dir_path[PATH_MAX - 1] = '\0';
+	} else if (req->images_dir_fd != -1) {
+		snprintf(images_dir_path, PATH_MAX, "/proc/%d/fd/%d", peer_pid, req->images_dir_fd);
+	} else if (req->images_dir) {
+		strncpy(images_dir_path, req->images_dir, PATH_MAX - 1);
+		images_dir_path[PATH_MAX - 1] = '\0';
+	} else {
+		pr_err("Neither images_dir_fd nor images_dir was passed by RPC client.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int setup_images_and_workdir(const char *images_dir_path,
 				    bool work_changed_by_rpc_conf,
 				    CriuOpts *req,
@@ -706,30 +741,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		xfree(tmp_work);
 	}
 
-	/*
-	 * open images_dir - images_dir_fd is a required RPC parameter
-	 *
-	 * This assumes that if opts.imgs_dir is set we have a value
-	 * from the configuration file parser. The test to see that
-	 * imgs_changed_by_rpc_conf is true is used to make sure the value
-	 * is from the RPC configuration file. The idea is that only the
-	 * RPC configuration file is able to overwrite RPC settings:
-	 *  * apply_config(global_conf)
-	 *  * apply_config(user_conf)
-	 *  * apply_config(environment variable)
-	 *  * apply_rpc_options()
-	 *  * apply_config(rpc_conf)
-	 */
-	if (imgs_changed_by_rpc_conf) {
-		strncpy(images_dir_path, opts.imgs_dir, PATH_MAX - 1);
-	} else if (req->images_dir_fd != -1) {
-		sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
-	} else if (req->images_dir) {
-		strncpy(images_dir_path, req->images_dir, PATH_MAX - 1);
-	} else {
-		pr_err("Neither images_dir_fd nor images_dir was passed by RPC client.\n");
+	if (resolve_images_dir_path(images_dir_path, imgs_changed_by_rpc_conf, req, ids.pid) < 0)
 		goto err;
-	}
 
 	if (req->parent_img)
 		SET_CHAR_OPTS(img_parent, req->parent_img);
