@@ -283,8 +283,6 @@ int exec_rpc_query_external_files(char *name, int sk)
 	return ret;
 }
 
-static char images_dir[PATH_MAX];
-
 static int setup_images_and_workdir(const char *images_dir_path,
 				    bool work_changed_by_rpc_conf,
 				    CriuOpts *req,
@@ -301,12 +299,6 @@ static int setup_images_and_workdir(const char *images_dir_path,
 	 */
 	if (open_image_dir(images_dir_path, -1) < 0) {
 		pr_perror("Can't open images directory");
-		return -1;
-	}
-
-	/* get full path to images_dir to use in process title */
-	if (readlink(images_dir_path, images_dir, PATH_MAX) == -1) {
-		pr_perror("Can't readlink %s", images_dir_path);
 		return -1;
 	}
 
@@ -802,7 +794,7 @@ static int dump_using_req(int sk, CriuOpts *req)
 	if (setup_opts_from_req(sk, req))
 		goto exit;
 
-	__setproctitle("dump --rpc -t %d -D %s", req->pid, images_dir);
+	__setproctitle("dump --rpc -t %d", req->pid);
 
 	if (init_pidfd_store_hash())
 		goto pidfd_store_err;
@@ -845,7 +837,7 @@ static int restore_using_req(int sk, CriuOpts *req)
 	if (setup_opts_from_req(sk, req))
 		goto exit;
 
-	__setproctitle("restore --rpc -D %s", images_dir);
+	__setproctitle("restore --rpc");
 
 	if (cr_restore_tasks())
 		goto exit;
@@ -940,7 +932,7 @@ static int pre_dump_using_req(int sk, CriuOpts *req, bool single)
 		if (setup_opts_from_req(sk, req))
 			goto cout;
 
-		__setproctitle("pre-dump --rpc -t %d -D %s", req->pid, images_dir);
+		__setproctitle("pre-dump --rpc -t %d", req->pid);
 
 		if (init_pidfd_store_hash())
 			goto pidfd_store_err;
@@ -1276,8 +1268,7 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 		if (setup_opts_from_req(sk, msg->opts))
 			goto cout;
 
-		__setproctitle("cpuinfo %s --rpc -D %s", msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ? "dump" : "check",
-			       images_dir);
+		__setproctitle("cpuinfo %s --rpc", msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ? "dump" : "check");
 
 		if (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP)
 			ret = cpuinfo_dump();
