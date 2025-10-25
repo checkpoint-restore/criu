@@ -452,6 +452,8 @@ ruff:
 		test/inhfd/*.py \
 		test/others/rpc/config_file.py \
 		test/others/action-script/check_actions.py \
+		lib/pycriu/criu.py \
+		lib/pycriu/__init__.py \
 		lib/pycriu/images/pb2dict.py \
 		lib/pycriu/images/images.py \
 		scripts/criu-ns \
