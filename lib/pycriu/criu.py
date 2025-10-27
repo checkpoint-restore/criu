@@ -8,6 +8,7 @@ import struct
 
 import pycriu.rpc_pb2 as rpc
 
+CR_DEFAULT_SERVICE_ADDRESS = "./criu_service.socket"
 
 class _criu_comm:
     """
@@ -213,7 +214,7 @@ class criu:
         self.opts = rpc.criu_opts()
         self.sk = None
 
-    def use_sk(self, sk_name):
+    def use_sk(self, sk_name=CR_DEFAULT_SERVICE_ADDRESS):
         """
         Access criu using unix socket which that belongs to criu service daemon.
         """
