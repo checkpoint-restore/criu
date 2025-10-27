@@ -418,7 +418,7 @@ resolve_path() {
 	local p
 
 	p="${2}"
-	if which realpath > /dev/null; then
+	if command -v realpath > /dev/null; then
 		p=$(realpath "${p}")
 	fi
 	${ECHO} "${1}: ${p}"
@@ -427,7 +427,7 @@ resolve_path() {
 resolve_cmd() {
 	local cpath
 
-	cpath=$(which "${2}")
+	cpath=$(command -v "${2}")
 	resolve_path "${1}" "${cpath}"
 }
 

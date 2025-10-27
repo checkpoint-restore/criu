@@ -23,7 +23,7 @@ MAKE		:= make
 MKDIR		:= mkdir -p
 AWK		:= awk
 PERL		:= perl
-FULL_PYTHON	:= $(shell which python3 2>/dev/null)
+FULL_PYTHON	:= $(shell command -v python3 2>/dev/null)
 PYTHON		?= $(shell basename $(FULL_PYTHON))
 FIND		:= find
 SH		:= $(shell if [ -x "$$BASH" ]; then echo $$BASH;        \
@@ -36,7 +36,7 @@ CTAGS		:= ctags
 export RM HOSTLD LD HOSTCC CC CPP AS AR STRIP OBJCOPY OBJDUMP
 export NM SH MAKE MKDIR AWK PERL PYTHON SH CSCOPE
 
-export USE_ASCIIDOCTOR ?= $(shell which asciidoctor 2>/dev/null)
+export USE_ASCIIDOCTOR ?= $(shell command -v asciidoctor 2>/dev/null)
 
 #
 # Footer.

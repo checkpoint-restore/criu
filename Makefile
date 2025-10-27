@@ -489,7 +489,7 @@ lint: ruff shellcheck codespell
 	! git --no-pager grep -E '\s+$$' \*.c \*.h
 .PHONY: lint ruff shellcheck codespell
 
-codecov: SHELL := $(shell which bash)
+codecov: SHELL := $(shell command -v bash)
 codecov:
 	curl -Os https://uploader.codecov.io/latest/linux/codecov
 	chmod +x codecov
