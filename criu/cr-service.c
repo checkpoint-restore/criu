@@ -354,6 +354,31 @@ static int setup_images_and_workdir(const char *images_dir_path,
 	return 0;
 }
 
+static int setup_logging_from_req(CriuOpts *req, bool output_changed_by_rpc_conf)
+{
+	if (req->log_file && !output_changed_by_rpc_conf) {
+		if (strchr(req->log_file, '/')) {
+			pr_perror("No subdirs are allowed in log_file name");
+			return -1;
+		}
+		SET_CHAR_OPTS(output, req->log_file);
+	} else if (req->has_log_to_stderr && req->log_to_stderr && !output_changed_by_rpc_conf) {
+		xfree(opts.output);
+		opts.output = NULL; /* log_init(NULL) writes to stderr */
+	} else if (!opts.output) {
+		SET_CHAR_OPTS(output, DEFAULT_LOG_FILENAME);
+	}
+
+	opts.log_level = req->log_level;
+	log_set_loglevel(opts.log_level);
+	if (log_init(opts.output)) {
+		pr_perror("Can't initiate log");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int setup_opts_from_req(int sk, CriuOpts *req)
 {
 	struct ucred ids;
@@ -758,36 +783,12 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	/* initiate log file in work dir */
-	if (req->log_file && !output_changed_by_rpc_conf) {
-		/*
-		 * If RPC sets a log file and if there nothing from the
-		 * RPC configuration file, use the RPC value.
-		 */
-		if (strchr(req->log_file, '/')) {
-			pr_perror("No subdirs are allowed in log_file name");
-			goto err;
-		}
-
-		SET_CHAR_OPTS(output, req->log_file);
-	} else if (req->has_log_to_stderr && req->log_to_stderr && !output_changed_by_rpc_conf) {
-		xfree(opts.output);
-		opts.output = NULL;
-	} else if (!opts.output) {
-		SET_CHAR_OPTS(output, DEFAULT_LOG_FILENAME);
-	}
-
-	/* This is needed later to correctly set the log_level */
-	opts.log_level = req->log_level;
-	log_set_loglevel(req->log_level);
-	if (log_init(opts.output) == -1) {
-		pr_perror("Can't initiate log");
+	if (setup_logging_from_req(req, output_changed_by_rpc_conf))
 		goto err;
-	}
 
 	if (req->mntns_compat_mode)
 		opts.mntns_compat_mode = true;
 
-	log_set_loglevel(opts.log_level);
 	if (check_options())
 		goto err;
 
