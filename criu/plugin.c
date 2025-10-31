@@ -60,6 +60,8 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 	__assign_hook(PAUSE_DEVICES, "cr_plugin_pause_devices");
 	__assign_hook(CHECKPOINT_DEVICES, "cr_plugin_checkpoint_devices");
 	__assign_hook(POST_FORKING, "cr_plugin_post_forking");
+	__assign_hook(RESTORE_INIT, "cr_plugin_restore_init");
+	__assign_hook(DUMP_DEVICES_LATE, "cr_plugin_dump_devices_late");
 
 #undef __assign_hook
 
@@ -259,6 +261,10 @@ int cr_plugin_init(int stage)
 
 	if (stage == CR_PLUGIN_STAGE__RESTORE && check_inventory_plugins())
 		goto err;
+
+	if (stage == CR_PLUGIN_STAGE__RESTORE && run_plugins(RESTORE_INIT))
+		goto err;
+
 
 	exit_code = 0;
 err:
