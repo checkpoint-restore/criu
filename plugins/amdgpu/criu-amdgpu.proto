@@ -89,3 +89,7 @@ message criu_render_node {
 	required uint64 num_of_bos = 4;
 	repeated drm_bo_entry bo_entries = 5;
 }
+
+message criu_dmabuf_node {
+	required uint32 gem_handle = 1;
+}
