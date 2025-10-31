@@ -38,9 +38,7 @@
 #include "amdgpu_plugin_util.h"
 #include "amdgpu_plugin_topology.h"
 
-/* Tracks number of device files that need to be checkpointed */
-static int dev_file_cnt = 0;
-
+static LIST_HEAD(dumped_fds);
 static LIST_HEAD(shared_bos);
 static LIST_HEAD(completed_work);
 
@@ -52,23 +50,25 @@ struct tp_system dest_topology;
 struct device_maps checkpoint_maps;
 struct device_maps restore_maps;
 
-bool checkpoint_is_complete()
+int record_dumped_fd(int fd, bool is_drm)
 {
-	return (dev_file_cnt == 0);
+	int newfd = dup(fd);
+
+	if (newfd < 0)
+		return newfd;
+	struct dumped_fd *st = malloc(sizeof(struct dumped_fd));
+	if (!st)
+		return -1;
+	st->fd = newfd;
+	st->is_drm = is_drm;
+	list_add(&st->l, &dumped_fds);
+
+	return 0;
 }
 
-void decrement_checkpoint_count()
+struct list_head *get_dumped_fds()
 {
-	dev_file_cnt--;
-}
-
-void init_gpu_count(struct tp_system *topo)
-{
-	if (dev_file_cnt != 0)
-		return;
-
-	/* We add ONE to include checkpointing of KFD device */
-	dev_file_cnt = 1 + topology_gpu_count(topo);
+	return &dumped_fds;
 }
 
 bool shared_bo_has_exporter(int handle)
@@ -148,6 +148,16 @@ void clear_restore_state()
 	while (!list_empty(&completed_work)) {
 		struct restore_completed_work *st = list_first_entry(&completed_work, struct restore_completed_work, l);
 		list_del(&st->l);
+		free(st);
+	}
+}
+
+void clear_dumped_fds()
+{
+	while (!list_empty(&dumped_fds)) {
+		struct dumped_fd *st = list_first_entry(&dumped_fds, struct dumped_fd, l);
+		list_del(&st->l);
+		close(st->fd);
 		free(st);
 	}
 }
