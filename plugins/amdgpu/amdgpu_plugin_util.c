@@ -37,6 +37,7 @@
 #include "amdgpu_drm.h"
 #include "amdgpu_plugin_util.h"
 #include "amdgpu_plugin_topology.h"
+#include "amdgpu_plugin_drm.h"
 
 static LIST_HEAD(dumped_fds);
 static LIST_HEAD(shared_bos);
@@ -109,6 +110,46 @@ int record_shared_bo(int handle, bool is_imported)
 	return 0;
 }
 
+int handle_for_shared_bo_fd(int fd)
+{
+	struct dumped_fd *df;
+	int trial_handle;
+	amdgpu_device_handle h_dev;
+	uint32_t major, minor;
+	struct shared_bo *bo;
+
+	list_for_each_entry(df, &dumped_fds, l) {
+		/* see if the gem handle for fd using the hdev for df->fd is the
+		   same as bo->handle. */
+
+		if (!df->is_drm) {
+			continue;
+		}
+
+		if (amdgpu_device_initialize(df->fd, &major, &minor, &h_dev)) {
+			pr_err("Failed to initialize amdgpu device\n");
+			continue;
+		}
+
+		trial_handle = get_gem_handle(h_dev, fd);
+		if (trial_handle < 0)
+			continue;
+
+		pr_info("TWI: Check device %d, got handle %d\n", df->fd, trial_handle);
+
+		list_for_each_entry(bo, &shared_bos, l) {
+			if (bo->handle == trial_handle) {
+				pr_info("TWI: And that handle exists\n");
+				return trial_handle;
+			}
+		}
+
+		amdgpu_device_deinitialize(h_dev);
+	}
+
+	return -1;
+}
+
 int record_completed_work(int handle, int id)
 {
 	struct restore_completed_work *work;
@@ -138,13 +179,6 @@ bool work_already_completed(int handle, int id)
 
 void clear_restore_state()
 {
-	while (!list_empty(&shared_dmabuf_fds)) {
-		struct shared_dmabuf *st = list_first_entry(&shared_dmabuf_fds, struct shared_dmabuf, l);
-		list_del(&st->l);
-		close(st->dmabuf_fd);
-		free(st);
-	}
-
 	while (!list_empty(&completed_work)) {
 		struct restore_completed_work *st = list_first_entry(&completed_work, struct restore_completed_work, l);
 		list_del(&st->l);

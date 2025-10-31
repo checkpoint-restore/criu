@@ -53,6 +53,9 @@
 /* Name of file having serialized data of DRM device */
 #define IMG_DRM_FILE			"amdgpu-renderD-%d.img"
 
+/* Name of file having serialized data of dmabuf meta */
+#define IMG_DMABUF_FILE "amdgpu-dmabuf_%d.img"
+
 /* Name of file having serialized data of DRM device buffer objects (BOs) */
 #define IMG_DRM_PAGES_FILE "amdgpu-drm-pages-%d-%d-%04x.img"
 
@@ -61,6 +64,7 @@
 #define HSAKMT_SHM				"/hsakmt_shared_mem"
 #define HSAKMT_SEM_PATH			"/dev/shm/sem.hsakmt_semaphore"
 #define HSAKMT_SEM				"hsakmt_semaphore"
+#define DMABUF_LINK				"/dmabuf"
 
 /* Help macros to build sDMA command packets */
 #define SDMA_PACKET(op, sub_op, e) ((((e)&0xFFFF) << 16) | (((sub_op)&0xFF) << 8) | (((op)&0xFF) << 0))
@@ -123,9 +127,7 @@ void clear_dumped_fds();
 
 bool shared_bo_has_exporter(int handle);
 int record_shared_bo(int handle, bool is_imported);
-
-int record_shared_dmabuf_fd(int handle, int dmabuf_fd);
-int dmabuf_fd_for_handle(int handle);
+int handle_for_shared_bo_fd(int dmabuf_fd);
 
 int record_completed_work(int handle, int id);
 bool work_already_completed(int handle, int id);

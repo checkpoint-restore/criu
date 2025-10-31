@@ -47,7 +47,8 @@ int get_gem_handle(amdgpu_device_handle h_dev, int dmabuf_fd)
 		return -1;
 	}
 
-	drmPrimeFDToHandle(fd, dmabuf_fd, &handle);
+	if (drmPrimeFDToHandle(fd, dmabuf_fd, &handle))
+		return -1;
 
 	return handle;
 }
@@ -465,6 +466,7 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 		if (work_already_completed(boinfo->handle, rd->drm_render_minor)) {
 			continue;
 		} else if (boinfo->handle != -1) {
+			pr_info("TWI: restore bo %d\n", boinfo->handle);
 			if (boinfo->is_import) {
 				fd_id = amdgpu_id_for_handle(boinfo->handle);
 				if (fd_id == -1) {
@@ -472,11 +474,13 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 					continue;
 				}
 				dmabuf_fd = fdstore_get(fd_id);
+				pr_info("TWI: restore bo %d: fd_id %d, dmabuf_fd %d\n", boinfo->handle, fd_id, dmabuf_fd);
 			}
 		}
 
 		if (boinfo->is_import) {
 			drmPrimeFDToHandle(device_fd, dmabuf_fd, &handle);
+			pr_info("TWI: restore bo imported to handle %d\n", handle);
 		} else {
 			union drm_amdgpu_gem_create create_args = { 0 };
 
@@ -493,6 +497,7 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 			handle = create_args.out.handle;
 
 			drmPrimeHandleToFD(device_fd, handle, 0, &dmabuf_fd);
+			pr_info("TWI: restore bo created at handle %d and exported to fd %d\n", handle, dmabuf_fd);
 		}
 
 		change_args.handle = handle;
