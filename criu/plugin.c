@@ -61,6 +61,7 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 	__assign_hook(CHECKPOINT_DEVICES, "cr_plugin_checkpoint_devices");
 	__assign_hook(POST_FORKING, "cr_plugin_post_forking");
 	__assign_hook(RESTORE_INIT, "cr_plugin_restore_init");
+	__assign_hook(DUMP_DEVICES_LATE, "cr_plugin_dump_devices_late");
 
 #undef __assign_hook
 
