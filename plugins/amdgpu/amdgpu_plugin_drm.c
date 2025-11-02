@@ -164,7 +164,6 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 	FILE *bo_contents_fp = NULL;
 	void *buffer = NULL;
 	char img_path[40];
-	int num_bos = 0;
 	int i, ret = 0;
 
 	ret = amdgpu_device_initialize(drm_fd, &major, &minor, &h_dev);
@@ -205,8 +204,6 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 
 		if (rd->bo_entries[i]->num_of_vms == 0)
 			continue;
-
-		num_bos++;
 
 		snprintf(img_path, sizeof(img_path), IMG_DRM_PAGES_FILE, rd->id, drm_render_minor, i);
 
