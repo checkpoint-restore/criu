@@ -1406,10 +1406,10 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	if (ret < 0) {
 		pr_perror("Failed to get dmabuf info");
 		return -1;
-	} else if (ret == 0) {
+	}
+	if (ret == 0) {
 		pr_info("Dumping dmabuf fd = %d\n", fd);
-		ret = amdgpu_plugin_dmabuf_dump(fd, id);
-		return ret;
+		return amdgpu_plugin_dmabuf_dump(fd, id);
 	}
 
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0) {
@@ -1425,9 +1425,9 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		ret = record_dumped_fd(fd, true);
 		if (ret)
 			return ret;
-		ret = try_dump_dmabuf_list();
+
 		/* Need to return success here so that criu can call plugins for renderD nodes */
-		return ret;
+		return try_dump_dmabuf_list();
 	}
 
 	pr_info("%s() called for fd = %d\n", __func__, major(st.st_rdev));
