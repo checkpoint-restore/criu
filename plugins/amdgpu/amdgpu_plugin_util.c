@@ -135,13 +135,9 @@ int handle_for_shared_bo_fd(int fd)
 		if (trial_handle < 0)
 			continue;
 
-		pr_info("TWI: Check device %d, got handle %d\n", df->fd, trial_handle);
-
 		list_for_each_entry(bo, &shared_bos, l) {
-			if (bo->handle == trial_handle) {
-				pr_info("TWI: And that handle exists\n");
+			if (bo->handle == trial_handle)
 				return trial_handle;
-			}
 		}
 
 		amdgpu_device_deinitialize(h_dev);
