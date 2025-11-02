@@ -179,7 +179,7 @@ int try_dump_dmabuf_list()
 		int ret = __amdgpu_plugin_dmabuf_dump(b->dmabuf_fd, b->id);
 		if (ret == -EAGAIN)
 			continue;
-		else if (ret)
+		if (ret)
 			return ret;
 		list_del(&b->node);
 		xfree(b);
@@ -193,5 +193,5 @@ int post_dump_dmabuf_check()
 		pr_err("Not all dma buffers have been dumped\n");
 		return -1;
 	}
-	return 1;
+	return 0;
 }
