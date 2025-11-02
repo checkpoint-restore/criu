@@ -1837,6 +1837,10 @@ int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 		if (!img_fp) {
 			ret = amdgpu_plugin_dmabuf_restore(id);
 			if (ret == 1) {
+				/* This is a dmabuf fd, but the corresponding buffer object that was
+				 * exported to make it has not yet been restored. Need to try again
+				 * later when the buffer object exists, so it can be re-exported.
+				 */
 				*retry_needed = true;
 				return 0;
 			}
