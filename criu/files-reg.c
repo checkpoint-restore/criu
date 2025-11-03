@@ -15,6 +15,7 @@
 #include <elf.h>
 #include <linux/fiemap.h>
 #include <linux/fs.h>
+#include <time.h>
 
 #include "tty.h"
 #include "stats.h"
@@ -1117,6 +1118,8 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp, struct ns_i
 	FownEntry fwn = FOWN_ENTRY__INIT;
 	int mntns_root;
 	const struct stat *ost = &parms->stat;
+	char random_suffix[16];
+	int fd;
 
 	if (!opts.link_remap_ok) {
 		pr_err("Can't create link remap for %s. "
@@ -1149,18 +1152,39 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp, struct ns_i
 	rfe.fown = &fwn;
 	rfe.name = link_name + 1;
 
-	/* Any 'unique' name works here actually. Remap works by reg-file ids. */
-	snprintf(tmp + 1, sizeof(link_name) - (size_t)(tmp - link_name) - 1, "link_remap.%d", rfe.id);
-
 	mntns_root = mntns_get_root_fd(nsid);
+
+	fd = open("/dev/urandom", O_RDONLY);
+	if (fd >= 0) {
+		unsigned char rand_bytes[8];
+		if (read(fd, rand_bytes, sizeof(rand_bytes)) == sizeof(rand_bytes)) {
+			snprintf(random_suffix, sizeof(random_suffix), "%02x%02x%02x%02x",
+				rand_bytes[0], rand_bytes[1], rand_bytes[2], rand_bytes[3]);
+		} else {
+			struct timespec ts;
+			clock_gettime(CLOCK_MONOTONIC, &ts);
+			snprintf(random_suffix, sizeof(random_suffix), "%lx", 
+				(unsigned long)(ts.tv_sec ^ ts.tv_nsec));
+		}
+		close(fd);
+	} else {
+		struct timespec ts;
+		clock_gettime(CLOCK_MONOTONIC, &ts);
+		snprintf(random_suffix, sizeof(random_suffix), "%lx", 
+			(unsigned long)(ts.tv_sec ^ ts.tv_nsec));
+	}
+
+    // create file link_remap.fd_id.random_suffix id
+	snprintf(tmp + 1, sizeof(link_name) - (size_t)(tmp - link_name) - 1, 
+		"link_remap.%d.%s", rfe.id, random_suffix);
 
 	while (linkat_hard(lfd, "", mntns_root, link_name, ost->st_uid, ost->st_gid, AT_EMPTY_PATH) < 0) {
 		if (errno != ENOENT) {
 			pr_perror("Can't link remap to %s", path);
 			return -1;
 		}
-
-		/* Use grand parent, if parent directory does not exist. */
+        
+        /* Use grand parent, if parent directory does not exist. */
 		if (trim_last_parent(link_name) < 0) {
 			pr_err("trim failed: @%s@\n", link_name);
 			check_overlayfs_fallback(path, parms, fallback);
