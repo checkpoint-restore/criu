@@ -1711,9 +1711,23 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	mdc.stat = &pps_buf;
 	mdc.parent_ie = parent_ie;
 
-	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
-	if (ret)
-		goto err_cure;
+	/* 
+	 * For COW dump, skip the normal page dump and initialize
+	 * COW tracking instead. Pages will be captured on-demand
+	 * as they're modified.
+	 */
+	if (!opts.cow_dump) {
+		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
+		if (ret)
+			goto err_cure;
+	} else {
+		pr_info("COW dump mode: initializing write tracking instead of dumping pages\n");
+		ret = cow_dump_init(item, &vmas);
+		if (ret) {
+			pr_err("Failed to initialize COW dump for pid %d\n", pid);
+			goto err_cure;
+		}
+	}
 
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
