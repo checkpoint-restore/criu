@@ -50,7 +50,7 @@ static struct cow_dump_info *g_cow_info = NULL;
 
 bool cow_check_kernel_support(void)
 {
-	unsigned long features = UFFD_FEATURE_WRITEPROTECT | 
+	unsigned long features = UFFD_FEATURE_WP | 
 				 UFFD_FEATURE_EVENT_FORK |
 				 UFFD_FEATURE_EVENT_REMAP;
 	int uffd, err = 0;
