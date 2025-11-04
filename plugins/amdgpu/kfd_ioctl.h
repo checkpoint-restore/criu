@@ -23,8 +23,11 @@
 #ifndef KFD_IOCTL_H_INCLUDED
 #define KFD_IOCTL_H_INCLUDED
 
-#include <libdrm/drm.h>
 #include <linux/ioctl.h>
+
+/* Define __user as empty for kernel headers in user-space */
+#define __user
+#include "drm.h"
 
 /*
  * - 1.1 - initial version

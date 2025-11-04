@@ -23,6 +23,8 @@
 #include "fdstore.h"
 
 #include "criu-amdgpu.pb-c.h"
+
+/* Define __user as empty for kernel headers in user-space */
 #define __user
 #include "drm.h"
 
