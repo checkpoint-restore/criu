@@ -87,6 +87,7 @@ obj-y			+= path.o
 obj-y			+= autofs.o
 obj-y			+= fdstore.o
 obj-y			+= uffd.o
+obj-y			+= cow-dump.o
 obj-y			+= config.o
 obj-y			+= servicefd.o
 obj-y			+= pie-util-vdso.o

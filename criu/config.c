@@ -672,6 +672,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "external", required_argument, 0, 1073 },
 		{ "empty-ns", required_argument, 0, 1074 },
 		{ "lazy-pages", no_argument, 0, 1076 },
+		{ "cow-dump", no_argument, 0, 1101 },
 		BOOL_OPT("extra", &opts.check_extra_features),
 		BOOL_OPT("experimental", &opts.check_experimental_features),
 		{ "all", no_argument, 0, 1079 },
@@ -941,6 +942,9 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			break;
 		case 1076:
 			opts.lazy_pages = true;
+			break;
+		case 1101:
+			opts.cow_dump = true;
 			break;
 		case 'M': {
 			char *aux;

@@ -65,6 +65,7 @@
 #include "stats.h"
 #include "mem.h"
 #include "page-pipe.h"
+#include "cow-dump.h"
 #include "posix-timer.h"
 #include "vdso.h"
 #include "vma.h"
@@ -2100,7 +2101,9 @@ static int cr_dump_finish(int ret)
 		clean_cr_time_mounts();
 	}
 
-	if (!ret && opts.lazy_pages)
+	if (!ret && opts.cow_dump)
+		ret = cr_cow_mem_dump();
+	else if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
 
 	if (arch_set_thread_regs(root_item, true) < 0)
