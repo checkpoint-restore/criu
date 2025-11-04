@@ -146,7 +146,7 @@ struct uffdio_api {
 #define UFFD_FEATURE_MISSING_HUGETLBFS (1 << 4)
 #define UFFD_FEATURE_MISSING_SHMEM     (1 << 5)
 #define UFFD_FEATURE_EVENT_UNMAP       (1 << 6)
-#define UFFD_FEATURE_WRITEPROTECT      (1 << 7)
+#define UFFD_FEATURE_WP      (1 << 7)
 	__u64 features;
 
 	__u64 ioctls;
