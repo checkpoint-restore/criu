@@ -101,27 +101,30 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 	struct uffdio_writeprotect wp;
 	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 	/* Skip non-writable or special VMAs */
-	if (!(vma->e->prot & PROT_WRITE))
+	if (!(vma->e->prot & PROT_WRITE)) {
+		pr_info("Skipping non-writable VMA: %lx-%lx prot=%x\n", addr, addr + len, vma->e->prot);
 		return 0;
-	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
+	}
 	if (vma_entry_is(vma->e, VMA_AREA_VDSO) ||
 	    vma_entry_is(vma->e, VMA_AREA_VSYSCALL) ||
-	    vma_entry_is(vma->e, VMA_AREA_VVAR))
+	    vma_entry_is(vma->e, VMA_AREA_VVAR)) {
+		pr_info("Skipping special VMA: %lx-%lx (VDSO/VSYSCALL/VVAR)\n", addr, addr + len);
 		return 0;
+	}
 
 	/* Skip shared VMAs - they don't support write-protect */
 	if (vma->e->flags & MAP_SHARED) {
-		pr_debug("Skipping shared VMA: %lx-%lx\n", addr, addr + len);
+		pr_info("Skipping shared VMA: %lx-%lx flags=%x\n", addr, addr + len, vma->e->flags);
 		return 0;
 	}
 
 	/* Skip hugetlb VMAs */
 	if (vma->e->flags & MAP_HUGETLB) {
-		pr_debug("Skipping hugetlb VMA: %lx-%lx\n", addr, addr + len);
+		pr_info("Skipping hugetlb VMA: %lx-%lx\n", addr, addr + len);
 		return 0;
 	}
 
-	pr_debug("Registering VMA for write-protect: %lx-%lx\n", addr, addr + len);
+	pr_info("Attempting to register VMA: %lx-%lx prot=%x flags=%x\n", addr, addr + len, vma->e->prot, vma->e->flags);
 
 	reg.range.start = addr;
 	reg.range.len = len;
