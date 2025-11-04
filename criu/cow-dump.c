@@ -149,6 +149,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 		pr_err("Kernel doesn't support COW dump\n");
 		return -1;
 	}
+		pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 
 	cdi = xzalloc(sizeof(*cdi));
 	if (!cdi)
@@ -156,6 +157,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 
 	cdi->item = item;
 	INIT_LIST_HEAD(&cdi->dirty_list);
+		pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* Open userfaultfd */
 	cdi->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features, &err);
@@ -163,11 +165,13 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 		pr_err("Failed to open userfaultfd: %d\n", err);
 		goto err_free;
 	}
+	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
 	if (cdi->proc_mem_fd < 0)
 		goto err_close_uffd;
+		pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* Register all writable VMAs with write-protection */
 	list_for_each_entry(vma, &vma_area_list->h, list) {
