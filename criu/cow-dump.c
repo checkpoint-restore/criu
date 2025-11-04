@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -96,6 +97,8 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 	struct uffdio_register reg;
 	unsigned long addr = vma->e->start;
 	unsigned long len = vma->e->end - vma->e->start;
+    /* Now write-protect the VMA */
+	struct uffdio_writeprotect wp;
 
 	/* Skip non-writable or special VMAs */
 	if (!(vma->e->prot & PROT_WRITE))
@@ -117,8 +120,7 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 		return -1;
 	}
 
-	/* Now write-protect the VMA */
-	struct uffdio_writeprotect wp;
+
 	wp.range.start = addr;
 	wp.range.len = len;
 	wp.mode = UFFDIO_WRITEPROTECT_MODE_WP;
@@ -214,7 +216,11 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 {
 	struct dirty_range *dr;
 	unsigned long page_addr = addr & ~(PAGE_SIZE - 1);
-
+	/* Unprotect the page so the process can continue */
+	struct uffdio_writeprotect wp;
+	/* Wake up the faulting thread */
+	struct uffdio_range range;
+    
 	pr_debug("Write fault at 0x%lx\n", page_addr);
 	cdi->dirty_pages++;
 
@@ -228,8 +234,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	INIT_LIST_HEAD(&dr->list);
 	list_add_tail(&dr->list, &cdi->dirty_list);
 
-	/* Unprotect the page so the process can continue */
-	struct uffdio_writeprotect wp;
+
 	wp.range.start = page_addr;
 	wp.range.len = PAGE_SIZE;
 	wp.mode = 0; /* Clear write-protect */
@@ -239,8 +244,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 		return -1;
 	}
 
-	/* Wake up the faulting thread */
-	struct uffdio_range range;
+
 	range.start = page_addr;
 	range.len = PAGE_SIZE;
 	
