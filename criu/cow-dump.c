@@ -108,14 +108,33 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 	    vma_entry_is(vma->e, VMA_AREA_VSYSCALL) ||
 	    vma_entry_is(vma->e, VMA_AREA_VVAR))
 		return 0;
-	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
+
+	/* Skip shared VMAs - they don't support write-protect */
+	if (vma->e->flags & MAP_SHARED) {
+		pr_debug("Skipping shared VMA: %lx-%lx\n", addr, addr + len);
+		return 0;
+	}
+
+	/* Skip hugetlb VMAs */
+	if (vma_entry_is(vma->e, VMA_AREA_HUGETLB)) {
+		pr_debug("Skipping hugetlb VMA: %lx-%lx\n", addr, addr + len);
+		return 0;
+	}
+
 	pr_debug("Registering VMA for write-protect: %lx-%lx\n", addr, addr + len);
 
 	reg.range.start = addr;
 	reg.range.len = len;
-	reg.mode = UFFDIO_REGISTER_MODE_MISSING | UFFDIO_REGISTER_MODE_WP;
-	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
+	/* Only use WP mode - MISSING mode is for lazy-pages, not COW */
+	reg.mode = UFFDIO_REGISTER_MODE_WP;
+
 	if (ioctl(cdi->uffd, UFFDIO_REGISTER, &reg)) {
+		/* Some VMAs may not support WP even if writable - just skip them */
+		if (errno == EINVAL) {
+			pr_warn("Cannot WP-register VMA %lx-%lx (unsupported type), skipping\n", 
+				addr, addr + len);
+			return 0;
+		}
 		pr_perror("Failed to register VMA %lx-%lx", addr, addr + len);
 		return -1;
 	}
@@ -131,6 +150,8 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 	}
 	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 	cdi->total_pages += len / PAGE_SIZE;
+	pr_info("Successfully registered and WP'd VMA: %lx-%lx (%lu pages)\n", 
+		addr, addr + len, len / PAGE_SIZE);
 	return 0;
 }
 
