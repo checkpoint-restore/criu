@@ -169,14 +169,17 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
-	if (cdi->proc_mem_fd < 0)
-		goto err_close_uffd;
+	if (cdi->proc_mem_fd < 0){
 		pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
+		goto err_close_uffd;}
+	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* Register all writable VMAs with write-protection */
 	list_for_each_entry(vma, &vma_area_list->h, list) {
-		if (cow_register_vma_writeprotect(cdi, vma))
+		if (cow_register_vma_writeprotect(cdi, vma)) {
+			pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 			goto err_close_mem;
+		}
 	}
 
 	pr_info("COW dump initialized: tracking %lu pages\n", cdi->total_pages);
