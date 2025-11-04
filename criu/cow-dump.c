@@ -260,7 +260,7 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 {
 	struct uffd_msg msg;
 	int ret;
-	int flags = blocking ? MSG_WAITALL : MSG_DONTWAIT;
+	//int flags = blocking ? MSG_WAITALL : MSG_DONTWAIT;
 
 	while (1) {
 		ret = read(cdi->uffd, &msg, sizeof(msg));
