@@ -51,7 +51,8 @@ static struct cow_dump_info *g_cow_info = NULL;
 
 bool cow_check_kernel_support(void)
 {
-	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP | 
+	unsigned long features = UFFD_FEATURE_WRITEPROTECT |
+				 UFFD_FEATURE_PAGEFAULT_FLAG_WP | 
 				 UFFD_FEATURE_EVENT_FORK |
 				 UFFD_FEATURE_EVENT_REMAP;
 	int uffd, err = 0;
@@ -66,8 +67,14 @@ bool cow_check_kernel_support(void)
 		return false;
 	}
 
+	if (!(features & UFFD_FEATURE_WRITEPROTECT)) {
+		pr_info("userfaultfd write-protect feature not supported (need kernel 5.7+)\n");
+		close(uffd);
+		return false;
+	}
+
 	if (!(features & UFFD_FEATURE_PAGEFAULT_FLAG_WP)) {
-		pr_info("userfaultfd write-protect not supported (need kernel 5.7+)\n");
+		pr_info("userfaultfd WP pagefault flag not supported (need kernel 5.7+)\n");
 		close(uffd);
 		return false;
 	}
@@ -162,7 +169,8 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 {
 	struct cow_dump_info *cdi;
 	struct vma_area *vma;
-	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
+	unsigned long features = UFFD_FEATURE_WRITEPROTECT |
+				 UFFD_FEATURE_PAGEFAULT_FLAG_WP |
 				 UFFD_FEATURE_EVENT_FORK |
 				 UFFD_FEATURE_EVENT_REMAP;
 	int err = 0;

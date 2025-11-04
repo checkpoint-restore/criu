@@ -33,21 +33,23 @@
  * which ioctl the running kernel implements through the ioctl command
  * bitmask written by the UFFDIO_API.
  */
-#define _UFFDIO_REGISTER   (0x00)
-#define _UFFDIO_UNREGISTER (0x01)
-#define _UFFDIO_WAKE	   (0x02)
-#define _UFFDIO_COPY	   (0x03)
-#define _UFFDIO_ZEROPAGE   (0x04)
-#define _UFFDIO_API	   (0x3F)
+#define _UFFDIO_REGISTER     (0x00)
+#define _UFFDIO_UNREGISTER   (0x01)
+#define _UFFDIO_WAKE	     (0x02)
+#define _UFFDIO_COPY	     (0x03)
+#define _UFFDIO_ZEROPAGE     (0x04)
+#define _UFFDIO_WRITEPROTECT (0x06)
+#define _UFFDIO_API	     (0x3F)
 
 /* userfaultfd ioctl ids */
 #define UFFDIO		  0xAA
 #define UFFDIO_API	  _IOWR(UFFDIO, _UFFDIO_API, struct uffdio_api)
 #define UFFDIO_REGISTER	  _IOWR(UFFDIO, _UFFDIO_REGISTER, struct uffdio_register)
 #define UFFDIO_UNREGISTER _IOR(UFFDIO, _UFFDIO_UNREGISTER, struct uffdio_range)
-#define UFFDIO_WAKE	  _IOR(UFFDIO, _UFFDIO_WAKE, struct uffdio_range)
-#define UFFDIO_COPY	  _IOWR(UFFDIO, _UFFDIO_COPY, struct uffdio_copy)
-#define UFFDIO_ZEROPAGE	  _IOWR(UFFDIO, _UFFDIO_ZEROPAGE, struct uffdio_zeropage)
+#define UFFDIO_WAKE	    _IOR(UFFDIO, _UFFDIO_WAKE, struct uffdio_range)
+#define UFFDIO_COPY	    _IOWR(UFFDIO, _UFFDIO_COPY, struct uffdio_copy)
+#define UFFDIO_ZEROPAGE	    _IOWR(UFFDIO, _UFFDIO_ZEROPAGE, struct uffdio_zeropage)
+#define UFFDIO_WRITEPROTECT _IOWR(UFFDIO, _UFFDIO_WRITEPROTECT, struct uffdio_writeprotect)
 
 /* read() structure */
 struct uffd_msg {
@@ -144,6 +146,7 @@ struct uffdio_api {
 #define UFFD_FEATURE_MISSING_HUGETLBFS (1 << 4)
 #define UFFD_FEATURE_MISSING_SHMEM     (1 << 5)
 #define UFFD_FEATURE_EVENT_UNMAP       (1 << 6)
+#define UFFD_FEATURE_WRITEPROTECT      (1 << 7)
 	__u64 features;
 
 	__u64 ioctls;
@@ -197,6 +200,13 @@ struct uffdio_zeropage {
 	 * the copy_from_user will not read the last 8 bytes.
 	 */
 	__s64 zeropage;
+};
+
+struct uffdio_writeprotect {
+	struct uffdio_range range;
+#define UFFDIO_WRITEPROTECT_MODE_WP	    ((__u64)1 << 0)
+#define UFFDIO_WRITEPROTECT_MODE_DONTWAKE ((__u64)1 << 1)
+	__u64 mode;
 };
 
 #endif /* _LINUX_USERFAULTFD_H */
