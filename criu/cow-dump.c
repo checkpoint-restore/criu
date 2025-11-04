@@ -99,37 +99,37 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 	unsigned long len = vma->e->end - vma->e->start;
     /* Now write-protect the VMA */
 	struct uffdio_writeprotect wp;
-
+	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 	/* Skip non-writable or special VMAs */
 	if (!(vma->e->prot & PROT_WRITE))
 		return 0;
-	
+	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 	if (vma_entry_is(vma->e, VMA_AREA_VDSO) ||
 	    vma_entry_is(vma->e, VMA_AREA_VSYSCALL) ||
 	    vma_entry_is(vma->e, VMA_AREA_VVAR))
 		return 0;
-
+	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 	pr_debug("Registering VMA for write-protect: %lx-%lx\n", addr, addr + len);
 
 	reg.range.start = addr;
 	reg.range.len = len;
 	reg.mode = UFFDIO_REGISTER_MODE_MISSING | UFFDIO_REGISTER_MODE_WP;
-
+	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 	if (ioctl(cdi->uffd, UFFDIO_REGISTER, &reg)) {
 		pr_perror("Failed to register VMA %lx-%lx", addr, addr + len);
 		return -1;
 	}
 
-
+	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 	wp.range.start = addr;
 	wp.range.len = len;
 	wp.mode = UFFDIO_WRITEPROTECT_MODE_WP;
-
+	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 	if (ioctl(cdi->uffd, UFFDIO_WRITEPROTECT, &wp)) {
 		pr_perror("Failed to write-protect VMA %lx-%lx", addr, addr + len);
 		return -1;
 	}
-
+	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 	cdi->total_pages += len / PAGE_SIZE;
 	return 0;
 }
