@@ -116,7 +116,7 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 	}
 
 	/* Skip hugetlb VMAs */
-	if (e->flags & MAP_HUGETLB) {
+	if (vma->e->flags & MAP_HUGETLB) {
 		pr_debug("Skipping hugetlb VMA: %lx-%lx\n", addr, addr + len);
 		return 0;
 	}
