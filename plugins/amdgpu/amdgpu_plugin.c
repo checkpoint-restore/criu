@@ -20,7 +20,6 @@
 
 #include <xf86drm.h>
 #include <libdrm/amdgpu.h>
-#include <libdrm/amdgpu_drm.h>
 
 #include "criu-plugin.h"
 #include "plugin.h"
@@ -38,6 +37,7 @@
 #include "rst-malloc.h"
 
 #include "common/list.h"
+#include "amdgpu_drm.h"
 #include "amdgpu_plugin_dmabuf.h"
 #include "amdgpu_plugin_drm.h"
 #include "amdgpu_plugin_util.h"
