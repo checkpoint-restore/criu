@@ -139,14 +139,23 @@ struct uffdio_api {
 	 * UFFD_FEATURE_MISSING_HUGETLBFS, but it applies to shmem
 	 * (i.e. tmpfs and other shmem based APIs).
 	 */
-#define UFFD_FEATURE_PAGEFAULT_FLAG_WP (1 << 0)
-#define UFFD_FEATURE_EVENT_FORK	       (1 << 1)
-#define UFFD_FEATURE_EVENT_REMAP       (1 << 2)
-#define UFFD_FEATURE_EVENT_REMOVE      (1 << 3)
-#define UFFD_FEATURE_MISSING_HUGETLBFS (1 << 4)
-#define UFFD_FEATURE_MISSING_SHMEM     (1 << 5)
-#define UFFD_FEATURE_EVENT_UNMAP       (1 << 6)
-#define UFFD_FEATURE_WP      (1 << 7)
+#define UFFD_FEATURE_PAGEFAULT_FLAG_WP		(1<<0)
+#define UFFD_FEATURE_EVENT_FORK			(1<<1)
+#define UFFD_FEATURE_EVENT_REMAP		(1<<2)
+#define UFFD_FEATURE_EVENT_REMOVE		(1<<3)
+#define UFFD_FEATURE_MISSING_HUGETLBFS		(1<<4)
+#define UFFD_FEATURE_MISSING_SHMEM		(1<<5)
+#define UFFD_FEATURE_EVENT_UNMAP		(1<<6)
+#define UFFD_FEATURE_SIGBUS			(1<<7)
+#define UFFD_FEATURE_THREAD_ID			(1<<8)
+#define UFFD_FEATURE_MINOR_HUGETLBFS		(1<<9)
+#define UFFD_FEATURE_MINOR_SHMEM		(1<<10)
+#define UFFD_FEATURE_EXACT_ADDRESS		(1<<11)
+#define UFFD_FEATURE_WP_HUGETLBFS_SHMEM		(1<<12)
+#define UFFD_FEATURE_WP_UNPOPULATED		(1<<13)
+#define UFFD_FEATURE_POISON			(1<<14)
+#define UFFD_FEATURE_WP_ASYNC			(1<<15)
+#define UFFD_FEATURE_MOVE			(1<<16)
 	__u64 features;
 
 	__u64 ioctls;
