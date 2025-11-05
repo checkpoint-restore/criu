@@ -888,8 +888,8 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	if (ret < 0) {
 		int e = (ret < 0) ? -ret : ret;     /* convert to +errno code */
 
-		pr_err("Failed to initialize userfaultfd API: %d uffd=%d errno=%d\n", e, uffd, errno);
-		sys_close(uffd);
+		pr_err("Failed to initialize userfaultfd API: %d uffd=%d\n", e, uffd);
+		//sys_close(uffd);
 		return -1;
 	}
 
