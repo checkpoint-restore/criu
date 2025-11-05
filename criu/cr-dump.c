@@ -2130,6 +2130,17 @@ static int cr_dump_finish(int ret)
 		clean_cr_time_mounts();
 	}
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+	 if (!ret && opts.lazy_pages)
+		ret = cr_lazy_mem_dump();
+
+	if (arch_set_thread_regs(root_item, true) < 0)
+		return -1;
+
+	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
+	timing_stop(TIME_FROZEN);
+
 	if (!ret && opts.cow_dump) {
 		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 		while(true){pr_info("file = %s, line = %d\n", __FILE__, __LINE__); sleep(10);}
@@ -2140,16 +2151,7 @@ static int cr_dump_finish(int ret)
 		}
 		
 	}
-	else if (!ret && opts.lazy_pages)
-		ret = cr_lazy_mem_dump();
-
-	if (arch_set_thread_regs(root_item, true) < 0)
-		return -1;
-
-	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
-
-	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
-	timing_stop(TIME_FROZEN);
+	
 	free_pstree(root_item);
 	seccomp_free_entries();
 	free_file_locks();
