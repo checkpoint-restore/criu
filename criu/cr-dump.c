@@ -1771,7 +1771,9 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		}
 		//	while (true) {pr_info("file = %s, line = %d\n", __FILE__, __LINE__);sleep(5);}
 	}
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = compel_stop_daemon(parasite_ctl);
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (ret) {
 		pr_err("Can't stop daemon in parasite (pid: %d)\n", pid);
 		goto err_cure;
