@@ -170,9 +170,9 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 {
 	struct cow_dump_info *cdi;
 	struct vma_area *vma;
-	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
+/*	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
 				 UFFD_FEATURE_EVENT_FORK |
-				 UFFD_FEATURE_EVENT_REMAP;
+				 UFFD_FEATURE_EVENT_REMAP;*/
 	int err = 0;
 		struct uffdio_api api;
 
