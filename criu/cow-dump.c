@@ -174,11 +174,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	struct vma_area *vma;
 	struct parasite_cow_dump_args *args;
 	struct parasite_vma_entry *p_vma;
-	unsigned long features =
-				 UFFD_FEATURE_PAGEFAULT_FLAG_WP |
-				 UFFD_FEATURE_EVENT_FORK |
-				 UFFD_FEATURE_EVENT_REMAP;
-	struct uffdio_api api = { .api = UFFD_API, .features = features };
+
 	int ret;
 	unsigned long args_size;
 	unsigned int nr_vmas = 0;
@@ -249,7 +245,8 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	}
 
 	/* Receive userfaultfd from parasite */
-	cdi->uffd = compel_util_recv_fd(ctl);
+	
+	ret = compel_util_recv_fd(ctl, cdi->uffd);
 	if (cdi->uffd < 0) {
 		pr_err("Failed to receive userfaultfd from parasite\n");
 		goto err_close_mem;
@@ -264,8 +261,6 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 err_close_mem:
 	close(cdi->proc_mem_fd);
-err_close_uffd:
-	close(cdi->uffd);
 err_free:
 	xfree(cdi);
 	return -1;
