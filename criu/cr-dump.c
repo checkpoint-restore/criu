@@ -1722,7 +1722,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			goto err_cure;
 	} else {
 		pr_info("COW dump mode: initializing write tracking instead of dumping pages\n");
-		ret = cow_dump_init(item, &vmas);
+		ret = cow_dump_init(item, &vmas, parasite_ctl);
 		if (ret) {
 			pr_err("Failed to initialize COW dump for pid %d\n", pid);
 			goto err_cure;

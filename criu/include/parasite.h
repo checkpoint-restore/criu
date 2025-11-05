@@ -37,6 +37,7 @@ enum {
 	PARASITE_CMD_CHECK_VDSO_MARK,
 	PARASITE_CMD_CHECK_AIOS,
 	PARASITE_CMD_DUMP_CGROUP,
+	PARASITE_CMD_COW_DUMP_INIT,
 
 	PARASITE_CMD_MAX,
 };
@@ -253,6 +254,21 @@ struct parasite_dump_cgroup_args {
 	 */
 	char thread_cgrp[32];
 };
+
+/*
+ * COW dump initialization arguments
+ * VMAs are stored after this structure, similar to parasite_dump_pages_args
+ */
+struct parasite_cow_dump_args {
+	unsigned int nr_vmas;
+	unsigned long total_pages;	/* Output: total pages registered */
+	int ret;			/* Output: return code */
+};
+
+static inline struct parasite_vma_entry *cow_dump_vmas(struct parasite_cow_dump_args *a)
+{
+	return (struct parasite_vma_entry *)(a + 1);
+}
 
 #endif /* !__ASSEMBLY__ */
 

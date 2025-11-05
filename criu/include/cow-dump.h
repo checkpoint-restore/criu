@@ -5,6 +5,7 @@
 
 struct pstree_item;
 struct vm_area_list;
+struct parasite_ctl;
 
 /* COW dump mode - write-tracking based live migration */
 
@@ -23,13 +24,15 @@ extern int cr_cow_mem_dump(void);
  * cow_dump_init - Initialize COW dump for a process
  * @item: Process tree item to set up COW tracking for
  * @vma_area_list: List of VMAs to track
+ * @ctl: Parasite control structure for RPC
  *
  * Sets up userfaultfd with write-protection for all writable memory
- * regions of the target process.
+ * regions of the target process. The registration is performed via
+ * parasite RPC to ensure it runs in the target process's context.
  *
  * Returns: 0 on success, -1 on error
  */
-extern int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list);
+extern int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl);
 
 /**
  * cow_dump_fini - Clean up COW dump resources

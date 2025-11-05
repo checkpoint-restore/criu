@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <sys/ioctl.h>
 #include <sys/uio.h>
+#include <linux/userfaultfd.h>
 
 #include "linux/rseq.h"
 
@@ -854,6 +855,86 @@ static int parasite_dump_cgroup(struct parasite_dump_cgroup_args *args)
 	return 0;
 }
 
+static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
+{
+	struct parasite_vma_entry *vmas, *vma;
+	struct uffdio_register reg;
+	struct uffdio_writeprotect wp;
+	int uffd, tsock, i;
+	unsigned long addr, len;
+	unsigned long total_pages = 0;
+
+	pr_info("COW dump init: registering %d VMAs\n", args->nr_vmas);
+
+	/* Receive userfaultfd from CRIU */
+	tsock = parasite_get_rpc_sock();
+	uffd = recv_fd(tsock);
+	if (uffd < 0) {
+		pr_err("Failed to receive userfaultfd\n");
+		return -1;
+	}
+
+	vmas = cow_dump_vmas(args);
+
+	/* Register each VMA with write-protection */
+	for (i = 0; i < args->nr_vmas; i++) {
+		vma = vmas + i;
+		addr = vma->start;
+		len = vma->len;
+
+		pr_info("Registering VMA %d: %lx-%lx prot=%x len=%lu\n", 
+			i, addr, addr + len, vma->prot, len);
+
+		/* Skip non-writable VMAs */
+		if (!(vma->prot & PROT_WRITE)) {
+			pr_info("Skipping non-writable VMA: %lx-%lx\n", addr, addr + len);
+			continue;
+		}
+
+		/* Register VMA for write-protect tracking */
+		reg.range.start = addr;
+		reg.range.len = len;
+		reg.mode = UFFDIO_REGISTER_MODE_WP;
+
+		if (sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long)&reg)) {
+			/* Some VMAs may not support WP - just skip them */
+			if (sys_get_errno() == EINVAL) {
+				pr_warn("Cannot WP-register VMA %lx-%lx (unsupported), skipping\n",
+					addr, addr + len);
+				continue;
+			}
+			pr_err("Failed to register VMA %lx-%lx: errno=%d\n", 
+				addr, addr + len, sys_get_errno());
+			sys_close(uffd);
+			return -1;
+		}
+
+		/* Apply write-protection */
+		wp.range.start = addr;
+		wp.range.len = len;
+		wp.mode = UFFDIO_WRITEPROTECT_MODE_WP;
+
+		if (sys_ioctl(uffd, UFFDIO_WRITEPROTECT, (unsigned long)&wp)) {
+			pr_err("Failed to write-protect VMA %lx-%lx: errno=%d\n",
+				addr, addr + len, sys_get_errno());
+			sys_close(uffd);
+			return -1;
+		}
+
+		total_pages += len / PAGE_SIZE;
+		pr_info("Successfully registered and WP'd VMA: %lx-%lx (%lu pages)\n",
+			addr, addr + len, len / PAGE_SIZE);
+	}
+
+	args->total_pages = total_pages;
+	args->ret = 0;
+
+	pr_info("COW dump init complete: %lu total pages\n", total_pages);
+
+	/* Don't close uffd - it will remain open for the process */
+	return 0;
+}
+
 void parasite_cleanup(void)
 {
 	if (mprotect_args) {
@@ -905,6 +986,9 @@ int parasite_daemon_cmd(int cmd, void *args)
 		break;
 	case PARASITE_CMD_DUMP_CGROUP:
 		ret = parasite_dump_cgroup(args);
+		break;
+	case PARASITE_CMD_COW_DUMP_INIT:
+		ret = parasite_cow_dump_init(args);
 		break;
 	default:
 		pr_err("Unknown command in parasite daemon thread leader: %d\n", cmd);

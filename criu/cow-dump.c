@@ -166,24 +166,23 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 	return 0;
 }
 
-int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
+int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl)
 {
 	struct cow_dump_info *cdi;
 	struct vma_area *vma;
+	struct parasite_cow_dump_args *args;
+	struct parasite_vma_entry *p_vma;
 	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP;
-	int err = 0;
-		struct uffdio_api api = { .api = UFFD_API,
-                          .features = features };
+	struct uffdio_api api = { .api = UFFD_API, .features = features };
+	int ret;
+	unsigned long args_size;
 
-	
-
-	pr_info("Initializing COW dump for pid %d\n", item->pid->real);
+	pr_info("Initializing COW dump for pid %d (via parasite)\n", item->pid->real);
 
 	if (!cow_check_kernel_support()) {
 		pr_err("Kernel doesn't support COW dump\n");
 		return -1;
 	}
-		pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 
 	cdi = xzalloc(sizeof(*cdi));
 	if (!cdi)
@@ -191,44 +190,91 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 
 	cdi->item = item;
 	INIT_LIST_HEAD(&cdi->dirty_list);
-		pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 
-	/* Open userfaultfd */
-	cdi->uffd =  syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
+	/* Open userfaultfd in CRIU context */
+	cdi->uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
 	if (cdi->uffd < 0) {
-		pr_err("Failed to open userfaultfd: %d\n", err);
+		pr_perror("Failed to open userfaultfd");
 		goto err_free;
 	}
-	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 
-	if (ioctl(cdi->uffd, UFFDIO_API, &api) == -1){
-		 int e = errno;
-    if (e == EPERM)
-        pr_info("userfaultfd blocked (check vm.unprivileged_userfaultfd or seccomp)\n");
-    else{
-        perror("UFFDIO_API");}
-	exit(0);
-    return -1;
-	} 
+	/* Initialize userfaultfd API */
+	if (ioctl(cdi->uffd, UFFDIO_API, &api) == -1) {
+		if (errno == EPERM)
+			pr_err("userfaultfd blocked (check vm.unprivileged_userfaultfd or seccomp)\n");
+		else
+			pr_perror("UFFDIO_API failed");
+		goto err_close_uffd;
+	}
 	pr_info("UFFD features: 0x%llx\n", (unsigned long long)api.features);
+
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
-	if (cdi->proc_mem_fd < 0){
-		pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
-		goto err_close_uffd;}
-	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
+	if (cdi->proc_mem_fd < 0)
+		goto err_close_uffd;
 
-
-
-	/* Register all writable VMAs with write-protection */
+	/* Prepare parasite arguments - count writable VMAs */
+	unsigned int nr_vmas = 0;
 	list_for_each_entry(vma, &vma_area_list->h, list) {
-		if (cow_register_vma_writeprotect(cdi, vma)) {
-			pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
-			goto err_close_mem;
-		}
+		if (vma_area_is(vma, VMA_AREA_GUARD))
+			continue;
+		if (vma->e->prot & PROT_WRITE)
+			nr_vmas++;
 	}
 
+	/* Allocate parasite args */
+	args_size = sizeof(*args) + nr_vmas * sizeof(struct parasite_vma_entry);
+	args = compel_parasite_args_s(ctl, args_size);
+	if (!args) {
+		pr_err("Failed to allocate parasite args\n");
+		goto err_close_mem;
+	}
+
+	args->nr_vmas = nr_vmas;
+	args->total_pages = 0;
+	args->ret = -1;
+
+	/* Fill VMA entries */
+	p_vma = cow_dump_vmas(args);
+	nr_vmas = 0;
+	list_for_each_entry(vma, &vma_area_list->h, list) {
+		if (vma_area_is(vma, VMA_AREA_GUARD))
+			continue;
+		if (!(vma->e->prot & PROT_WRITE))
+			continue;
+
+		p_vma[nr_vmas].start = vma->e->start;
+		p_vma[nr_vmas].len = vma->e->end - vma->e->start;
+		p_vma[nr_vmas].prot = vma->e->prot;
+		nr_vmas++;
+	}
+
+	pr_info("Calling parasite to register %u VMAs\n", args->nr_vmas);
+
+	/* Call parasite to perform registration */
+	ret = compel_rpc_call(PARASITE_CMD_COW_DUMP_INIT, ctl);
+	if (ret < 0) {
+		pr_err("Failed to initiate COW dump RPC\n");
+		goto err_close_mem;
+	}
+
+	/* Send userfaultfd to parasite */
+	ret = compel_util_send_fd(ctl, cdi->uffd);
+	if (ret) {
+		pr_err("Failed to send userfaultfd to parasite\n");
+		goto err_close_mem;
+	}
+
+	/* Wait for parasite to complete */
+	ret = compel_rpc_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
+	if (ret < 0 || args->ret != 0) {
+		pr_err("Parasite COW dump init failed: %d (ret=%d)\n", ret, args->ret);
+		goto err_close_mem;
+	}
+
+	cdi->total_pages = args->total_pages;
 	pr_info("COW dump initialized: tracking %lu pages\n", cdi->total_pages);
+	
 	g_cow_info = cdi;
 	return 0;
 
