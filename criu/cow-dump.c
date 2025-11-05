@@ -174,7 +174,10 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	struct vma_area *vma;
 	struct parasite_cow_dump_args *args;
 	struct parasite_vma_entry *p_vma;
-	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP;
+	unsigned long features =
+				 UFFD_FEATURE_PAGEFAULT_FLAG_WP |
+				 UFFD_FEATURE_EVENT_FORK |
+				 UFFD_FEATURE_EVENT_REMAP;
 	struct uffdio_api api = { .api = UFFD_API, .features = features };
 	int ret;
 	unsigned long args_size;
