@@ -201,9 +201,12 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 		goto err_free;
 	}
 	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
-		api =  = {.api = UFFD_API,
-                         .features = UFFD_FEATURE_PAGEFAULT_FLAG_WP /* request this */};
-	if (ioctl(cdi->uffd, UFFDIO_API, &api) == -1) perror("UFFDIO_API");
+		api.api = UFFD_API;
+		api.features = UFFD_FEATURE_PAGEFAULT_FLAG_WP /* request this */;
+	if (ioctl(cdi->uffd, UFFDIO_API, &api) == -1){
+		pr_info("Asaf try1 file = %s, line = %d UFFDIO_API_ERROR\n", __FILE__, __LINE__);
+		perror("UFFDIO_API");
+	} 
 
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
