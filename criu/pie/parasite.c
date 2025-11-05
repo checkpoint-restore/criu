@@ -898,13 +898,13 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 
 		if (sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long)&reg)) {
 			/* Some VMAs may not support WP - just skip them */
-			if (sys_get_errno() == EINVAL) {
+			if (errno == EINVAL) {
 				pr_warn("Cannot WP-register VMA %lx-%lx (unsupported), skipping\n",
 					addr, addr + len);
 				continue;
 			}
 			pr_err("Failed to register VMA %lx-%lx: errno=%d\n", 
-				addr, addr + len, sys_get_errno());
+				addr, addr + len, errno);
 			sys_close(uffd);
 			return -1;
 		}
@@ -916,7 +916,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 
 		if (sys_ioctl(uffd, UFFDIO_WRITEPROTECT, (unsigned long)&wp)) {
 			pr_err("Failed to write-protect VMA %lx-%lx: errno=%d\n",
-				addr, addr + len, sys_get_errno());
+				addr, addr + len, errno);
 			sys_close(uffd);
 			return -1;
 		}
