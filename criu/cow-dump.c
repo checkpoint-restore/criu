@@ -246,7 +246,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	/* Receive userfaultfd from parasite */
 	
-	ret = compel_util_recv_fd(ctl, cdi->uffd);
+	ret = compel_util_recv_fd(ctl, &cdi->uffd);
 	if (cdi->uffd < 0) {
 		pr_err("Failed to receive userfaultfd from parasite\n");
 		goto err_close_mem;
