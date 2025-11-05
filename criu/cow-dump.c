@@ -384,7 +384,7 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 			break;
 
 		case UFFD_EVENT_REMAP:
-			pr_debug("Memory remap event\n");
+			pr_info("Memory remap event\n");
 			break;
 
 		default:
@@ -394,47 +394,6 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 	}
 
 	return 0;
-}
-
-static int cow_send_dirty_pages(struct cow_dump_info *cdi)
-{
-	struct dirty_range *dr, *tmp;
-	void *buf;
-	int ret = 0;
-
-	if (list_empty(&cdi->dirty_list))
-		return 0;
-
-	buf = xmalloc(PAGE_SIZE);
-	if (!buf)
-		return -1;
-
-	pr_info("Iteration %lu: Sending %lu dirty pages\n", 
-		cdi->iteration, cdi->dirty_pages);
-
-	list_for_each_entry_safe(dr, tmp, &cdi->dirty_list, list) {
-		ssize_t bytes;
-
-		/* Read page from process memory */
-		bytes = pread(cdi->proc_mem_fd, buf, PAGE_SIZE, dr->start);
-		if (bytes != PAGE_SIZE) {
-			pr_perror("Failed to read page at 0x%lx", dr->start);
-			ret = -1;
-			break;
-		}
-
-		/* TODO: Send page to destination via page server */
-		/* For now, we just track it */
-		
-		pr_debug("Captured dirty page at 0x%lx\n", dr->start);
-
-		/* Remove from list */
-		list_del(&dr->list);
-		xfree(dr);
-	}
-
-	xfree(buf);
-	return ret;
 }
 
 /* Background thread that monitors for write faults */
