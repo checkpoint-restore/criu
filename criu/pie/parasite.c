@@ -865,9 +865,9 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	int ret = 0;
 	unsigned long addr, len;
 	unsigned long total_pages = 0;
-	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
+	/*unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
 				 UFFD_FEATURE_EVENT_FORK |
-				 UFFD_FEATURE_EVENT_REMAP;
+				 UFFD_FEATURE_EVENT_REMAP;*/
 
 	pr_info("COW dump init: registering %d VMAs\n", args->nr_vmas);
 
