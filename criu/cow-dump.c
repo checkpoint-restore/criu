@@ -21,6 +21,7 @@
 #include "util.h"
 #include "kerndat.h"
 #include "criu-log.h"
+#include "parasite.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "cow-dump: "
@@ -224,7 +225,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	}
 
 	/* Allocate parasite args */
-	args_size = sizeof(struct parasite_cow_dump_args) + nr_vmas * sizeof(struct parasite_vma_entry);
+	args_size = sizeof(*args) + nr_vmas * sizeof(struct parasite_vma_entry);
 	args = compel_parasite_args_s(ctl, args_size);
 	if (!args) {
 		pr_err("Failed to allocate parasite args\n");
