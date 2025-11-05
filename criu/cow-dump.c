@@ -237,18 +237,26 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	pr_info("Calling parasite to register %u VMAs\n", args->nr_vmas);
 
-	/* Call parasite to create uffd and perform registration */
-	ret = compel_rpc_call_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
-	if (ret < 0 || args->ret != 0) {
-		pr_err("Parasite COW dump init failed: %d (ret=%d)\n", ret, args->ret);
+	/* Call parasite to create uffd and perform registration (async) */
+	ret = compel_rpc_call(PARASITE_CMD_COW_DUMP_INIT, ctl);
+	if (ret < 0) {
+		pr_err("Failed to initiate COW dump RPC\n");
 		goto err_close_mem;
 	}
 
 	/* Receive userfaultfd from parasite */
-	
-	ret = compel_util_recv_fd(ctl, &cdi->uffd);
+	cdi->uffd = compel_util_recv_fd(ctl);
 	if (cdi->uffd < 0) {
-		pr_err("Failed to receive userfaultfd from parasite\n");
+		pr_err("Failed to receive userfaultfd from parasite: %d\n", cdi->uffd);
+		goto err_close_mem;
+	}
+
+	/* Wait for parasite to complete */
+	ret = compel_rpc_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
+	if (ret < 0 || args->ret != 0) {
+		pr_err("Parasite COW dump init failed: %d (ret=%d)\n", ret, args->ret);
+		close(cdi->uffd);
+		cdi->uffd = -1;
 		goto err_close_mem;
 	}
 

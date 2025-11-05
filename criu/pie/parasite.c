@@ -948,21 +948,23 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 			addr, addr + len, len / PAGE_SIZE);
 	}
 
-	args->total_pages = total_pages;
-	args->ret = 0;
-
 	pr_info("COW dump init complete: %lu total pages\n", total_pages);
 
-	/* Send userfaultfd back to CRIU */
+	/* Send userfaultfd back to CRIU before setting return status */
 	tsock = parasite_get_rpc_sock();
 	ret = send_fd(tsock, NULL, 0, uffd);
 	if (ret) {
 		pr_err("Failed to send userfaultfd back to CRIU: %d\n", ret);
 		sys_close(uffd);
+		args->ret = -1;
 		return -1;
 	}
 
 	pr_info("Sent uffd=%d back to CRIU\n", uffd);
+
+	/* Set success status after fd is sent */
+	args->total_pages = total_pages;
+	args->ret = 0;
 
 	/* Don't close uffd - it will remain open for the process */
 	return 0;
