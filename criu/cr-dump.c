@@ -1728,49 +1728,49 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			goto err_cure;
 		}
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump sigactions (pid: %d) with parasite\n", pid);
 		goto err_cure;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_itimers_seized(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump itimers (pid: %d)\n", pid);
 		goto err_cure;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_posix_timers_seized(&proc_args, parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump posix timers (pid: %d)\n", pid);
 		goto err_cure;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = dump_task_core_all(parasite_ctl, item, &pps_buf, cr_imgset, &misc);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = dump_task_cgroup(parasite_ctl, item);
 	if (ret) {
 		pr_err("Dump cgroup of threads in process (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = compel_stop_daemon(parasite_ctl);
 	if (ret) {
 		pr_err("Can't stop daemon in parasite (pid: %d)\n", pid);
 		goto err_cure;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = dump_task_threads(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump threads\n");
 		goto err_cure;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	/*
 	 * On failure local map will be cured in cr_dump_finish()
 	 * for lazy pages.
@@ -1783,19 +1783,19 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 		goto err;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = dump_task_mm(pid, &pps_buf, &misc, &vmas, cr_imgset);
 	if (ret) {
 		pr_err("Dump mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = dump_task_fs(pid, &misc, cr_imgset);
 	if (ret) {
 		pr_err("Dump fs (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	exit_code = 0;
 err:
 	close_cr_imgset(&cr_imgset);
@@ -2058,7 +2058,7 @@ static int cr_lazy_mem_dump(void)
 static int cr_dump_finish(int ret)
 {
 	int post_dump_ret = 0;
-
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (disconnect_from_page_server())
 		ret = -1;
 
@@ -2114,9 +2114,11 @@ static int cr_dump_finish(int ret)
 		delete_link_remaps();
 		clean_cr_time_mounts();
 	}
-
-	if (!ret && opts.cow_dump)
+	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+	if (!ret && opts.cow_dump) {
+		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 		ret = cr_cow_mem_dump();
+	}
 	else if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
 
