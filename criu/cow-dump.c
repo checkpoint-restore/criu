@@ -207,8 +207,8 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 		 int e = errno;
     if (e == EPERM)
         pr_info("userfaultfd blocked (check vm.unprivileged_userfaultfd or seccomp)\n");
-    else
-        perror("UFFDIO_API");
+    else{
+        perror("UFFDIO_API");}
 	exit(0);
     return -1;
 	} 
