@@ -1728,6 +1728,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			goto err_cure;
 		}
 	}
+	while (true) {pr_info("file = %s, line = %d\n", __FILE__, __LINE__);sleep(5);}
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
@@ -2116,7 +2117,7 @@ static int cr_dump_finish(int ret)
 	}
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (!ret && opts.cow_dump) {
-		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);		
 		ret = cr_cow_mem_dump();
 	}
 	else if (!ret && opts.lazy_pages)
