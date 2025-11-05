@@ -138,6 +138,7 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 	/* Only use WP mode - MISSING mode is for lazy-pages, not COW */
 	reg.mode = UFFDIO_REGISTER_MODE_WP;
 
+
 	if (ioctl(cdi->uffd, UFFDIO_REGISTER, &reg)) {
 		/* Some VMAs may not support WP even if writable - just skip them */
 		if (errno == EINVAL) {
@@ -204,6 +205,11 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 		pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 		goto err_close_uffd;}
 	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
+
+	struct uffdio_api api = {.api = UFFD_API,
+                         .features = UFFD_FEATURE_PAGEFAULT_FLAG_WP /* request this */};
+	if (ioctl(uffd, UFFDIO_API, &api) == -1) perror("UFFDIO_API");
+	pr_info("UFFD features: 0x%llx\n", (unsigned long long)api.features);
 
 	/* Register all writable VMAs with write-protection */
 	list_for_each_entry(vma, &vma_area_list->h, list) {
