@@ -884,7 +884,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	api.features = features;
 	api.ioctls = 0;
 
-	ret = ioctl(uffd, UFFDIO_API, (unsigned long)&api);
+	ret = sys_ioctl(uffd, UFFDIO_API, (unsigned long)&api);
 	if (ret < 0) {
 		int e = (ret < 0) ? -ret : ret;     /* convert to +errno code */
 
