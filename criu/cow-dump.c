@@ -176,6 +176,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	struct uffdio_api api = { .api = UFFD_API, .features = features };
 	int ret;
 	unsigned long args_size;
+	unsigned int nr_vmas = 0;
 
 	pr_info("Initializing COW dump for pid %d (via parasite)\n", item->pid->real);
 
@@ -214,7 +215,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		goto err_close_uffd;
 
 	/* Prepare parasite arguments - count writable VMAs */
-	unsigned int nr_vmas = 0;
+	nr_vmas = 0;
 	list_for_each_entry(vma, &vma_area_list->h, list) {
 		if (vma_area_is(vma, VMA_AREA_GUARD))
 			continue;
@@ -223,7 +224,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	}
 
 	/* Allocate parasite args */
-	args_size = sizeof(*args) + nr_vmas * sizeof(struct parasite_vma_entry);
+	args_size = sizeof(struct parasite_cow_dump_args) + nr_vmas * sizeof(struct parasite_vma_entry);
 	args = compel_parasite_args_s(ctl, args_size);
 	if (!args) {
 		pr_err("Failed to allocate parasite args\n");
