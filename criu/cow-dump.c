@@ -170,11 +170,12 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 {
 	struct cow_dump_info *cdi;
 	struct vma_area *vma;
-/*	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
+	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
 				 UFFD_FEATURE_EVENT_FORK |
-				 UFFD_FEATURE_EVENT_REMAP;*/
+				 UFFD_FEATURE_EVENT_REMAP;
 	int err = 0;
-		struct uffdio_api api;
+		struct uffdio_api api = { .api = UFFD_API,
+                          .features = features };
 
 	
 
@@ -201,8 +202,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 		goto err_free;
 	}
 	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
-		api.api = UFFD_API;
-		api.features = 0/* request this */;
+
 	if (ioctl(cdi->uffd, UFFDIO_API, &api) == -1){
 		 int e = errno;
     if (e == EPERM)
