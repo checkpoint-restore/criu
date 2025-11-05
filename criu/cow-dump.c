@@ -202,10 +202,15 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 	}
 	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 		api.api = UFFD_API;
-		api.features = UFFD_FEATURE_PAGEFAULT_FLAG_WP /* request this */;
+		api.features = 0/* request this */;
 	if (ioctl(cdi->uffd, UFFDIO_API, &api) == -1){
-		pr_info("Asaf try1 file = %s, line = %d UFFDIO_API_ERROR\n", __FILE__, __LINE__);
-		perror("UFFDIO_API");
+		 int e = errno;
+    if (e == EPERM)
+        pr_info("userfaultfd blocked (check vm.unprivileged_userfaultfd or seccomp)\n");
+    else
+        perror("UFFDIO_API");
+	exit(0);
+    return -1;
 	} 
 	pr_info("UFFD features: 0x%llx\n", (unsigned long long)api.features);
 	/* Open /proc/pid/mem for reading pages */
