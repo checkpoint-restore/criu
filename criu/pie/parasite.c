@@ -915,7 +915,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		wp.range.len = len;
 		wp.mode = UFFDIO_WRITEPROTECT_MODE_WP;
 		ret = sys_ioctl(uffd, UFFDIO_WRITEPROTECT, (unsigned long)&wp);
-		if (ret)) {
+		if (ret) {
 			pr_err("Failed to write-protect VMA %lx-%lx: ret=%d\n",
 				addr, addr + len, ret);
 			sys_close(uffd);
