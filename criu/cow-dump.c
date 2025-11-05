@@ -131,7 +131,7 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 		return 0;
 	}
 
-	pr_info("Attempting to register VMA: %lx-%lx prot=%x flags=%x len=%d\n", addr, addr + len, vma->e->prot, vma->e->flags,len);
+	pr_info("Attempting to register VMA: %lx-%lx prot=%x flags=%x len=%ull\n", addr, addr + len, vma->e->prot, vma->e->flags,len);
 
 	reg.range.start = addr;
 	reg.range.len = len;
