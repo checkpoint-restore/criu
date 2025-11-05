@@ -906,6 +906,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 			}
 			pr_err("Failed to register VMA %lx-%lx: ret=%d\n", 
 				addr, addr + len, ret);
+			continue;
 			sys_close(uffd);
 			return -1;
 		}
