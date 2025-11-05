@@ -879,13 +879,16 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	}
 
 	/* Initialize userfaultfd API with WP features */
+	memset(&api, 0, sizeof(api));
 	api.api = UFFD_API;
 	api.features = features;
 	api.ioctls = 0;
 
 	ret = sys_ioctl(uffd, UFFDIO_API, (unsigned long)&api);
 	if (ret) {
-		pr_err("Failed to initialize userfaultfd API: %d\n", ret);
+		int e = (rc < 0) ? -rc : rc;     /* convert to +errno code */
+
+		pr_err("Failed to initialize userfaultfd API: %d %s\n", ret,. strerror(e));
 		sys_close(uffd);
 		return -1;
 	}
