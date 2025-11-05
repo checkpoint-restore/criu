@@ -872,7 +872,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	pr_info("COW dump init: registering %d VMAs\n", args->nr_vmas);
 
 	/* Create userfaultfd in target process context */
-	uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
+    uffd = (int)syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
 	if (uffd < 0) {
 		pr_err("Failed to create userfaultfd: %d\n", uffd);
 		return -1;
@@ -884,12 +884,13 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	api.features = features;
 	api.ioctls = 0;
 
-	ret = sys_ioctl(uffd, UFFDIO_API, (unsigned long)&api);
+	ret = ioctl(uffd, UFFDIO_API, (unsigned long)&api);
 	if (ret < 0) {
 		int e = (ret < 0) ? -ret : ret;     /* convert to +errno code */
 
-		pr_err("Failed to initialize userfaultfd API: %d uffd=%d but continue\n", e, uffd);
-		//sys_close(uffd);
+		pr_err("Failed to initialize userfaultfd API: %d uffd=%d but continue\n", e, uffd);		
+		sys_close(uffd);
+		 perror("UFFDIO_API");
 		return -1;
 	}
 
