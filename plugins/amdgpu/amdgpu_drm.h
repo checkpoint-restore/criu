@@ -58,6 +58,11 @@ extern "C" {
 #define DRM_AMDGPU_USERQ_SIGNAL		0x17
 #define DRM_AMDGPU_USERQ_WAIT		0x18
 #define DRM_AMDGPU_GEM_LIST_HANDLES	0x19
+/* not upstream */
+#define DRM_AMDGPU_GEM_DGMA		0x5c
+
+/* hybrid specific ioctls */
+#define DRM_AMDGPU_SEM			0x5b
 
 #define DRM_IOCTL_AMDGPU_GEM_CREATE	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_CREATE, union drm_amdgpu_gem_create)
 #define DRM_IOCTL_AMDGPU_GEM_MMAP	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_MMAP, union drm_amdgpu_gem_mmap)
@@ -79,6 +84,8 @@ extern "C" {
 #define DRM_IOCTL_AMDGPU_USERQ_SIGNAL	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_USERQ_SIGNAL, struct drm_amdgpu_userq_signal)
 #define DRM_IOCTL_AMDGPU_USERQ_WAIT	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_USERQ_WAIT, struct drm_amdgpu_userq_wait)
 #define DRM_IOCTL_AMDGPU_GEM_LIST_HANDLES DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_LIST_HANDLES, struct drm_amdgpu_gem_list_handles)
+
+#define DRM_IOCTL_AMDGPU_GEM_DGMA	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_DGMA, struct drm_amdgpu_gem_dgma)
 
 /**
  * DOC: memory domains
@@ -105,7 +112,12 @@ extern "C" {
  *
  * %AMDGPU_GEM_DOMAIN_DOORBELL	Doorbell. It is an MMIO region for
  * signalling user mode queues.
+ *
+ * %AMDGPU_GEM_DOMAIN_MMIO_REMAP	MMIO remap page (special mapping for HDP flushing).
  */
+/* hybrid specific ioctls */
+#define DRM_IOCTL_AMDGPU_SEM		DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_SEM, union drm_amdgpu_sem)
+
 #define AMDGPU_GEM_DOMAIN_CPU		0x1
 #define AMDGPU_GEM_DOMAIN_GTT		0x2
 #define AMDGPU_GEM_DOMAIN_VRAM		0x4
@@ -113,13 +125,20 @@ extern "C" {
 #define AMDGPU_GEM_DOMAIN_GWS		0x10
 #define AMDGPU_GEM_DOMAIN_OA		0x20
 #define AMDGPU_GEM_DOMAIN_DOORBELL	0x40
+#define AMDGPU_GEM_DOMAIN_MMIO_REMAP	0x80
+#define AMDGPU_GEM_DOMAIN_DGMA		0x400
+#define AMDGPU_GEM_DOMAIN_DGMA_IMPORT	0x800
+
 #define AMDGPU_GEM_DOMAIN_MASK		(AMDGPU_GEM_DOMAIN_CPU | \
 					 AMDGPU_GEM_DOMAIN_GTT | \
 					 AMDGPU_GEM_DOMAIN_VRAM | \
 					 AMDGPU_GEM_DOMAIN_GDS | \
 					 AMDGPU_GEM_DOMAIN_GWS | \
-					 AMDGPU_GEM_DOMAIN_OA | \
-					 AMDGPU_GEM_DOMAIN_DOORBELL)
+					 AMDGPU_GEM_DOMAIN_OA |\
+					 AMDGPU_GEM_DOMAIN_DOORBELL |\
+					 AMDGPU_GEM_DOMAIN_MMIO_REMAP |\
+					 AMDGPU_GEM_DOMAIN_DGMA |\
+					 AMDGPU_GEM_DOMAIN_DGMA_IMPORT)
 
 /* Flag that CPU access will be required for the case of VRAM domain */
 #define AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED	(1 << 0)
@@ -181,6 +200,14 @@ extern "C" {
 #define AMDGPU_GEM_CREATE_EXT_COHERENT		(1 << 15)
 /* Set PTE.D and recompress during GTT->VRAM moves according to TILING flags. */
 #define AMDGPU_GEM_CREATE_GFX12_DCC		(1 << 16)
+
+/* hybrid specific */
+/* Flag that the memory should be in SPARSE resource */
+#define AMDGPU_GEM_CREATE_SPARSE		(1ULL << 29)
+/* Flag that the memory allocation should be from top of domain */
+#define AMDGPU_GEM_CREATE_TOP_DOWN		(1ULL << 30)
+/* Flag that the memory allocation should be pinned */
+#define AMDGPU_GEM_CREATE_NO_EVICT		(1ULL << 31)
 
 struct drm_amdgpu_gem_create_in  {
 	/** the requested memory size */
@@ -581,6 +608,35 @@ struct drm_amdgpu_userq_wait {
 	__u64	out_fences;
 };
 
+/* sem related */
+#define AMDGPU_SEM_OP_CREATE_SEM        1
+#define AMDGPU_SEM_OP_WAIT_SEM	        2
+#define AMDGPU_SEM_OP_SIGNAL_SEM        3
+#define AMDGPU_SEM_OP_DESTROY_SEM       4
+#define AMDGPU_SEM_OP_IMPORT_SEM	5
+#define AMDGPU_SEM_OP_EXPORT_SEM	6
+
+struct drm_amdgpu_sem_in {
+	/** AMDGPU_SEM_OP_* */
+	uint32_t	op;
+	uint32_t        handle;
+	uint32_t	ctx_id;
+	uint32_t        ip_type;
+	uint32_t        ip_instance;
+	uint32_t        ring;
+	uint64_t        seq;
+};
+
+union drm_amdgpu_sem_out {
+	int32_t         fd;
+	uint32_t	handle;
+};
+
+union drm_amdgpu_sem {
+	struct drm_amdgpu_sem_in in;
+	union drm_amdgpu_sem_out out;
+};
+
 /* vm ioctl */
 #define AMDGPU_VM_OP_RESERVE_VMID	1
 #define AMDGPU_VM_OP_UNRESERVE_VMID	2
@@ -634,6 +690,15 @@ struct drm_amdgpu_gem_userptr {
 	/* AMDGPU_GEM_USERPTR_* */
 	__u32		flags;
 	/* Resulting GEM handle */
+	__u32		handle;
+};
+
+#define AMDGPU_GEM_DGMA_IMPORT			0
+#define AMDGPU_GEM_DGMA_QUERY_PHYS_ADDR		1
+struct drm_amdgpu_gem_dgma {
+	__u64		addr;
+	__u64		size;
+	__u32		op;
 	__u32		handle;
 };
 
@@ -1084,10 +1149,11 @@ struct drm_amdgpu_cs_chunk_cp_gfx_shadow {
  *  Query h/w info: Flag that this is integrated (a.h.a. fusion) GPU
  *
  */
-#define AMDGPU_IDS_FLAGS_FUSION         0x1
-#define AMDGPU_IDS_FLAGS_PREEMPTION     0x2
-#define AMDGPU_IDS_FLAGS_TMZ            0x4
-#define AMDGPU_IDS_FLAGS_CONFORMANT_TRUNC_COORD 0x8
+#define AMDGPU_IDS_FLAGS_FUSION			0x01
+#define AMDGPU_IDS_FLAGS_PREEMPTION		0x02
+#define AMDGPU_IDS_FLAGS_TMZ			0x04
+#define AMDGPU_IDS_FLAGS_CONFORMANT_TRUNC_COORD	0x08
+#define AMDGPU_IDS_FLAGS_GANG_SUBMIT		0x10
 
 /*
  *  Query h/w info: Flag identifying VF/PF/PT mode
@@ -1269,6 +1335,16 @@ struct drm_amdgpu_cs_chunk_cp_gfx_shadow {
 /* query FW object size and alignment */
 #define AMDGPU_INFO_UQ_FW_AREAS			0x24
 
+/* Hybrid Stack Specific Defs*/
+/* gpu capability */
+#define AMDGPU_INFO_CAPABILITY			0x50
+/* virtual range */
+#define AMDGPU_INFO_VIRTUAL_RANGE		0x51
+/* query pin memory capability */
+#define AMDGPU_CAPABILITY_PIN_MEM_FLAG  (1 << 0)
+/* query direct gma capability */
+#define AMDGPU_CAPABILITY_DIRECT_GMA_FLAG	(1 << 1)
+
 #define AMDGPU_INFO_MMR_SE_INDEX_SHIFT	0
 #define AMDGPU_INFO_MMR_SE_INDEX_MASK	0xff
 #define AMDGPU_INFO_MMR_SH_INDEX_SHIFT	8
@@ -1324,6 +1400,11 @@ struct drm_amdgpu_info {
 			/** For future use, no flags defined so far */
 			__u32 flags;
 		} read_mmr_reg;
+
+		struct {
+			uint32_t aperture;
+			uint32_t _pad;
+		} virtual_range;
 
 		struct drm_amdgpu_query_fw query_fw;
 
@@ -1422,6 +1503,8 @@ struct drm_amdgpu_info_vbios {
 #define AMDGPU_VRAM_TYPE_LPDDR4 11
 #define AMDGPU_VRAM_TYPE_LPDDR5 12
 #define AMDGPU_VRAM_TYPE_HBM3E 13
+
+#define AMDGPU_VRAM_TYPE_HBM_WIDTH 4096
 
 struct drm_amdgpu_info_device {
 	/** PCI Device ID */
@@ -1672,6 +1755,7 @@ struct drm_amdgpu_info_uq_metadata {
 #define AMDGPU_FAMILY_GC_11_5_0			150 /* GC 11.5.0 */
 #define AMDGPU_FAMILY_GC_12_0_0			152 /* GC 12.0.0 */
 
+#ifndef HAVE_DRM_COLOR_CTM_3X4
 /* FIXME wrong namespace! */
 struct drm_color_ctm_3x4 {
 	/*
@@ -1679,6 +1763,35 @@ struct drm_color_ctm_3x4 {
 	 * (not two's complement!) format.
 	 */
 	__u64 matrix[12];
+};
+#endif
+
+/**
+ *  Definition of System Unified Address (SUA) apertures
+ */
+#define AMDGPU_SUA_APERTURE_PRIVATE    1
+#define AMDGPU_SUA_APERTURE_SHARED     2
+struct drm_amdgpu_virtual_range {
+	uint64_t start;
+	uint64_t end;
+};
+
+struct drm_amdgpu_capability {
+	__u32 flag;
+	__u32 direct_gma_size;
+};
+
+/*
+ * Definition of free sync enter and exit signals
+ * We may have more options in the future
+ */
+#define AMDGPU_FREESYNC_FULLSCREEN_ENTER                1
+#define AMDGPU_FREESYNC_FULLSCREEN_EXIT                 2
+
+struct drm_amdgpu_freesync {
+        __u32 op;                       /* AMDGPU_FREESYNC_FULLSCREEN_ENTER or */
+                                        /* AMDGPU_FREESYNC_FULLSCREEN_ENTER */
+        __u32 spare[7];
 };
 
 #if defined(__cplusplus)
