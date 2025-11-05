@@ -890,7 +890,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 
 		pr_err("Failed to initialize userfaultfd API: %d uffd=%d but continue\n", e, uffd);
 		//sys_close(uffd);
-		//return -1;
+		return -1;
 	}
 
 	pr_info("UFFD created with features: 0x%llx\n", (unsigned long long)api.features);
