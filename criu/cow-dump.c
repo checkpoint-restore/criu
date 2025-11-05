@@ -99,7 +99,7 @@ static int open_proc_mem(pid_t pid)
 
 	return fd;
 }
-
+#if 0
 static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_area *vma)
 {
 	struct uffdio_register reg;
@@ -166,6 +166,7 @@ static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_a
 		addr, addr + len, len / PAGE_SIZE);
 	return 0;
 }
+	#endif
 
 int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl)
 {
