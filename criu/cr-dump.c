@@ -1720,14 +1720,21 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 		if (ret)
 			goto err_cure;
-	} /*else {
+	} else {
 		pr_info("COW dump mode: initializing write tracking instead of dumping pages\n");
 		ret = cow_dump_init(item, &vmas, parasite_ctl);
 		if (ret) {
 			pr_err("Failed to initialize COW dump for pid %d\n", pid);
 			goto err_cure;
 		}
-	}*/
+		
+		/* Start background thread to monitor page faults */
+		ret = cow_start_monitor_thread();
+		if (ret) {
+			pr_err("Failed to start COW monitor thread for pid %d\n", pid);
+			goto err_cure;
+		}
+	}
 	
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
@@ -1761,16 +1768,8 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	}
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 
-	if (opts.cow_dump) {
-		pr_info("COW dump mode: initializing write tracking instead of dumping pages\n");
 	
-		ret = cow_dump_init(item, &vmas, parasite_ctl);
-		if (ret) {
-			pr_err("Failed to initialize COW dump for pid %d\n", pid);
-			goto err_cure;
-		}
-		//	while (true) {pr_info("file = %s, line = %d\n", __FILE__, __LINE__);sleep(5);}
-	}
+	
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = compel_stop_daemon(parasite_ctl);
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
@@ -2132,8 +2131,14 @@ static int cr_dump_finish(int ret)
 	}
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (!ret && opts.cow_dump) {
-		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);		
-		ret = cr_cow_mem_dump();
+		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+		
+		/* Stop the monitor thread before final dump */
+		if (cow_stop_monitor_thread()) {
+			pr_err("Failed to stop COW monitor thread\n");
+			ret = -1;
+		}
+		
 	}
 	else if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();

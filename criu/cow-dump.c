@@ -7,6 +7,7 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <linux/userfaultfd.h>
+#include <pthread.h>
 
 #include "types.h"
 #include "cr_options.h"
@@ -46,6 +47,9 @@ struct dirty_range {
 };
 
 static struct cow_dump_info *g_cow_info = NULL;
+static pthread_t g_monitor_thread;
+static volatile bool g_stop_monitoring = false;
+static pthread_mutex_t g_cow_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define COW_MAX_ITERATIONS 10
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
@@ -302,25 +306,29 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 {
 	struct dirty_range *dr;
 	unsigned long page_addr = addr & ~(PAGE_SIZE - 1);
-	/* Unprotect the page so the process can continue */
 	struct uffdio_writeprotect wp;
-	/* Wake up the faulting thread */
 	struct uffdio_range range;
     
-	pr_debug("Write fault at 0x%lx\n", page_addr);
+	pr_info("Write fault at 0x%lx\n", page_addr);
+
+	/* Lock to protect shared data structures */
+	pthread_mutex_lock(&g_cow_mutex);
 	cdi->dirty_pages++;
 
 	/* Add to dirty list */
 	dr = xmalloc(sizeof(*dr));
-	if (!dr)
+	if (!dr) {
+		pthread_mutex_unlock(&g_cow_mutex);
 		return -1;
+	}
 
 	dr->start = page_addr;
 	dr->len = PAGE_SIZE;
 	INIT_LIST_HEAD(&dr->list);
 	list_add_tail(&dr->list, &cdi->dirty_list);
+	pthread_mutex_unlock(&g_cow_mutex);
 
-
+	/* Unprotect the page so the process can continue */
 	wp.range.start = page_addr;
 	wp.range.len = PAGE_SIZE;
 	wp.mode = 0; /* Clear write-protect */
@@ -330,7 +338,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 		return -1;
 	}
 
-
+	/* Wake up the faulting thread */
 	range.start = page_addr;
 	range.len = PAGE_SIZE;
 	
@@ -429,56 +437,66 @@ static int cow_send_dirty_pages(struct cow_dump_info *cdi)
 	return ret;
 }
 
-int cr_cow_mem_dump(void)
+/* Background thread that monitors for write faults */
+static void *cow_monitor_thread(void *arg)
 {
-	struct cow_dump_info *cdi = g_cow_info;
-	int ret = -1;
-	bool converged = false;
+	struct cow_dump_info *cdi = (struct cow_dump_info *)arg;
+	
+	pr_info("COW monitor thread started\n");
+	
+	while (!g_stop_monitoring) {
+		/* Process events with short timeout */
+		if (cow_process_events(cdi, false) < 0) {
+			pr_err("Error processing COW events in monitor thread\n");
+			break;
+		}
+		/* Small delay to avoid busy-waiting */
+		usleep(1000); /* 1ms */
+	}
+	
+	pr_info("COW monitor thread stopped\n");
+	return NULL;
+}
 
-	if (!cdi) {
+int cow_start_monitor_thread(void)
+{
+	int ret;
+	
+	if (!g_cow_info) {
 		pr_err("COW dump not initialized\n");
 		return -1;
 	}
-
-	pr_info("Starting COW memory dump\n");
-	pr_info("Tracking %lu pages across all VMAs\n", cdi->total_pages);
-
-	/* Iterative tracking loop */
-	for (cdi->iteration = 1; cdi->iteration <= COW_MAX_ITERATIONS; cdi->iteration++) {
-		cdi->dirty_pages = 0;
-
-		pr_info("COW iteration %lu: processing write faults...\n", cdi->iteration);
-
-		/* Process write faults for a time window */
-		/* In production, this would be more sophisticated with epoll */
-		sleep(1); /* Give process time to run */
-
-		/* Collect any pending write faults */
-		if (cow_process_events(cdi, false))
-			goto out;
-
-		/* Send dirty pages to destination */
-		if (cow_send_dirty_pages(cdi))
-			goto out;
-
-		/* Check for convergence */
-		if (cdi->dirty_pages < COW_CONVERGENCE_THRESHOLD) {
-			pr_info("Converged: only %lu dirty pages\n", cdi->dirty_pages);
-			converged = true;
-			break;
-		}
-
-		pr_info("Iteration %lu: %lu dirty pages (not converged yet)\n",
-			cdi->iteration, cdi->dirty_pages);
+	
+	g_stop_monitoring = false;
+	
+	ret = pthread_create(&g_monitor_thread, NULL, cow_monitor_thread, g_cow_info);
+	if (ret) {
+		pr_perror("Failed to create COW monitor thread");
+		return -1;
 	}
-
-	if (!converged) {
-		pr_warn("Did not converge after %d iterations\n", COW_MAX_ITERATIONS);
-	}
-
-	pr_info("COW memory dump completed successfully\n");
-	ret = 0;
-
-out:
-	return ret;
+	
+	pr_info("COW monitor thread created successfully\n");
+	return 0;
 }
+
+int cow_stop_monitor_thread(void)
+{
+	void *retval;
+	
+	if (!g_cow_info) {
+		return 0; /* Nothing to stop */
+	}
+	
+	pr_info("Stopping COW monitor thread\n");
+	g_stop_monitoring = true;
+	
+	/* Wait for thread to finish */
+	if (pthread_join(g_monitor_thread, &retval)) {
+		pr_perror("Failed to join COW monitor thread");
+		return -1;
+	}
+	
+	pr_info("COW monitor thread stopped successfully\n");
+	return 0;
+}
+

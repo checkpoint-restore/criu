@@ -7,18 +7,6 @@ struct pstree_item;
 struct vm_area_list;
 struct parasite_ctl;
 
-/* COW dump mode - write-tracking based live migration */
-
-/**
- * cr_cow_mem_dump - Main entry point for COW-based memory dump
- * 
- * This function implements copy-on-write based live migration where
- * the source process continues running while dirty pages are tracked
- * and transferred iteratively.
- *
- * Returns: 0 on success, -1 on error
- */
-extern int cr_cow_mem_dump(void);
 
 /**
  * cow_dump_init - Initialize COW dump for a process
@@ -50,5 +38,25 @@ extern void cow_dump_fini(void);
  * Returns: true if supported, false otherwise
  */
 extern bool cow_check_kernel_support(void);
+
+/**
+ * cow_start_monitor_thread - Start background thread to monitor page faults
+ *
+ * Creates a pthread that continuously monitors the userfaultfd for
+ * write faults and handles them immediately, preventing the target
+ * process from blocking during the dump phase.
+ *
+ * Returns: 0 on success, -1 on error
+ */
+extern int cow_start_monitor_thread(void);
+
+/**
+ * cow_stop_monitor_thread - Stop the monitoring thread
+ *
+ * Signals the monitor thread to stop and waits for it to complete.
+ *
+ * Returns: 0 on success, -1 on error
+ */
+extern int cow_stop_monitor_thread(void);
 
 #endif /* __CR_COW_DUMP_H_ */
