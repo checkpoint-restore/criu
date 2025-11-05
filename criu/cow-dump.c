@@ -245,12 +245,12 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	}
 
 	/* Receive userfaultfd from parasite */
-	compel_util_recv_fd(ctl, cdi->uffd);
+	compel_util_recv_fd(ctl, &cdi->uffd);
 	if (cdi->uffd < 0) {
 		pr_err("Failed to receive userfaultfd from parasite: %d\n", cdi->uffd);
 		goto err_close_mem;
 	}
-	pr_info("Got fd %d VMAs\n", &cdi->uffd);
+	pr_info("Got fd %d VMAs\n", cdi->uffd);
 	/* Wait for parasite to complete */
 	ret = compel_rpc_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
 	if (ret < 0 || args->ret != 0) {
