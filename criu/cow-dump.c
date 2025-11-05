@@ -208,7 +208,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 
 	struct uffdio_api api = {.api = UFFD_API,
                          .features = UFFD_FEATURE_PAGEFAULT_FLAG_WP /* request this */};
-	if (ioctl(uffd, UFFDIO_API, &api) == -1) perror("UFFDIO_API");
+	if (ioctl(cdi->uffd, UFFDIO_API, &api) == -1) perror("UFFDIO_API");
 	pr_info("UFFD features: 0x%llx\n", (unsigned long long)api.features);
 
 	/* Register all writable VMAs with write-protection */
