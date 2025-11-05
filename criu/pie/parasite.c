@@ -887,10 +887,10 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	ret = sys_ioctl(uffd, UFFDIO_API, (unsigned long)&api);
 	if (ret < 0) {
 		int e = (ret < 0) ? -ret : ret;     /* convert to +errno code */
-
+		 perror("UFFDIO_API");
 		pr_err("Failed to initialize userfaultfd API: %d uffd=%d but continue\n", e, uffd);		
 		sys_close(uffd);
-		 perror("UFFDIO_API");
+		
 		return -1;
 	}
 
