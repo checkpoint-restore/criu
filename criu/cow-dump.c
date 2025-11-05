@@ -196,28 +196,12 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	cdi->item = item;
 	INIT_LIST_HEAD(&cdi->dirty_list);
-
-	/* Open userfaultfd in CRIU context */
-	cdi->uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
-	if (cdi->uffd < 0) {
-		pr_perror("Failed to open userfaultfd");
-		goto err_free;
-	}
-
-	/* Initialize userfaultfd API */
-	if (ioctl(cdi->uffd, UFFDIO_API, &api) == -1) {
-		if (errno == EPERM)
-			pr_err("userfaultfd blocked (check vm.unprivileged_userfaultfd or seccomp)\n");
-		else
-			pr_perror("UFFDIO_API failed");
-		goto err_close_uffd;
-	}
-	pr_info("UFFD features: 0x%llx\n", (unsigned long long)api.features);
+	cdi->uffd = -1; /* Will be received from parasite */
 
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
 	if (cdi->proc_mem_fd < 0)
-		goto err_close_uffd;
+		goto err_free;
 
 	/* Prepare parasite arguments - count writable VMAs */
 	nr_vmas = 0;
@@ -257,29 +241,23 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	pr_info("Calling parasite to register %u VMAs\n", args->nr_vmas);
 
-	/* Call parasite to perform registration */
-	ret = compel_rpc_call(PARASITE_CMD_COW_DUMP_INIT, ctl);
-	if (ret < 0) {
-		pr_err("Failed to initiate COW dump RPC\n");
-		goto err_close_mem;
-	}
-
-	/* Send userfaultfd to parasite */
-	ret = compel_util_send_fd(ctl, cdi->uffd);
-	if (ret) {
-		pr_err("Failed to send userfaultfd to parasite\n");
-		goto err_close_mem;
-	}
-
-	/* Wait for parasite to complete */
-	ret = compel_rpc_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
+	/* Call parasite to create uffd and perform registration */
+	ret = compel_rpc_call_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
 	if (ret < 0 || args->ret != 0) {
 		pr_err("Parasite COW dump init failed: %d (ret=%d)\n", ret, args->ret);
 		goto err_close_mem;
 	}
 
+	/* Receive userfaultfd from parasite */
+	cdi->uffd = compel_util_recv_fd(ctl);
+	if (cdi->uffd < 0) {
+		pr_err("Failed to receive userfaultfd from parasite\n");
+		goto err_close_mem;
+	}
+
 	cdi->total_pages = args->total_pages;
-	pr_info("COW dump initialized: tracking %lu pages\n", cdi->total_pages);
+	pr_info("COW dump initialized: tracking %lu pages, uffd=%d\n", 
+		cdi->total_pages, cdi->uffd);
 	
 	g_cow_info = cdi;
 	return 0;

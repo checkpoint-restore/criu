@@ -860,20 +860,37 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	struct parasite_vma_entry *vmas, *vma;
 	struct uffdio_register reg;
 	struct uffdio_writeprotect wp;
+	struct uffdio_api api;
 	int uffd, tsock, i;
 	int ret = 0;
 	unsigned long addr, len;
 	unsigned long total_pages = 0;
+	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
+				 UFFD_FEATURE_EVENT_FORK |
+				 UFFD_FEATURE_EVENT_REMAP;
 
 	pr_info("COW dump init: registering %d VMAs\n", args->nr_vmas);
 
-	/* Receive userfaultfd from CRIU */
-	tsock = parasite_get_rpc_sock();
-	uffd = recv_fd(tsock);
+	/* Create userfaultfd in target process context */
+	uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
 	if (uffd < 0) {
-		pr_err("Failed to receive userfaultfd\n");
+		pr_err("Failed to create userfaultfd: %d\n", uffd);
 		return -1;
 	}
+
+	/* Initialize userfaultfd API with WP features */
+	api.api = UFFD_API;
+	api.features = features;
+	api.ioctls = 0;
+
+	ret = sys_ioctl(uffd, UFFDIO_API, (unsigned long)&api);
+	if (ret) {
+		pr_err("Failed to initialize userfaultfd API: %d\n", ret);
+		sys_close(uffd);
+		return -1;
+	}
+
+	pr_info("UFFD created with features: 0x%llx\n", (unsigned long long)api.features);
 
 	vmas = cow_dump_vmas(args);
 
@@ -883,7 +900,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		addr = vma->start;
 		len = vma->len;
 
-		pr_info("Registering VMA %d: %lx-%lx prot=%x len=%lu\n", 
+		pr_info("Registering VMA %d: %lx-%lx prot=%x len=%lu\n",
 			i, addr, addr + len, vma->prot, len);
 
 		/* Skip non-writable VMAs */
@@ -904,8 +921,8 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 					addr, addr + len);
 				continue;
 			}
-			pr_err("Failed to register VMA %lx-%lx: ret=%d\n", 
-				addr, addr + len, ret);
+			pr_err("Failed to register VMA %lx-%lx: ret=%d\n",
+			       addr, addr + len, ret);
 			continue;
 			sys_close(uffd);
 			return -1;
@@ -918,7 +935,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		ret = sys_ioctl(uffd, UFFDIO_WRITEPROTECT, (unsigned long)&wp);
 		if (ret) {
 			pr_err("Failed to write-protect VMA %lx-%lx: ret=%d\n",
-				addr, addr + len, ret);
+			       addr, addr + len, ret);
 			sys_close(uffd);
 			return -1;
 		}
@@ -932,6 +949,17 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	args->ret = 0;
 
 	pr_info("COW dump init complete: %lu total pages\n", total_pages);
+
+	/* Send userfaultfd back to CRIU */
+	tsock = parasite_get_rpc_sock();
+	ret = send_fd(tsock, NULL, 0, uffd);
+	if (ret) {
+		pr_err("Failed to send userfaultfd back to CRIU: %d\n", ret);
+		sys_close(uffd);
+		return -1;
+	}
+
+	pr_info("Sent uffd=%d back to CRIU\n", uffd);
 
 	/* Don't close uffd - it will remain open for the process */
 	return 0;
