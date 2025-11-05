@@ -861,6 +861,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	struct uffdio_register reg;
 	struct uffdio_writeprotect wp;
 	int uffd, tsock, i;
+	int ret = 0;
 	unsigned long addr, len;
 	unsigned long total_pages = 0;
 
@@ -896,15 +897,15 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		reg.range.len = len;
 		reg.mode = UFFDIO_REGISTER_MODE_WP;
 
-		if (sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long)&reg)) {
+		if (ret = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long)&reg)) {
 			/* Some VMAs may not support WP - just skip them */
-			if (errno == EINVAL) {
+			if (ret == EINVAL) {
 				pr_warn("Cannot WP-register VMA %lx-%lx (unsupported), skipping\n",
 					addr, addr + len);
 				continue;
 			}
-			pr_err("Failed to register VMA %lx-%lx: errno=%d\n", 
-				addr, addr + len, errno);
+			pr_err("Failed to register VMA %lx-%lx: ret=%d\n", 
+				addr, addr + len, ret);
 			sys_close(uffd);
 			return -1;
 		}
@@ -914,9 +915,9 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		wp.range.len = len;
 		wp.mode = UFFDIO_WRITEPROTECT_MODE_WP;
 
-		if (sys_ioctl(uffd, UFFDIO_WRITEPROTECT, (unsigned long)&wp)) {
-			pr_err("Failed to write-protect VMA %lx-%lx: errno=%d\n",
-				addr, addr + len, errno);
+		if (ret = sys_ioctl(uffd, UFFDIO_WRITEPROTECT, (unsigned long)&wp)) {
+			pr_err("Failed to write-protect VMA %lx-%lx: ret=%d\n",
+				addr, addr + len, ret);
 			sys_close(uffd);
 			return -1;
 		}
