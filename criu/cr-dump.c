@@ -1720,15 +1720,15 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 		if (ret)
 			goto err_cure;
-	} else {
+	} /*else {
 		pr_info("COW dump mode: initializing write tracking instead of dumping pages\n");
 		ret = cow_dump_init(item, &vmas, parasite_ctl);
 		if (ret) {
 			pr_err("Failed to initialize COW dump for pid %d\n", pid);
 			goto err_cure;
 		}
-	}
-	while (true) {pr_info("file = %s, line = %d\n", __FILE__, __LINE__);sleep(5);}
+	}*/
+	
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
@@ -1795,6 +1795,16 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	if (ret) {
 		pr_err("Dump fs (pid: %d) failed with %d\n", pid, ret);
 		goto err;
+	}
+	if (opts.cow_dump) {
+	pr_info("COW dump mode: initializing write tracking instead of dumping pages\n");
+	
+	/*ret = cow_dump_init(item, &vmas, parasite_ctl);
+		if (ret) {
+			pr_err("Failed to initialize COW dump for pid %d\n", pid);
+			goto err_cure;
+		}*/
+			while (true) {pr_info("file = %s, line = %d\n", __FILE__, __LINE__);sleep(5);}
 	}
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	exit_code = 0;
