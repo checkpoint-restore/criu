@@ -176,7 +176,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 	int err = 0;
 		struct uffdio_api api;
 
-	pr_info("UFFD features: 0x%llx\n", (unsigned long long)api.features);
+	
 
 	pr_info("Initializing COW dump for pid %d\n", item->pid->real);
 
@@ -207,7 +207,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 		pr_info("Asaf try1 file = %s, line = %d UFFDIO_API_ERROR\n", __FILE__, __LINE__);
 		perror("UFFDIO_API");
 	} 
-
+	pr_info("UFFD features: 0x%llx\n", (unsigned long long)api.features);
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
 	if (cdi->proc_mem_fd < 0){
