@@ -195,7 +195,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list)
 		pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* Open userfaultfd */
-	cdi->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features, &err);
+	cdi->uffd =  syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
 	if (cdi->uffd < 0) {
 		pr_err("Failed to open userfaultfd: %d\n", err);
 		goto err_free;
