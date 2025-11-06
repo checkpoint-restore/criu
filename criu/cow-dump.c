@@ -423,7 +423,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 		pr_perror("Failed to wake thread after unprotect");
 		return -1;
 	}
-
+	cdi->total_pages -= 1;
 	return 0;
 }
 
@@ -480,7 +480,7 @@ static void *cow_monitor_thread(void *arg)
 	
 	pr_info("COW monitor thread started\n");
 	
-	while (!g_stop_monitoring) {
+	while (!g_stop_monitoring && g_cow_info->total_pages != 0) {
 		/* Process events with short timeout */
 		if (cow_process_events(cdi, false) < 0) {
 			pr_err("Error processing COW events in monitor thread\n");
