@@ -344,6 +344,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 			 args->off);
 		pr_info("drain_pages file = %s, line = %d\n", __FILE__, __LINE__);
 		ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
+		pr_info("drain_pages file = %s, line = %d ret=%d\n", __FILE__, __LINE__, ret);
 		if (ret < 0)
 			return -1;
 		pr_info("drain_pages file = %s, line = %d\n", __FILE__, __LINE__);
