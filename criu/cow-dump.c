@@ -302,7 +302,7 @@ static int cow_flush_dirty_pages(struct cow_dump_info *cdi)
 	
 	return 0;
 }
-
+#if 0
 /* Write a single page to the page_pipe */
 static int cow_write_page_to_pipe(struct cow_dump_info *cdi, unsigned long page_addr)
 {
@@ -368,7 +368,7 @@ static int cow_write_page_to_pipe(struct cow_dump_info *cdi, unsigned long page_
 	
 	return 0;
 }
-
+#endif
 static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 {
 	struct dirty_range *dr;
