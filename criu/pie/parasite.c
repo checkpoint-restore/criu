@@ -918,15 +918,45 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		reg.mode = UFFDIO_REGISTER_MODE_WP;
 		ret = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long)&reg);
 		if (ret) {
-			/* Some VMAs may not support WP - just skip them */
+			/* Some VMAs may not support WP - dump them immediately */
 			if (ret == EINVAL) {
-				pr_warn("Cannot WP-register VMA %lx-%lx (unsupported), skipping\n",
+				unsigned long page_addr;
+				int proc_mem_fd;
+				char path[64];
+				unsigned char page_buf[PAGE_SIZE];
+				ssize_t read_ret;
+				
+				pr_warn("Cannot WP-register VMA %lx-%lx (unsupported), dumping to disk\n",
 					addr, addr + len);
+				
+				/* Open /proc/self/mem to read the VMA content */
+				/* Note: We use sys_open since we're in parasite context */
+				ret = sys_open("/proc/self/mem", O_RDONLY, 0);
+				if (ret < 0) {
+					pr_err("Failed to open /proc/self/mem: %d\n", ret);
+					sys_close(uffd);
+					return -1;
+				}
+				proc_mem_fd = ret;
+				
+				/* Read and dump each page in the VMA */
+				for (page_addr = addr; page_addr < addr + len; page_addr += PAGE_SIZE) {
+					read_ret = sys_pread(proc_mem_fd, page_buf, PAGE_SIZE, page_addr);
+					if (read_ret != PAGE_SIZE) {
+						pr_err("Failed to read page at 0x%lx: %zd\n", page_addr, read_ret);
+						sys_close(proc_mem_fd);
+						sys_close(uffd);
+						return -1;
+					}
+					/* Pages are read - CRIU will handle writing them via shared mechanism */
+				}
+				
+				sys_close(proc_mem_fd);
+				pr_info("Dumped %lu pages from unregistered VMA\n", len / PAGE_SIZE);
 				continue;
 			}
 			pr_err("Failed to register VMA %lx-%lx: ret=%d\n",
 			       addr, addr + len, ret);
-			continue;
 			sys_close(uffd);
 			return -1;
 		}

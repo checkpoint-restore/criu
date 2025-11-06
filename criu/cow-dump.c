@@ -34,9 +34,12 @@ struct cow_dump_info {
 	int proc_mem_fd;			/* /proc/pid/mem for reading pages */
 	unsigned long total_pages;		/* Total pages being tracked */
 	unsigned long dirty_pages;		/* Pages modified in current iteration */
+	unsigned long dirty_pages_dumped;	/* Pages already written to disk */
 	unsigned long iteration;		/* Current iteration number */
 	struct list_head dirty_list;		/* List of dirty page ranges */
 	struct page_xfer xfer;			/* Page transfer context */
+	struct page_pipe *pp;			/* Page pipe for batching writes */
+	bool xfer_initialized;			/* Whether xfer was opened */
 };
 
 /* Dirty page range */
@@ -53,6 +56,7 @@ static pthread_mutex_t g_cow_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define COW_MAX_ITERATIONS 10
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
+#define COW_FLUSH_THRESHOLD 1000       /* Flush to disk every 1000 pages */
 
 bool cow_check_kernel_support(void)
 {
@@ -103,74 +107,36 @@ static int open_proc_mem(pid_t pid)
 
 	return fd;
 }
-#if 0
-static int cow_register_vma_writeprotect(struct cow_dump_info *cdi, struct vma_area *vma)
+
+
+/* Dump an entire VMA that couldn't be registered for write-protection */
+static int cow_dump_unregistered_vma(struct cow_dump_info *cdi, unsigned long start, unsigned long len)
 {
-	struct uffdio_register reg;
-	unsigned long addr = vma->e->start;
-	unsigned long len = vma->e->end - vma->e->start;
-    /* Now write-protect the VMA */
-	struct uffdio_writeprotect wp;
-	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
-	/* Skip non-writable or special VMAs */
-	if (!(vma->e->prot & PROT_WRITE)) {
-		pr_info("Skipping non-writable VMA: %lx-%lx prot=%x\n", addr, addr + len, vma->e->prot);
-		return 0;
-	}
-	if (vma_entry_is(vma->e, VMA_AREA_VDSO) ||
-	    vma_entry_is(vma->e, VMA_AREA_VSYSCALL) ||
-	    vma_entry_is(vma->e, VMA_AREA_VVAR)) {
-		pr_info("Skipping special VMA: %lx-%lx (VDSO/VSYSCALL/VVAR)\n", addr, addr + len);
-		return 0;
-	}
-
-	/* Skip shared VMAs - they don't support write-protect */
-	if (vma->e->flags & MAP_SHARED) {
-		pr_info("Skipping shared VMA: %lx-%lx flags=%x\n", addr, addr + len, vma->e->flags);
-		return 0;
-	}
-
-	/* Skip hugetlb VMAs */
-	if (vma->e->flags & MAP_HUGETLB) {
-		pr_info("Skipping hugetlb VMA: %lx-%lx\n", addr, addr + len);
-		return 0;
-	}
-
-	pr_info("Attempting to register VMA: %lx-%lx prot=%x flags=%x len=%lu\n", addr, addr + len, vma->e->prot, vma->e->flags,len);
-
-	reg.range.start = addr;
-	reg.range.len = len;
-	/* Only use WP mode - MISSING mode is for lazy-pages, not COW */
-	reg.mode = UFFDIO_REGISTER_MODE_WP;
-
-
-	if (ioctl(cdi->uffd, UFFDIO_REGISTER, &reg)) {
-		/* Some VMAs may not support WP even if writable - just skip them */
-		if (errno == EINVAL) {
-			pr_warn("Cannot WP-register VMA %lx-%lx (unsupported type), skipping\n", 
-				addr, addr + len);
-			return 0;
+	unsigned long addr;
+	unsigned long nr_pages = len / PAGE_SIZE;
+	int ret;
+	
+	pr_info("Dumping unregistered VMA: %lx-%lx (%lu pages)\n", start, start + len, nr_pages);
+	
+	/* Write all pages in the VMA to disk */
+	for (addr = start; addr < start + len; addr += PAGE_SIZE) {
+		ret = cow_write_page_to_pipe(cdi, addr);
+		if (ret < 0) {
+			pr_err("Failed to dump page 0x%lx from unregistered VMA\n", addr);
+			return -1;
 		}
-		pr_perror("Failed to register VMA %lx-%lx", addr, addr + len);
+	}
+	
+	/* Flush any remaining pages */
+	ret = cow_flush_dirty_pages(cdi);
+	if (ret < 0) {
+		pr_err("Failed to flush pages from unregistered VMA\n");
 		return -1;
 	}
-
-	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
-	wp.range.start = addr;
-	wp.range.len = len;
-	wp.mode = UFFDIO_WRITEPROTECT_MODE_WP;
-	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
-	if (ioctl(cdi->uffd, UFFDIO_WRITEPROTECT, &wp)) {
-		pr_perror("Failed to write-protect VMA %lx-%lx", addr, addr + len);
-		return -1;
-	}
-	pr_info("Asaf try1 file = %s, line = %d\n", __FILE__, __LINE__);
-	cdi->total_pages += len / PAGE_SIZE;
-	pr_info("Successfully registered and WP'd VMA: %lx-%lx (%lu pages)\n", 
-		addr, addr + len, len / PAGE_SIZE);
+	
+	pr_info("Successfully dumped %lu pages from unregistered VMA\n", nr_pages);
 	return 0;
 }
-	#endif
 
 int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl)
 {
@@ -182,6 +148,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	int ret;
 	unsigned long args_size;
 	unsigned int nr_vmas = 0;
+	unsigned int i;
 
 	pr_info("Initializing COW dump for pid %d (via parasite)\n", item->pid->real);
 
@@ -265,6 +232,27 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	}
 
 	cdi->total_pages = args->total_pages;
+	cdi->dirty_pages_dumped = 0;
+	cdi->xfer_initialized = false;
+	
+	/* Initialize page_xfer for writing pages to disk */
+	ret = open_page_xfer(&cdi->xfer, CR_FD_PAGEMAP, vpid(item));
+	if (ret < 0) {
+		pr_err("Failed to open page_xfer\n");
+		close(cdi->uffd);
+		goto err_close_mem;
+	}
+	cdi->xfer_initialized = true;
+	
+	/* Create page_pipe for batching page writes */
+	cdi->pp = create_page_pipe(cdi->total_pages, NULL, 0);
+	if (!cdi->pp) {
+		pr_err("Failed to create page_pipe\n");
+		cdi->xfer.close(&cdi->xfer);
+		close(cdi->uffd);
+		goto err_close_mem;
+	}
+	
 	pr_info("COW dump initialized: tracking %lu pages, uffd=%d\n", 
 		cdi->total_pages, cdi->uffd);
 	
@@ -287,10 +275,24 @@ void cow_dump_fini(void)
 
 	pr_info("Cleaning up COW dump\n");
 
+	/* Flush any remaining dirty pages before cleanup */
+	if (g_cow_info->pp && g_cow_info->xfer_initialized) {
+		pr_info("Flushing remaining dirty pages: %lu dumped so far\n", 
+			g_cow_info->dirty_pages_dumped);
+		if (page_xfer_dump_pages(&g_cow_info->xfer, g_cow_info->pp) < 0)
+			pr_err("Failed to flush remaining pages during cleanup\n");
+	}
+
 	list_for_each_entry_safe(dr, tmp, &g_cow_info->dirty_list, list) {
 		list_del(&dr->list);
 		xfree(dr);
 	}
+
+	if (g_cow_info->pp)
+		destroy_page_pipe(g_cow_info->pp);
+
+	if (g_cow_info->xfer_initialized)
+		g_cow_info->xfer.close(&g_cow_info->xfer);
 
 	if (g_cow_info->proc_mem_fd >= 0)
 		close(g_cow_info->proc_mem_fd);
@@ -302,14 +304,108 @@ void cow_dump_fini(void)
 	g_cow_info = NULL;
 }
 
+/* Flush accumulated dirty pages to disk */
+static int cow_flush_dirty_pages(struct cow_dump_info *cdi)
+{
+	int ret;
+	
+	if (!cdi->pp || !cdi->xfer_initialized)
+		return 0;
+	
+	/* Check if there are pages to flush */
+	if (cdi->pp->nr_pipes == 0)
+		return 0;
+	
+	pr_info("Flushing %lu dirty pages to disk\n", 
+		cdi->dirty_pages_dumped - (cdi->dirty_pages_dumped - cdi->pp->nr_pipes));
+	
+	ret = page_xfer_dump_pages(&cdi->xfer, cdi->pp);
+	if (ret < 0) {
+		pr_err("Failed to flush dirty pages to disk\n");
+		return ret;
+	}
+	
+	/* Reset page_pipe for next batch */
+	page_pipe_reinit(cdi->pp);
+	
+	return 0;
+}
+
+/* Write a single page to the page_pipe */
+static int cow_write_page_to_pipe(struct cow_dump_info *cdi, unsigned long page_addr)
+{
+	unsigned char page_buf[PAGE_SIZE];
+	ssize_t ret;
+	int pipe_fd;
+	
+	/* Read the page from /proc/pid/mem */
+	ret = pread(cdi->proc_mem_fd, page_buf, PAGE_SIZE, page_addr);
+	if (ret != PAGE_SIZE) {
+		if (ret < 0)
+			pr_perror("Failed to read page at 0x%lx from /proc/pid/mem", page_addr);
+		else
+			pr_err("Short read from /proc/pid/mem at 0x%lx: %zd\n", page_addr, ret);
+		return -1;
+	}
+	
+	/* Add page to page_pipe - this creates the iov entry */
+	ret = page_pipe_add_page(cdi->pp, page_addr, 0);
+	if (ret < 0) {
+		if (ret == -EAGAIN) {
+			/* Page pipe is full, flush it */
+			if (cow_flush_dirty_pages(cdi) < 0)
+				return -1;
+			/* Try again after flush */
+			ret = page_pipe_add_page(cdi->pp, page_addr, 0);
+			if (ret < 0) {
+				pr_err("Failed to add page to pipe even after flush\n");
+				return -1;
+			}
+		} else {
+			pr_err("Failed to add page 0x%lx to page_pipe: %d\n", page_addr, (int)ret);
+			return -1;
+		}
+	}
+	
+	/* Write page data to the pipe */
+	/* The page_pipe has buffers, we need to write to the last buffer's write end */
+	if (!list_empty(&cdi->pp->bufs)) {
+		struct page_pipe_buf *ppb = list_entry(cdi->pp->bufs.prev, struct page_pipe_buf, l);
+		pipe_fd = ppb->p[1]; /* Write end of pipe */
+		
+		ret = write(pipe_fd, page_buf, PAGE_SIZE);
+		if (ret != PAGE_SIZE) {
+			if (ret < 0)
+				pr_perror("Failed to write page to pipe");
+			else
+				pr_err("Short write to pipe: %zd\n", ret);
+			return -1;
+		}
+	} else {
+		pr_err("No page_pipe buffers available\n");
+		return -1;
+	}
+	
+	cdi->dirty_pages_dumped++;
+	
+	/* Check if we should flush */
+	if (cdi->dirty_pages_dumped % COW_FLUSH_THRESHOLD == 0) {
+		pr_debug("Reached flush threshold, flushing pages\n");
+		return cow_flush_dirty_pages(cdi);
+	}
+	
+	return 0;
+}
+
 static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 {
 	struct dirty_range *dr;
 	unsigned long page_addr = addr & ~(PAGE_SIZE - 1);
 	struct uffdio_writeprotect wp;
 	struct uffdio_range range;
+	int ret;
     
-	pr_info("Write fault at 0x%lx\n", page_addr);
+	pr_debug("Write fault at 0x%lx\n", page_addr);
 
 	/* Lock to protect shared data structures */
 	pthread_mutex_lock(&g_cow_mutex);
@@ -326,6 +422,14 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	dr->len = PAGE_SIZE;
 	INIT_LIST_HEAD(&dr->list);
 	list_add_tail(&dr->list, &cdi->dirty_list);
+	
+	/* Write the page to disk before unprotecting */
+	ret = cow_write_page_to_pipe(cdi, page_addr);
+	if (ret < 0) {
+		/* Log error but continue to unprotect - don't block the process */
+		pr_err("Failed to write page 0x%lx to disk (will continue)\n", page_addr);
+	}
+	
 	pthread_mutex_unlock(&g_cow_mutex);
 
 	/* Unprotect the page so the process can continue */
@@ -458,4 +562,3 @@ int cow_stop_monitor_thread(void)
 	pr_info("COW monitor thread stopped successfully\n");
 	return 0;
 }
-
