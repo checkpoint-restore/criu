@@ -108,7 +108,7 @@ static int open_proc_mem(pid_t pid)
 	return fd;
 }
 
-
+static int cow_write_page_to_pipe(struct cow_dump_info *cdi, unsigned long page_addr);
 /* Dump an entire VMA that couldn't be registered for write-protection */
 static int cow_dump_unregistered_vma(struct cow_dump_info *cdi, unsigned long start, unsigned long len)
 {
