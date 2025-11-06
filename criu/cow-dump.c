@@ -389,7 +389,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	}
 
 	page = xmalloc(PAGE_SIZE);
-	memccpy(page,(void*)page_addr);
+	memcpy(page,(void*)page_addr);
 
 	dr->start = page;
 	dr->len = PAGE_SIZE;
