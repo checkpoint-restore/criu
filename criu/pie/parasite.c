@@ -75,18 +75,19 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	struct iovec *iovs;
 	int off, nr_segs;
 	unsigned long spliced_bytes = 0;
-
+	pr_info("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);
 	tsock = parasite_get_rpc_sock();
 	p = recv_fd(tsock);
 	if (p < 0)
 		return -1;
-
+	pr_info("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);
 	iovs = pargs_iovs(args);
 	off = 0;
 	nr_segs = args->nr_segs;
 	if (nr_segs > UIO_MAXIOV)
 		nr_segs = UIO_MAXIOV;
 	while (1) {
+		pr_info("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);
 		ret = sys_vmsplice(p, &iovs[args->off + off], nr_segs, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 		if (ret < 0) {
 			sys_close(p);
