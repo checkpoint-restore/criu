@@ -108,105 +108,99 @@ static int open_proc_mem(pid_t pid)
 	return fd;
 }
 
-/* Dump an entire VMA that couldn't be registered using DUMPPAGES command */
-static int cow_dump_unregistered_vma(struct cow_dump_info *cdi, struct parasite_ctl *ctl,
-				     unsigned long start, unsigned long len)
+/* Dump VMAs that couldn't be registered using parasite_dump_pages_seized */
+static int cow_dump_failed_vmas(struct cow_dump_info *cdi, struct parasite_ctl *ctl,
+				 struct parasite_vma_entry *p_vma, unsigned int *failed_indices,
+				 unsigned int nr_failed)
 {
-	struct parasite_dump_pages_args *args;
-	struct parasite_vma_entry *vma;
-	struct page_pipe *pp;
-	struct iovec *iovs;
-	struct page_pipe_buf *ppb = NULL;
-	unsigned long nr_pages = len / PAGE_SIZE;
+	struct vm_area_list vma_list;
+	struct mem_dump_ctl mdc = {};
+	struct vma_area *vma, *tmp;
+	unsigned int i;
 	int ret;
 	
-	pr_info("Dumping unregistered VMA via DUMPPAGES: %lx-%lx (%lu pages)\n", 
-		start, start + len, nr_pages);
-	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
-	/* Create temporary page_pipe for this VMA */
-	pp = create_page_pipe(nr_pages, NULL, 0);
-	if (!pp) {
-		pr_err("Failed to create page_pipe for unregistered VMA\n");
-		return -1;
-	}
-	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
-	/* Setup parasite args for DUMPPAGES */
-	args = compel_parasite_args_s(ctl, sizeof(*args) + sizeof(*vma) + nr_pages * sizeof(struct iovec));
-	if (!args) {
-		pr_err("Failed to allocate parasite args\n");
-		destroy_page_pipe(pp);
-		return -1;
-	}
-	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
-	/* Fill VMA info */
-	vma = pargs_vmas(args);
-	vma->start = start;
-	vma->len = len;
-	vma->prot = PROT_READ; /* Just need read access */
+	pr_info("Dumping %u failed VMAs via parasite_dump_pages_seized\n", nr_failed);
 	
-	args->nr_vmas = 1;
-	args->add_prot = 0;  /* No mprotect needed */
-	args->off = 0;
-	args->nr_segs = nr_pages;
-	args->nr_pages = nr_pages;
+	/* Initialize temporary vma_area_list */
+	INIT_LIST_HEAD(&vma_list.h);
+	vma_list.nr = 0;
+	vma_list.priv_size = 0;
+	vma_list.nr_priv_pages = 0;
+	vma_list.nr_priv_pages_longest = 0;
+	vma_list.nr_shared_pages_longest = 0;
 	
-	/* Setup iovs for all pages in the VMA */
-	iovs = pargs_iovs(args);
-	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
-	for (unsigned long i = 0; i < nr_pages; i++) {
-		iovs[i].iov_base = (void *)(start + i * PAGE_SIZE);
-		iovs[i].iov_len = PAGE_SIZE;
+	/* Convert each failed VMA to vma_area */
+	for (i = 0; i < nr_failed; i++) {
+		unsigned int idx = failed_indices[i];
 		
-		/* Add to page_pipe for tracking */
-		ret = page_pipe_add_page(pp, start + i * PAGE_SIZE, 0);
-		if (ret < 0) {
-			pr_err("Failed to add page to pipe\n");
-			destroy_page_pipe(pp);
-			return -1;
+		vma = alloc_vma_area();
+		if (!vma) {
+			pr_err("Failed to allocate vma_area\n");
+			ret = -1;
+			goto cleanup;
 		}
-	}
-	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
-	/* Call parasite DUMPPAGES command */
-	ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
-	if (ret < 0) {
-		pr_err("Failed to call DUMPPAGES\n");
-		destroy_page_pipe(pp);
-		return -1;
-	}
-	
-	/* Send pipe fd to parasite - get from first buffer */
-	if (list_empty(&pp->bufs)) {
-		pr_err("No page_pipe buffers available\n");
-		destroy_page_pipe(pp);
-		return -1;
-	}
-	ppb = list_entry(pp->bufs.next, struct page_pipe_buf, l);
-	ret = compel_util_send_fd(ctl, ppb->p[1]);
-	if (ret) {
-		pr_err("Failed to send pipe fd\n");
-		destroy_page_pipe(pp);
-		return -1;
-	}
-	
-	/* Wait for parasite to complete dumping */
-	ret = compel_rpc_sync(PARASITE_CMD_DUMPPAGES, ctl);
-	if (ret < 0) {
-		pr_err("DUMPPAGES failed for unregistered VMA\n");
-		destroy_page_pipe(pp);
-		return -1;
+		
+		/* Fill VmaEntry from parasite VMA */
+		vma->e->start = p_vma[idx].start;
+		vma->e->end = p_vma[idx].start + p_vma[idx].len;
+		vma->e->prot = p_vma[idx].prot;
+		vma->e->flags = MAP_PRIVATE | MAP_ANONYMOUS;
+		vma->e->status = 0;
+		vma->e->fd = -1;
+		vma->e->pgoff = 0;
+		vma->e->shmid = 0;
+		
+		list_add_tail(&vma->list, &vma_list.h);
+		vma_list.nr++;
+		
+		if (vma_area_is_private(vma, kdat.task_size)) {
+			unsigned long len = p_vma[idx].len;
+			unsigned long nr_pages = len / PAGE_SIZE;
+			
+			vma_list.priv_size += len;
+			vma_list.nr_priv_pages += nr_pages;
+			if (nr_pages > vma_list.nr_priv_pages_longest)
+				vma_list.nr_priv_pages_longest = nr_pages;
+		}
+		
+		pr_info("Added VMA %u: %lx-%lx for dump\n", i, vma->e->start, vma->e->end);
 	}
 	
-	/* Write pages to disk using page_xfer */
-	ret = page_xfer_dump_pages(&cdi->xfer, pp);
-	if (ret < 0) {
-		pr_err("Failed to write pages to disk\n");
-		destroy_page_pipe(pp);
-		return -1;
+	/* Setup mem_dump_ctl */
+	mdc.pre_dump = false;
+	mdc.lazy = false;
+	mdc.stat = NULL;
+	mdc.parent_ie = NULL;
+	
+	/* Close our page_xfer temporarily - parasite_dump_pages_seized will open its own */
+	if (cdi->xfer_initialized) {
+		cdi->xfer.close(&cdi->xfer);
+		cdi->xfer_initialized = false;
 	}
 	
-	destroy_page_pipe(pp);
-	pr_info("Successfully dumped %lu pages from unregistered VMA\n", nr_pages);
-	return 0;
+	/* Use the proven dump infrastructure */
+	ret = parasite_dump_pages_seized(cdi->item, &vma_list, &mdc, ctl);
+	
+	/* Reopen our page_xfer */
+	if (open_page_xfer(&cdi->xfer, CR_FD_PAGEMAP, vpid(cdi->item)) < 0) {
+		pr_err("Failed to reopen page_xfer after failed VMA dump\n");
+		ret = -1;
+	} else {
+		cdi->xfer_initialized = true;
+	}
+	
+cleanup:
+	/* Cleanup temporary vma_list */
+	list_for_each_entry_safe(vma, tmp, &vma_list.h, list) {
+		list_del(&vma->list);
+		xfree(vma->e);
+		xfree(vma);
+	}
+	
+	if (ret == 0)
+		pr_info("Successfully dumped %u failed VMAs\n", nr_failed);
+	
+	return ret;
 }
 
 int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl)
@@ -336,27 +330,11 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		
 		pr_info("Processing %u VMAs that couldn't be registered\n", args->nr_failed_vmas);
 		
-		for (i = 0; i < args->nr_failed_vmas; i++) {
-			unsigned int vma_idx = failed_indices[i];
-			
-			if (vma_idx >= args->nr_vmas) {
-				pr_err("Invalid failed VMA index: %u >= %u\n", vma_idx, args->nr_vmas);
-				ret = -1;
-				goto err_cleanup;
-			}
-			
-			pr_info("Dumping failed VMA %u: %lx-%lx\n", 
-				vma_idx, p_vma[vma_idx].start, 
-				p_vma[vma_idx].start + p_vma[vma_idx].len);
-			
-			ret = cow_dump_unregistered_vma(cdi, ctl, p_vma[vma_idx].start, p_vma[vma_idx].len);
-			if (ret < 0) {
-				pr_err("Failed to dump unregistered VMA %u\n", vma_idx);
-				goto err_cleanup;
-			}
+		ret = cow_dump_failed_vmas(cdi, ctl, p_vma, failed_indices, args->nr_failed_vmas);
+		if (ret < 0) {
+			pr_err("Failed to dump unregistered VMAs\n");
+			goto err_cleanup;
 		}
-		
-		pr_info("Successfully dumped all %u unregistered VMAs\n", args->nr_failed_vmas);
 	}
 	
 	g_cow_info = cdi;
