@@ -1727,6 +1727,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			pr_err("Failed to initialize COW dump for pid %d\n", pid);
 			goto err_cure;
 		}
+		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 		
 		/* Start background thread to monitor page faults */
 		ret = cow_start_monitor_thread();
