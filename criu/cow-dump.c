@@ -296,7 +296,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		cdi->uffd = -1;
 		goto err_close_mem;
 	}
-
+#if TODO_LATER
 	cdi->total_pages = args->total_pages;
 	cdi->dirty_pages_dumped = 0;
 	cdi->xfer_initialized = false;
@@ -318,7 +318,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		close(cdi->uffd);
 		goto err_close_mem;
 	}
-	
+#endif
 	pr_info("COW dump initialized: tracking %lu pages, uffd=%d\n", 
 		cdi->total_pages, cdi->uffd);
 	
