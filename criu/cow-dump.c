@@ -389,7 +389,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	}
 
 	page = xmalloc(PAGE_SIZE);
-	memcpy(page,(void*)page_addr, PAGE_SIZE);
+	//memcpy(page,(void*)page_addr, PAGE_SIZE);
 
 	dr->start = (unsigned long)page;
 	dr->len = PAGE_SIZE;
@@ -475,7 +475,7 @@ static void *cow_monitor_thread(void *arg)
 	pr_info("COW monitor thread started\n");
 	
 	while (g_cow_info->total_pages != 0) {
-			pr_info("COW monitor thread started\n");
+			
 
 		/* Process events with short timeout */
 		if (cow_process_events(cdi, false) < 0) {
