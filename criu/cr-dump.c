@@ -1720,15 +1720,14 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		/* COW dump mode: split VMAs by size */
 		unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
 		unsigned long large_pages = 0;
-		struct vma_area *vma;
+		struct vma_area *vma, tmp;
 			
 		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.\n", threshold_pages);
 		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.nr=%u nr_aios=%u rst_priv_size=%lu nr_priv_pages_longest=%lu nr_shared_pages_longest=%lu\n", threshold_pages,
 		vmas.nr, vmas.nr_aios, vmas.rst_priv_size, vmas.nr_priv_pages_longest, vmas.nr_shared_pages_longest);
 	
 		/* Split VMAs by size */
-		list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
-			
+		list_for_each_entry_safe(vma, tmp, &vmas.h, list) {			
 			
 			if (vma_area_is(vma, VMA_AREA_GUARD)) {
 				pr_info("COW dump: splitting VMAs VMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARD(threshold=%lu pages) vmas.\n", threshold_pages);
