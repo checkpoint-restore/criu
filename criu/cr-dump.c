@@ -2184,7 +2184,7 @@ static int cr_dump_finish(int ret)
 
 	if (!ret && opts.cow_dump) {
 		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
-		while(true){pr_info("file = %s, line = %d\n", __FILE__, __LINE__); sleep(10);}
+		
 		/* Stop the monitor thread before final dump */
 		if (cow_stop_monitor_thread()) {
 			pr_err("Failed to stop COW monitor thread\n");
