@@ -1744,8 +1744,6 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 				large_vmas.nr++;
 				
 				if (vma_area_is_private(vma, kdat.task_size)) {
-					pr_info("ERROR!!!!!! TOODO");
-					exit(0);
 					large_vmas.nr_priv_pages += nr_pages;
 					large_vmas.rst_priv_size += vma_area_len(vma);
 					if (nr_pages > large_vmas.nr_priv_pages_longest)
