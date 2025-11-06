@@ -1780,7 +1780,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 				}
 			}
 			
-			pr_info("Dumping %lu small VMAs normally\n", small_vmas.nr);
+			pr_info("Dumping %u small VMAs normally\n", small_vmas.nr);
 			ret = parasite_dump_pages_seized(item, &small_vmas, &mdc, parasite_ctl);
 			if (ret) {
 				pr_err("Failed to dump small VMAs\n");
@@ -1810,7 +1810,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 				}
 			}
 			
-			pr_info("Setting up COW tracking for %lu large VMAs\n", large_vmas.nr);
+			pr_info("Setting up COW tracking for %u large VMAs\n", large_vmas.nr);
 			ret = cow_dump_init(item, &large_vmas, parasite_ctl);
 			if (ret) {
 				pr_err("Failed to initialize COW dump for large VMAs\n");
