@@ -50,6 +50,7 @@ static int mprotect_vmas(struct parasite_dump_pages_args *args)
 {
 	struct parasite_vma_entry *vmas, *vma;
 	int ret = 0, i;
+	pr_info("mprotect_vmas file = %s, line = %d\n", __FILE__, __LINE__);
 
 	vmas = pargs_vmas(args);
 	for (i = 0; i < args->nr_vmas; i++) {
