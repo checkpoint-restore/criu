@@ -297,6 +297,7 @@ prep_dump_pages_args(struct parasite_ctl *ctl, struct vm_area_list *vma_area_lis
 	args->nr_vmas = 0;
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
+		pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
 		/*
@@ -701,7 +702,8 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 	 *    data from M
 	 */
 	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
-	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
+	
+	if ((pargs->nr_vmas != 0) &&(!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE)) {
 		pargs->add_prot = PROT_READ;
 			pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 
@@ -724,8 +726,7 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 		/* Parasite will unprotect VMAs after fail in fini() */
 		return ret;
 	}
-
-	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
+	if ((pargs->nr_vmas != 0) &&(!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE)) {	
 		pargs->add_prot = 0;
 		if (compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
 			pr_err("Can't rollback unprotected vmas with parasite\n");
