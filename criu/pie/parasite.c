@@ -912,7 +912,10 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 
 		/* Skip non-writable VMAs */
 		if (!(vma->prot & PROT_WRITE)) {
-			pr_info("Skipping non-writable VMA: %lx-%lx\n", addr, addr + len);
+			pr_info("Skipping non-writable VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
+			
+			/* Mark for later dump by CRIU */
+    		failed_indices[args->nr_failed_vmas++] = i;
 			continue;
 		}
 
@@ -924,19 +927,25 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		if (ret) {
 			/* Some VMAs may not support WP - record index for CRIU to dump */
 			if (ret == EINVAL) {
-				pr_warn("Cannot WP-register VMA %lx-%lx (unsupported), marking for later dump\n",
-					addr, addr + len);
+				pr_warn("Cannot WP-register VMA %lx-%lx len=%lu (unsupported), marking for later dump\n",
+					addr, addr + len, len);
 				
 				/* Record the index of this failed VMA */
 				failed_indices[args->nr_failed_vmas++] = i;
 				pr_info("Marked VMA index %d for later dump (%u failed VMAs total)\n", 
 					i, args->nr_failed_vmas);
 				continue;
+			} else {
+							/* Any failure to register - just dump instead of trying to track */
+				pr_err("Failed to register VMA %lx-%lx: ret=%d len=%lu\n",
+			       addr, addr + len, ret, len);
+				
+				failed_indices[args->nr_failed_vmas++] = i;
+				pr_info("Marked VMA index %d for immediate dump (%u total)\n", 
+						i, args->nr_failed_vmas);
+    			continue;
 			}
-			pr_err("Failed to register VMA %lx-%lx: ret=%d\n",
-			       addr, addr + len, ret);
-			sys_close(uffd);
-			return -1;
+
 		}
 
 		/* Apply write-protection */
