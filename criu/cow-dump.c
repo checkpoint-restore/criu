@@ -122,14 +122,14 @@ static int cow_dump_unregistered_vma(struct cow_dump_info *cdi, struct parasite_
 	
 	pr_info("Dumping unregistered VMA via DUMPPAGES: %lx-%lx (%lu pages)\n", 
 		start, start + len, nr_pages);
-	
+	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
 	/* Create temporary page_pipe for this VMA */
 	pp = create_page_pipe(nr_pages, NULL, 0);
 	if (!pp) {
 		pr_err("Failed to create page_pipe for unregistered VMA\n");
 		return -1;
 	}
-	
+	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
 	/* Setup parasite args for DUMPPAGES */
 	args = compel_parasite_args_s(ctl, sizeof(*args) + sizeof(*vma) + nr_pages * sizeof(struct iovec));
 	if (!args) {
@@ -137,7 +137,7 @@ static int cow_dump_unregistered_vma(struct cow_dump_info *cdi, struct parasite_
 		destroy_page_pipe(pp);
 		return -1;
 	}
-	
+	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
 	/* Fill VMA info */
 	vma = pargs_vmas(args);
 	vma->start = start;
@@ -152,6 +152,7 @@ static int cow_dump_unregistered_vma(struct cow_dump_info *cdi, struct parasite_
 	
 	/* Setup iovs for all pages in the VMA */
 	iovs = pargs_iovs(args);
+	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
 	for (unsigned long i = 0; i < nr_pages; i++) {
 		iovs[i].iov_base = (void *)(start + i * PAGE_SIZE);
 		iovs[i].iov_len = PAGE_SIZE;
@@ -164,7 +165,7 @@ static int cow_dump_unregistered_vma(struct cow_dump_info *cdi, struct parasite_
 			return -1;
 		}
 	}
-	
+	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
 	/* Call parasite DUMPPAGES command */
 	ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
 	if (ret < 0) {
