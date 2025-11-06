@@ -1744,8 +1744,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 				large_vmas.nr++;
 				
 				if (vma_area_is_private(vma, kdat.task_size)) {
-					large_vmas.nr_priv_pages += nr_pages;
-					large_vmas.rst_priv_size += vma_area_len(vma);
+					large_vmas.nr_priv_pages += nr_pages;					
 					if (nr_pages > large_vmas.nr_priv_pages_longest)
 						large_vmas.nr_priv_pages_longest = nr_pages;
 				}
@@ -1754,8 +1753,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 					vma->e->start, vma->e->end, nr_pages);
 				small_vmas.nr++;
 				
-				if (vma_area_is_private(vma, kdat.task_size)) {
-					small_vmas.rst_priv_size += vma_area_len(vma);
+				if (vma_area_is_private(vma, kdat.task_size)) {					
 					small_vmas.nr_priv_pages += nr_pages;
 					if (nr_pages > small_vmas.nr_priv_pages_longest)
 						small_vmas.nr_priv_pages_longest = nr_pages;
