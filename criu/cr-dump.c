@@ -1725,8 +1725,10 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		vm_area_list_init(&small_vmas);
 		vm_area_list_init(&large_vmas);
 		
-		pr_info("COW dump: splitting VMAs (threshold=%lu pages)\n", threshold_pages);
-		
+		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.\n", threshold_pages);
+		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.nr=%lu nr_aios=%lu rst_priv_size=%lu nr_priv_pages_longest=%lu nr_shared_pages_longest=%lu\n", threshold_pages,
+		vmas.nr, vmas.nr_aios, vmas.rst_priv_size, vmas.nr_priv_pages_longest, vmas.nr_shared_pages_longest);
+	
 		/* Split VMAs by size */
 		list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
 			unsigned long nr_pages;
@@ -1766,6 +1768,8 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		
 		/* Dump small VMAs normally */
 		if (small_vmas.nr > 0) {
+					pr_info("COW dump SMALL: splitting VMAs (threshold=%lu pages) vmas.nr=%lu nr_aios=%lu rst_priv_size=%lu nr_priv_pages_longest=%lu nr_shared_pages_longest=%lu\n", threshold_pages,
+		small_vmas.nr, small_vmas.nr_aios, small_vmas.rst_priv_size, small_vmas.nr_priv_pages_longest, small_vmas.nr_shared_pages_longest);
 			/* Rebuild the list for small VMAs */
 			list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
 				unsigned long nr_pages;
