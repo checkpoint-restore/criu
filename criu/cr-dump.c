@@ -1720,7 +1720,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		/* COW dump mode: split VMAs by size */
 		unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
 		unsigned long large_pages = 0;
-		struct vma_area *vma, tmp;
+		struct vma_area *vma, *tmp;
 			
 		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.\n", threshold_pages);
 		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.nr=%u nr_aios=%u rst_priv_size=%lu nr_priv_pages_longest=%lu nr_shared_pages_longest=%lu\n", threshold_pages,
