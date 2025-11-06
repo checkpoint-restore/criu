@@ -1757,9 +1757,8 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 				if (nr_pages >= threshold_pages) {
 					vma->e->status = vma->e->status & (~VMA_AREA_GUARD);
 				}
-			}
+			}			
 			
-			pr_info("Setting up COW tracking for %u large VMAs\n", large_vmas.nr);
 			ret = cow_dump_init(item, &vmas, parasite_ctl);
 			if (ret) {
 				pr_err("Failed to initialize COW dump for large VMAs\n");
