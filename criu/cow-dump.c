@@ -116,6 +116,7 @@ static int cow_dump_unregistered_vma(struct cow_dump_info *cdi, struct parasite_
 	struct parasite_vma_entry *vma;
 	struct page_pipe *pp;
 	struct iovec *iovs;
+	struct page_pipe_buf *ppb = NULL;
 	unsigned long nr_pages = len / PAGE_SIZE;
 	int ret;
 	
@@ -178,7 +179,7 @@ static int cow_dump_unregistered_vma(struct cow_dump_info *cdi, struct parasite_
 		destroy_page_pipe(pp);
 		return -1;
 	}
-	struct page_pipe_buf *ppb = list_entry(pp->bufs.next, struct page_pipe_buf, l);
+	ppb = list_entry(pp->bufs.next, struct page_pipe_buf, l);
 	ret = compel_util_send_fd(ctl, ppb->p[1]);
 	if (ret) {
 		pr_err("Failed to send pipe fd\n");
