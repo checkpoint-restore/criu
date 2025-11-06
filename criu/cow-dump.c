@@ -232,16 +232,6 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	g_cow_info = cdi;
 	return 0;
 
-err_cleanup:
-	if (cdi->pp)
-		destroy_page_pipe(cdi->pp);
-	if (cdi->xfer_initialized)
-		cdi->xfer.close(&cdi->xfer);
-	close(cdi->uffd);
-	close(cdi->proc_mem_fd);
-	xfree(cdi);
-	return ret;
-
 err_close_mem:
 	close(cdi->proc_mem_fd);
 err_free:
