@@ -52,7 +52,6 @@ struct dirty_range {
 static struct cow_dump_info *g_cow_info = NULL;
 static pthread_t g_monitor_thread;
 static volatile bool g_stop_monitoring = false;
-static pthread_mutex_t g_cow_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define COW_MAX_ITERATIONS 10
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
@@ -374,36 +373,29 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 {
 	struct dirty_range *dr;
 	unsigned long page_addr = addr & ~(PAGE_SIZE - 1);
+	void* page;
 	struct uffdio_writeprotect wp;
 	struct uffdio_range range;
 	int ret;
     
 	pr_debug("Write fault at 0x%lx\n", page_addr);
 
-	/* Lock to protect shared data structures */
-	pthread_mutex_lock(&g_cow_mutex);
 	cdi->dirty_pages++;
 
-	/* Add to dirty list */
+	/* Add to dirty list for tracking */
 	dr = xmalloc(sizeof(*dr));
 	if (!dr) {
-		pthread_mutex_unlock(&g_cow_mutex);
 		return -1;
 	}
 
-	dr->start = page_addr;
+	page = xmalloc(PAGE_SIZE);
+	memccpy(page,(void*)page_addr);
+
+	dr->start = page;
 	dr->len = PAGE_SIZE;
 	INIT_LIST_HEAD(&dr->list);
 	list_add_tail(&dr->list, &cdi->dirty_list);
 	
-	/* Write the page to disk before unprotecting */
-	ret = cow_write_page_to_pipe(cdi, page_addr);
-	if (ret < 0) {
-		/* Log error but continue to unprotect - don't block the process */
-		pr_err("Failed to write page 0x%lx to disk (will continue)\n", page_addr);
-	}
-	
-	pthread_mutex_unlock(&g_cow_mutex);
 
 	/* Unprotect the page so the process can continue */
 	wp.range.start = page_addr;
@@ -423,7 +415,8 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 		pr_perror("Failed to wake thread after unprotect");
 		return -1;
 	}
-	cdi->total_pages -= 1;
+	
+	cdi->total_pages--;
 	return 0;
 }
 
