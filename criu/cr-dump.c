@@ -1733,8 +1733,10 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
 			unsigned long nr_pages;
 			
-			if (vma_area_is(vma, VMA_AREA_GUARD))
+			if (vma_area_is(vma, VMA_AREA_GUARD)) {
+				pr_info("COW dump: splitting VMAs VMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARD(threshold=%lu pages) vmas.\n", threshold_pages);
 				continue;
+			}
 			
 			nr_pages = vma_area_len(vma) / PAGE_SIZE;
 			
