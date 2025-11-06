@@ -913,7 +913,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		pr_info("Registering VMA %d: %lx-%lx prot=%x len=%lu\n",
 			i, addr, addr + len, vma->prot, len);
 
-		if (((vma_area_len(vma) / PAGE_SIZE) < threshold_pages)){
+		if (((len / PAGE_SIZE) < threshold_pages)){
 			pr_info("Skipping small VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
 		}
 
