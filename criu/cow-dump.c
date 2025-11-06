@@ -376,7 +376,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	void* page;
 	struct uffdio_writeprotect wp;
 	struct uffdio_range range;
-	int ret;
+	
     
 	pr_debug("Write fault at 0x%lx\n", page_addr);
 
@@ -391,7 +391,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	page = xmalloc(PAGE_SIZE);
 	memcpy(page,(void*)page_addr, PAGE_SIZE);
 
-	dr->start = page;
+	dr->start = (unsigned long)page;
 	dr->len = PAGE_SIZE;
 	INIT_LIST_HEAD(&dr->list);
 	list_add_tail(&dr->list, &cdi->dirty_list);
