@@ -170,13 +170,13 @@ static int cow_dump_failed_vmas(struct cow_dump_info *cdi, struct parasite_ctl *
 	mdc.lazy = false;
 	mdc.stat = NULL;
 	mdc.parent_ie = NULL;
-	
+	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
 	/* Close our page_xfer temporarily - parasite_dump_pages_seized will open its own */
 	if (cdi->xfer_initialized) {
 		cdi->xfer.close(&cdi->xfer);
 		cdi->xfer_initialized = false;
 	}
-	
+	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
 	/* Use the proven dump infrastructure */
 	ret = parasite_dump_pages_seized(cdi->item, &vma_list, &mdc, ctl);
 	

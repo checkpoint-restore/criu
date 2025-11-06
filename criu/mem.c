@@ -656,9 +656,9 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 {
 	int ret;
 	struct parasite_dump_pages_args *pargs;
-
+	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	pargs = prep_dump_pages_args(ctl, vma_area_list, mdc->pre_dump);
-
+	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	/*
 	 * Add PROT_READ protection for all VMAs we're about to
 	 * dump if they don't have one. Otherwise we'll not be
@@ -698,7 +698,7 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 	 * 9. syscall fails to copy
 	 *    data from M
 	 */
-
+pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
 		pargs->add_prot = PROT_READ;
 		ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
