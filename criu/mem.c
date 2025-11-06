@@ -317,10 +317,12 @@ prep_dump_pages_args(struct parasite_ctl *ctl, struct vm_area_list *vma_area_lis
 		p_vma->start = vma->e->start;
 		p_vma->len = vma_area_len(vma);
 		p_vma->prot = vma->e->prot;
+		pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 
 		args->nr_vmas++;
 		p_vma++;
 	}
+		pr_info("parasite_dump_pages_seized file = %s, line = %d args->nr_vmas=%u\n", __FILE__, __LINE__,args->nr_vmas);
 
 	return args;
 }
