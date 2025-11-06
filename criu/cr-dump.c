@@ -1711,29 +1711,126 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	mdc.stat = &pps_buf;
 	mdc.parent_ie = parent_ie;
 
-	/* 
-	 * For COW dump, skip the normal page dump and initialize
-	 * COW tracking instead. Pages will be captured on-demand
-	 * as they're modified.
-	 */
 	if (!opts.cow_dump) {
+		/* Normal dump - dump all pages */
 		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 		if (ret)
 			goto err_cure;
 	} else {
-		pr_info("COW dump mode: initializing write tracking instead of dumping pages\n");
-		ret = cow_dump_init(item, &vmas, parasite_ctl);
-		if (ret) {
-			pr_err("Failed to initialize COW dump for pid %d\n", pid);
-			goto err_cure;
-		}
-		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
+		/* COW dump mode: split VMAs by size */
+		struct vm_area_list small_vmas, large_vmas;
+		struct vma_area *vma, *tmp;
+		unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
 		
-		/* Start background thread to monitor page faults */
-		ret = cow_start_monitor_thread();
-		if (ret) {
-			pr_err("Failed to start COW monitor thread for pid %d\n", pid);
-			goto err_cure;
+		vm_area_list_init(&small_vmas);
+		vm_area_list_init(&large_vmas);
+		
+		pr_info("COW dump: splitting VMAs (threshold=%lu pages)\n", threshold_pages);
+		
+		/* Split VMAs by size */
+		list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
+			unsigned long nr_pages;
+			
+			if (vma_area_is(vma, VMA_AREA_GUARD))
+				continue;
+			
+			nr_pages = vma_area_len(vma) / PAGE_SIZE;
+			
+			if (nr_pages >= threshold_pages) {
+				pr_info("  Large VMA: %lx-%lx (%lu pages) -> COW track\n",
+					vma->e->start, vma->e->end, nr_pages);
+				large_vmas.nr++;
+				
+				if (vma_area_is_private(vma, kdat.task_size)) {
+					large_vmas.nr_priv_pages += nr_pages;
+					large_vmas.rst_priv_size += vma_area_len(vma);
+					if (nr_pages > large_vmas.nr_priv_pages_longest)
+						large_vmas.nr_priv_pages_longest = nr_pages;
+				}
+			} else {
+				pr_info("  Small VMA: %lx-%lx (%lu pages) -> normal dump\n",
+					vma->e->start, vma->e->end, nr_pages);
+				small_vmas.nr++;
+				
+				if (vma_area_is_private(vma, kdat.task_size)) {
+					small_vmas.rst_priv_size += vma_area_len(vma);
+					small_vmas.nr_priv_pages += nr_pages;
+					if (nr_pages > small_vmas.nr_priv_pages_longest)
+						small_vmas.nr_priv_pages_longest = nr_pages;
+				}
+			}
+		}
+		
+		pr_info("Split result: %lu small VMAs, %lu large VMAs\n", 
+			small_vmas.nr, large_vmas.nr);
+		
+		/* Dump small VMAs normally */
+		if (small_vmas.nr > 0) {
+			/* Rebuild the list for small VMAs */
+			list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
+				unsigned long nr_pages;
+				
+				if (vma_area_is(vma, VMA_AREA_GUARD))
+					continue;
+				
+				nr_pages = vma_area_len(vma) / PAGE_SIZE;
+				if (nr_pages < threshold_pages) {
+					list_del(&vma->list);
+					list_add_tail(&vma->list, &small_vmas.h);
+				}
+			}
+			
+			pr_info("Dumping %lu small VMAs normally\n", small_vmas.nr);
+			ret = parasite_dump_pages_seized(item, &small_vmas, &mdc, parasite_ctl);
+			if (ret) {
+				pr_err("Failed to dump small VMAs\n");
+				goto err_cure;
+			}
+			
+			/* Restore VMAs to original list */
+			list_for_each_entry_safe(vma, tmp, &small_vmas.h, list) {
+				list_del(&vma->list);
+				list_add_tail(&vma->list, &vmas.h);
+			}
+		}
+		
+		/* Initialize COW tracking for large VMAs only */
+		if (large_vmas.nr > 0) {
+			/* Rebuild the list for large VMAs */
+			list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
+				unsigned long nr_pages;
+				
+				if (vma_area_is(vma, VMA_AREA_GUARD))
+					continue;
+				
+				nr_pages = vma_area_len(vma) / PAGE_SIZE;
+				if (nr_pages >= threshold_pages) {
+					list_del(&vma->list);
+					list_add_tail(&vma->list, &large_vmas.h);
+				}
+			}
+			
+			pr_info("Setting up COW tracking for %lu large VMAs\n", large_vmas.nr);
+			ret = cow_dump_init(item, &large_vmas, parasite_ctl);
+			if (ret) {
+				pr_err("Failed to initialize COW dump for large VMAs\n");
+				goto err_cure;
+			}
+			
+			/* Start background thread to monitor page faults */
+			ret = cow_start_monitor_thread();
+			if (ret) {
+				pr_err("Failed to start COW monitor thread\n");
+				goto err_cure;
+			}
+			
+			/* Restore VMAs to original list */
+			list_for_each_entry_safe(vma, tmp, &large_vmas.h, list) {
+				list_del(&vma->list);
+				list_add_tail(&vma->list, &vmas.h);
+			}
+		} else {
+			pr_info("No large VMAs found, skipping COW tracking\n");
 		}
 	}
 	

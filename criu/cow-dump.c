@@ -108,100 +108,6 @@ static int open_proc_mem(pid_t pid)
 	return fd;
 }
 
-/* Dump VMAs that couldn't be registered using parasite_dump_pages_seized */
-static int cow_dump_failed_vmas(struct cow_dump_info *cdi, struct parasite_ctl *ctl,
-				 struct parasite_vma_entry *p_vma, unsigned int *failed_indices,
-				 unsigned int nr_failed)
-{
-	struct vm_area_list vma_list;
-	struct mem_dump_ctl mdc = {};
-	struct vma_area *vma, *tmp;
-	unsigned int i;
-	int ret;
-	
-	pr_info("Dumping %u failed VMAs via parasite_dump_pages_seized\n", nr_failed);
-	
-	/* Initialize temporary vma_area_list */
-	INIT_LIST_HEAD(&vma_list.h);
-	vma_list.nr = 0;
-	vma_list.nr_aios = 0;
-	vma_list.nr_priv_pages = 0;
-	vma_list.nr_priv_pages_longest = 0;
-	vma_list.nr_shared_pages_longest = 0;
-	
-	/* Convert each failed VMA to vma_area */
-	for (i = 0; i < nr_failed; i++) {
-		unsigned int idx = failed_indices[i];
-		
-		vma = alloc_vma_area();
-		if (!vma) {
-			pr_err("Failed to allocate vma_area\n");
-			ret = -1;
-			goto cleanup;
-		}
-		
-		/* Fill VmaEntry from parasite VMA */
-		vma->e->start = p_vma[idx].start;
-		vma->e->end = p_vma[idx].start + p_vma[idx].len;
-		vma->e->prot = p_vma[idx].prot;
-		vma->e->flags = MAP_PRIVATE | MAP_ANONYMOUS;
-		vma->e->status = 0;
-		vma->e->fd = -1;
-		vma->e->pgoff = 0;
-		vma->e->shmid = 0;
-		
-		list_add_tail(&vma->list, &vma_list.h);
-		vma_list.nr++;
-		
-		if (vma_area_is_private(vma, kdat.task_size)) {
-			unsigned long len = p_vma[idx].len;
-			unsigned long nr_pages = len / PAGE_SIZE;			
-			
-			vma_list.nr_priv_pages += nr_pages;
-			if (nr_pages > vma_list.nr_priv_pages_longest)
-				vma_list.nr_priv_pages_longest = nr_pages;
-		}
-		
-		pr_info("Added VMA %u: %lx-%lx for dump\n", i, vma->e->start, vma->e->end);
-	}
-	
-	/* Setup mem_dump_ctl */
-	mdc.pre_dump = false;
-	mdc.lazy = false;
-	mdc.stat = NULL;
-	mdc.parent_ie = NULL;
-	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
-	/* Close our page_xfer temporarily - parasite_dump_pages_seized will open its own */
-	if (cdi->xfer_initialized) {
-		cdi->xfer.close(&cdi->xfer);
-		cdi->xfer_initialized = false;
-	}
-	pr_info("Dumping unregistered VMA file = %s, line = %d\n", __FILE__, __LINE__);
-	/* Use the proven dump infrastructure */
-	ret = parasite_dump_pages_seized(cdi->item, &vma_list, &mdc, ctl);
-	
-	/* Reopen our page_xfer */
-	if (open_page_xfer(&cdi->xfer, CR_FD_PAGEMAP, vpid(cdi->item)) < 0) {
-		pr_err("Failed to reopen page_xfer after failed VMA dump\n");
-		ret = -1;
-	} else {
-		cdi->xfer_initialized = true;
-	}
-	
-cleanup:
-	/* Cleanup temporary vma_list */
-	list_for_each_entry_safe(vma, tmp, &vma_list.h, list) {
-		list_del(&vma->list);
-		xfree(vma->e);
-		xfree(vma);
-	}
-	
-	if (ret == 0)
-		pr_info("Successfully dumped %u failed VMAs\n", nr_failed);
-	
-	return ret;
-}
-
 int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl)
 {
 	struct cow_dump_info *cdi;
@@ -296,7 +202,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		cdi->uffd = -1;
 		goto err_close_mem;
 	}
-#if TODO_LATER
+
 	cdi->total_pages = args->total_pages;
 	cdi->dirty_pages_dumped = 0;
 	cdi->xfer_initialized = false;
@@ -318,22 +224,10 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		close(cdi->uffd);
 		goto err_close_mem;
 	}
-#endif
+
 	pr_info("COW dump initialized: tracking %lu pages, uffd=%d\n", 
 		cdi->total_pages, cdi->uffd);
 	
-	/* Process VMAs that couldn't be registered for write-protection */
-	if (args->nr_failed_vmas > 0) {
-		unsigned int *failed_indices = cow_dump_failed_indices(args);
-		
-		pr_info("Processing %u VMAs that couldn't be registered\n", args->nr_failed_vmas);
-		
-		ret = cow_dump_failed_vmas(cdi, ctl, p_vma, failed_indices, args->nr_failed_vmas);
-		if (ret < 0) {
-			pr_err("Failed to dump unregistered VMAs\n");
-			goto err_cleanup;
-		}
-	}
 	
 	g_cow_info = cdi;
 	return 0;
