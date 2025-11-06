@@ -551,11 +551,11 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	/*
 	 * Step 0 -- prepare
 	 */
-
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	pmc_size = max(vma_area_list->nr_priv_pages_longest, vma_area_list->nr_shared_pages_longest);
 	if (pmc_init(&pmc, item->pid->real, &vma_area_list->h, pmc_size * PAGE_SIZE))
 		return -1;
-
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	if (!(mdc->pre_dump || mdc->lazy))
 		/*
 		 * Chunk mode pushes pages portion by portion. This mode
@@ -566,7 +566,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pp = create_page_pipe(vma_area_list->nr_priv_pages, mdc->lazy ? NULL : pargs_iovs(args), cpp_flags);
 	if (!pp)
 		goto out;
-
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	if (!mdc->pre_dump) {
 		/*
 		 * Regular dump -- create xfer object and send pages to it
@@ -586,13 +586,13 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		if (ret)
 			xfer.parent = NULL + 1;
 	}
-
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	if (xfer.parent) {
 		possible_pid_reuse = detect_pid_reuse(item, mdc->stat, mdc->parent_ie);
 		if (possible_pid_reuse == -1)
 			goto out_xfer;
 	}
-
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	/*
 	 * Step 1 -- generate the pagemap
 	 */
@@ -610,7 +610,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		if (ret < 0)
 			goto out_xfer;
 	}
-
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
 
@@ -624,14 +624,14 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		ret = 0;
 	else
 		ret = drain_pages(pp, ctl, args);
-
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
 	if (ret)
 		goto out_xfer;
 
 	timing_stop(TIME_MEMDUMP);
-
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	/*
 	 * Step 4 -- clean up
 	 */
