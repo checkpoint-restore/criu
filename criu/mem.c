@@ -332,6 +332,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 {
 	struct page_pipe_buf *ppb;
 	int ret = 0;
+	pr_info("drain_pages file = %s, line = %d\n", __FILE__, __LINE__);
 
 	debug_show_page_pipe(pp);
 
@@ -341,7 +342,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 		args->nr_pages = ppb->pages_in;
 		pr_debug("PPB: %ld pages %d segs %u pipe %d off\n", args->nr_pages, args->nr_segs, ppb->pipe_size,
 			 args->off);
-
+		pr_info("drain_pages file = %s, line = %d\n", __FILE__, __LINE__);
 		ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret < 0)
 			return -1;
@@ -613,6 +614,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/*
 	 * Faking drain_pages for pre-dump here. Actual drain_pages for pre-dump
