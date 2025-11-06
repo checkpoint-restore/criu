@@ -275,7 +275,7 @@ void cow_dump_fini(void)
 	xfree(g_cow_info);
 	g_cow_info = NULL;
 }
-
+#if 0
 /* Flush accumulated dirty pages to disk */
 static int cow_flush_dirty_pages(struct cow_dump_info *cdi)
 {
@@ -302,7 +302,7 @@ static int cow_flush_dirty_pages(struct cow_dump_info *cdi)
 	
 	return 0;
 }
-#if 0
+
 /* Write a single page to the page_pipe */
 static int cow_write_page_to_pipe(struct cow_dump_info *cdi, unsigned long page_addr)
 {
