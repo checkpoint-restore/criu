@@ -475,7 +475,8 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 
 /* Background thread that monitors for write faults */
 static void *cow_monitor_thread(void *arg)
-{
+{	
+	int iteration_count = 0;
 	struct cow_dump_info *cdi = (struct cow_dump_info *)arg;
 	
 	pr_info("COW monitor thread started\n");
@@ -488,6 +489,13 @@ static void *cow_monitor_thread(void *arg)
 		}
 		/* Small delay to avoid busy-waiting */
 		usleep(1000); /* 1ms */
+		/* Print total pages once per second */
+		iteration_count++;
+		if (iteration_count >= 1000) { /* 1000 * 1ms = 1 second */
+			pr_info("COW monitor: %lu pages remaining\n", g_cow_info->total_pages);
+			iteration_count = 0;
+		}
+
 	}
 	
 	pr_info("COW monitor thread stopped\n");
