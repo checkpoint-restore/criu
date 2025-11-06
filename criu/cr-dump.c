@@ -1718,20 +1718,16 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			goto err_cure;
 	} else {
 		/* COW dump mode: split VMAs by size */
-		struct vm_area_list small_vmas, large_vmas;
-		struct vma_area *vma, *tmp;
 		unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
-		
-		vm_area_list_init(&small_vmas);
-		vm_area_list_init(&large_vmas);
-		
+		unsigned long large_pages = 0;
+			
 		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.\n", threshold_pages);
 		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.nr=%u nr_aios=%u rst_priv_size=%lu nr_priv_pages_longest=%lu nr_shared_pages_longest=%lu\n", threshold_pages,
 		vmas.nr, vmas.nr_aios, vmas.rst_priv_size, vmas.nr_priv_pages_longest, vmas.nr_shared_pages_longest);
 	
 		/* Split VMAs by size */
 		list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
-			unsigned long nr_pages;
+			
 			
 			if (vma_area_is(vma, VMA_AREA_GUARD)) {
 				pr_info("COW dump: splitting VMAs VMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARD(threshold=%lu pages) vmas.\n", threshold_pages);
@@ -1741,76 +1737,30 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			nr_pages = vma_area_len(vma) / PAGE_SIZE;
 			
 			if (nr_pages >= threshold_pages) {
-				pr_info("  Large VMA: %lx-%lx (%lu pages) -> COW track\n",
-					vma->e->start, vma->e->end, nr_pages);
-				large_vmas.nr++;
-				
-				if (vma_area_is_private(vma, kdat.task_size)) {
-					large_vmas.nr_priv_pages += nr_pages;					
-					if (nr_pages > large_vmas.nr_priv_pages_longest)
-						large_vmas.nr_priv_pages_longest = nr_pages;
-				}
-			} else {
-				pr_info("  Small VMA: %lx-%lx (%lu pages) -> normal dump\n",
-					vma->e->start, vma->e->end, nr_pages);
-				small_vmas.nr++;
-				
-				if (vma_area_is_private(vma, kdat.task_size)) {					
-					small_vmas.nr_priv_pages += nr_pages;
-					if (nr_pages > small_vmas.nr_priv_pages_longest)
-						small_vmas.nr_priv_pages_longest = nr_pages;
-				}
+				vma->e->status |= VMA_AREA_GUARD;
+				large_pages +=1;
 			}
 		}
 		
-		pr_info("Split result: %u small VMAs, %u large VMAs\n", 
-			small_vmas.nr, large_vmas.nr);
 		
-		/* Dump small VMAs normally */
-		if (small_vmas.nr > 0) {
-					pr_info("COW dump SMALL: splitting VMAs (threshold=%lu pages) vmas.nr=%u nr_aios=%u rst_priv_size=%lu nr_priv_pages_longest=%lu nr_shared_pages_longest=%lu\n", threshold_pages,
-		small_vmas.nr, small_vmas.nr_aios, small_vmas.rst_priv_size, small_vmas.nr_priv_pages_longest, small_vmas.nr_shared_pages_longest);
-			/* Rebuild the list for small VMAs */
-			list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
-				unsigned long nr_pages;
-				
-				if (vma_area_is(vma, VMA_AREA_GUARD))
-					continue;
-				
-				nr_pages = vma_area_len(vma) / PAGE_SIZE;
-				if (nr_pages < threshold_pages) {
-					list_del(&vma->list);
-					list_add_tail(&vma->list, &small_vmas.h);
-				}
-			}
 			
-			pr_info("Dumping %u small VMAs normally\n", small_vmas.nr);
-			ret = parasite_dump_pages_seized(item, &small_vmas, &mdc, parasite_ctl);
-			if (ret) {
-				pr_err("Failed to dump small VMAs\n");
-				goto err_cure;
-			}
-			
-			/* Restore VMAs to original list */
-			list_for_each_entry_safe(vma, tmp, &small_vmas.h, list) {
-				list_del(&vma->list);
-				list_add_tail(&vma->list, &vmas.h);
-			}
+		pr_info("Dumping %u small VMAs normally\n", small_vmas.nr);
+		ret = parasite_dump_pages_seized(item, &small_vmas, &mdc, parasite_ctl);
+		if (ret) {
+			pr_err("Failed to dump small VMAs\n");
+			goto err_cure;
 		}
+				
 		
 		/* Initialize COW tracking for large VMAs only */
-		if (large_vmas.nr > 0) {
+		if (large_pages > 0) {
 			/* Rebuild the list for large VMAs */
 			list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
 				unsigned long nr_pages;
 				
-				if (vma_area_is(vma, VMA_AREA_GUARD))
-					continue;
-				
 				nr_pages = vma_area_len(vma) / PAGE_SIZE;
 				if (nr_pages >= threshold_pages) {
-					list_del(&vma->list);
-					list_add_tail(&vma->list, &large_vmas.h);
+					vma->e->status = vma->e->status & (~VMA_AREA_GUARD);
 				}
 			}
 			
@@ -1827,12 +1777,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 				pr_err("Failed to start COW monitor thread\n");
 				goto err_cure;
 			}
-			
-			/* Restore VMAs to original list */
-			list_for_each_entry_safe(vma, tmp, &large_vmas.h, list) {
-				list_del(&vma->list);
-				list_add_tail(&vma->list, &vmas.h);
-			}
+
 		} else {
 			pr_info("No large VMAs found, skipping COW tracking\n");
 		}
