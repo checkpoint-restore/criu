@@ -559,7 +559,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 */
 	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	pmc_size = max(vma_area_list->nr_priv_pages_longest, vma_area_list->nr_shared_pages_longest);
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d pmc_size=%d\n", __FILE__, __LINE__);
+	pr_info("__parasite_dump_pages_seized file = %s, line = %d pmc_size=%lu\n", __FILE__, __LINE__,pmc_size);
 	
 	if (pmc_init(&pmc, item->pid->real, &vma_area_list->h, pmc_size * PAGE_SIZE))
 		return -1;
