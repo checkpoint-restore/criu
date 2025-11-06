@@ -350,6 +350,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 		pr_info("drain_pages file = %s, line = %d\n", __FILE__, __LINE__);
 
 		ret = compel_util_send_fd(ctl, ppb->p[1]);
+		pr_info("drain_pages file = %s, line = %d ret=%d\n", __FILE__, __LINE__, ret);
 		if (ret)
 			return -1;
 
