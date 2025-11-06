@@ -290,10 +290,11 @@ prep_dump_pages_args(struct parasite_ctl *ctl, struct vm_area_list *vma_area_lis
 	struct parasite_dump_pages_args *args;
 	struct parasite_vma_entry *p_vma;
 	struct vma_area *vma;
-
+	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	args = compel_parasite_args_s(ctl, dump_pages_args_size(vma_area_list));
-
+pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	p_vma = pargs_vmas(args);
+	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	args->nr_vmas = 0;
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
