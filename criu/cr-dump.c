@@ -1761,7 +1761,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			}
 		}
 		
-		pr_info("Split result: %lu small VMAs, %lu large VMAs\n", 
+		pr_info("Split result: %u small VMAs, %u large VMAs\n", 
 			small_vmas.nr, large_vmas.nr);
 		
 		/* Dump small VMAs normally */
