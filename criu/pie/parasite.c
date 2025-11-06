@@ -865,11 +865,15 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	int ret = 0;
 	unsigned long addr, len;
 	unsigned long total_pages = 0;
+	unsigned int *failed_indices;
 	/*unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
 				 UFFD_FEATURE_EVENT_FORK |
 				 UFFD_FEATURE_EVENT_REMAP;*/
 
 	pr_info("COW dump init: registering %d VMAs\n", args->nr_vmas);
+	
+	args->nr_failed_vmas = 0;
+	failed_indices = cow_dump_failed_indices(args);
 
 	/* Create userfaultfd in target process context */
 	 uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
@@ -918,41 +922,15 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		reg.mode = UFFDIO_REGISTER_MODE_WP;
 		ret = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long)&reg);
 		if (ret) {
-			/* Some VMAs may not support WP - dump them immediately */
+			/* Some VMAs may not support WP - record index for CRIU to dump */
 			if (ret == EINVAL) {
-				unsigned long page_addr;
-				int proc_mem_fd;
-				char path[64];
-				unsigned char page_buf[PAGE_SIZE];
-				ssize_t read_ret;
-				
-				pr_warn("Cannot WP-register VMA %lx-%lx (unsupported), dumping to disk\n",
+				pr_warn("Cannot WP-register VMA %lx-%lx (unsupported), marking for later dump\n",
 					addr, addr + len);
 				
-				/* Open /proc/self/mem to read the VMA content */
-				/* Note: We use sys_open since we're in parasite context */
-				ret = sys_open("/proc/self/mem", O_RDONLY, 0);
-				if (ret < 0) {
-					pr_err("Failed to open /proc/self/mem: %d\n", ret);
-					sys_close(uffd);
-					return -1;
-				}
-				proc_mem_fd = ret;
-				
-				/* Read and dump each page in the VMA */
-				for (page_addr = addr; page_addr < addr + len; page_addr += PAGE_SIZE) {
-					read_ret = sys_pread(proc_mem_fd, page_buf, PAGE_SIZE, page_addr);
-					if (read_ret != PAGE_SIZE) {
-						pr_err("Failed to read page at 0x%lx: %zd\n", page_addr, read_ret);
-						sys_close(proc_mem_fd);
-						sys_close(uffd);
-						return -1;
-					}
-					/* Pages are read - CRIU will handle writing them via shared mechanism */
-				}
-				
-				sys_close(proc_mem_fd);
-				pr_info("Dumped %lu pages from unregistered VMA\n", len / PAGE_SIZE);
+				/* Record the index of this failed VMA */
+				failed_indices[args->nr_failed_vmas++] = i;
+				pr_info("Marked VMA index %d for later dump (%u failed VMAs total)\n", 
+					i, args->nr_failed_vmas);
 				continue;
 			}
 			pr_err("Failed to register VMA %lx-%lx: ret=%d\n",

@@ -179,8 +179,10 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 			nr_vmas++;
 	}
 
-	/* Allocate parasite args */
-	args_size = sizeof(*args) + nr_vmas * sizeof(struct parasite_vma_entry);
+	/* Allocate parasite args - includes space for VMAs and failed indices */
+	args_size = sizeof(*args) + 
+		    nr_vmas * sizeof(struct parasite_vma_entry) +
+		    nr_vmas * sizeof(unsigned int);  /* Space for failed indices */
 	args = compel_parasite_args_s(ctl, args_size);
 	if (!args) {
 		pr_err("Failed to allocate parasite args\n");
@@ -189,6 +191,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	args->nr_vmas = nr_vmas;
 	args->total_pages = 0;
+	args->nr_failed_vmas = 0;
 	args->ret = -1;
 
 	/* Fill VMA entries */
@@ -256,8 +259,47 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	pr_info("COW dump initialized: tracking %lu pages, uffd=%d\n", 
 		cdi->total_pages, cdi->uffd);
 	
+	/* Process VMAs that couldn't be registered for write-protection */
+	if (args->nr_failed_vmas > 0) {
+		unsigned int *failed_indices = cow_dump_failed_indices(args);
+		
+		pr_info("Processing %u VMAs that couldn't be registered\n", args->nr_failed_vmas);
+		
+		for (i = 0; i < args->nr_failed_vmas; i++) {
+			unsigned int vma_idx = failed_indices[i];
+			
+			if (vma_idx >= args->nr_vmas) {
+				pr_err("Invalid failed VMA index: %u >= %u\n", vma_idx, args->nr_vmas);
+				ret = -1;
+				goto err_cleanup;
+			}
+			
+			pr_info("Dumping failed VMA %u: %lx-%lx\n", 
+				vma_idx, p_vma[vma_idx].start, 
+				p_vma[vma_idx].start + p_vma[vma_idx].len);
+			
+			ret = cow_dump_unregistered_vma(cdi, p_vma[vma_idx].start, p_vma[vma_idx].len);
+			if (ret < 0) {
+				pr_err("Failed to dump unregistered VMA %u\n", vma_idx);
+				goto err_cleanup;
+			}
+		}
+		
+		pr_info("Successfully dumped all %u unregistered VMAs\n", args->nr_failed_vmas);
+	}
+	
 	g_cow_info = cdi;
 	return 0;
+
+err_cleanup:
+	if (cdi->pp)
+		destroy_page_pipe(cdi->pp);
+	if (cdi->xfer_initialized)
+		cdi->xfer.close(&cdi->xfer);
+	close(cdi->uffd);
+	close(cdi->proc_mem_fd);
+	xfree(cdi);
+	return ret;
 
 err_close_mem:
 	close(cdi->proc_mem_fd);

@@ -258,16 +258,23 @@ struct parasite_dump_cgroup_args {
 /*
  * COW dump initialization arguments
  * VMAs are stored after this structure, similar to parasite_dump_pages_args
+ * Failed VMA indices stored after VMAs
  */
 struct parasite_cow_dump_args {
 	unsigned int nr_vmas;
 	unsigned long total_pages;	/* Output: total pages registered */
+	unsigned int nr_failed_vmas;	/* Output: number of VMAs that couldn't be registered */
 	int ret;			/* Output: return code */
 };
 
 static inline struct parasite_vma_entry *cow_dump_vmas(struct parasite_cow_dump_args *a)
 {
 	return (struct parasite_vma_entry *)(a + 1);
+}
+
+static inline unsigned int *cow_dump_failed_indices(struct parasite_cow_dump_args *a)
+{
+	return (unsigned int *)(cow_dump_vmas(a) + a->nr_vmas);
 }
 
 #endif /* !__ASSEMBLY__ */
