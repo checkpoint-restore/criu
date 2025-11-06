@@ -77,7 +77,6 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	int off, nr_segs;
 	unsigned long spliced_bytes = 0;
 	pr_err("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);
-	exit(0);
 	while(true){	pr_err("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);}
 	tsock = parasite_get_rpc_sock();
 	p = recv_fd(tsock);
