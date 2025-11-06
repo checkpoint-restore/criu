@@ -124,7 +124,7 @@ static int cow_dump_failed_vmas(struct cow_dump_info *cdi, struct parasite_ctl *
 	/* Initialize temporary vma_area_list */
 	INIT_LIST_HEAD(&vma_list.h);
 	vma_list.nr = 0;
-	vma_list.priv_size = 0;
+	vma_list.nr_aios = 0;
 	vma_list.nr_priv_pages = 0;
 	vma_list.nr_priv_pages_longest = 0;
 	vma_list.nr_shared_pages_longest = 0;
@@ -155,9 +155,8 @@ static int cow_dump_failed_vmas(struct cow_dump_info *cdi, struct parasite_ctl *
 		
 		if (vma_area_is_private(vma, kdat.task_size)) {
 			unsigned long len = p_vma[idx].len;
-			unsigned long nr_pages = len / PAGE_SIZE;
+			unsigned long nr_pages = len / PAGE_SIZE;			
 			
-			vma_list.priv_size += len;
 			vma_list.nr_priv_pages += nr_pages;
 			if (nr_pages > vma_list.nr_priv_pages_longest)
 				vma_list.nr_priv_pages_longest = nr_pages;
@@ -213,7 +212,6 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	int ret;
 	unsigned long args_size;
 	unsigned int nr_vmas = 0;
-	unsigned int i;
 
 	pr_info("Initializing COW dump for pid %d (via parasite)\n", item->pid->real);
 
