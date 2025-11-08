@@ -28,13 +28,11 @@
 #include "xmalloc.h"
 #include "criu-log.h"
 #include "files.h"
-#include "pstree.h"
 
 #include "common/list.h"
 #include "amdgpu_plugin_drm.h"
 #include "amdgpu_plugin_util.h"
 #include "amdgpu_plugin_topology.h"
-#include "amdgpu_socket_utils.h"
 
 #include "img-streamer.h"
 #include "image.h"
@@ -66,18 +64,6 @@ bool plugin_added_to_inventory = false;
 
 bool plugin_disabled = false;
 
-/*
- * In the case of a single process (common case), this optimization can effectively
- * reduce the restore latency with parallel restore. In the case of multiple processes,
- * states are already restored in parallel within different processes. Therefore, this
- * optimization does not introduce further improvement and will be disabled by default
- * in this case. The flag, parallel_disabled, is used to control whether the
- * optimization is enabled or disabled.
- */
-bool parallel_disabled = false;
-
-pthread_t parallel_thread = 0;
-int parallel_thread_result = 0;
 /**************************************************************************************************/
 
 /* Call ioctl, restarting if it is interrupted */
@@ -365,15 +351,6 @@ int amdgpu_plugin_init(int stage)
 	maps_init(&restore_maps);
 
 	if (stage == CR_PLUGIN_STAGE__RESTORE) {
-		if (has_children(root_item)) {
-			pr_info("Parallel restore disabled\n");
-			parallel_disabled = true;
-		} else {
-			if (install_parallel_sock() < 0) {
-				pr_err("Failed to install parallel socket\n");
-				return -1;
-			}
-		}
 		/* Default Values */
 		kfd_fw_version_check = true;
 		kfd_sdma_fw_version_check = true;
@@ -1462,9 +1439,14 @@ static int restore_bos(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 
 static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKfd *e)
 {
-	struct thread_data *thread_datas = NULL;
+	struct thread_data *thread_datas;
 	int thread_i, ret = 0;
-	int offset = 0;
+
+	thread_datas = xzalloc(sizeof(*thread_datas) * e->num_of_gpus);
+	if (!thread_datas) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
 	for (int i = 0; i < e->num_of_bos; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
@@ -1507,101 +1489,56 @@ static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKf
 		}
 	}
 
-	if (!parallel_disabled) {
-		parallel_restore_cmd restore_cmd;
-		pr_info("Begin to send parallel restore cmd\n");
-		ret = init_parallel_restore_cmd(e->num_of_bos, id, e->num_of_gpus, &restore_cmd);
-		if (ret)
-			goto exit_parallel;
+	thread_i = 0;
+	for (int i = 0; i < e->num_of_gpus + e->num_of_cpus; i++) {
+		struct tp_node *dev;
+		int ret_thread = 0;
+		uint32_t target_gpu_id;
 
-		for (int i = 0; i < e->num_of_gpus + e->num_of_cpus; i++) {
-			uint32_t target_gpu_id;
-			struct tp_node *dev;
+		if (!e->device_entries[i]->gpu_id)
+			continue;
 
-			if (!e->device_entries[i]->gpu_id)
-				continue;
+		/* e->device_entries[i]->gpu_id is user_gpu_id, target_gpu_id is actual_gpu_id */
+		target_gpu_id = maps_get_dest_gpu(&restore_maps, e->device_entries[i]->gpu_id);
 
-			target_gpu_id = maps_get_dest_gpu(&restore_maps, e->device_entries[i]->gpu_id);
-			dev = sys_get_node_by_gpu_id(&dest_topology, target_gpu_id);
-			if (!dev) {
-				pr_err("Failed to find node with gpu_id:0x%04x\n", target_gpu_id);
-				ret = -ENODEV;
-				goto exit_parallel;
-			}
-			parallel_restore_gpu_id_add(e->device_entries[i]->gpu_id, dev->drm_render_minor, &restore_cmd);
-
-			for (int j = 0; j < e->num_of_bos; j++) {
-				if (bo_buckets[j].gpu_id != e->device_entries[i]->gpu_id)
-					continue;
-				if (bo_buckets[j].alloc_flags &
-				    (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)) {
-					parallel_restore_bo_add(bo_buckets[j].dmabuf_fd, bo_buckets[j].gpu_id,
-								bo_buckets[j].size, offset, &restore_cmd);
-					offset += bo_buckets[j].size;
-				}
-			}
-		}
-		ret = send_parallel_restore_cmd(&restore_cmd);
-exit_parallel:
-		free_parallel_restore_cmd(&restore_cmd);
-	} else {
-		thread_datas = xzalloc(sizeof(*thread_datas) * e->num_of_gpus);
-		if (!thread_datas) {
-			ret = -ENOMEM;
+		/* We need the fd for actual_gpu_id */
+		dev = sys_get_node_by_gpu_id(&dest_topology, target_gpu_id);
+		if (!dev) {
+			pr_err("Failed to find node with gpu_id:0x%04x\n", target_gpu_id);
+			ret = -ENODEV;
 			goto exit;
 		}
 
-		thread_i = 0;
-		for (int i = 0; i < e->num_of_gpus + e->num_of_cpus; i++) {
-			struct tp_node *dev;
-			int ret_thread = 0;
-			uint32_t target_gpu_id;
+		thread_datas[thread_i].id = id;
+		thread_datas[thread_i].gpu_id = e->device_entries[i]->gpu_id;
+		thread_datas[thread_i].bo_buckets = bo_buckets;
+		thread_datas[thread_i].bo_entries = e->bo_entries;
+		thread_datas[thread_i].pid = e->pid;
+		thread_datas[thread_i].num_of_bos = e->num_of_bos;
 
-			if (!e->device_entries[i]->gpu_id)
-				continue;
-
-			/* e->device_entries[i]->gpu_id is user_gpu_id, target_gpu_id is actual_gpu_id */
-			target_gpu_id = maps_get_dest_gpu(&restore_maps, e->device_entries[i]->gpu_id);
-
-			/* We need the fd for actual_gpu_id */
-			dev = sys_get_node_by_gpu_id(&dest_topology, target_gpu_id);
-			if (!dev) {
-				pr_err("Failed to find node with gpu_id:0x%04x\n", target_gpu_id);
-				ret = -ENODEV;
-				goto exit;
-			}
-
-			thread_datas[thread_i].id = id;
-			thread_datas[thread_i].gpu_id = e->device_entries[i]->gpu_id;
-			thread_datas[thread_i].bo_buckets = bo_buckets;
-			thread_datas[thread_i].bo_entries = e->bo_entries;
-			thread_datas[thread_i].pid = e->pid;
-			thread_datas[thread_i].num_of_bos = e->num_of_bos;
-
-			thread_datas[thread_i].drm_fd = node_get_drm_render_device(dev);
-			if (thread_datas[thread_i].drm_fd < 0) {
-				ret = -thread_datas[thread_i].drm_fd;
-				goto exit;
-			}
-
-			ret_thread = pthread_create(&thread_datas[thread_i].thread, NULL, restore_bo_contents,
-						    (void *)&thread_datas[thread_i]);
-			if (ret_thread) {
-				pr_err("Failed to create thread[%i] ret:%d\n", thread_i, ret_thread);
-				ret = -ret_thread;
-				goto exit;
-			}
-			thread_i++;
+		thread_datas[thread_i].drm_fd = node_get_drm_render_device(dev);
+		if (thread_datas[thread_i].drm_fd < 0) {
+			ret = -thread_datas[thread_i].drm_fd;
+			goto exit;
 		}
 
-		for (int i = 0; i < e->num_of_gpus; i++) {
-			pthread_join(thread_datas[i].thread, NULL);
-			pr_info("Thread[0x%x] finished ret:%d\n", thread_datas[i].gpu_id, thread_datas[i].ret);
+		ret_thread = pthread_create(&thread_datas[thread_i].thread, NULL, restore_bo_contents,
+					    (void *)&thread_datas[thread_i]);
+		if (ret_thread) {
+			pr_err("Failed to create thread[%i] ret:%d\n", thread_i, ret_thread);
+			ret = -ret_thread;
+			goto exit;
+		}
+		thread_i++;
+	}
 
-			if (thread_datas[i].ret) {
-				ret = thread_datas[i].ret;
-				goto exit;
-			}
+	for (int i = 0; i < e->num_of_gpus; i++) {
+		pthread_join(thread_datas[i].thread, NULL);
+		pr_info("Thread[0x%x] finished ret:%d\n", thread_datas[i].gpu_id, thread_datas[i].ret);
+
+		if (thread_datas[i].ret) {
+			ret = thread_datas[i].ret;
+			goto exit;
 		}
 	}
 exit:
@@ -1609,8 +1546,8 @@ exit:
 		if (bo_buckets[i].dmabuf_fd != KFD_INVALID_FD)
 			close(bo_buckets[i].dmabuf_fd);
 	}
-	if (thread_datas)
-		xfree(thread_datas);
+
+	xfree(thread_datas);
 	return ret;
 }
 
@@ -1899,24 +1836,6 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 	if (plugin_disabled)
 		return -ENOTSUP;
 
-	if (!parallel_disabled) {
-		pr_info("Close parallel restore server\n");
-		if (close_parallel_restore_server()) {
-			pr_err("Close parallel restore server fail\n");
-			return -1;
-		}
-
-		exit_code = pthread_join(parallel_thread, NULL);
-		if (exit_code) {
-			pr_err("Failed to join parallel thread ret:%d\n", exit_code);
-			return -1;
-		}
-		if (parallel_thread_result) {
-			pr_err("Parallel restore fail\n");
-			return parallel_thread_result;
-		}
-	}
-
 	pr_info("Inside %s for target pid = %d\n", __func__, target_pid);
 
 	fd = open(AMDGPU_KFD_DEVICE, O_RDWR | O_CLOEXEC);
@@ -1943,244 +1862,3 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 }
 
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, amdgpu_plugin_resume_devices_late)
-
-int sdma_copy_bo_helper(uint64_t size, int fd, FILE *storage_fp, void *buffer, size_t buffer_size,
-			amdgpu_device_handle h_dev, uint64_t max_copy_size, enum sdma_op_type type)
-{
-	return sdma_copy_bo((struct kfd_criu_bo_bucket){ 0, size, 0, 0, 0, 0, fd, 0 }, storage_fp, buffer,
-			    buffer_size, h_dev, max_copy_size, SDMA_OP_VRAM_WRITE);
-}
-
-int init_dev(int dev_minor, amdgpu_device_handle *h_dev, uint64_t *max_copy_size)
-{
-	int ret = 0;
-	int drm_fd = -1;
-	uint32_t major, minor;
-
-	struct amdgpu_gpu_info gpu_info = { 0 };
-
-	drm_fd = open_drm_render_device(dev_minor);
-	if (drm_fd < 0) {
-		return drm_fd;
-	}
-
-	ret = amdgpu_device_initialize(drm_fd, &major, &minor, h_dev);
-	if (ret) {
-		pr_perror("Failed to initialize device");
-		goto err;
-	}
-
-	ret = amdgpu_query_gpu_info(*h_dev, &gpu_info);
-	if (ret) {
-		pr_perror("failed to query gpuinfo via libdrm");
-		goto err;
-	}
-	*max_copy_size = (gpu_info.family_id >= AMDGPU_FAMILY_AI) ? SDMA_LINEAR_COPY_MAX_SIZE :
-								    SDMA_LINEAR_COPY_MAX_SIZE - 1;
-	return 0;
-err:
-	amdgpu_device_deinitialize(*h_dev);
-	return ret;
-}
-
-FILE *get_bo_contents_fp(int id, int gpu_id, size_t tot_size)
-{
-	char img_path[PATH_MAX];
-	size_t image_size = 0;
-	FILE *bo_contents_fp = NULL;
-
-	snprintf(img_path, sizeof(img_path), IMG_KFD_PAGES_FILE, id, gpu_id);
-	bo_contents_fp = open_img_file(img_path, false, &image_size);
-	if (!bo_contents_fp) {
-		pr_perror("Cannot fopen %s", img_path);
-		return NULL;
-	}
-
-	if (tot_size != image_size) {
-		pr_err("%s size mismatch (current:%ld:expected:%ld)\n", img_path, image_size, tot_size);
-		fclose(bo_contents_fp);
-		return NULL;
-	}
-	return bo_contents_fp;
-}
-
-struct parallel_thread_data {
-	pthread_t thread;
-	uint32_t gpu_id;
-	int minor;
-	parallel_restore_cmd *restore_cmd;
-	int ret;
-};
-
-void *parallel_restore_bo_contents(void *_thread_data)
-{
-	struct parallel_thread_data *thread_data = (struct parallel_thread_data *)_thread_data;
-	amdgpu_device_handle h_dev;
-	uint64_t max_copy_size;
-	size_t total_bo_size = 0, max_bo_size = 0, buffer_size = 0;
-	FILE *bo_contents_fp = NULL;
-	parallel_restore_entry *entry;
-	parallel_restore_cmd *restore_cmd = thread_data->restore_cmd;
-	int ret = 0;
-	int offset = 0;
-	void *buffer = NULL;
-
-	ret = init_dev(thread_data->minor, &h_dev, &max_copy_size);
-	if (ret) {
-		goto err;
-	}
-
-	for (int i = 0; i < restore_cmd->cmd_head.entry_num; i++) {
-		if (restore_cmd->entries[i].gpu_id == thread_data->gpu_id) {
-			total_bo_size += restore_cmd->entries[i].size;
-			max_bo_size = max(restore_cmd->entries[i].size, max_bo_size);
-		}
-	}
-
-	buffer_size = kfd_max_buffer_size > 0 ? min(kfd_max_buffer_size, max_bo_size) : max_bo_size;
-
-	bo_contents_fp = get_bo_contents_fp(restore_cmd->cmd_head.id, thread_data->gpu_id, total_bo_size);
-	if (bo_contents_fp == NULL) {
-		ret = -1;
-		goto err_sdma;
-	}
-	offset = ftell(bo_contents_fp);
-
-	posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
-	if (!buffer) {
-		pr_perror("Failed to alloc aligned memory. Consider setting KFD_MAX_BUFFER_SIZE.");
-		ret = -ENOMEM;
-		goto err_sdma;
-	}
-
-	for (int i = 0; i < restore_cmd->cmd_head.entry_num; i++) {
-		if (restore_cmd->entries[i].gpu_id != thread_data->gpu_id)
-			continue;
-
-		entry = &restore_cmd->entries[i];
-		fseek(bo_contents_fp, entry->read_offset + offset, SEEK_SET);
-		ret = sdma_copy_bo_helper(entry->size, restore_cmd->fds_write[entry->write_id], bo_contents_fp, buffer,
-					  buffer_size, h_dev, max_copy_size, SDMA_OP_VRAM_WRITE);
-		if (ret) {
-			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
-			goto err_sdma;
-		}
-	}
-
-err_sdma:
-	if (bo_contents_fp)
-		fclose(bo_contents_fp);
-	if (buffer)
-		xfree(buffer);
-	amdgpu_device_deinitialize(h_dev);
-err:
-	thread_data->ret = ret;
-	return NULL;
-}
-
-void *restore_device_parallel_worker(void *arg)
-{
-	while (1) {
-		parallel_restore_cmd restore_cmd = { 0 };
-		struct parallel_thread_data *thread_datas = NULL;
-		int ret;
-		int error_occurred = 0, join_ret = 0, created_threads = 0;
-
-		ret = recv_parallel_restore_cmd(&restore_cmd);
-		if (ret) {
-			if (ret == 1) {
-				*(int *)arg = 0;
-				goto exit;
-			}
-			goto err;
-		}
-
-		thread_datas = xzalloc(sizeof(*thread_datas) * restore_cmd.cmd_head.gpu_num);
-		if (!thread_datas) {
-			ret = -ENOMEM;
-			goto err;
-		}
-
-		for (; created_threads < restore_cmd.cmd_head.gpu_num; created_threads++) {
-			thread_datas[created_threads].gpu_id = restore_cmd.gpu_ids[created_threads].gpu_id;
-			thread_datas[created_threads].minor = restore_cmd.gpu_ids[created_threads].minor;
-			thread_datas[created_threads].restore_cmd = &restore_cmd;
-
-			ret = pthread_create(&thread_datas[created_threads].thread, NULL, parallel_restore_bo_contents,
-					     (void *)&thread_datas[created_threads]);
-			if (ret) {
-				pr_err("Failed to create thread[0x%x] ret:%d\n", thread_datas[created_threads].gpu_id, ret);
-				error_occurred = 1;
-				break;
-			}
-		}
-
-		for (int i = 0; i < created_threads; i++) {
-			join_ret = pthread_join(thread_datas[i].thread, NULL);
-			if (join_ret != 0) {
-				pr_err("pthread_join failed for Thread[0x%x] ret:%d\n",
-				       thread_datas[i].gpu_id, join_ret);
-				if (!error_occurred) {
-					ret = join_ret;
-					error_occurred = 1;
-				}
-			}
-
-			pr_info("Thread[0x%x] finished ret:%d\n", thread_datas[i].gpu_id, thread_datas[i].ret);
-
-			/* Check thread return value */
-			if (thread_datas[i].ret && !error_occurred) {
-				ret = thread_datas[i].ret;
-				error_occurred = 1;
-			}
-		}
-
-		if (thread_datas)
-			xfree(thread_datas);
-err:
-		free_parallel_restore_cmd(&restore_cmd);
-
-		if (ret) {
-			*(int *)arg = ret;
-			return NULL;
-		}
-	}
-exit:
-	return NULL;
-}
-
-/*
- * While the background thread is running, some processing functions (e.g., stop_cgroupd)
- * in the main thread need to block SIGCHLD. To prevent interference from this background
- * thread, SIGCHLD is blocked in this thread.
- */
-static int back_thread_create(pthread_t *newthread, void *(*f)(void *), void *arg)
-{
-	int ret = 0;
-	sigset_t blockmask, oldmask;
-
-	sigemptyset(&blockmask);
-	sigaddset(&blockmask, SIGCHLD);
-	sigprocmask(SIG_BLOCK, &blockmask, &oldmask);
-
-	ret = pthread_create(newthread, NULL, f, arg);
-	if (ret) {
-		pr_err("Create worker thread fail: %d\n", ret);
-		return -1;
-	}
-
-	sigprocmask(SIG_SETMASK, &oldmask, NULL);
-	return 0;
-}
-
-int amdgpu_plugin_post_forking(void)
-{
-	if (plugin_disabled)
-		return -ENOTSUP;
-
-	if (parallel_disabled)
-		return 0;
-
-	return back_thread_create(&parallel_thread, restore_device_parallel_worker, &parallel_thread_result);
-}
-CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__POST_FORKING, amdgpu_plugin_post_forking)
