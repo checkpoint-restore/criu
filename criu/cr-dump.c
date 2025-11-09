@@ -1711,11 +1711,12 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	mdc.stat = &pps_buf;
 	mdc.parent_ie = parent_ie;
 
-	if (!opts.cow_dump) {
+	// if (!opts.cow_dump) {
 		/* Normal dump - dump all pages */
 		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 		if (ret)
 			goto err_cure;
+			#if 0
 	} else {
 		/* COW dump mode: split VMAs by size */
 		unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
@@ -1745,6 +1746,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			pr_err("Failed to dump small VMAs\n");
 			goto err_cure;
 		}
+			
 				
 		
 		/* Initialize COW tracking for large VMAs only */
@@ -1776,7 +1778,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			pr_info("No large VMAs found, skipping COW tracking\n");
 		}
 	}
-	
+	#endif
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
@@ -2324,7 +2326,7 @@ int cr_dump_tasks(pid_t pid)
 
 	if (collect_and_suspend_lsm() < 0)
 		goto err;
-
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__ __FILE__, __LINE__);
 	for_each_pstree_item(item) {
 		if (dump_one_task(item, parent_ie))
 			goto err;
