@@ -1419,6 +1419,7 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	int sk = -1;
 	int ret;
 	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (init_stats(DUMP_STATS))
 		return -1;
