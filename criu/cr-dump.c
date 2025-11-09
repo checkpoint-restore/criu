@@ -2175,6 +2175,7 @@ static int cr_dump_finish(int ret)
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	 if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (arch_set_thread_regs(root_item, true) < 0)
 		return -1;
@@ -2183,7 +2184,10 @@ static int cr_dump_finish(int ret)
 
 	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
 	timing_stop(TIME_FROZEN);
-
+	while (true) {
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+	sleep(5);
+	}
 	if (!ret && opts.cow_dump) {
 		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 		
@@ -2440,9 +2444,14 @@ int cr_dump_tasks(pid_t pid)
 	ret = write_img_inventory(&he);
 	if (ret)
 		goto err;
+
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+
 err:
 	if (parent_ie)
 		inventory_entry__free_unpacked(parent_ie, NULL);
+	
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	return cr_dump_finish(ret);
 }
