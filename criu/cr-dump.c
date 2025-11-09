@@ -2326,7 +2326,7 @@ int cr_dump_tasks(pid_t pid)
 
 	if (collect_and_suspend_lsm() < 0)
 		goto err;
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__ __FILE__, __LINE__);
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 	for_each_pstree_item(item) {
 		if (dump_one_task(item, parent_ie))
 			goto err;
