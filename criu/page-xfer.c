@@ -1137,8 +1137,6 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 
 	return 0;
 }
-typedef struct cow_dump_info cow_dump_info;
-extern static cow_dump_info *g_cow_info;
 static int page_server_get_pages(int sk, struct page_server_iov *pi)
 {
 	struct pstree_item *item;

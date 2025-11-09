@@ -410,3 +410,11 @@ int cow_stop_monitor_thread(void)
 	pr_info("COW monitor thread stopped successfully\n");
 	return 0;
 }
+
+int cow_get_uffd(void)
+{
+	if (!g_cow_info)
+		return -1;
+	
+	return g_cow_info->uffd;
+}
