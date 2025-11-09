@@ -1144,8 +1144,10 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	struct page_pipe *pp;
 	unsigned long len, nr_pages;
 	int ret;
+	#if 0
 	struct uffdio_writeprotect wp;
 	int uffd = -1;
+	#endif
 
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
@@ -1186,6 +1188,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 			return -1;
 	}
 
+#if 0
 	/* Unprotect the page so the process can continue */
 	wp.range.start = pi->vaddr;
 	wp.range.len = len;
@@ -1201,7 +1204,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 		pr_perror("Failed to unprotect page at 0x%llx", wp.range.start);
 		return -1;
 	}
-
+#endif
 	tcp_nodelay(sk, true);
 
 	return 0;
