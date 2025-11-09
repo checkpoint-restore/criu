@@ -110,9 +110,8 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	struct vma_area *vma;
 	struct parasite_cow_dump_args *args;
 	struct parasite_vma_entry *p_vma;
-	unsigned long features = 0;
 
-	int ret, err = 0;
+	int ret;
 	unsigned long args_size;
 	unsigned int nr_vmas = 0;
 
@@ -129,23 +128,12 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	cdi->item = item;
 	INIT_LIST_HEAD(&cdi->dirty_list);
-
-	/* Create uffd in CRIU's context (not parasite) to avoid EPERM */
-	cdi->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features, &err);
-	if (cdi->uffd < 0) {
-		if (err == EPERM)
-			pr_err("Failed to create userfaultfd: permission denied (need CAP_SYS_PTRACE)\n");
-		else
-			pr_err("Failed to create userfaultfd: %d\n", err);
-		goto err_free;
-	}
-
-	pr_info("Created userfaultfd %d in CRIU context\n", cdi->uffd);
+	cdi->uffd = -1; /* Will be received from parasite */
 
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
 	if (cdi->proc_mem_fd < 0)
-		goto err_close_uffd;
+		goto err_free;
 
 	/* Prepare parasite arguments - count writable VMAs */
 	nr_vmas = 0;
@@ -188,18 +176,27 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	pr_info("Calling parasite to register %u VMAs\n", args->nr_vmas);
 
-	/* Send userfaultfd TO parasite (created in CRIU context) */
-	ret = compel_util_send_fd(ctl, cdi->uffd);
+	/* Call parasite to create uffd and perform registration (async) */
+	ret = compel_rpc_call(PARASITE_CMD_COW_DUMP_INIT, ctl);
 	if (ret < 0) {
-		pr_err("Failed to send userfaultfd to parasite: %d\n", ret);
+		pr_err("Failed to initiate COW dump RPC\n");
 		goto err_close_mem;
 	}
 
-	/* Call parasite to perform VMA registration */
-	ret = compel_rpc_call_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
+	/* Receive userfaultfd from parasite */
+	compel_util_recv_fd(ctl, &cdi->uffd);
+	if (cdi->uffd < 0) {
+		pr_err("Failed to receive userfaultfd from parasite: %d\n", cdi->uffd);
+		goto err_close_mem;
+	}
+	pr_info("Got fd %d VMAs\n", cdi->uffd);
+	/* Wait for parasite to complete */
+	ret = compel_rpc_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
 	if (ret < 0 || args->ret != 0) {
 		pr_err("Parasite COW dump init failed: %d (ret=%d)\n", ret, args->ret);
-		goto err_close_uffd_and_mem;
+		close(cdi->uffd);
+		cdi->uffd = -1;
+		goto err_close_mem;
 	}
 
 	cdi->total_pages = args->total_pages;
@@ -212,10 +209,6 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	g_cow_info = cdi;
 	return 0;
 
-err_close_uffd_and_mem:
-	close(cdi->proc_mem_fd);
-err_close_uffd:
-	close(cdi->uffd);
 err_close_mem:
 	close(cdi->proc_mem_fd);
 err_free:

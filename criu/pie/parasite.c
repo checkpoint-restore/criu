@@ -869,21 +869,25 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	unsigned long total_pages = 0;
 	unsigned int *failed_indices;
 	unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
+	/*unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
+				 UFFD_FEATURE_EVENT_FORK |
+				 UFFD_FEATURE_EVENT_REMAP;*/
 
 	pr_info("COW dump init: registering %d VMAs\n", args->nr_vmas);
 	
 	args->nr_failed_vmas = 0;
 	failed_indices = cow_dump_failed_indices(args);
 
-	/* Receive userfaultfd from CRIU (created in CRIU's context to avoid EPERM) */
-	tsock = parasite_get_rpc_sock();
-	uffd = recv_fd(tsock);
+	/* Create userfaultfd in target process context */
+	uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
 	if (uffd < 0) {
-		pr_err("Failed to receive userfaultfd from CRIU: %d\n", uffd);
-		return -1;
+		int err = -uffd;  // Convert negative errno to positive
+		pr_err("Failed to create userfaultfd: %d (%s)\n", err, 
+			err == ENOSYS ? "not supported" :
+			err == EPERM ? "permission denied" : 
+			err == EINVAL ? "invalid flags" : "unknown error");
+   		 return -1;
 	}
-
-	pr_info("Received userfaultfd %d from CRIU\n", uffd);
 
 	/* Initialize userfaultfd API with WP features */
 	memset(&api, 0, sizeof(api));
@@ -893,14 +897,14 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 
 	ret = sys_ioctl(uffd, UFFDIO_API, (unsigned long)&api);
 	if (ret < 0) {
-		int e = (ret < 0) ? -ret : ret;
+		int e = (ret < 0) ? -ret : ret;     /* convert to +errno code */
 
-		pr_err("Failed to initialize userfaultfd API: %d uffd=%d\n", e, uffd);
+		pr_err("Failed to initialize userfaultfd API: %d uffd=%d but continue\n", e, uffd);
 		sys_close(uffd);
 		return -1;
 	}
 
-	pr_info("UFFD initialized with features: 0x%llx\n", (unsigned long long)api.features);
+	pr_info("UFFD created with features: 0x%llx\n", (unsigned long long)api.features);
 
 	vmas = cow_dump_vmas(args);
 
@@ -975,13 +979,23 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 
 	pr_info("COW dump init complete: %lu total pages\n", total_pages);
 
-	/* Set success status - uffd stays in CRIU's context */
+	/* Send userfaultfd back to CRIU before setting return status */
+	tsock = parasite_get_rpc_sock();
+	ret = send_fd(tsock, NULL, 0, uffd);
+	if (ret) {
+		pr_err("Failed to send userfaultfd back to CRIU: %d\n", ret);
+		sys_close(uffd);
+		args->ret = -1;
+		return -1;
+	}
+
+	pr_info("Sent uffd=%d back to CRIU\n", uffd);
+
+	/* Set success status after fd is sent */
 	args->total_pages = total_pages;
 	args->ret = 0;
 
-	/* Close uffd in parasite - CRIU already has it in its context */
-	sys_close(uffd);
-	
+	/* Don't close uffd - it will remain open for the process */
 	return 0;
 }
 
