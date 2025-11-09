@@ -1144,7 +1144,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	struct page_pipe *pp;
 	unsigned long len, nr_pages;
 	int ret;
-	#if 0
+	#if 1
 	struct uffdio_writeprotect wp;
 	int uffd = -1;
 	#endif
@@ -1188,7 +1188,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 			return -1;
 	}
 
-#if 0
+#if 1
 	/* Unprotect the page so the process can continue */
 	wp.range.start = pi->vaddr;
 	wp.range.len = len;
