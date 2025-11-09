@@ -309,6 +309,7 @@ int setup_uffd(int pid, struct task_restore_args *task_args)
 	 * Open userfaulfd FD which is passed to the restorer blob and
 	 * to a second process handling the userfaultfd page faults.
 	 */
+	pr_info("uffd_open file = %s, line = %d\n", __FILE__, __LINE__);
 	task_args->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features, NULL);
 	if (task_args->uffd < 0) {
 		pr_perror("Unable to open an userfaultfd descriptor");
