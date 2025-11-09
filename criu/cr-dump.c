@@ -2435,6 +2435,8 @@ int cr_dump_tasks(pid_t pid)
 		he.allow_uprobes = true;
 	}
 
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+
 	ret = write_img_inventory(&he);
 	if (ret)
 		goto err;
