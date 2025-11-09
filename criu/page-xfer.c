@@ -27,6 +27,7 @@
 #include "rst_info.h"
 #include "stats.h"
 #include "tls.h"
+#include "uffd.h"
 
 static int page_server_sk = -1;
 
@@ -1141,6 +1142,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	struct page_pipe *pp;
 	unsigned long len, nr_pages;
 	int ret;
+	struct uffdio_writeprotect wp;
 
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
@@ -1179,6 +1181,16 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 		ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, len, SPLICE_F_MOVE);
 		if (ret != len)
 			return -1;
+	}
+
+	/* Unprotect the page so the process can continue */
+	wp.range.start = pi->vaddr;
+	wp.range.len = len;
+	wp.mode = 0; /* Clear write-protect */
+
+	if (ioctl(cdi->uffd, UFFDIO_WRITEPROTECT, &wp)) {
+		pr_perror("Failed to unprotect page at 0x%lx", page_addr);
+		return -1;
 	}
 
 	tcp_nodelay(sk, true);

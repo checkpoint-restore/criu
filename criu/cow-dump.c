@@ -250,7 +250,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	struct uffdio_range range;
 	
     
-	pr_debug("Write fault at 0x%lx\n", page_addr);
+	pr_info("Write fault at 0x%lx\n", page_addr);
 
 	cdi->dirty_pages++;
 
