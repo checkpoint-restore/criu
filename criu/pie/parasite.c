@@ -879,10 +879,14 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	failed_indices = cow_dump_failed_indices(args);
 
 	/* Create userfaultfd in target process context */
-	 uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
+	uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
 	if (uffd < 0) {
-		pr_err("Failed to create userfaultfd: %d\n", uffd);
-		return -1;
+		int err = -uffd;  // Convert negative errno to positive
+		pr_err("Failed to create userfaultfd: %d (%s)\n", err, 
+			err == ENOSYS ? "not supported" :
+			err == EPERM ? "permission denied" : 
+			err == EINVAL ? "invalid flags" : "unknown error");
+   		 return -1;
 	}
 
 	/* Initialize userfaultfd API with WP features */
