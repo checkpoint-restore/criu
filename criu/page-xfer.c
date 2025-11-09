@@ -1169,6 +1169,8 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 		return -1;
 
 	len = pi->nr_pages * PAGE_SIZE;
+	pr_info("function = %s file = %s, line = %d PS_IOV_GET len=%lu\n",__FUNCTION__, __FILE__, __LINE__, len);
+
 
 	if (opts.tls) {
 		if (tls_send_data_from_fd(pipe_read_dest.p[0], len))
@@ -1214,7 +1216,7 @@ static int page_server_serve(int sk)
 	while (1) {
 		struct page_server_iov pi;
 		u32 cmd;
-
+		sleep(0.1);
 		ret = __recv(sk, &pi, sizeof(pi), MSG_WAITALL);
 		if (!ret)
 			break;
