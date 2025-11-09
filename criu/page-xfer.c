@@ -1352,6 +1352,7 @@ static int page_server_serve(int sk)
 			break;
 		}
 		case PS_IOV_GET:
+		#if 0
 			static int start = 0;
 			if (start == 0)
 			{
@@ -1364,6 +1365,7 @@ static int page_server_serve(int sk)
 				timing_stop(TIME_FROZEN);
 				start = 1;
 			}
+				#endif 
 			pr_info("function = %s file = %s, line = %d PS_IOV_GET\n",__FUNCTION__, __FILE__, __LINE__);
 
 			ret = page_server_get_pages(sk, &pi);
