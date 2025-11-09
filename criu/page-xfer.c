@@ -30,6 +30,7 @@
 #include "stats.h"
 #include "tls.h"
 #include "uffd.h"
+#include "cow-dump.h"
 
 static int page_server_sk = -1;
 
