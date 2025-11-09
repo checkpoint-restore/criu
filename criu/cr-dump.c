@@ -1721,7 +1721,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		/* COW dump mode: split VMAs by size */
 		ret = cow_dump_init(item, &vmas, parasite_ctl);
 		if (ret) {
-			pr_err("Failed to initialize COW dump for large VMAs\n");
+			pr_err("Failed to initialize COW dump for VMAs\n");
 			goto err_cure;
 		}
 		
