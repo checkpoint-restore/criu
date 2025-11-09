@@ -2,10 +2,20 @@
 #define __CR_COW_DUMP_H_
 
 #include "types.h"
+#include "common/list.h"
 
 struct pstree_item;
 struct vm_area_list;
 struct parasite_ctl;
+
+#define COW_HASH_BITS 10
+#define COW_HASH_SIZE (1 << COW_HASH_BITS)
+
+struct cow_page {
+	unsigned long vaddr;
+	void *data;
+	struct hlist_node hash;
+};
 
 
 /**
@@ -67,5 +77,17 @@ extern int cow_stop_monitor_thread(void);
  * Returns: userfaultfd on success, -1 if COW dump not initialized
  */
 extern int cow_get_uffd(void);
+
+/**
+ * cow_lookup_and_remove_page - Look up and remove a COW page
+ * @vaddr: Virtual address of the page
+ *
+ * Thread-safe lookup and removal of a copied page from the hash table.
+ * The caller is responsible for freeing the returned cow_page structure
+ * and its data.
+ *
+ * Returns: cow_page structure on success, NULL if not found
+ */
+extern struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr);
 
 #endif /* __CR_COW_DUMP_H_ */

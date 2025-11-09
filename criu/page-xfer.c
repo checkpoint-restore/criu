@@ -1144,11 +1144,55 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	struct page_pipe *pp;
 	unsigned long len, nr_pages;
 	int ret;
-	#if 1
+	struct cow_page *cp;
 	struct uffdio_writeprotect wp;
 	int uffd = -1;
-	#endif
 
+	/* Check if this page was COW'd (copied during write fault) */
+	cp = cow_lookup_and_remove_page(pi->vaddr);
+	if (cp) {
+		pr_info("Sending COW page at 0x%llx\n", pi->vaddr);
+		
+		/* Send the copied page */
+		pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+		pi->nr_pages = 1;
+		
+		if (send_psi(sk, pi)) {
+			xfree(cp->data);
+			xfree(cp);
+			return -1;
+		}
+		
+		/* Send page data */
+		if (send(sk, cp->data, PAGE_SIZE, 0) != PAGE_SIZE) {
+			pr_perror("Failed to send COW page data");
+			xfree(cp->data);
+			xfree(cp);
+			return -1;
+		}
+		
+		/* Free the copied page immediately after sending */
+		xfree(cp->data);
+		xfree(cp);
+		
+		/* Still unprotect the page */
+		uffd = cow_get_uffd();
+		if (uffd >= 0) {
+			wp.range.start = pi->vaddr;
+			wp.range.len = PAGE_SIZE;
+			wp.mode = 0; /* Clear write-protect */
+			
+			if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
+				pr_perror("Failed to unprotect COW page at 0x%llx", wp.range.start);
+				return -1;
+			}
+		}
+		
+		tcp_nodelay(sk, true);
+		return 0;
+	}
+
+	/* Fall back to existing page_pipe mechanism for non-COW pages */
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
 
@@ -1187,23 +1231,19 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 			return -1;
 	}
 
-#if 1
 	/* Unprotect the page so the process can continue */
-	wp.range.start = pi->vaddr;
-	wp.range.len = len;
-	wp.mode = 0; /* Clear write-protect */
-
 	uffd = cow_get_uffd();
-	if (uffd < 0) {
-		pr_err("COW dump not initialized\n");
-		return -1;
+	if (uffd >= 0) {
+		wp.range.start = pi->vaddr;
+		wp.range.len = len;
+		wp.mode = 0; /* Clear write-protect */
+
+		if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
+			pr_perror("Failed to unprotect page at 0x%llx", wp.range.start);
+			return -1;
+		}
 	}
 
-	if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
-		pr_perror("Failed to unprotect page at 0x%llx", wp.range.start);
-		return -1;
-	}
-#endif
 	tcp_nodelay(sk, true);
 
 	return 0;

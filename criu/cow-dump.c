@@ -36,7 +36,9 @@ struct cow_dump_info {
 	unsigned long dirty_pages;		/* Pages modified in current iteration */
 	unsigned long dirty_pages_dumped;	/* Pages already written to disk */
 	unsigned long iteration;		/* Current iteration number */
-	struct list_head dirty_list;		/* List of dirty page ranges */	
+	struct list_head dirty_list;		/* List of dirty page ranges */
+	struct hlist_head cow_hash[COW_HASH_SIZE];	/* Hash table for copied pages */
+	pthread_mutex_t cow_hash_lock;		/* Protect hash table access */
 };
 
 /* Dirty page range */
@@ -130,6 +132,12 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	INIT_LIST_HEAD(&cdi->dirty_list);
 	cdi->uffd = -1; /* Will be received from parasite */
 
+	/* Initialize hash table for COW pages */
+	for (int i = 0; i < COW_HASH_SIZE; i++)
+		INIT_HLIST_HEAD(&cdi->cow_hash[i]);
+	
+	pthread_mutex_init(&cdi->cow_hash_lock, NULL);
+
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
 	if (cdi->proc_mem_fd < 0)
@@ -219,12 +227,31 @@ err_free:
 void cow_dump_fini(void)
 {
 	struct dirty_range *dr, *tmp;
+	struct cow_page *cp;
+	struct hlist_node *n;
+	int i, remaining = 0;
 
 	if (!g_cow_info)
 		return;
 
 	pr_info("Cleaning up COW dump\n");
 
+	/* Clean up any remaining COW pages */
+	pthread_mutex_lock(&g_cow_info->cow_hash_lock);
+	for (i = 0; i < COW_HASH_SIZE; i++) {
+		hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[i], hash) {
+			hlist_del(&cp->hash);
+			xfree(cp->data);
+			xfree(cp);
+			remaining++;
+		}
+	}
+	pthread_mutex_unlock(&g_cow_info->cow_hash_lock);
+
+	if (remaining > 0)
+		pr_warn("Freed %d remaining COW pages\n", remaining);
+
+	pthread_mutex_destroy(&g_cow_info->cow_hash_lock);
 
 	list_for_each_entry_safe(dr, tmp, &g_cow_info->dirty_list, list) {
 		list_del(&dr->list);
@@ -243,31 +270,51 @@ void cow_dump_fini(void)
 
 static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 {
-	struct dirty_range *dr;
+	struct cow_page *cp;
 	unsigned long page_addr = addr & ~(PAGE_SIZE - 1);
-	void* page;
 	struct uffdio_writeprotect wp;
 	struct uffdio_range range;
+	ssize_t ret;
+	unsigned int hash;
 	
-    
 	pr_info("Write fault at 0x%lx\n", page_addr);
 
 	cdi->dirty_pages++;
 
-	/* Add to dirty list for tracking */
-	dr = xmalloc(sizeof(*dr));
-	if (!dr) {
+	/* Allocate cow_page structure */
+	cp = xmalloc(sizeof(*cp));
+	if (!cp) {
+		pr_err("Failed to allocate cow_page structure\n");
 		return -1;
 	}
 
-	page = xmalloc(PAGE_SIZE);
-	//memcpy(page,(void*)page_addr, PAGE_SIZE);
+	cp->data = xmalloc(PAGE_SIZE);
+	if (!cp->data) {
+		pr_err("Failed to allocate page data\n");
+		xfree(cp);
+		return -1;
+	}
 
-	dr->start = (unsigned long)page;
-	dr->len = PAGE_SIZE;
-	INIT_LIST_HEAD(&dr->list);
-	list_add_tail(&dr->list, &cdi->dirty_list);
+	cp->vaddr = page_addr;
+	INIT_HLIST_NODE(&cp->hash);
+
+	/* Read original page content from /proc/pid/mem */
+	ret = pread(cdi->proc_mem_fd, cp->data, PAGE_SIZE, page_addr);
+	if (ret != PAGE_SIZE) {
+		pr_perror("Failed to read page at 0x%lx (read %zd bytes)", page_addr, ret);
+		xfree(cp->data);
+		xfree(cp);
+		return -1;
+	}
+
+	/* Add to hash table (thread-safe) */
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
 	
+	pthread_mutex_lock(&cdi->cow_hash_lock);
+	hlist_add_head(&cp->hash, &cdi->cow_hash[hash]);
+	pthread_mutex_unlock(&cdi->cow_hash_lock);
+
+	pr_debug("Copied page at 0x%lx to hash bucket %u\n", page_addr, hash);
 
 	/* Unprotect the page so the process can continue */
 	wp.range.start = page_addr;
@@ -417,4 +464,32 @@ int cow_get_uffd(void)
 		return -1;
 	
 	return g_cow_info->uffd;
+}
+
+struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr)
+{
+	struct cow_page *cp;
+	struct hlist_node *n;
+	unsigned int hash;
+	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
+
+	if (!g_cow_info)
+		return NULL;
+
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
+
+	pthread_mutex_lock(&g_cow_info->cow_hash_lock);
+	
+	hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[hash], hash) {
+		if (cp->vaddr == page_addr) {
+			hlist_del(&cp->hash);
+			pthread_mutex_unlock(&g_cow_info->cow_hash_lock);
+			pr_debug("Found and removed COW page at 0x%lx from hash bucket %u\n", 
+				 page_addr, hash);
+			return cp;
+		}
+	}
+	
+	pthread_mutex_unlock(&g_cow_info->cow_hash_lock);
+	return NULL;
 }
