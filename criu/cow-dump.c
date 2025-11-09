@@ -230,10 +230,6 @@ void cow_dump_fini(void)
 		list_del(&dr->list);
 		xfree(dr);
 	}
-
-	if (g_cow_info->pp)
-		destroy_page_pipe(g_cow_info->pp);
-
 	
 	if (g_cow_info->proc_mem_fd >= 0)
 		close(g_cow_info->proc_mem_fd);
