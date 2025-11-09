@@ -1713,9 +1713,9 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 
 	
 		
-	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
-	if (ret)
-		goto err_cure;
+//	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
+	//if (ret)
+	//	goto err_cure;
 	if (opts.cow_dump && opts.lazy_pages) {
 		/* COW dump mode: split VMAs by size */
 		ret = cow_dump_init(item, &vmas, parasite_ctl);
