@@ -896,7 +896,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		int e = (ret < 0) ? -ret : ret;
 
 		pr_err("Failed to initialize userfaultfd API: %d uffd=%d\n", e, uffd);
-		
+		sys_close(uffd);
 		return -1;
 	}
 
@@ -964,6 +964,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		if (ret) {
 			pr_err("Failed to write-protect VMA %lx-%lx: ret=%d\n",
 			       addr, addr + len, ret);
+			sys_close(uffd);
 			return -1;
 		}
 
@@ -978,6 +979,9 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	args->total_pages = total_pages;
 	args->ret = 0;
 
+	/* Close uffd in parasite - CRIU already has it in its context */
+	sys_close(uffd);
+	
 	return 0;
 }
 
