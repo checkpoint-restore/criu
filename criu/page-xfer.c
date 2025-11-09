@@ -1352,7 +1352,7 @@ static int page_server_serve(int sk)
 			break;
 		}
 		case PS_IOV_GET:
-		#if 0
+		#if 1
 			static int start = 0;
 			if (start == 0)
 			{
