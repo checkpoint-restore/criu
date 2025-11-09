@@ -1712,26 +1712,12 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	mdc.parent_ie = parent_ie;
 
 	
-	if (!opts.cow_dump){
+	
 	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 	if (ret)
 		goto err_cure;
-	}
-	if (opts.cow_dump && opts.lazy_pages) {
-		/* COW dump mode: split VMAs by size */
-		ret = cow_dump_init(item, &vmas, parasite_ctl);
-		if (ret) {
-			pr_err("Failed to initialize COW dump for large VMAs\n");
-			goto err_cure;
-		}
-		
-		/* Start background thread to monitor page faults */
-		ret = cow_start_monitor_thread();
-		if (ret) {
-			pr_err("Failed to start COW monitor thread\n");
-			goto err_cure;
-		}
-	}
+	
+	
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
@@ -1785,8 +1771,24 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	 * for lazy pages.
 	 */
 
-	if (opts.lazy_pages)
+	if (opts.lazy_pages) {
+		if (opts.cow_dump && opts.lazy_pages) {
+			/* COW dump mode: split VMAs by size */
+			ret = cow_dump_init(item, &vmas, parasite_ctl);
+			if (ret) {
+				pr_err("Failed to initialize COW dump for large VMAs\n");
+				goto err_cure;
+			}
+			
+			/* Start background thread to monitor page faults */
+			ret = cow_start_monitor_thread();
+			if (ret) {
+				pr_err("Failed to start COW monitor thread\n");
+				goto err_cure;
+			}
+		}
 		ret = compel_cure_remote(parasite_ctl);
+	}
 	else
 		ret = compel_cure(parasite_ctl);
 	if (ret) {
