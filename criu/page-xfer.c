@@ -1328,7 +1328,7 @@ static int page_server_serve(int sk)
 
 			ret = page_server_add(sk, &pi, flags);
 			break;
-		}
+			}
 		case PS_IOV_CLOSE:
 		case PS_IOV_FORCE_CLOSE: {
 			int32_t status = 0;
@@ -1349,6 +1349,18 @@ static int page_server_serve(int sk)
 			break;
 		}
 		case PS_IOV_GET:
+			static int start = 0;
+			if (start == 0)
+			{
+			//	if (arch_set_thread_regs(root_item, true) < 0)
+			//		return -1;
+
+			//cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+				pstree_switch_state(root_item, TASK_ALIVE);
+				timing_stop(TIME_FROZEN);
+				start = 1;
+			}
 			pr_info("function = %s file = %s, line = %d PS_IOV_GET\n",__FUNCTION__, __FILE__, __LINE__);
 
 			ret = page_server_get_pages(sk, &pi);

@@ -2130,7 +2130,7 @@ static int cr_dump_finish(int ret)
 	 if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
 	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
-
+#if 0
 	if (arch_set_thread_regs(root_item, true) < 0)
 		return -1;
 
@@ -2138,6 +2138,8 @@ static int cr_dump_finish(int ret)
 
 	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
 	timing_stop(TIME_FROZEN);
+#endif
+	
 	while (true) {
 	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 	sleep(5);
