@@ -1189,7 +1189,13 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	wp.range.len = len;
 	wp.mode = 0; /* Clear write-protect */
 
-	if (ioctl(g_cow_info->uffd, UFFDIO_WRITEPROTECT, &wp)) {
+	int uffd = cow_get_uffd();
+	if (uffd < 0) {
+		pr_err("COW dump not initialized\n");
+		return -1;
+	}
+
+	if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
 		pr_perror("Failed to unprotect page at 0x%lx", wp.range.start);
 		return -1;
 	}
