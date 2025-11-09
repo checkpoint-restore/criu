@@ -32,6 +32,7 @@
 #include "uffd.h"
 #include "cow-dump.h"
 #include "criu-plugin.h"
+#include "plugin.h"
 #include "dump.h"
 
 static int page_server_sk = -1;
