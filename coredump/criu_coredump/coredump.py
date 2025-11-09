@@ -794,7 +794,11 @@ class coredump_generator:
         off = 0  # in pages
         for m in pagemap[1:]:
             found = False
-            num_pages = m.get("nr_pages", m.compat_nr_pages)
+            num_pages = m.get("nr_pages", m.get("compat_nr_pages"))
+
+            if num_pages is None:
+                raise ValueError("num_pages and compat_nr_pages are missing")
+
             for i in range(num_pages):
                 if m["vaddr"] + i * PAGESIZE == page_no * PAGESIZE:
                     found = True
