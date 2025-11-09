@@ -1230,25 +1230,36 @@ static int page_server_serve(int sk)
 
 		switch (cmd) {
 		case PS_IOV_OPEN:
+			pr_info("function = %s file = %s, line = %d PS_IOV_OPEN\n",__FUNCTION__, __FILE__, __LINE__);
+
 			ret = page_server_open(-1, &pi);
 			break;
 		case PS_IOV_OPEN2:
+			pr_info("function = %s file = %s, line = %d PS_IOV_OPEN2\n",__FUNCTION__, __FILE__, __LINE__);
 			ret = page_server_open(sk, &pi);
 			break;
 		case PS_IOV_PARENT:
+			pr_info("function = %s file = %s, line = %d PS_IOV_PARENT\n",__FUNCTION__, __FILE__, __LINE__);
 			ret = page_server_check_parent(sk, &pi);
 			break;
 		case PS_IOV_ADD_F:
 		case PS_IOV_ADD:
 		case PS_IOV_HOLE: {
 			u32 flags;
-
-			if (likely(cmd == PS_IOV_ADD_F))
+			
+			if (likely(cmd == PS_IOV_ADD_F)) {
 				flags = decode_ps_flags(pi.cmd);
-			else if (cmd == PS_IOV_ADD)
+				pr_info("function = %s file = %s, line = %d PS_IOV_ADD_F\n",__FUNCTION__, __FILE__, __LINE__);
+			}
+			else if (cmd == PS_IOV_ADD){
+				pr_info("function = %s file = %s, line = %d PS_IOV_ADD\n",__FUNCTION__, __FILE__, __LINE__);
 				flags = PE_PRESENT;
+			}
 			else /* PS_IOV_HOLE */
+			{
+				pr_info("function = %s file = %s, line = %d PS_IOV_HOLE\n",__FUNCTION__, __FILE__, __LINE__);
 				flags = PE_PARENT;
+			}
 
 			ret = page_server_add(sk, &pi, flags);
 			break;
@@ -1258,6 +1269,7 @@ static int page_server_serve(int sk)
 			int32_t status = 0;
 
 			ret = 0;
+			pr_info("function = %s file = %s, line = %d PS_IOV_CLOSE\n",__FUNCTION__, __FILE__, __LINE__);
 
 			/*
 			 * An answer must be sent back to inform another side,
@@ -1272,6 +1284,8 @@ static int page_server_serve(int sk)
 			break;
 		}
 		case PS_IOV_GET:
+			pr_info("function = %s file = %s, line = %d PS_IOV_GET\n",__FUNCTION__, __FILE__, __LINE__);
+
 			ret = page_server_get_pages(sk, &pi);
 			break;
 		default:
