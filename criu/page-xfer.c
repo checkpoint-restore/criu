@@ -1145,6 +1145,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	unsigned long len, nr_pages;
 	int ret;
 	struct uffdio_writeprotect wp;
+	int uffd = -1;
 
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
@@ -1190,14 +1191,14 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	wp.range.len = len;
 	wp.mode = 0; /* Clear write-protect */
 
-	int uffd = cow_get_uffd();
+	uffd = cow_get_uffd();
 	if (uffd < 0) {
 		pr_err("COW dump not initialized\n");
 		return -1;
 	}
 
 	if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
-		pr_perror("Failed to unprotect page at 0x%lx", wp.range.start);
+		pr_perror("Failed to unprotect page at 0x%llx", wp.range.start);
 		return -1;
 	}
 
