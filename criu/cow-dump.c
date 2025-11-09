@@ -358,7 +358,7 @@ static void *cow_monitor_thread(void *arg)
 		//usleep(1000); /* 1ms */
 		/* Print total pages once per second */
 		iteration_count++;
-		if (iteration_count >= 10000) { /* 1000 * 1ms = 1 second */
+		if (iteration_count >= 1000000) { /* 1000 * 1ms = 1 second */
 			pr_info("COW monitor: %lu pages remaining\n", g_cow_info->total_pages);
 			iteration_count = 0;
 		}
