@@ -1418,21 +1418,25 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	int ask = -1;
 	int sk = -1;
 	int ret;
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (init_stats(DUMP_STATS))
 		return -1;
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (!opts.lazy_pages)
 		up_page_ids_base();
 	else if (!lazy_dump)
 		if (page_server_init_send())
 			return -1;
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (opts.ps_socket != -1) {
 		ask = opts.ps_socket;
 		pr_info("Reusing ps socket %d\n", ask);
 		goto no_server;
 	}
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	sk = setup_tcp_server("page", opts.addr, &opts.port);
 	if (sk == -1)
@@ -1450,18 +1454,23 @@ no_server:
 			exit(1);
 		}
 	}
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	ret = run_tcp_server(daemon_mode, &ask, cfd, sk);
 	if (ret != 0)
 		return ret > 0 ? 0 : -1;
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (tls_x509_init(ask, true)) {
 		close_safe(&sk);
 		return -1;
 	}
+	pr_info("function = %s file = %s, line = %d ask = %d\n",__FUNCTION__, __FILE__, __LINE__, ask);
 
 	if (ask >= 0)
 		ret = page_server_serve(ask);
+
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (daemon_mode)
 		exit(ret);

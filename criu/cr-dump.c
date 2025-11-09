@@ -2096,6 +2096,7 @@ static int cr_lazy_mem_dump(void)
 
 	pr_info("Starting lazy pages server\n");
 	ret = cr_page_server(false, true, -1);
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	for_each_pstree_item(item) {
 		if (item->pid->state != TASK_DEAD) {
