@@ -36,10 +36,7 @@ struct cow_dump_info {
 	unsigned long dirty_pages;		/* Pages modified in current iteration */
 	unsigned long dirty_pages_dumped;	/* Pages already written to disk */
 	unsigned long iteration;		/* Current iteration number */
-	struct list_head dirty_list;		/* List of dirty page ranges */
-	struct page_xfer xfer;			/* Page transfer context */
-	struct page_pipe *pp;			/* Page pipe for batching writes */
-	bool xfer_initialized;			/* Whether xfer was opened */
+	struct list_head dirty_list;		/* List of dirty page ranges */	
 };
 
 /* Dirty page range */
@@ -204,26 +201,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	cdi->total_pages = args->total_pages;
 	cdi->dirty_pages_dumped = 0;
-	cdi->xfer_initialized = false;
-	
-	/* Initialize page_xfer for writing pages to disk */
-	ret = open_page_xfer(&cdi->xfer, CR_FD_PAGEMAP, vpid(item));
-	if (ret < 0) {
-		pr_err("Failed to open page_xfer\n");
-		close(cdi->uffd);
-		goto err_close_mem;
-	}
-	cdi->xfer_initialized = true;
-	
-	/* Create page_pipe for batching page writes */
-	cdi->pp = create_page_pipe(cdi->total_pages, NULL, 0);
-	if (!cdi->pp) {
-		pr_err("Failed to create page_pipe\n");
-		cdi->xfer.close(&cdi->xfer);
-		close(cdi->uffd);
-		goto err_close_mem;
-	}
-
+		
 	pr_info("COW dump initialized: tracking %lu pages, uffd=%d\n", 
 		cdi->total_pages, cdi->uffd);
 	
@@ -247,13 +225,6 @@ void cow_dump_fini(void)
 
 	pr_info("Cleaning up COW dump\n");
 
-	/* Flush any remaining dirty pages before cleanup */
-	if (g_cow_info->pp && g_cow_info->xfer_initialized) {
-		pr_info("Flushing remaining dirty pages: %lu dumped so far\n", 
-			g_cow_info->dirty_pages_dumped);
-		if (page_xfer_dump_pages(&g_cow_info->xfer, g_cow_info->pp) < 0)
-			pr_err("Failed to flush remaining pages during cleanup\n");
-	}
 
 	list_for_each_entry_safe(dr, tmp, &g_cow_info->dirty_list, list) {
 		list_del(&dr->list);
@@ -263,9 +234,7 @@ void cow_dump_fini(void)
 	if (g_cow_info->pp)
 		destroy_page_pipe(g_cow_info->pp);
 
-	if (g_cow_info->xfer_initialized)
-		g_cow_info->xfer.close(&g_cow_info->xfer);
-
+	
 	if (g_cow_info->proc_mem_fd >= 0)
 		close(g_cow_info->proc_mem_fd);
 	
@@ -275,100 +244,7 @@ void cow_dump_fini(void)
 	xfree(g_cow_info);
 	g_cow_info = NULL;
 }
-#if 0
-/* Flush accumulated dirty pages to disk */
-static int cow_flush_dirty_pages(struct cow_dump_info *cdi)
-{
-	int ret;
-	
-	if (!cdi->pp || !cdi->xfer_initialized)
-		return 0;
-	
-	/* Check if there are pages to flush */
-	if (cdi->pp->nr_pipes == 0)
-		return 0;
-	
-	pr_info("Flushing %lu dirty pages to disk\n", 
-		cdi->dirty_pages_dumped - (cdi->dirty_pages_dumped - cdi->pp->nr_pipes));
-	
-	ret = page_xfer_dump_pages(&cdi->xfer, cdi->pp);
-	if (ret < 0) {
-		pr_err("Failed to flush dirty pages to disk\n");
-		return ret;
-	}
-	
-	/* Reset page_pipe for next batch */
-	page_pipe_reinit(cdi->pp);
-	
-	return 0;
-}
 
-/* Write a single page to the page_pipe */
-static int cow_write_page_to_pipe(struct cow_dump_info *cdi, unsigned long page_addr)
-{
-	unsigned char page_buf[PAGE_SIZE];
-	ssize_t ret;
-	int pipe_fd;
-	
-	/* Read the page from /proc/pid/mem */
-	ret = pread(cdi->proc_mem_fd, page_buf, PAGE_SIZE, page_addr);
-	if (ret != PAGE_SIZE) {
-		if (ret < 0)
-			pr_perror("Failed to read page at 0x%lx from /proc/pid/mem", page_addr);
-		else
-			pr_err("Short read from /proc/pid/mem at 0x%lx: %zd\n", page_addr, ret);
-		return -1;
-	}
-	
-	/* Add page to page_pipe - this creates the iov entry */
-	ret = page_pipe_add_page(cdi->pp, page_addr, 0);
-	if (ret < 0) {
-		if (ret == -EAGAIN) {
-			/* Page pipe is full, flush it */
-			if (cow_flush_dirty_pages(cdi) < 0)
-				return -1;
-			/* Try again after flush */
-			ret = page_pipe_add_page(cdi->pp, page_addr, 0);
-			if (ret < 0) {
-				pr_err("Failed to add page to pipe even after flush\n");
-				return -1;
-			}
-		} else {
-			pr_err("Failed to add page 0x%lx to page_pipe: %d\n", page_addr, (int)ret);
-			return -1;
-		}
-	}
-	
-	/* Write page data to the pipe */
-	/* The page_pipe has buffers, we need to write to the last buffer's write end */
-	if (!list_empty(&cdi->pp->bufs)) {
-		struct page_pipe_buf *ppb = list_entry(cdi->pp->bufs.prev, struct page_pipe_buf, l);
-		pipe_fd = ppb->p[1]; /* Write end of pipe */
-		
-		ret = write(pipe_fd, page_buf, PAGE_SIZE);
-		if (ret != PAGE_SIZE) {
-			if (ret < 0)
-				pr_perror("Failed to write page to pipe");
-			else
-				pr_err("Short write to pipe: %zd\n", ret);
-			return -1;
-		}
-	} else {
-		pr_err("No page_pipe buffers available\n");
-		return -1;
-	}
-	
-	cdi->dirty_pages_dumped++;
-	
-	/* Check if we should flush */
-	if (cdi->dirty_pages_dumped % COW_FLUSH_THRESHOLD == 0) {
-		pr_debug("Reached flush threshold, flushing pages\n");
-		return cow_flush_dirty_pages(cdi);
-	}
-	
-	return 0;
-}
-#endif
 static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 {
 	struct dirty_range *dr;

@@ -1711,74 +1711,26 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	mdc.stat = &pps_buf;
 	mdc.parent_ie = parent_ie;
 
-	// if (!opts.cow_dump) {
-		/* Normal dump - dump all pages */
-		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
-		if (ret)
-			goto err_cure;
-			#if 0
-	} else {
-		/* COW dump mode: split VMAs by size */
-		unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
-		unsigned long large_pages = 0;
-		struct vma_area *vma, *tmp;
-			
-		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.\n", threshold_pages);
-		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.nr=%u nr_aios=%u rst_priv_size=%lu nr_priv_pages_longest=%lu nr_shared_pages_longest=%lu\n", threshold_pages,
-		vmas.nr, vmas.nr_aios, vmas.rst_priv_size, vmas.nr_priv_pages_longest, vmas.nr_shared_pages_longest);
 	
-		/* Split VMAs by size */
-		list_for_each_entry_safe(vma, tmp, &vmas.h, list) {			
-			
-			if (vma_area_is(vma, VMA_AREA_GUARD)) {
-				pr_info("COW dump: splitting VMAs VMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARD(threshold=%lu pages) vmas.\n", threshold_pages);
-				continue;
-			}
-			
-			if ((vma_area_len(vma) / PAGE_SIZE) >= threshold_pages) {
-				vma->e->status |= VMA_AREA_GUARD;
-				large_pages +=1;
-			}
-		}
 		
-		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
+	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
+	if (ret)
+		goto err_cure;
+	if (opts.cow_dump && opts.lazy_pages) {
+		/* COW dump mode: split VMAs by size */
+		ret = cow_dump_init(item, &vmas, parasite_ctl);
 		if (ret) {
-			pr_err("Failed to dump small VMAs\n");
+			pr_err("Failed to initialize COW dump for large VMAs\n");
 			goto err_cure;
 		}
-			
-				
 		
-		/* Initialize COW tracking for large VMAs only */
-		if (large_pages > 0) {
-			/* Rebuild the list for large VMAs */
-			list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
-				unsigned long nr_pages;
-				
-				nr_pages = vma_area_len(vma) / PAGE_SIZE;
-				if (nr_pages >= threshold_pages) {
-					vma->e->status = vma->e->status & (~VMA_AREA_GUARD);
-				}
-			}			
-			
-			ret = cow_dump_init(item, &vmas, parasite_ctl);
-			if (ret) {
-				pr_err("Failed to initialize COW dump for large VMAs\n");
-				goto err_cure;
-			}
-			
-			/* Start background thread to monitor page faults */
-			ret = cow_start_monitor_thread();
-			if (ret) {
-				pr_err("Failed to start COW monitor thread\n");
-				goto err_cure;
-			}
-
-		} else {
-			pr_info("No large VMAs found, skipping COW tracking\n");
+		/* Start background thread to monitor page faults */
+		ret = cow_start_monitor_thread();
+		if (ret) {
+			pr_err("Failed to start COW monitor thread\n");
+			goto err_cure;
 		}
 	}
-	#endif
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
