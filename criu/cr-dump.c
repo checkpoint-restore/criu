@@ -2130,7 +2130,7 @@ static int cr_dump_finish(int ret)
 	 if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
 	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
-#if 0
+#if 1
 	if (arch_set_thread_regs(root_item, true) < 0)
 		return -1;
 
