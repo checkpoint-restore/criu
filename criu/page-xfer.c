@@ -1248,7 +1248,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 
 	return 0;
 }
-
+extern void pstree_switch_state(struct pstree_item *root_item, int st);
 static int page_server_serve(int sk)
 {
 	int ret = -1;
