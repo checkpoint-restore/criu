@@ -1151,7 +1151,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	/* Check if this page was COW'd (copied during write fault) */
 	cp = cow_lookup_and_remove_page(pi->vaddr);
 	if (cp) {
-		pr_info("Sending COW page at 0x%llx\n", pi->vaddr);
+		pr_info("Sending COW page at 0x%lx\n", pi->vaddr);
 		
 		/* Send the copied page */
 		pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
