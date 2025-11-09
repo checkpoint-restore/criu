@@ -8,6 +8,8 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <linux/userfaultfd.h>
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-xfer: "
@@ -1189,7 +1191,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	wp.mode = 0; /* Clear write-protect */
 
 	if (ioctl(cdi->uffd, UFFDIO_WRITEPROTECT, &wp)) {
-		pr_perror("Failed to unprotect page at 0x%lx", page_addr);
+		pr_perror("Failed to unprotect page at 0x%lx", wp.range.start);
 		return -1;
 	}
 
