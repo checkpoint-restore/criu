@@ -2347,28 +2347,34 @@ int cr_dump_tasks(pid_t pid)
 	 */
 	if (dead_pid_conflict())
 		goto err;
+	
 	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	/* MNT namespaces are dumped after files to save remapped links */
 	if (dump_mnt_namespaces() < 0)
 		goto err;
-		pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+	
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (dump_file_locks())
 		goto err;
-		pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+	
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (dump_verify_tty_sids())
 		goto err;
-		pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+	
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (dump_zombies())
 		goto err;
-		pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+	
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (dump_pstree(root_item))
 		goto err;
-		pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+	
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	/*
 	 * TODO: cr_dump_shmem has to be called before dump_namespaces(),
@@ -2379,14 +2385,16 @@ int cr_dump_tasks(pid_t pid)
 	ret = cr_dump_shmem();
 	if (ret)
 		goto err;
-		pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+	
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (root_ns_mask) {
 		ret = dump_namespaces(root_item, root_ns_mask);
 		if (ret)
 			goto err;
 	}
-		pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+	
+	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if ((root_ns_mask & CLONE_NEWTIME) == 0) {
 		ret = dump_time_ns(0);
