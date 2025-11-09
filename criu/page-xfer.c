@@ -31,6 +31,8 @@
 #include "tls.h"
 #include "uffd.h"
 #include "cow-dump.h"
+#include "criu-plugin.h"
+#include "dump.h"
 
 static int page_server_sk = -1;
 
@@ -1352,10 +1354,10 @@ static int page_server_serve(int sk)
 			static int start = 0;
 			if (start == 0)
 			{
-			//	if (arch_set_thread_regs(root_item, true) < 0)
-			//		return -1;
+				if (arch_set_thread_regs(root_item, true) < 0)
+					return -1;
 
-			//cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+				cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
 
 				pstree_switch_state(root_item, TASK_ALIVE);
 				timing_stop(TIME_FROZEN);
