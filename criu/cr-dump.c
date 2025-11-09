@@ -1717,7 +1717,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	if (ret)
 		goto err_cure;
 	
-	if (opts.cow_dump && opts.lazy_pages) {
+	if (opts.cow_dump) {
 		/* COW dump mode: split VMAs by size */
 		ret = cow_dump_init(item, &vmas, parasite_ctl);
 		if (ret) {
