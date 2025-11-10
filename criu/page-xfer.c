@@ -1200,7 +1200,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	}
 
 	if (has_cow_pages)
-		pr_info("Sent %lu pages (%lu COW'd) starting at 0x%llx\n",
+		pr_info("Sent %lu pages (%lu COW'd) starting at 0x%lx\n",
 			pi->nr_pages, i, pi->vaddr);
 
 	/* Step 4: Send response header */
