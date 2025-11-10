@@ -247,6 +247,11 @@ struct cr_options {
 	 * explicitly request it as it comes with many limitations.
 	 */
 	int unprivileged;
+	/*
+	 * Optional GPU device map used during restore to manually remap old devices
+	 * onto new ones. See `cuda-checkpoint --help` for more information.
+	 */
+	char *gpu_device_map;
 };
 
 extern struct cr_options opts;

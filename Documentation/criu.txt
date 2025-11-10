@@ -720,6 +720,11 @@ The 'mode' may be one of the following:
     Required when dumped with this option. Refer to this option in the section
     on dumping for more details.
 
+*--gpu-device-map*::
+    Optional GPU device map used during restore to remap old devices onto new ones.
+    For more information, please refer to the documentation for the *--device-map*
+    option of the *cuda-checkpoint* tool.
+
 *check*
 ~~~~~~~
 Checks whether the kernel supports the features needed by *criu* to
