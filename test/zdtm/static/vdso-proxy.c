@@ -70,6 +70,7 @@ static int parse_maps(struct vm_area *vmas)
 #endif
 		v->is_vvar_or_vdso |= strstr(buf, "[vdso]") != NULL;
 		v->is_vvar_or_vdso |= strstr(buf, "[vvar]") != NULL;
+		v->is_vvar_or_vdso |= strstr(buf, "[vvar_vclock]") != NULL;
 		test_msg("[NOTE]\tVMA: [%#" PRIx64 ", %#" PRIx64 "]\n", v->start, v->end);
 	}
 
@@ -86,42 +87,35 @@ static int parse_maps(struct vm_area *vmas)
 	return i;
 }
 
-int compare_vmas(struct vm_area *vmax, struct vm_area *vmay)
-{
-	if (vmax->start > vmay->start)
-		return 1;
-	if (vmax->start < vmay->start)
-		return -1;
-	if (vmax->end > vmay->end)
-		return 1;
-	if (vmax->end < vmay->end)
-		return -1;
-
-	return 0;
-}
-
-static int check_vvar_vdso(struct vm_area *before, struct vm_area *after)
+static int check_vvar_vdso(struct vm_area *before, int nr_before, struct vm_area *after, int nr_after)
 {
 	int i, j = 0;
 
-	for (i = 0; i < MAX_VMAS && j < MAX_VMAS; i++, j++) {
-		int cmp = compare_vmas(&before[i], &after[j]);
-
-		if (cmp == 0)
-			continue;
-
-		if (cmp < 0) { /* Lost mapping */
+	for (i = 0, j = 0; i < nr_before || j < nr_after;) {
+		if (j == nr_after || before[i].start < after[j].start) {
 			test_msg("[NOTE]\tLost mapping: %#" PRIx64 "-%#" PRIx64 "\n", before[i].start, before[i].end);
-			j--;
 			if (before[i].is_vvar_or_vdso) {
 				fail("Lost vvar/vdso mapping");
 				return -1;
 			}
+			i++;
 			continue;
 		}
-
-		test_msg("[NOTE]\tNew mapping appeared: %#" PRIx64 "-%#" PRIx64 "\n", after[j].start, after[j].end);
-		i--;
+		if (i == nr_before || before[i].start > after[j].start) {
+			test_msg("[NOTE]\tNew mapping appeared: %#" PRIx64 "-%#" PRIx64 "\n", after[j].start, after[j].end);
+			j++;
+			continue;
+		}
+		if (before[i].end == after[j].end) {
+			i++;
+			j++;
+		} else if (before[i].end > after[j].end) {
+			before[i].start = after[j].end;
+			j++;
+		} else {
+			after[j].start = before[i].end;
+			i++;
+		}
 	}
 
 	return 0;
@@ -129,11 +123,10 @@ static int check_vvar_vdso(struct vm_area *before, struct vm_area *after)
 
 static struct vm_area vmas_before[MAX_VMAS];
 static struct vm_area vmas_after[MAX_VMAS];
+static int nr_before, nr_after;
 
 int main(int argc, char *argv[])
 {
-	int nr_before, nr_after;
-
 	test_init(argc, argv);
 
 	test_msg("[NOTE]\tMappings before:\n");
@@ -154,7 +147,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* After restore vDSO/VVAR blobs must remain in the old place. */
-	if (check_vvar_vdso(vmas_before, vmas_after))
+	if (check_vvar_vdso(vmas_before, nr_before, vmas_after, nr_after))
 		return -1;
 
 	if (nr_before + 2 < nr_after) {
