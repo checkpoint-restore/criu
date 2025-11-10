@@ -1147,70 +1147,20 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	struct page_pipe *pp;
 	unsigned long len, nr_pages;
 	int ret;
-	struct cow_page *cp;
 	struct uffdio_writeprotect wp;
 	int uffd = -1;
+	void *buffer = NULL;
+	unsigned long i;
+	bool has_cow_pages = false;
 
-	/* Check if this page was COW'd (copied during write fault) */
-	cp = cow_lookup_and_remove_page(pi->vaddr);
-	if (cp) {
-		pr_info("Sending COW page at 0x%lx\n", pi->vaddr);
-		
-		/* Send the copied page */
-		pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
-		pi->nr_pages = 1;
-		
-		if (send_psi(sk, pi)) {
-			xfree(cp->data);
-			xfree(cp);
-			return -1;
-		}
-		
-		/* Send page data */
-		if (send(sk, cp->data, PAGE_SIZE, 0) != PAGE_SIZE) {
-			pr_perror("Failed to send COW page data");
-			xfree(cp->data);
-			xfree(cp);
-			return -1;
-		}
-		
-		/* Free the copied page immediately after sending */
-		xfree(cp->data);
-		xfree(cp);
-		
-		/* Still unprotect the page */
-		uffd = cow_get_uffd();
-		if (uffd >= 0) {
-			wp.range.start = pi->vaddr;
-			wp.range.len = PAGE_SIZE;
-			wp.mode = 0; /* Clear write-protect */
-			
-			if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
-				pr_perror("Failed to unprotect COW page at 0x%llx", wp.range.start);
-				return -1;
-			}
-		}
-		
-		tcp_nodelay(sk, true);
-		return 0;
-	}
-
-	/* Fall back to existing page_pipe mechanism for non-COW pages */
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
 
-	/* page_pipe_read() uses 'unsigned long *' but pi->nr_pages is u64.
-	 * Use a temporary variable to fix the incompatible pointer type
-	 * on 32-bit platforms (e.g. armv7). */
+	/* Step 1: Read all pages from page_pipe (baseline) */
 	nr_pages = pi->nr_pages;
 	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr, &nr_pages, PPB_LAZY);
 	if (ret)
 		return ret;
-
-	/*
-	 * The pi is reused for send_psi here, so .nr_pages, .vaddr and
-	 * .dst_id all remain intact.
-	 */
 
 	pi->nr_pages = nr_pages;
 	if (pi->nr_pages == 0) {
@@ -1218,23 +1168,67 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 		return -1;
 	}
 
-	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
-	if (send_psi(sk, pi))
-		return -1;
-
 	len = pi->nr_pages * PAGE_SIZE;
-	pr_info("function = %s file = %s, line = %d PS_IOV_GET len=%lu\n",__FUNCTION__, __FILE__, __LINE__, len);
 
-	if (opts.tls) {
-		if (tls_send_data_from_fd(pipe_read_dest.p[0], len))
-			return -1;
-	} else {
-		ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, len, SPLICE_F_MOVE);
-		if (ret != len)
-			return -1;
+	/* Step 2: Allocate buffer and read page data */
+	buffer = xmalloc(len);
+	if (!buffer) {
+		pr_err("Failed to allocate buffer for %lu pages\n", pi->nr_pages);
+		return -1;
 	}
 
-	/* Unprotect the page so the process can continue */
+	ret = read(pipe_read_dest.p[0], buffer, len);
+	if (ret != len) {
+		pr_err("Short read from pipe: %d vs %lu\n", ret, len);
+		xfree(buffer);
+		return -1;
+	}
+
+	/* Step 3: Overlay any COW'd pages */
+	for (i = 0; i < pi->nr_pages; i++) {
+		unsigned long page_addr = pi->vaddr + (i * PAGE_SIZE);
+		struct cow_page *cp = cow_lookup_and_remove_page(page_addr);
+		
+		if (cp) {
+			pr_debug("Overlaying COW page at 0x%lx (index %lu/%lu)\n", 
+				 page_addr, i, pi->nr_pages);
+			memcpy(buffer + (i * PAGE_SIZE), cp->data, PAGE_SIZE);
+			xfree(cp->data);
+			xfree(cp);
+			has_cow_pages = true;
+		}
+	}
+
+	if (has_cow_pages)
+		pr_info("Sent %lu pages (%lu COW'd) starting at 0x%llx\n",
+			pi->nr_pages, i, pi->vaddr);
+
+	/* Step 4: Send response header */
+	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	if (send_psi(sk, pi)) {
+		xfree(buffer);
+		return -1;
+	}
+
+	/* Step 5: Send complete buffer */
+	if (opts.tls) {
+		/* For TLS, we need to use the TLS send function */
+		if (__send(sk, buffer, len, 0) != len) {
+			pr_perror("Failed to send page buffer via TLS");
+			xfree(buffer);
+			return -1;
+		}
+	} else {
+		if (send(sk, buffer, len, 0) != len) {
+			pr_perror("Failed to send page buffer");
+			xfree(buffer);
+			return -1;
+		}
+	}
+
+	xfree(buffer);
+
+	/* Step 6: Unprotect all pages in one operation */
 	uffd = cow_get_uffd();
 	if (uffd >= 0) {
 		wp.range.start = pi->vaddr;
@@ -1242,7 +1236,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 		wp.mode = 0; /* Clear write-protect */
 
 		if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
-			pr_perror("Failed to unprotect page at 0x%llx", wp.range.start);
+			pr_perror("Failed to unprotect pages at 0x%llx", wp.range.start);
 			return -1;
 		}
 	}
@@ -1352,22 +1346,7 @@ static int page_server_serve(int sk)
 			break;
 		}
 		case PS_IOV_GET:
-		#if 0
-			static int start = 0;
-			if (start == 0)
-			{
-				if (arch_set_thread_regs(root_item, true) < 0)
-					return -1;
-
-				cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
-
-				pstree_switch_state(root_item, TASK_ALIVE);
-				timing_stop(TIME_FROZEN);
-				start = 1;
-			}
-				#endif 
 			pr_info("function = %s file = %s, line = %d PS_IOV_GET\n",__FUNCTION__, __FILE__, __LINE__);
-
 			ret = page_server_get_pages(sk, &pi);
 			break;
 		default:

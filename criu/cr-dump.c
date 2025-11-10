@@ -2127,32 +2127,38 @@ static int cr_dump_finish(int ret)
 		clean_cr_time_mounts();
 	}
 	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
-	 if (!ret && opts.lazy_pages)
-		ret = cr_lazy_mem_dump();
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
-#if 1
-	if (arch_set_thread_regs(root_item, true) < 0)
-		return -1;
-
-	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
-
-	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
-	timing_stop(TIME_FROZEN);
-#endif
-	
-	while (true) {
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
-	sleep(5);
-	}
-	if (!ret && opts.cow_dump) {
-		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+	/* Resume process early if using COW dump with lazy pages */
+	if (!ret && opts.lazy_pages && opts.cow_dump) {
+		pr_info("Resuming process with COW protection active\n");
 		
-		/* Stop the monitor thread before final dump */
+		if (arch_set_thread_regs(root_item, true) < 0)
+			return -1;
+
+		cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+		pstree_switch_state(root_item, TASK_ALIVE);
+		timing_stop(TIME_FROZEN);
+		
+		/* Now start lazy page transfer with process running */
+		ret = cr_lazy_mem_dump();
+		
+		/* Stop the monitor thread after lazy dump completes */
 		if (cow_stop_monitor_thread()) {
 			pr_err("Failed to stop COW monitor thread\n");
 			ret = -1;
 		}
+	} else {
+		/* Standard path: transfer pages then resume */
+		if (!ret && opts.lazy_pages)
+			ret = cr_lazy_mem_dump();
 		
+		if (arch_set_thread_regs(root_item, true) < 0)
+			return -1;
+
+		cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+		pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
+		timing_stop(TIME_FROZEN);
 	}
 	
 	free_pstree(root_item);
