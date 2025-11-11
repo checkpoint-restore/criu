@@ -181,7 +181,7 @@ static void check_and_print_uffd_stats(void)
 			pr_warn("  PF: ");
 			for (i = 0; i < 9; i++) {
 				if (uffd_stats.pf_hist[i] > 0)
-					pr_info(" %s=%lu", get_bucket_label(i), uffd_stats.pf_hist[i]);
+					pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.pf_hist[i]);
 			}
 			pr_warn("\n");
 		}
@@ -191,7 +191,7 @@ static void check_and_print_uffd_stats(void)
 			pr_warn("  BG: ");
 			for (i = 0; i < 9; i++) {
 				if (uffd_stats.bg_hist[i] > 0)
-					pr_info(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
+					pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
 			}
 			pr_warn("\n");
 		}
