@@ -86,7 +86,7 @@ static void check_and_print_cow_stats(void)
 	time_t now = time(NULL);
 	
 	if (now - cow_stats.last_print_time >= 1) {
-		pr_info("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu\n",
+		pr_warn("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu\n",
 			cow_stats.write_faults,
 			cow_stats.fork_events,
 			cow_stats.remap_events,
@@ -411,7 +411,6 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 
 			if (errno == EAGAIN && !blocking){
 				pr_perror("Failed to read uffd event EAGAIN");
-
 				return 0; /* No more events */
 			}
 			pr_perror("Failed to read uffd event");

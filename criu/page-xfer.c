@@ -1106,7 +1106,7 @@ static void check_and_print_stats(void)
 	time_t now = time(NULL);
 	
 	if (now - ps_stats.last_print_time >= 1) {
-		pr_info("[PAGE_SERVER_STATS] get_pages: reqs=%lu with_cow=%lu no_cow=%lu pages=%lu cow=%lu errs=%lu | serve: open2=%lu parent=%lu add_f=%lu get=%lu close=%lu\n",
+		pr_warn("[PAGE_SERVER_STATS] get_pages: reqs=%lu with_cow=%lu no_cow=%lu pages=%lu cow=%lu errs=%lu | serve: open2=%lu parent=%lu add_f=%lu get=%lu close=%lu\n",
 			ps_stats.get_total_requests,
 			ps_stats.get_with_cow,
 			ps_stats.get_no_cow,
