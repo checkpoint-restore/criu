@@ -110,6 +110,98 @@ static struct epoll_rfd lazy_sk_rfd;
 /* socket for communication with lazy-pages daemon */
 static int lazy_pages_sk_id = -1;
 
+/* Histogram statistics structure */
+static struct {
+	/* Histogram buckets by page count: 1, 16, 32, 64, 128, 256, 512, 1024, >1024 */
+	unsigned long pf_hist[9];      /* Page fault histogram */
+	unsigned long bg_hist[9];      /* Background transfer histogram */
+	
+	unsigned long total_pf_reqs;
+	unsigned long total_bg_reqs;
+	unsigned long total_pages;
+	
+	time_t last_print_time;
+} uffd_stats;
+
+static int get_histogram_bucket(unsigned long nr_pages)
+{
+	if (nr_pages == 1) return 0;           /* 4KB */
+	if (nr_pages <= 16) return 1;          /* 64KB */
+	if (nr_pages <= 32) return 2;          /* 128KB */
+	if (nr_pages <= 64) return 3;          /* 256KB */
+	if (nr_pages <= 128) return 4;         /* 512KB */
+	if (nr_pages <= 256) return 5;         /* 1MB */
+	if (nr_pages <= 512) return 6;         /* 2MB */
+	if (nr_pages <= 1024) return 7;        /* 4MB */
+	return 8;                               /* >4MB */
+}
+
+static const char *get_bucket_label(int bucket)
+{
+	switch (bucket) {
+	case 0: return "4K";
+	case 1: return "64K";
+	case 2: return "128K";
+	case 3: return "256K";
+	case 4: return "512K";
+	case 5: return "1M";
+	case 6: return "2M";
+	case 7: return "4M";
+	case 8: return ">4M";
+	default: return "?";
+	}
+}
+
+static void check_and_print_uffd_stats(void)
+{
+	time_t now = time(NULL);
+	int i;
+	bool has_pf = false, has_bg = false;
+	
+	if (now - uffd_stats.last_print_time >= 1) {
+		/* Check if we have any data to print */
+		for (i = 0; i < 9; i++) {
+			if (uffd_stats.pf_hist[i] > 0) has_pf = true;
+			if (uffd_stats.bg_hist[i] > 0) has_bg = true;
+		}
+		
+		if (!has_pf && !has_bg && uffd_stats.total_pf_reqs == 0 && uffd_stats.total_bg_reqs == 0) {
+			uffd_stats.last_print_time = now;
+			return;
+		}
+		
+		pr_warn("[UFFD_STATS] reqs=%lu(pf:%lu,bg:%lu) pages=%lu\n",
+			uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
+			uffd_stats.total_pf_reqs,
+			uffd_stats.total_bg_reqs,
+			uffd_stats.total_pages);
+		
+		/* Print page fault histogram */
+		if (has_pf) {
+			pr_warn("  PF: ");
+			for (i = 0; i < 9; i++) {
+				if (uffd_stats.pf_hist[i] > 0)
+					pr_info(" %s=%lu", get_bucket_label(i), uffd_stats.pf_hist[i]);
+			}
+			pr_warn("\n");
+		}
+		
+		/* Print background transfer histogram */
+		if (has_bg) {
+			pr_warn("  BG: ");
+			for (i = 0; i < 9; i++) {
+				if (uffd_stats.bg_hist[i] > 0)
+					pr_info(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
+			}
+			pr_warn("\n");
+		}
+		
+		/* Reset all counters */
+		memset(&uffd_stats, 0, sizeof(uffd_stats));
+		uffd_stats.last_print_time = now;
+	}
+}
+
 static int handle_uffd_event(struct epoll_rfd *lpfd);
 
 static struct lazy_pages_info *lpi_init(void)
@@ -1006,6 +1098,7 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 	unsigned long nr_pages;
 	unsigned long len;
 	int err;
+	int bucket;
 
 	iov = pick_next_range(lpi);
 	if (!iov)
@@ -1019,6 +1112,12 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 	list_move(&iov->l, &lpi->reqs);
 
 	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
+
+	/* Update statistics */
+	uffd_stats.total_bg_reqs++;
+	uffd_stats.total_pages += nr_pages;
+	bucket = get_histogram_bucket(nr_pages);
+	uffd_stats.bg_hist[bucket]++;
 
 	update_xfer_len(lpi, false);
 
@@ -1155,6 +1254,8 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	struct lazy_iov *iov;
 	__u64 address;
 	int ret;
+	unsigned long nr_pages;
+	int bucket;
 
 	/* Align requested address to the next page boundary */
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
@@ -1173,9 +1274,17 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	list_move(&iov->l, &lpi->reqs);
 
+	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
+	
+	/* Update statistics */
+	uffd_stats.total_pf_reqs++;
+	uffd_stats.total_pages += nr_pages;
+	bucket = get_histogram_bucket(nr_pages);
+	uffd_stats.pf_hist[bucket]++;
+
 	update_xfer_len(lpi, true);
 
-	ret = uffd_handle_pages(lpi, iov->img_start, 1, PR_ASYNC | PR_ASAP);
+	ret = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		lp_err(lpi, "Error during regular page copy\n");
 		return -1;
@@ -1249,6 +1358,9 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 	int ret;
 
 	for (;;) {
+		/* Check and print statistics every second */
+		check_and_print_uffd_stats();
+
 		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)
 			goto out;
