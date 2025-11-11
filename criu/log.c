@@ -202,7 +202,7 @@ void flush_early_log_buffer(int fd)
 		}
 		pos += hdr->len;
 	}
-	if (early_log_buf_off == EARLY_LOG_BUF_LEN)
+	if ((early_log_buf_off + sizeof(struct early_log_hdr)) >= EARLY_LOG_BUF_LEN)
 		pr_warn("The early log buffer is full, some messages may have been lost\n");
 	early_log_buf_off = 0;
 }
@@ -320,7 +320,7 @@ unsigned int log_get_loglevel(void)
 
 static void early_vprint(const char *format, unsigned int loglevel, va_list params)
 {
-	unsigned int log_size = 0;
+	int log_size = 0, log_space;
 	struct early_log_hdr *hdr;
 
 	if ((early_log_buf_off + sizeof(hdr)) >= EARLY_LOG_BUF_LEN)
@@ -332,6 +332,7 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 	hdr->level = loglevel;
 	/* Skip the log entry size */
 	early_log_buf_off += sizeof(hdr);
+	log_space = EARLY_LOG_BUF_LEN - early_log_buf_off;
 	if (loglevel >= LOG_TIMESTAMP) {
 		/*
 		 * If logging is not yet setup we just write zeros
@@ -339,12 +340,17 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 		 * keep the same format as the other messages on
 		 * log levels with timestamps (>=LOG_TIMESTAMP).
 		 */
-		log_size = snprintf(early_log_buffer + early_log_buf_off, sizeof(early_log_buffer) - early_log_buf_off,
+		log_size = snprintf(early_log_buffer + early_log_buf_off, log_space,
 				    "(00.000000) ");
 	}
 
-	log_size += vsnprintf(early_log_buffer + early_log_buf_off + log_size,
-			      sizeof(early_log_buffer) - early_log_buf_off - log_size, format, params);
+	if (log_size < log_space)
+		log_size += vsnprintf(early_log_buffer + early_log_buf_off + log_size,
+				      log_space - log_size, format, params);
+	if (log_size > log_space) {
+		/* vsnprintf always add the terminating null byte. */
+		log_size = log_space - 1;
+	}
 
 	/* Save log entry size */
 	hdr->len = log_size;
