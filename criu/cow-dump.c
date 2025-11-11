@@ -40,7 +40,7 @@ struct cow_dump_info {
 	unsigned long iteration;		/* Current iteration number */
 	struct list_head dirty_list;		/* List of dirty page ranges */
 	struct hlist_head cow_hash[COW_HASH_SIZE];	/* Hash table for copied pages */
-	pthread_mutex_t cow_hash_lock;		/* Protect hash table access */
+	pthread_spinlock_t cow_hash_locks[COW_HASH_SIZE];	/* Per-bucket spinlocks */
 };
 
 /* Dirty page range */
@@ -185,10 +185,10 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	cdi->uffd = -1; /* Will be received from parasite */
 
 	/* Initialize hash table for COW pages */
-	for (int i = 0; i < COW_HASH_SIZE; i++)
+	for (int i = 0; i < COW_HASH_SIZE; i++) {
 		INIT_HLIST_HEAD(&cdi->cow_hash[i]);
-	
-	pthread_mutex_init(&cdi->cow_hash_lock, NULL);
+		pthread_spin_init(&cdi->cow_hash_locks[i], PTHREAD_PROCESS_PRIVATE);
+	}
 
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
@@ -289,21 +289,20 @@ void cow_dump_fini(void)
 	pr_info("Cleaning up COW dump\n");
 
 	/* Clean up any remaining COW pages */
-	pthread_mutex_lock(&g_cow_info->cow_hash_lock);
 	for (i = 0; i < COW_HASH_SIZE; i++) {
+		pthread_spin_lock(&g_cow_info->cow_hash_locks[i]);
 		hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[i], hash) {
 			hlist_del(&cp->hash);
 			xfree(cp->data);
 			xfree(cp);
 			remaining++;
 		}
+		pthread_spin_unlock(&g_cow_info->cow_hash_locks[i]);
+		pthread_spin_destroy(&g_cow_info->cow_hash_locks[i]);
 	}
-	pthread_mutex_unlock(&g_cow_info->cow_hash_lock);
 
 	if (remaining > 0)
 		pr_warn("Freed %d remaining COW pages\n", remaining);
-
-	pthread_mutex_destroy(&g_cow_info->cow_hash_lock);
 
 	list_for_each_entry_safe(dr, tmp, &g_cow_info->dirty_list, list) {
 		list_del(&dr->list);
@@ -363,12 +362,12 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 		return -1;
 	}
 
-	/* Add to hash table (thread-safe) */
+	/* Add to hash table (thread-safe with per-bucket spinlock) */
 	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
 	
-	pthread_mutex_lock(&cdi->cow_hash_lock);
+	pthread_spin_lock(&cdi->cow_hash_locks[hash]);
 	hlist_add_head(&cp->hash, &cdi->cow_hash[hash]);
-	pthread_mutex_unlock(&cdi->cow_hash_lock);
+	pthread_spin_unlock(&cdi->cow_hash_locks[hash]);
 
 	cow_stats.pages_copied++;
 	pr_debug("Copied page at 0x%lx to hash bucket %u\n", page_addr, hash);
@@ -541,18 +540,18 @@ struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr)
 
 	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
 
-	pthread_mutex_lock(&g_cow_info->cow_hash_lock);
+	pthread_spin_lock(&g_cow_info->cow_hash_locks[hash]);
 	
 	hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[hash], hash) {
 		if (cp->vaddr == page_addr) {
 			hlist_del(&cp->hash);
-			pthread_mutex_unlock(&g_cow_info->cow_hash_lock);
+			pthread_spin_unlock(&g_cow_info->cow_hash_locks[hash]);
 			pr_debug("Found and removed COW page at 0x%lx from hash bucket %u\n", 
 				 page_addr, hash);
 			return cp;
 		}
 	}
 	
-	pthread_mutex_unlock(&g_cow_info->cow_hash_lock);
+	pthread_spin_unlock(&g_cow_info->cow_hash_locks[hash]);
 	return NULL;
 }
