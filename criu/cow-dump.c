@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <linux/userfaultfd.h>
 #include <pthread.h>
+#include <time.h>
+#include <string.h>
 
 #include "types.h"
 #include "cr_options.h"
@@ -55,6 +57,54 @@ static volatile bool g_stop_monitoring = false;
 #define COW_MAX_ITERATIONS 10
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
 #define COW_FLUSH_THRESHOLD 1000       /* Flush to disk every 1000 pages */
+
+/* Statistics tracking structure */
+static struct {
+	/* Event counters */
+	unsigned long write_faults;
+	unsigned long fork_events;
+	unsigned long remap_events;
+	unsigned long unknown_events;
+	
+	/* Operation counters */
+	unsigned long pages_copied;
+	unsigned long pages_unprotected;
+	unsigned long pages_woken;
+	
+	/* Error counters */
+	unsigned long alloc_failures;
+	unsigned long read_failures;
+	unsigned long unprotect_failures;
+	unsigned long wake_failures;
+	unsigned long read_errors;
+	
+	time_t last_print_time;
+} cow_stats;
+
+static void check_and_print_cow_stats(void)
+{
+	time_t now = time(NULL);
+	
+	if (now - cow_stats.last_print_time >= 1) {
+		pr_info("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu\n",
+			cow_stats.write_faults,
+			cow_stats.fork_events,
+			cow_stats.remap_events,
+			cow_stats.unknown_events,
+			cow_stats.pages_copied,
+			cow_stats.pages_unprotected,
+			cow_stats.pages_woken,
+			cow_stats.alloc_failures,
+			cow_stats.read_failures,
+			cow_stats.unprotect_failures,
+			cow_stats.wake_failures,
+			cow_stats.read_errors);
+		
+		/* Reset all counters */
+		memset(&cow_stats, 0, sizeof(cow_stats));
+		cow_stats.last_print_time = now;
+	}
+}
 
 bool cow_check_kernel_support(void)
 {
@@ -279,12 +329,14 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	
 	pr_info("Write fault at 0x%lx\n", page_addr);
 
+	cow_stats.write_faults++;
 	cdi->dirty_pages++;
 
 	/* Allocate cow_page structure */
 	cp = xmalloc(sizeof(*cp));
 	if (!cp) {
 		pr_err("Failed to allocate cow_page structure\n");
+		cow_stats.alloc_failures++;
 		return -1;
 	}
 
@@ -292,6 +344,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	if (!cp->data) {
 		pr_err("Failed to allocate page data\n");
 		xfree(cp);
+		cow_stats.alloc_failures++;
 		return -1;
 	}
 
@@ -304,6 +357,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 		pr_perror("Failed to read page at 0x%lx (read %zd bytes)", page_addr, ret);
 		xfree(cp->data);
 		xfree(cp);
+		cow_stats.read_failures++;
 		return -1;
 	}
 
@@ -314,6 +368,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	hlist_add_head(&cp->hash, &cdi->cow_hash[hash]);
 	pthread_mutex_unlock(&cdi->cow_hash_lock);
 
+	cow_stats.pages_copied++;
 	pr_debug("Copied page at 0x%lx to hash bucket %u\n", page_addr, hash);
 
 	/* Unprotect the page so the process can continue */
@@ -323,8 +378,11 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 
 	if (ioctl(cdi->uffd, UFFDIO_WRITEPROTECT, &wp)) {
 		pr_perror("Failed to unprotect page at 0x%lx", page_addr);
+		cow_stats.unprotect_failures++;
 		return -1;
 	}
+
+	cow_stats.pages_unprotected++;
 
 	/* Wake up the faulting thread */
 	range.start = page_addr;
@@ -332,9 +390,11 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	
 	if (ioctl(cdi->uffd, UFFDIO_WAKE, &range)) {
 		pr_perror("Failed to wake thread after unprotect");
+		cow_stats.wake_failures++;
 		return -1;
 	}
 	
+	cow_stats.pages_woken++;
 	cdi->total_pages--;
 	return 0;
 }
@@ -348,14 +408,20 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 	while (1) {
 		ret = read(cdi->uffd, &msg, sizeof(msg));
 		if (ret < 0) {
-			if (errno == EAGAIN && !blocking)
+
+			if (errno == EAGAIN && !blocking){
+				pr_perror("Failed to read uffd event EAGAIN");
+
 				return 0; /* No more events */
+			}
 			pr_perror("Failed to read uffd event");
+			cow_stats.read_errors++;
 			return -1;
 		}
 
 		if (ret != sizeof(msg)) {
 			pr_err("Short read from uffd: %d\n", ret);
+			cow_stats.read_errors++;
 			return -1;
 		}
 
@@ -369,14 +435,17 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 			break;
 
 		case UFFD_EVENT_FORK:
+			cow_stats.fork_events++;
 			pr_warn("Process forked during COW dump (not fully supported)\n");
 			break;
 
 		case UFFD_EVENT_REMAP:
+			cow_stats.remap_events++;
 			pr_info("Memory remap event\n");
 			break;
 
 		default:
+			cow_stats.unknown_events++;
 			pr_err("Unexpected uffd event: %u\n", msg.event);
 			return -1;
 		}
@@ -388,28 +457,19 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 /* Background thread that monitors for write faults */
 static void *cow_monitor_thread(void *arg)
 {	
-	int iteration_count = 0;
 	struct cow_dump_info *cdi = (struct cow_dump_info *)arg;
 	
 	pr_info("COW monitor thread started\n");
 	
 	while (g_cow_info->total_pages != 0) {
-			
+		/* Check and print stats */
+		check_and_print_cow_stats();
 
 		/* Process events with short timeout */
 		if (cow_process_events(cdi, false) < 0) {
 			pr_err("Error processing COW events in monitor thread\n");
 			break;
 		}
-		/* Small delay to avoid busy-waiting */
-		//usleep(1000); /* 1ms */
-		/* Print total pages once per second */
-		iteration_count++;
-		if (iteration_count >= 30000000) { /* 1000 * 1ms = 1 second */
-			pr_info("COW monitor: %lu pages remaining\n", g_cow_info->total_pages);
-			iteration_count = 0;
-		}
-
 	}
 	
 	pr_info("COW monitor thread stopped\n");
