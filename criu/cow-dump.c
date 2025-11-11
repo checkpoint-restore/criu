@@ -76,6 +76,7 @@ static struct {
 	unsigned long read_failures;
 	unsigned long unprotect_failures;
 	unsigned long wake_failures;
+	unsigned long eagain_errors;
 	unsigned long read_errors;
 	
 	time_t last_print_time;
@@ -86,7 +87,7 @@ static void check_and_print_cow_stats(void)
 	time_t now = time(NULL);
 	
 	if (now - cow_stats.last_print_time >= 1) {
-		pr_warn("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu\n",
+		pr_warn("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu eagain_err=%lu\n",
 			cow_stats.write_faults,
 			cow_stats.fork_events,
 			cow_stats.remap_events,
@@ -98,7 +99,8 @@ static void check_and_print_cow_stats(void)
 			cow_stats.read_failures,
 			cow_stats.unprotect_failures,
 			cow_stats.wake_failures,
-			cow_stats.read_errors);
+			cow_stats.read_errors,
+			cow_stats.eagain_errors);
 		
 		/* Reset all counters */
 		memset(&cow_stats, 0, sizeof(cow_stats));
@@ -406,11 +408,14 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 	//int flags = blocking ? MSG_WAITALL : MSG_DONTWAIT;
 
 	while (1) {
+		/* Check and print stats */
+		check_and_print_cow_stats();
 		ret = read(cdi->uffd, &msg, sizeof(msg));
 		if (ret < 0) {
 
-			if (errno == EAGAIN && !blocking){
-				pr_perror("Failed to read uffd event EAGAIN");
+			if (errno == EAGAIN && !blocking){			
+				
+				cow_stats.eagain_errors++;
 				return 0; /* No more events */
 			}
 			pr_perror("Failed to read uffd event");
@@ -461,8 +466,7 @@ static void *cow_monitor_thread(void *arg)
 	pr_info("COW monitor thread started\n");
 	
 	while (g_cow_info->total_pages != 0) {
-		/* Check and print stats */
-		check_and_print_cow_stats();
+		
 
 		/* Process events with short timeout */
 		if (cow_process_events(cdi, false) < 0) {
