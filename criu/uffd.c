@@ -98,6 +98,10 @@ struct lazy_pages_info {
 
 	unsigned long buf_size;
 	void *buf;
+	
+	/* Pipeline control */
+	unsigned int pipeline_depth;      /* Current in-flight requests */
+	unsigned int max_pipeline_depth;  /* Max allowed concurrent requests */
 };
 
 /* global lazy-pages daemon state */
@@ -119,6 +123,10 @@ static struct {
 	unsigned long total_pf_reqs;
 	unsigned long total_bg_reqs;
 	unsigned long total_pages;
+	
+	/* Pipeline statistics */
+	unsigned long pipeline_depth_sum;
+	unsigned long pipeline_samples;
 	
 	time_t last_print_time;
 } uffd_stats;
@@ -157,6 +165,7 @@ static void check_and_print_uffd_stats(void)
 	time_t now = time(NULL);
 	int i;
 	bool has_pf = false, has_bg = false;
+	unsigned long avg_pipeline = 0;
 	
 	if (now - uffd_stats.last_print_time >= 1) {
 		/* Check if we have any data to print */
@@ -170,11 +179,16 @@ static void check_and_print_uffd_stats(void)
 			return;
 		}
 		
-		pr_warn("[UFFD_STATS] reqs=%lu(pf:%lu,bg:%lu) pages=%lu\n",
+		/* Calculate average pipeline depth */
+		if (uffd_stats.pipeline_samples > 0)
+			avg_pipeline = uffd_stats.pipeline_depth_sum / uffd_stats.pipeline_samples;
+		
+		pr_warn("[UFFD_STATS] reqs=%lu(pf:%lu,bg:%lu) pages=%lu pipe_avg=%lu\n",
 			uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
 			uffd_stats.total_pf_reqs,
 			uffd_stats.total_bg_reqs,
-			uffd_stats.total_pages);
+			uffd_stats.total_pages,
+			avg_pipeline);
 		
 		/* Print page fault histogram */
 		if (has_pf) {
@@ -219,6 +233,10 @@ static struct lazy_pages_info *lpi_init(void)
 	lpi->lpfd.read_event = handle_uffd_event;
 	lpi->xfer_len = DEFAULT_XFER_LEN;
 	lpi->ref_cnt = 1;
+	
+	/* Initialize pipeline control - start with aggressive pipelining */
+	lpi->pipeline_depth = 0;
+	lpi->max_pipeline_depth = 16;  /* 16 concurrent requests for maximum throughput */
 
 	return lpi;
 }
@@ -1009,7 +1027,20 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	 * list and let drop_iovs do the range math, free memory etc.
 	 */
 	iov_list_insert(req, &lpi->iovs);
-	return drop_iovs(lpi, addr, nr * PAGE_SIZE);
+	ret = drop_iovs(lpi, addr, nr * PAGE_SIZE);
+	
+	/* 
+	 * Decrement pipeline depth now that response is processed.
+	 * IMMEDIATELY refill pipeline to keep it saturated - don't wait for main loop!
+	 * This is the key to aggressive pipelining and reducing source EAGAIN.
+	 */
+	lpi->pipeline_depth--;
+	
+	if (!lpi->exited && !list_empty(&lpi->iovs)) {
+		refill_pipeline(lpi);
+	}
+	
+	return ret;
 }
 
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long nr_pages)
@@ -1123,12 +1154,35 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 
 	update_xfer_len(lpi, false);
 
+	/* Increment pipeline depth BEFORE sending request */
+	lpi->pipeline_depth++;
+
 	err = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (err < 0) {
 		lp_err(lpi, "Error during UFFD copy\n");
+		lpi->pipeline_depth--;  /* Rollback on error */
 		return -1;
 	}
 
+	return 0;
+}
+
+/*
+ * Aggressively refill pipeline to maximum capacity.
+ * Called immediately when a response arrives to keep pipeline saturated.
+ */
+static int refill_pipeline(struct lazy_pages_info *lpi)
+{
+	int ret;
+	
+	/* Keep filling until pipeline is full or we run out of data */
+	while (!list_empty(&lpi->iovs) && 
+	       lpi->pipeline_depth < lpi->max_pipeline_depth) {
+		ret = xfer_pages(lpi);
+		if (ret < 0)
+			return ret;
+	}
+	
 	return 0;
 }
 
@@ -1286,9 +1340,13 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	update_xfer_len(lpi, true);
 
+	/* Increment pipeline depth BEFORE sending request (just like background transfers) */
+	lpi->pipeline_depth++;
+
 	ret = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		lp_err(lpi, "Error during regular page copy\n");
+		lpi->pipeline_depth--;  /* Rollback on error */
 		return -1;
 	}
 
@@ -1360,6 +1418,12 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 	int ret;
 
 	for (;;) {
+		/* Sample pipeline depth for statistics */
+		list_for_each_entry_safe(lpi, n, &lpis, l) {
+			uffd_stats.pipeline_depth_sum += lpi->pipeline_depth;
+			uffd_stats.pipeline_samples++;
+		}
+		
 		/* Check and print statistics every second */
 		check_and_print_uffd_stats();
 
@@ -1380,11 +1444,11 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 		ret = 0;
 
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
-			if (!list_empty(&lpi->iovs) && list_empty(&lpi->reqs)) {
-				ret = xfer_pages(lpi);
+			/* Aggressively refill pipeline to keep it saturated at all times */
+			if (!list_empty(&lpi->iovs)) {
+				ret = refill_pipeline(lpi);
 				if (ret < 0)
 					goto out;
-				break;
 			}
 
 			if (list_empty(&lpi->reqs)) {
