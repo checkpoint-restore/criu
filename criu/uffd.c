@@ -236,7 +236,7 @@ static struct lazy_pages_info *lpi_init(void)
 	
 	/* Initialize pipeline control - start with aggressive pipelining */
 	lpi->pipeline_depth = 0;
-	lpi->max_pipeline_depth = 16;  /* 16 concurrent requests for maximum throughput */
+	lpi->max_pipeline_depth = 256;  /* 256 concurrent requests for maximum throughput */
 
 	return lpi;
 }
@@ -1134,7 +1134,7 @@ static struct lazy_iov *pick_next_range(struct lazy_pages_info *lpi)
  */
 static void update_xfer_len(struct lazy_pages_info *lpi, bool pf)
 {
-	lpi->xfer_len = MAX_XFER_LEN;
+	lpi->xfer_len = 4*1024;//MAX_XFER_LEN;
 	return; //TODO remove
 	if (pf)
 		lpi->xfer_len = DEFAULT_XFER_LEN;
