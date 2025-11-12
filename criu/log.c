@@ -190,7 +190,7 @@ void flush_early_log_buffer(int fd)
 		 * with reading the log_level.
 		 */
 		struct early_log_hdr *hdr = (void *)early_log_buffer + pos;
-		pos += sizeof(hdr);
+		pos += sizeof(*hdr);
 		if (hdr->level <= current_loglevel) {
 			size_t size = 0;
 			while (size < hdr->len) {
@@ -323,7 +323,7 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 	int log_size = 0, log_space;
 	struct early_log_hdr *hdr;
 
-	if ((early_log_buf_off + sizeof(hdr)) >= EARLY_LOG_BUF_LEN)
+	if ((early_log_buf_off + sizeof(*hdr)) >= EARLY_LOG_BUF_LEN)
 		return;
 
 	/* Save loglevel */
@@ -331,7 +331,7 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 	hdr = (void *)early_log_buffer + early_log_buf_off;
 	hdr->level = loglevel;
 	/* Skip the log entry size */
-	early_log_buf_off += sizeof(hdr);
+	early_log_buf_off += sizeof(*hdr);
 	log_space = EARLY_LOG_BUF_LEN - early_log_buf_off;
 	if (loglevel >= LOG_TIMESTAMP) {
 		/*
