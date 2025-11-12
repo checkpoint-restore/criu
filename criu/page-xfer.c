@@ -1192,6 +1192,7 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 
 	return 0;
 }
+
 static int page_server_get_pages(int sk, struct page_server_iov *pi)
 {
 	struct pstree_item *item;
@@ -1202,8 +1203,8 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	int uffd = -1;
 	void *buffer = NULL;
 	unsigned long i;
-	bool has_cow_pages = false;
-	unsigned long cow_page_count = 0;
+	struct cow_page **cow_pages = NULL;
+	unsigned long cow_count = 0;
 
 	/* Update statistics */
 	ps_stats.get_total_requests++;
@@ -1212,7 +1213,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
 
-	/* Step 1: Read all pages from page_pipe (baseline) */
+	/* Step 1: Read pages metadata from page_pipe */
 	nr_pages = pi->nr_pages;
 	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr, &nr_pages, PPB_LAZY);
 	if (ret) {
@@ -1230,76 +1231,105 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	len = pi->nr_pages * PAGE_SIZE;
 	ps_stats.get_total_pages += pi->nr_pages;
 
-	/* Step 2: Allocate buffer and read page data */
-	buffer = xmalloc(len);
-	if (!buffer) {
-		pr_err("Failed to allocate buffer for %lu pages\n", pi->nr_pages);
+	/* Step 2: Single-pass lookup - collect all COW pages */
+	cow_pages = xzalloc(pi->nr_pages * sizeof(struct cow_page *));
+	if (!cow_pages) {
+		pr_err("Failed to allocate COW pages array\n");
 		ps_stats.get_errors++;
 		return -1;
 	}
 
-	ret = read(pipe_read_dest.p[0], buffer, len);
-	if (ret != len) {
-		pr_err("Short read from pipe: %d vs %lu\n", ret, len);
-		xfree(buffer);
-		ps_stats.get_errors++;
-		return -1;
-	}
-
-	/* Step 3: Overlay any COW'd pages */
 	for (i = 0; i < pi->nr_pages; i++) {
 		unsigned long page_addr = pi->vaddr + (i * PAGE_SIZE);
-		struct cow_page *cp = cow_lookup_and_remove_page(page_addr);
-		
-		if (cp) {
-			pr_debug("Overlaying COW page at 0x%lx (index %lu/%lu)\n", 
-				 page_addr, i, pi->nr_pages);
-			memcpy(buffer + (i * PAGE_SIZE), cp->data, PAGE_SIZE);
-			xfree(cp->data);
-			xfree(cp);
-			has_cow_pages = true;
-			cow_page_count++;
-		}
+		cow_pages[i] = cow_lookup_and_remove_page(page_addr);
+		if (cow_pages[i])
+			cow_count++;
 	}
 
-	if (has_cow_pages) {
-		pr_info("Sent %lu pages (%lu COW'd) starting at 0x%lx\n",
-			pi->nr_pages, cow_page_count, pi->vaddr);
-		ps_stats.get_with_cow++;
-		ps_stats.get_cow_pages += cow_page_count;
-	} else {
-		ps_stats.get_no_cow++;
-	}
-
-	/* Step 4: Send response header */
+	/* Step 3: Send response header */
 	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
 	if (send_psi(sk, pi)) {
-		xfree(buffer);
+		xfree(cow_pages);
 		ps_stats.get_errors++;
 		return -1;
 	}
 
-	/* Step 5: Send complete buffer */
-	if (opts.tls) {
-		/* For TLS, we need to use the TLS send function */
-		if (__send(sk, buffer, len, 0) != len) {
-			pr_perror("Failed to send page buffer via TLS");
-			xfree(buffer);
-			ps_stats.get_errors++;
-			return -1;
+	/* Step 4: Choose fast or slow path based on COW presence */
+	if (cow_count == 0) {
+		/* FAST PATH: Zero-copy splice from pipe to socket */
+		pr_debug("Zero-copy path: splicing %lu pages directly\n", pi->nr_pages);
+		ps_stats.get_no_cow++;
+		
+		if (opts.tls) {
+			ret = tls_send_data_from_fd(pipe_read_dest.p[0], len);
+			if (ret) {
+				pr_err("Failed to send via TLS from pipe\n");
+				xfree(cow_pages);
+				ps_stats.get_errors++;
+				return -1;
+			}
+		} else {
+			ssize_t spliced = 0;
+			while (spliced < len) {
+				ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, 
+					     len - spliced, SPLICE_F_MOVE);
+				if (ret <= 0) {
+					pr_perror("Failed to splice pipe to socket");
+					xfree(cow_pages);
+					ps_stats.get_errors++;
+					return -1;
+				}
+				spliced += ret;
+			}
 		}
 	} else {
-		if (send(sk, buffer, len, 0) != len) {
-			pr_perror("Failed to send page buffer");
-			xfree(buffer);
-			ps_stats.get_errors++;
-			return -1;
+		/* SLOW PATH: Buffer + overlay COW pages */
+		pr_debug("Buffered path: overlaying %lu COW pages out of %lu total\n", 
+			 cow_count, pi->nr_pages);
+		ps_stats.get_with_cow++;
+		ps_stats.get_cow_pages += cow_count;
+		
+		buffer = xmalloc(len);
+		if (!buffer) {
+			pr_err("Failed to allocate buffer for %lu pages\n", pi->nr_pages);
+			goto err_free_cow;
 		}
+
+		ret = read(pipe_read_dest.p[0], buffer, len);
+		if (ret != len) {
+			pr_err("Short read from pipe: %d vs %lu\n", ret, len);
+			goto err_free_all;
+		}
+
+		/* Overlay COW pages */
+		for (i = 0; i < pi->nr_pages; i++) {
+			if (cow_pages[i]) {
+				pr_debug("Overlaying COW page at index %lu\n", i);
+				memcpy(buffer + (i * PAGE_SIZE), cow_pages[i]->data, PAGE_SIZE);
+				xfree(cow_pages[i]->data);
+				xfree(cow_pages[i]);
+			}
+		}
+
+		/* Send buffered data */
+		if (opts.tls) {
+			if (__send(sk, buffer, len, 0) != len) {
+				pr_perror("Failed to send page buffer via TLS");
+				goto err_free_all;
+			}
+		} else {
+			if (send(sk, buffer, len, 0) != len) {
+				pr_perror("Failed to send page buffer");
+				goto err_free_all;
+			}
+		}
+
+		xfree(buffer);
 	}
 
-	xfree(buffer);
+	xfree(cow_pages);
 
-	/* Step 6: Unprotect all pages in one operation */
+	/* Step 5: Unprotect all pages in one operation */
 	uffd = cow_get_uffd();
 	if (uffd >= 0) {
 		wp.range.start = pi->vaddr;
@@ -1314,8 +1344,20 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	}
 
 	tcp_nodelay(sk, true);
-
 	return 0;
+
+err_free_all:
+	xfree(buffer);
+err_free_cow:
+	for (i = 0; i < pi->nr_pages; i++) {
+		if (cow_pages[i]) {
+			xfree(cow_pages[i]->data);
+			xfree(cow_pages[i]);
+		}
+	}
+	xfree(cow_pages);
+	ps_stats.get_errors++;
+	return -1;
 }
 extern void pstree_switch_state(struct pstree_item *root_item, int st);
 static int page_server_serve(int sk)
@@ -1632,7 +1674,7 @@ no_server:
 
 	if (ask >= 0)
 		ret = page_server_serve(ask);
-
+	// Kill COW thread
 	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (daemon_mode)

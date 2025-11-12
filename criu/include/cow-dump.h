@@ -8,7 +8,7 @@ struct pstree_item;
 struct vm_area_list;
 struct parasite_ctl;
 
-#define COW_HASH_BITS 10
+#define COW_HASH_BITS 16
 #define COW_HASH_SIZE (1 << COW_HASH_BITS)
 
 struct cow_page {
