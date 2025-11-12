@@ -1134,7 +1134,7 @@ static struct lazy_iov *pick_next_range(struct lazy_pages_info *lpi)
  */
 static void update_xfer_len(struct lazy_pages_info *lpi, bool pf)
 {
-	lpi->xfer_len = 4*1024;//MAX_XFER_LEN;
+	lpi->xfer_len = 8*1024;//MAX_XFER_LEN;
 	return; //TODO remove
 	if (pf)
 		lpi->xfer_len = DEFAULT_XFER_LEN;
