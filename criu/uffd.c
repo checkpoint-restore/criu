@@ -954,6 +954,25 @@ static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsi
 	return 0;
 }
 
+/*
+ * Aggressively refill pipeline to maximum capacity.
+ * Called immediately when a response arrives to keep pipeline saturated.
+ */
+static int refill_pipeline(struct lazy_pages_info *lpi)
+{
+	int ret;
+	
+	/* Keep filling until pipeline is full or we run out of data */
+	while (!list_empty(&lpi->iovs) && 
+	       lpi->pipeline_depth < lpi->max_pipeline_depth) {
+		ret = xfer_pages(lpi);
+		if (ret < 0)
+			return ret;
+	}
+	
+	return 0;
+}
+
 static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *nr_pages)
 {
 	struct uffdio_copy uffdio_copy;
@@ -1167,24 +1186,7 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-/*
- * Aggressively refill pipeline to maximum capacity.
- * Called immediately when a response arrives to keep pipeline saturated.
- */
-static int refill_pipeline(struct lazy_pages_info *lpi)
-{
-	int ret;
-	
-	/* Keep filling until pipeline is full or we run out of data */
-	while (!list_empty(&lpi->iovs) && 
-	       lpi->pipeline_depth < lpi->max_pipeline_depth) {
-		ret = xfer_pages(lpi);
-		if (ret < 0)
-			return ret;
-	}
-	
-	return 0;
-}
+
 
 static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
