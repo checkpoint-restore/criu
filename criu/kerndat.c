@@ -1,3 +1,4 @@
+#include <linux/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -1741,6 +1742,18 @@ static int kerndat_has_timer_cr_ids(void)
 	return 0;
 }
 
+static int kerndat_has_statmount_fd(void)
+{
+	struct statmount *statmnt = do_statmount_fd(STDIN_FILENO, STATMOUNT_MNT_BASIC);
+	if (!statmnt && (errno == ENOSYS || errno == EINVAL)) {
+		pr_info("statmount with STATMOUNT_BY_FD flag isn't supported\n");
+		kdat.has_statmount_fd = false;
+	} else {
+		kdat.has_statmount_fd = true;
+	}
+	return 0;
+}
+
 static void breakpoint_func(void)
 {
 	if (raise(SIGSTOP))
@@ -2123,6 +2136,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_madv_guard()) {
 		pr_err("kerndat_has_madv_guard has failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_statmount_fd()) {
+		pr_err("kerndat_has_statmount_fd failed when initializing kerndat.\n");
 		ret = -1;
 	}
 

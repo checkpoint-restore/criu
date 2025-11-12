@@ -1367,7 +1367,7 @@ static int parse_mnt_flags(char *opt, unsigned *flags)
 	return 0;
 }
 
-static int parse_sb_opt(char *opt, unsigned *flags, char *uopt)
+int parse_sb_opt(char *opt, unsigned *flags, char *uopt)
 {
 	static const struct opt2flag sb_opt2flag[] = {
 		{
@@ -1472,6 +1472,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	char *sub, *opt = NULL;
 	char link_path[PATH_MAX];
 
+	new->detached_mnt = false;
 	new->mountpoint = xmalloc(PATH_MAX);
 	if (new->mountpoint == NULL)
 		goto err;

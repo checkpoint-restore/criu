@@ -1,3 +1,5 @@
+#include <linux/limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
@@ -15,9 +17,11 @@
 #include <elf.h>
 #include <linux/fiemap.h>
 #include <linux/fs.h>
-
+#include <inttypes.h>
 #include "tty.h"
 #include "stats.h"
+#include "filesystems.h"
+#include "common/bug.h"
 
 #ifndef SEEK_DATA
 #define SEEK_DATA 3
@@ -1787,8 +1791,10 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		if (opts.shell_job && is_tty(p->stat.st_rdev, p->stat.st_dev)) {
 			skip_for_shell_job = true;
 		} else {
-			pr_err("Can't lookup mount=%d for fd=%d path=%s\n", p->mnt_id, p->fd, link->name + 1);
-			return -1;
+			if (!(kdat.has_statmount_fd && (mi = mount_info_from_statmount(lfd)))) {
+				pr_err("Can't lookup mount=%d for fd=%d path=%s\n", p->mnt_id, p->fd, link->name + 1);
+				return -1;
+			}
 		}
 	}
 
@@ -1813,7 +1819,8 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 	}
 
-	if (!skip_for_shell_job && check_path_remap(link, p, lfd, id, mi->nsid))
+	/* skipping for detached */
+	if (!skip_for_shell_job && !mi->detached_mnt && check_path_remap(link, p, lfd, id, mi->nsid))
 		return -1;
 	rfe.name = &link->name[1];
 ext:
@@ -2192,10 +2199,12 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 {
 	int tmp = -1, mntns_root, level = 0;
 	struct reg_file_info *rfi;
+	struct mount_info *mi;
 	char *orig_path = NULL;
 	char path[PATH_MAX];
 	int inh_fd = -1;
 	int ret;
+	char dot[] = ".";
 
 	if (inherited_fd(d, &tmp))
 		return tmp;
@@ -2261,6 +2270,21 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 	}
 
 	mntns_root = mntns_get_root_by_mnt_id(rfi->rfe->mnt_id);
+	mi = mnt_is_detached(rfi->rfe->mnt_id);
+
+	if (!mi)
+		goto ext;
+
+	if (strncmp(rfi->path, dot, strlen(dot)) == 0) {
+		rfi->path = mi->ns_mountpoint;
+	} else {
+		char* path = xmalloc(PATH_MAX);
+		if (!path)
+			goto err;
+
+		snprintf(path, PATH_MAX, "%s/%s", mi->ns_mountpoint, rfi->path);
+		rfi->path = path;
+	}
 ext:
 	tmp = open_cb(mntns_root, rfi, arg);
 	if (tmp < 0) {

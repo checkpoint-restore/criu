@@ -1,4 +1,7 @@
+#include <linux/limits.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1283,6 +1286,117 @@ err:
 	return exit_code;
 }
 
+static int detect_is_detached_dir(struct mount_info *detached)
+{
+	detached->is_dir = true;
+	return 0;
+}
+
+static int create_temporary_mountpoint(struct mount_info *detached)
+{
+	if (detached->is_dir) {
+		/*
+		 * we dont have mountpoint for our detached mounts,
+		 * creating a temporary one
+		 */
+		if (mkdir(detached->ns_mountpoint, 0700)) {
+			pr_perror("failed to create temporary mountpoint for mnt_id=%d", detached->mnt_id);
+			return -1;
+		}
+		pr_debug("Created temporary mountpoint for mnt_id=%d\n", detached->mnt_id);
+		return 0;
+	}
+	return -1;
+}
+
+static int do_one_detached_bind_mount(struct mount_info *detached)
+{
+	/* going into the right namespace for now */
+	int nsfd, original_nsfd;
+	unsigned long mflags;
+	int ret = 0;
+	BUG_ON(!detached->nsid || !detached->bind);
+
+	original_nsfd =  open_proc(PROC_SELF, "ns/mnt");
+	if (original_nsfd < 0)
+		return -1;
+
+	nsfd = fdstore_get(detached->nsid->mnt.nsfd_id);
+	if (nsfd < 0) {
+		pr_err("failed to get nsfd for detached mount mnt_id=%d\n", detached->mnt_id);
+		close(original_nsfd);
+		return -1;
+	}
+
+	if (switch_ns_by_fd(nsfd, &mnt_ns_desc, &original_nsfd)) {
+		pr_err("failed to mount namespace for detached mount mnt_id=%d\n", detached->mnt_id);
+		close(original_nsfd);
+		return -1;
+	}
+	close(nsfd);
+
+	detached->private = detached->bind->private;
+
+	if (create_temporary_mountpoint(detached)) {
+		ret = -1;
+		goto out;
+	}
+
+	if (__do_bind_mount_v2(detached->bind->ns_mountpoint, detached->ns_mountpoint)) {
+		pr_info("failed to do bind: %s, detached: %s\n", detached->bind->ns_mountpoint, detached->ns_mountpoint);
+		ret = -1;
+		goto out;
+	}
+
+	mflags = detached->flags & (~MS_PROPAGATE);
+	if (mflags != (detached->bind->flags & (~MS_PROPAGATE)))
+		if (mount(NULL, detached->ns_mountpoint, NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
+			pr_perror("Can't bind remount 0x%lx at %s", mflags, detached->ns_mountpoint);
+			ret = -1;
+			goto out;
+		}
+
+	detached->mounted = true;
+
+out:
+	if (restore_ns(original_nsfd, &mnt_ns_desc)) {
+		pr_perror("failed to restore original mount namespace");
+		return -1;
+	}
+
+	close(original_nsfd);
+	return ret;
+}
+
+static int do_one_detached_mount(struct mount_info *detached)
+{
+	int ret;
+	BUG_ON(detached->mounted);
+	/* detached->bind should be filled up by search_bindmounts() */
+	if (detached->bind)
+		ret = do_one_detached_bind_mount(detached);
+	else
+		ret = 0;
+	return ret;
+}
+
+
+static int mount_detached_mounts(void)
+{
+	struct mount_info *detached;
+	list_for_each_entry(detached, &detached_mounts, mnt_detached_list) {
+		BUG_ON(!detached->detached_mnt);
+
+		/* currently only doing directory mounts */
+		if (detect_is_detached_dir(detached))
+			return -1;
+
+		if (do_one_detached_mount(detached))
+			return -1;
+	}
+	return 0;
+}
+
 /* The main entry point of mount-v2 for creating mounts */
 int prepare_mnt_ns_v2(void)
 {
@@ -1312,6 +1426,9 @@ int prepare_mnt_ns_v2(void)
 		return -1;
 
 	if (assemble_mount_namespaces())
+		return -1;
+
+	if (mount_detached_mounts())
 		return -1;
 
 	if (restore_mount_sharing_options())

@@ -124,3 +124,4 @@ openat2				437	437	(int dirfd, char *pathname, struct open_how *how, size_t size
 pidfd_getfd			438	438	(int pidfd, int targetfd, unsigned int flags)
 rseq				293	398	(void *rseq, uint32_t rseq_len, int flags, uint32_t sig)
 membarrier 			283	389	(int cmd, unsigned int flags, int cpu_id)
+statmount 			457	457	(struct mnt_id_req *req, struct statmount *smbuf, size_t bufsize, unsigned long flags)

@@ -59,4 +59,5 @@ message mnt_entry {
 	optional uint32		sb_flags		= 17 [(criu).hex = true];
 	/* user defined mapping for external mount */
 	optional string		ext_key			= 18;
+	optional bool		detached_mnt		= 19;
 }
