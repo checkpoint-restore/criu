@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <sys/ioctl.h>
 #include <sys/uio.h>
+#include <linux/userfaultfd.h>
 
 #include "linux/rseq.h"
 
@@ -49,6 +50,7 @@ static int mprotect_vmas(struct parasite_dump_pages_args *args)
 {
 	struct parasite_vma_entry *vmas, *vma;
 	int ret = 0, i;
+	pr_info("mprotect_vmas file = %s, line = %d\n", __FILE__, __LINE__);
 
 	vmas = pargs_vmas(args);
 	for (i = 0; i < args->nr_vmas; i++) {
@@ -74,18 +76,19 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	struct iovec *iovs;
 	int off, nr_segs;
 	unsigned long spliced_bytes = 0;
-
+	pr_err("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);	
 	tsock = parasite_get_rpc_sock();
 	p = recv_fd(tsock);
 	if (p < 0)
 		return -1;
-
+	pr_info("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);
 	iovs = pargs_iovs(args);
 	off = 0;
 	nr_segs = args->nr_segs;
 	if (nr_segs > UIO_MAXIOV)
 		nr_segs = UIO_MAXIOV;
 	while (1) {
+		pr_info("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);
 		ret = sys_vmsplice(p, &iovs[args->off + off], nr_segs, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 		if (ret < 0) {
 			sys_close(p);
@@ -854,6 +857,144 @@ static int parasite_dump_cgroup(struct parasite_dump_cgroup_args *args)
 	return 0;
 }
 
+static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
+{
+	struct parasite_vma_entry *vmas, *vma;
+	struct uffdio_register reg;
+	struct uffdio_writeprotect wp;
+	struct uffdio_api api;
+	int uffd, tsock, i;
+	int ret = 0;
+	unsigned long addr, len;
+	unsigned long total_pages = 0;
+	unsigned int *failed_indices;
+	unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
+	/*unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
+				 UFFD_FEATURE_EVENT_FORK |
+				 UFFD_FEATURE_EVENT_REMAP;*/
+
+	pr_info("COW dump init: registering %d VMAs\n", args->nr_vmas);
+	
+	args->nr_failed_vmas = 0;
+	failed_indices = cow_dump_failed_indices(args);
+
+	/* Create userfaultfd in target process context */
+	 uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
+	if (uffd < 0) {
+		pr_err("Failed to create userfaultfd: %d\n", uffd);
+		return -1;
+	}
+
+	/* Initialize userfaultfd API with WP features */
+	memset(&api, 0, sizeof(api));
+	api.api = UFFD_API;
+	api.features = 0;
+	api.ioctls = 0;
+
+	ret = sys_ioctl(uffd, UFFDIO_API, (unsigned long)&api);
+	if (ret < 0) {
+		int e = (ret < 0) ? -ret : ret;     /* convert to +errno code */
+
+		pr_err("Failed to initialize userfaultfd API: %d uffd=%d but continue\n", e, uffd);
+		sys_close(uffd);
+		return -1;
+	}
+
+	pr_info("UFFD created with features: 0x%llx\n", (unsigned long long)api.features);
+
+	vmas = cow_dump_vmas(args);
+
+	/* Register each VMA with write-protection */
+	for (i = 0; i < args->nr_vmas; i++) {
+		vma = vmas + i;
+		addr = vma->start;
+		len = vma->len;
+
+		pr_info("Registering VMA %d: %lx-%lx prot=%x len=%lu\n",
+			i, addr, addr + len, vma->prot, len);
+
+		if (((len / PAGE_SIZE) < threshold_pages)){
+			pr_info("Skipping small VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
+		}
+
+		/* Skip non-writable VMAs */
+		if (!(vma->prot & PROT_WRITE)) {
+			pr_info("Skipping non-writable VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
+			
+			/* Mark for later dump by CRIU */
+    		failed_indices[args->nr_failed_vmas++] = i;
+			continue;
+		}
+
+
+		/* Register VMA for write-protect tracking */
+		reg.range.start = addr;
+		reg.range.len = len;
+		reg.mode = UFFDIO_REGISTER_MODE_WP;
+		ret = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long)&reg);
+		if (ret) {
+			/* Some VMAs may not support WP - record index for CRIU to dump */
+			if (ret == EINVAL) {
+				pr_warn("Cannot WP-register VMA %lx-%lx len=%lu (unsupported), marking for later dump\n",
+					addr, addr + len, len);
+				
+				/* Record the index of this failed VMA */
+				failed_indices[args->nr_failed_vmas++] = i;
+				pr_info("Marked VMA index %d for later dump (%u failed VMAs total)\n", 
+					i, args->nr_failed_vmas);
+				continue;
+			} else {
+							/* Any failure to register - just dump instead of trying to track */
+				pr_err("Failed to register VMA %lx-%lx: ret=%d len=%lu\n",
+			       addr, addr + len, ret, len);
+				
+				failed_indices[args->nr_failed_vmas++] = i;
+				pr_info("Marked VMA index %d for immediate dump (%u total)\n", 
+						i, args->nr_failed_vmas);
+    			continue;
+			}
+
+		}
+
+		/* Apply write-protection */
+		wp.range.start = addr;
+		wp.range.len = len;
+		wp.mode = UFFDIO_WRITEPROTECT_MODE_WP;
+		ret = sys_ioctl(uffd, UFFDIO_WRITEPROTECT, (unsigned long)&wp);
+		if (ret) {
+			pr_err("Failed to write-protect VMA %lx-%lx: ret=%d\n",
+			       addr, addr + len, ret);
+			sys_close(uffd);
+			return -1;
+		}
+
+		total_pages += len / PAGE_SIZE;
+		pr_info("Successfully registered and WP'd VMA: %lx-%lx (%lu pages)\n",
+			addr, addr + len, len / PAGE_SIZE);
+	}
+
+	pr_info("COW dump init complete: %lu total pages\n", total_pages);
+
+	/* Send userfaultfd back to CRIU before setting return status */
+	tsock = parasite_get_rpc_sock();
+	ret = send_fd(tsock, NULL, 0, uffd);
+	if (ret) {
+		pr_err("Failed to send userfaultfd back to CRIU: %d\n", ret);
+		sys_close(uffd);
+		args->ret = -1;
+		return -1;
+	}
+
+	pr_info("Sent uffd=%d back to CRIU\n", uffd);
+
+	/* Set success status after fd is sent */
+	args->total_pages = total_pages;
+	args->ret = 0;
+
+	/* Don't close uffd - it will remain open for the process */
+	return 0;
+}
+
 void parasite_cleanup(void)
 {
 	if (mprotect_args) {
@@ -905,6 +1046,9 @@ int parasite_daemon_cmd(int cmd, void *args)
 		break;
 	case PARASITE_CMD_DUMP_CGROUP:
 		ret = parasite_dump_cgroup(args);
+		break;
+	case PARASITE_CMD_COW_DUMP_INIT:
+		ret = parasite_cow_dump_init(args);
 		break;
 	default:
 		pr_err("Unknown command in parasite daemon thread leader: %d\n", cmd);
