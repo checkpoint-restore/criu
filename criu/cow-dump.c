@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <string.h>
+#include <poll.h>
 
 #include "types.h"
 #include "cr_options.h"
@@ -403,19 +404,43 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 {
 	struct uffd_msg msg;
-	int ret;
-	//int flags = blocking ? MSG_WAITALL : MSG_DONTWAIT;
+	struct pollfd pfd;
+	int ret, poll_ret;
 
 	while (1) {
 		/* Check and print stats */
 		check_and_print_cow_stats();
+		
+		/* Try reading directly first - avoids poll() overhead when data is ready */
 		ret = read(cdi->uffd, &msg, sizeof(msg));
+		
+		if (ret < 0 && errno == EAGAIN && blocking) {
+			/* No data available and we want to block - use poll() with timeout */
+			pfd.fd = cdi->uffd;
+			pfd.events = POLLIN;
+			pfd.revents = 0;
+			
+			poll_ret = poll(&pfd, 1, 500);  /* 500ms timeout */
+			if (poll_ret < 0) {
+				pr_perror("poll() failed on uffd");
+				cow_stats.read_errors++;
+				return -1;
+			}
+			
+			if (poll_ret == 0) {
+				/* Timeout - no events within 500ms */
+				return 0;
+			}
+			
+			/* Data ready after poll - retry read */
+			ret = read(cdi->uffd, &msg, sizeof(msg));
+		}
+		
 		if (ret < 0) {
-
-			if (errno == EAGAIN && !blocking){			
-				
+			if (errno == EAGAIN && !blocking) {
+				/* Non-blocking mode and no data */
 				cow_stats.eagain_errors++;
-				return 0; /* No more events */
+				return 0;
 			}
 			pr_perror("Failed to read uffd event");
 			cow_stats.read_errors++;
@@ -464,7 +489,7 @@ static void *cow_monitor_thread(void *arg)
 	
 	pr_info("COW monitor thread started\n");
 	
-	while (g_cow_info->total_pages != 0) {
+	while (!g_stop_monitoring) {
 		
 
 		/* Process events with short timeout */
