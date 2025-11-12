@@ -954,6 +954,7 @@ static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsi
 	return 0;
 }
 
+static int xfer_pages(struct lazy_pages_info *lpi);
 /*
  * Aggressively refill pipeline to maximum capacity.
  * Called immediately when a response arrives to keep pipeline saturated.
