@@ -493,7 +493,7 @@ static void *cow_monitor_thread(void *arg)
 		
 
 		/* Process events with short timeout */
-		if (cow_process_events(cdi, false) < 0) {
+		if (cow_process_events(cdi, true) < 0) {
 			pr_err("Error processing COW events in monitor thread\n");
 			break;
 		}
