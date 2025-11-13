@@ -1670,6 +1670,7 @@ no_server:
 		close_safe(&sk);
 		return -1;
 	}
+	pr_warn("PAGE SERVER READY TO SERVE\n");
 	pr_info("function = %s file = %s, line = %d ask = %d\n",__FUNCTION__, __FILE__, __LINE__, ask);
 
 	if (ask >= 0)
