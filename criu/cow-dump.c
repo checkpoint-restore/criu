@@ -488,7 +488,8 @@ static void *cow_monitor_thread(void *arg)
 	struct cow_dump_info *cdi = (struct cow_dump_info *)arg;
 	
 	pr_info("COW monitor thread started\n");
-	
+	pr_warn("PAGE SERVER READY TO SERVE\n");
+
 	while (!g_stop_monitoring) {
 		
 
