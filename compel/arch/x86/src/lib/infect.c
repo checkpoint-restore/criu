@@ -761,7 +761,7 @@ bool __compel_shstk_enabled(user_fpregs_struct_t *ext_regs)
 	return false;
 }
 
-int parasite_setup_shstk(struct parasite_ctl *ctl, user_fpregs_struct_t *ext_regs)
+int parasite_setup_shstk(struct parasite_ctl *ctl, __maybe_unused user_fpregs_struct_t *ext_regs)
 {
 	pid_t pid = ctl->rpid;
 	unsigned long sa_restorer = ctl->parasite_ip;

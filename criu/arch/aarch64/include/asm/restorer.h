@@ -5,6 +5,7 @@
 #include <sys/ucontext.h>
 
 #include "asm/types.h"
+#include "asm/gcs.h"
 #include "images/core.pb-c.h"
 
 #include <compel/asm/sigframe.h>
