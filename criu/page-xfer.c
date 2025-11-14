@@ -1213,7 +1213,9 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
 
-	/* Step 1: Read pages metadata from page_pipe */
+	/* page_pipe_read() uses 'unsigned long *' but pi->nr_pages is u64.
+	 * Use a temporary variable to fix the incompatible pointer type
+	 * on 32-bit platforms (e.g. armv7). */
 	nr_pages = pi->nr_pages;
 	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr, &nr_pages, PPB_LAZY);
 	if (ret) {
@@ -1231,7 +1233,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	len = pi->nr_pages * PAGE_SIZE;
 	ps_stats.get_total_pages += pi->nr_pages;
 
-	/* Step 2: Single-pass lookup - collect all COW pages */
+	/* Single-pass lookup - collect all COW pages */
 	cow_pages = xzalloc(pi->nr_pages * sizeof(struct cow_page *));
 	if (!cow_pages) {
 		pr_err("Failed to allocate COW pages array\n");
@@ -1246,7 +1248,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 			cow_count++;
 	}
 
-	/* Step 3: Send response header */
+	/*  Send response header */
 	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
 	if (send_psi(sk, pi)) {
 		xfree(cow_pages);
@@ -1254,7 +1256,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 		return -1;
 	}
 
-	/* Step 4: Choose fast or slow path based on COW presence */
+	/* Choose fast or slow path based on COW presence */
 	if (cow_count == 0) {
 		/* FAST PATH: Zero-copy splice from pipe to socket */
 		pr_debug("Zero-copy path: splicing %lu pages directly\n", pi->nr_pages);
@@ -1409,17 +1411,14 @@ static int page_server_serve(int sk)
 
 		switch (cmd) {
 		case PS_IOV_OPEN:
-			pr_info("function = %s file = %s, line = %d PS_IOV_OPEN\n",__FUNCTION__, __FILE__, __LINE__);
 			ps_stats.serve_open++;
 			ret = page_server_open(-1, &pi);
 			break;
 		case PS_IOV_OPEN2:
-			pr_info("function = %s file = %s, line = %d PS_IOV_OPEN2\n",__FUNCTION__, __FILE__, __LINE__);
 			ps_stats.serve_open2++;
 			ret = page_server_open(sk, &pi);
 			break;
 		case PS_IOV_PARENT:
-			pr_info("function = %s file = %s, line = %d PS_IOV_PARENT\n",__FUNCTION__, __FILE__, __LINE__);
 			ps_stats.serve_parent++;
 			ret = page_server_check_parent(sk, &pi);
 			break;
@@ -1430,17 +1429,14 @@ static int page_server_serve(int sk)
 			
 			if (likely(cmd == PS_IOV_ADD_F)) {
 				flags = decode_ps_flags(pi.cmd);
-				pr_info("function = %s file = %s, line = %d PS_IOV_ADD_F\n",__FUNCTION__, __FILE__, __LINE__);
 				ps_stats.serve_add_f++;
 			}
 			else if (cmd == PS_IOV_ADD){
-				pr_info("function = %s file = %s, line = %d PS_IOV_ADD\n",__FUNCTION__, __FILE__, __LINE__);
 				flags = PE_PRESENT;
 				ps_stats.serve_add++;
 			}
 			else /* PS_IOV_HOLE */
 			{
-				pr_info("function = %s file = %s, line = %d PS_IOV_HOLE\n",__FUNCTION__, __FILE__, __LINE__);
 				flags = PE_PARENT;
 				ps_stats.serve_hole++;
 			}
@@ -1453,7 +1449,6 @@ static int page_server_serve(int sk)
 			int32_t status = 0;
 
 			ret = 0;
-			pr_info("function = %s file = %s, line = %d PS_IOV_CLOSE\n",__FUNCTION__, __FILE__, __LINE__);
 			
 			if (cmd == PS_IOV_CLOSE)
 				ps_stats.serve_close++;
@@ -1473,7 +1468,6 @@ static int page_server_serve(int sk)
 			break;
 		}
 		case PS_IOV_GET:
-			pr_info("function = %s file = %s, line = %d PS_IOV_GET\n",__FUNCTION__, __FILE__, __LINE__);
 			ps_stats.serve_get++;
 			ret = page_server_get_pages(sk, &pi);
 			break;
@@ -1622,26 +1616,21 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	int ask = -1;
 	int sk = -1;
 	int ret;
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (init_stats(DUMP_STATS))
 		return -1;
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (!opts.lazy_pages)
 		up_page_ids_base();
 	else if (!lazy_dump)
 		if (page_server_init_send())
 			return -1;
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (opts.ps_socket != -1) {
 		ask = opts.ps_socket;
 		pr_info("Reusing ps socket %d\n", ask);
 		goto no_server;
 	}
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	sk = setup_tcp_server("page", opts.addr, &opts.port);
 	if (sk == -1)
@@ -1659,23 +1648,18 @@ no_server:
 			exit(1);
 		}
 	}
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	ret = run_tcp_server(daemon_mode, &ask, cfd, sk);
 	if (ret != 0)
 		return ret > 0 ? 0 : -1;
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (tls_x509_init(ask, true)) {
 		close_safe(&sk);
 		return -1;
 	}
-	pr_info("function = %s file = %s, line = %d ask = %d\n",__FUNCTION__, __FILE__, __LINE__, ask);
 
 	if (ask >= 0)
 		ret = page_server_serve(ask);
-	// Kill COW thread
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (daemon_mode)
 		exit(ret);

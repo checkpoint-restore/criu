@@ -290,15 +290,13 @@ prep_dump_pages_args(struct parasite_ctl *ctl, struct vm_area_list *vma_area_lis
 	struct parasite_dump_pages_args *args;
 	struct parasite_vma_entry *p_vma;
 	struct vma_area *vma;
-	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	args = compel_parasite_args_s(ctl, dump_pages_args_size(vma_area_list));
-pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	p_vma = pargs_vmas(args);
-	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	args->nr_vmas = 0;
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
-		pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
 		/*
@@ -319,12 +317,10 @@ pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__)
 		p_vma->start = vma->e->start;
 		p_vma->len = vma_area_len(vma);
 		p_vma->prot = vma->e->prot;
-		pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 
 		args->nr_vmas++;
 		p_vma++;
 	}
-		pr_info("parasite_dump_pages_seized file = %s, line = %d args->nr_vmas=%u\n", __FILE__, __LINE__,args->nr_vmas);
 
 	return args;
 }
@@ -333,7 +329,6 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 {
 	struct page_pipe_buf *ppb;
 	int ret = 0;
-	pr_info("drain_pages file = %s, line = %d\n", __FILE__, __LINE__);
 
 	debug_show_page_pipe(pp);
 
@@ -343,20 +338,15 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 		args->nr_pages = ppb->pages_in;
 		pr_debug("PPB: %ld pages %d segs %u pipe %d off\n", args->nr_pages, args->nr_segs, ppb->pipe_size,
 			 args->off);
-		pr_info("drain_pages file = %s, line = %d\n", __FILE__, __LINE__);
+
 		ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
-		pr_info("drain_pages file = %s, line = %d ret=%d\n", __FILE__, __LINE__, ret);
 		if (ret < 0)
 			return -1;
-		pr_info("drain_pages file = %s, line = %d\n", __FILE__, __LINE__);
-
 		ret = compel_util_send_fd(ctl, ppb->p[1]);
-		pr_info("drain_pages file = %s, line = %d ret=%d\n", __FILE__, __LINE__, ret);
 		if (ret)
 			return -1;
 
 		ret = compel_rpc_sync(PARASITE_CMD_DUMPPAGES, ctl);
-		pr_info("drain_pages file = %s, line = %d ret=%d\n", __FILE__, __LINE__, ret);
 		if (ret < 0)
 			return -1;
 
@@ -553,18 +543,16 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 
 	timing_start(TIME_MEMDUMP);
 
-	pr_info("   Private vmas %lu/%lu pages\n", vma_area_list->nr_priv_pages_longest, vma_area_list->nr_priv_pages);
+	pr_debug("   Private vmas %lu/%lu pages\n", vma_area_list->nr_priv_pages_longest, vma_area_list->nr_priv_pages);
 
 	/*
 	 * Step 0 -- prepare
 	 */
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	pmc_size = max(vma_area_list->nr_priv_pages_longest, vma_area_list->nr_shared_pages_longest);
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d pmc_size=%lu\n", __FILE__, __LINE__,pmc_size);
-	
 	if (pmc_init(&pmc, item->pid->real, &vma_area_list->h, pmc_size * PAGE_SIZE))
 		return -1;
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (!(mdc->pre_dump || mdc->lazy))
 		/*
 		 * Chunk mode pushes pages portion by portion. This mode
@@ -575,7 +563,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pp = create_page_pipe(vma_area_list->nr_priv_pages, mdc->lazy ? NULL : pargs_iovs(args), cpp_flags);
 	if (!pp)
 		goto out;
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (!mdc->pre_dump) {
 		/*
 		 * Regular dump -- create xfer object and send pages to it
@@ -595,13 +583,13 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		if (ret)
 			xfer.parent = NULL + 1;
 	}
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (xfer.parent) {
 		possible_pid_reuse = detect_pid_reuse(item, mdc->stat, mdc->parent_ie);
 		if (possible_pid_reuse == -1)
 			goto out_xfer;
 	}
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/*
 	 * Step 1 -- generate the pagemap
 	 */
@@ -619,10 +607,9 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		if (ret < 0)
 			goto out_xfer;
 	}
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/*
 	 * Faking drain_pages for pre-dump here. Actual drain_pages for pre-dump
@@ -634,14 +621,14 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		ret = 0;
 	else
 		ret = drain_pages(pp, ctl, args);
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
 	if (ret)
 		goto out_xfer;
 
 	timing_stop(TIME_MEMDUMP);
-	pr_info("__parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/*
 	 * Step 4 -- clean up
 	 */
@@ -669,9 +656,9 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 {
 	int ret;
 	struct parasite_dump_pages_args *pargs;
-	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
+
 	pargs = prep_dump_pages_args(ctl, vma_area_list, mdc->pre_dump);
-	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);	
+
 	/*
 	 * Add PROT_READ protection for all VMAs we're about to
 	 * dump if they don't have one. Otherwise we'll not be
@@ -711,19 +698,15 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 	 * 9. syscall fails to copy
 	 *    data from M
 	 */
-	pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 	
 	if ((pargs->nr_vmas != 0) &&(!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE)) {
 		pargs->add_prot = PROT_READ;
-			pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
-
 		ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
 		if (ret) {
 			pr_err("Can't dump unprotect vmas with parasite\n");
 			return ret;
 		}
 	}
-		pr_info("parasite_dump_pages_seized file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (fault_injected(FI_DUMP_PAGES)) {
 		pr_err("fault: Dump VMA pages failure!\n");

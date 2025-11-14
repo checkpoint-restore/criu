@@ -1711,43 +1711,39 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	mdc.stat = &pps_buf;
 	mdc.parent_ie = parent_ie;
 
-	
-	
 	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 	if (ret)
 		goto err_cure;
-	
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump sigactions (pid: %d) with parasite\n", pid);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = parasite_dump_itimers_seized(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump itimers (pid: %d)\n", pid);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = parasite_dump_posix_timers_seized(&proc_args, parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump posix timers (pid: %d)\n", pid);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_core_all(parasite_ctl, item, &pps_buf, cr_imgset, &misc);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_cgroup(parasite_ctl, item);
 	if (ret) {
 		pr_err("Dump cgroup of threads in process (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (opts.cow_dump) {
 		/* COW dump mode: split VMAs by size */
@@ -1765,26 +1761,23 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		}
 	}
 	
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+	
 	ret = compel_stop_daemon(parasite_ctl);
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (ret) {
 		pr_err("Can't stop daemon in parasite (pid: %d)\n", pid);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_threads(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump threads\n");
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/*
 	 * On failure local map will be cured in cr_dump_finish()
 	 * for lazy pages.
 	 */
-
-	 
 	if (opts.lazy_pages)
 		ret = compel_cure_remote(parasite_ctl);
 	else
@@ -1793,20 +1786,19 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 		goto err;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_mm(pid, &pps_buf, &misc, &vmas, cr_imgset);
 	if (ret) {
 		pr_err("Dump mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_fs(pid, &misc, cr_imgset);
 	if (ret) {
 		pr_err("Dump fs (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
-	
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	exit_code = 0;
 err:
 	close_cr_imgset(&cr_imgset);
@@ -2049,7 +2041,6 @@ static int cr_lazy_mem_dump(void)
 
 	pr_info("Starting lazy pages server\n");
 	ret = cr_page_server(false, true, -1);
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	for_each_pstree_item(item) {
 		if (item->pid->state != TASK_DEAD) {
@@ -2070,7 +2061,7 @@ static int cr_lazy_mem_dump(void)
 static int cr_dump_finish(int ret)
 {
 	int post_dump_ret = 0;
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (disconnect_from_page_server())
 		ret = -1;
 
@@ -2126,7 +2117,7 @@ static int cr_dump_finish(int ret)
 		delete_link_remaps();
 		clean_cr_time_mounts();
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/* Resume process early if using COW dump with lazy pages */
 	if (!ret && opts.lazy_pages && opts.cow_dump) {
 		pr_info("Resuming process with COW protection active\n");
@@ -2292,18 +2283,16 @@ int cr_dump_tasks(pid_t pid)
 
 	if (collect_and_suspend_lsm() < 0)
 		goto err;
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
+
 	for_each_pstree_item(item) {
 		if (dump_one_task(item, parent_ie))
 			goto err;
 	}
-		pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (parent_ie) {
 		inventory_entry__free_unpacked(parent_ie, NULL);
 		parent_ie = NULL;
 	}
-		pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	/*
 	 * It may happen that a process has completed but its files in
@@ -2313,34 +2302,22 @@ int cr_dump_tasks(pid_t pid)
 	 */
 	if (dead_pid_conflict())
 		goto err;
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	/* MNT namespaces are dumped after files to save remapped links */
 	if (dump_mnt_namespaces() < 0)
 		goto err;
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (dump_file_locks())
 		goto err;
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (dump_verify_tty_sids())
 		goto err;
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (dump_zombies())
 		goto err;
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (dump_pstree(root_item))
 		goto err;
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	/*
 	 * TODO: cr_dump_shmem has to be called before dump_namespaces(),
@@ -2351,29 +2328,21 @@ int cr_dump_tasks(pid_t pid)
 	ret = cr_dump_shmem();
 	if (ret)
 		goto err;
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (root_ns_mask) {
 		ret = dump_namespaces(root_item, root_ns_mask);
 		if (ret)
 			goto err;
 	}
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if ((root_ns_mask & CLONE_NEWTIME) == 0) {
 		ret = dump_time_ns(0);
 		if (ret)
 			goto err;
 	}
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	if (dump_aa_namespaces() < 0)
 		goto err;
-
-
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	ret = dump_cgroups();
 	if (ret)
@@ -2382,14 +2351,10 @@ int cr_dump_tasks(pid_t pid)
 	ret = fix_external_unix_sockets();
 	if (ret)
 		goto err;
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	ret = tty_post_actions();
 	if (ret)
 		goto err;
-
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	ret = inventory_save_uptime(&he);
 	if (ret)
@@ -2401,19 +2366,12 @@ int cr_dump_tasks(pid_t pid)
 		he.allow_uprobes = true;
 	}
 
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
-
 	ret = write_img_inventory(&he);
 	if (ret)
 		goto err;
-
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
-
 err:
 	if (parent_ie)
 		inventory_entry__free_unpacked(parent_ie, NULL);
-	
-	pr_info("function = %s file = %s, line = %d\n",__FUNCTION__, __FILE__, __LINE__);
 
 	return cr_dump_finish(ret);
 }

@@ -1330,8 +1330,6 @@ static int kerndat_uffd(void)
 		return 0;
 
 	kdat.uffd_features = 0;
-	pr_info("uffd_open file = %s, line = %d\n", __FILE__, __LINE__);
-
 	uffd = uffd_open(0, &kdat.uffd_features, &err);
 
 	/*

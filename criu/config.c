@@ -672,7 +672,6 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "external", required_argument, 0, 1073 },
 		{ "empty-ns", required_argument, 0, 1074 },
 		{ "lazy-pages", no_argument, 0, 1076 },
-		{ "cow-dump", no_argument, 0, 1101 },
 		BOOL_OPT("extra", &opts.check_extra_features),
 		BOOL_OPT("experimental", &opts.check_experimental_features),
 		{ "all", no_argument, 0, 1079 },
@@ -706,6 +705,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		BOOL_OPT("unprivileged", &opts.unprivileged),
 		BOOL_OPT("ghost-fiemap", &opts.ghost_fiemap),
 		BOOL_OPT(OPT_ALLOW_UPROBES, &opts.allow_uprobes),
+		{ "cow-dump", no_argument, 0, 1105 },
 		{},
 	};
 
@@ -943,9 +943,6 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		case 1076:
 			opts.lazy_pages = true;
 			break;
-		case 1101:
-			opts.cow_dump = true;
-			break;
 		case 'M': {
 			char *aux;
 
@@ -1048,6 +1045,9 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 				pr_err("Invalid value for --network-lock: %s\n", optarg);
 				return 1;
 			}
+			break;
+		case 1105:
+			opts.cow_dump = true;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
