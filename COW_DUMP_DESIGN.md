@@ -3,19 +3,17 @@
 
 ## Introduction
 This feature implements COW (Copy-On-Write) based live migration for CRIU, enabling process duplication to remote instances to achieve the goal of: 
-1. Minimized downtime at the source 
-2. Making the destintion alive ASAP like in the current design of lazy dump.
+1. Minimized downtime at the source. 
+2. Making the destination alive ASAP like in the current design of lazy dump.
 3. Transfer the data in high speed to complete the process soon and reduce the amount of COW operations.
    
    
-The approach uses userfaultfd write-protection to track memory modifications while the process continues running at the source and the destination is loaded same as in the lazy dump implementation. It overcome the main issue with the lazy dump is that the source is not freezed during the dump.
+The approach uses userfaultfd write-protection to track memory modifications while the process continues running at the source and the destination is loaded same as in the lazy dump implementation. It overcomes the main issue with the lazy dump where the source is frozen during the dump.
 
 ## Architecture Overview
 
-### Data Flow
+### Data Flow Source
 
-**VMA List (writable)**
-    ↓
 
 **Phase 1: Setup via Parasite RPC**
   - Create userfaultfd in target process
@@ -24,16 +22,14 @@ The approach uses userfaultfd write-protection to track memory modifications whi
   - Send userfaultfd back to CRIU
   - Create Monitor thread to get write faults events
   - Process resumes with COW protection active
-    ↓
 
 **Phase 2: Monitor Thread (Background)**
   - read() from userfaultfd (blocking)
   - On write fault:
-    1. Read page from pipe
+    1. Read page from /proc/pid/mem (before modification)
     2. Copy the page and store it in hash table
     3. Unprotect page
     4. Wake faulting thread at the source process
-    ↓
 
 **Phase 3: Page Transfer (page_server_get_pages)**
   - Lookup COW pages in hash table
@@ -41,16 +37,13 @@ The approach uses userfaultfd write-protection to track memory modifications whi
   - Slow path: COW present → buffer + overlay
   - Bulk unprotect after transfer
 
----
+#### Detailed design source
 
-## Detailed Component Design
+##### 1. cow-dump.c (CRIU-side Coordinator)
 
-### 1. cow-dump.c (CRIU-side Coordinator)
-
-#### Purpose
 Main coordinator for COW tracking on the CRIU side. Manages the lifecycle of COW dump operations.
 
-#### Key Data Structures
+*Key Data Structures*
 
 ```c
 /* Per-process COW dump state */
@@ -63,7 +56,7 @@ struct cow_dump_info {
     
     /* Hash table: 65K buckets for O(1) lookup */
     struct hlist_head cow_hash[COW_HASH_SIZE];  /* 2^16 buckets */
-    pthread_spinlock_t cow_hash_locks[COW_HASH_SIZE];
+    pthread_spinlock_t cow_hash_locks[COW_HASH_SIZE]; //Lock for each hash entry to have fine grain locking.
 };
 
 /* Hash table entry for copied pages */
@@ -76,13 +69,19 @@ struct cow_page {
 #define COW_HASH_SIZE (1 << 16)    /* 65536 buckets */
 ```
 
-#### Key Functions
+*Key Functions*
 
-**cow_dump_init()** - Initialize COW tracking
+**Init- Initialize COW tracking**
 - Opens `/proc/pid/mem` for reading page contents
 - Calls parasite RPC to setup userfaultfd
 - Receives userfaultfd from parasite
 - Initializes hash table and spinlocks
+- Init COW monitoring thread
+
+
+**cow_monitor_thread()** - Background monitoring
+- Continuously reads from userfaultfd
+- Processes write fault events
 
 **cow_handle_write_fault()** - Handle write fault event
 ```
@@ -94,39 +93,42 @@ Input: fault address
 5. Wake faulting thread (UFFDIO_WAKE)
 ```
 
-**cow_monitor_thread()** - Background monitoring
-- Continuously reads from userfaultfd
-- Processes write fault events
-- Handles fork/remap events (logged but not fully supported)
 
 **cow_lookup_and_remove_page()** - Thread-safe page lookup
 - Hash-based O(1) lookup
 - Removes from hash table atomically
+
+##### 2. pie/parasite.c (In-Process Setup)
+
 Runs inside the target process to setup userfaultfd with write-protection.
 
-kv
-#### Why Parasite-Based?
+**Purpose:** The parasite code is injected into the target process and executes in its context to create and configure the userfaultfd.
+
+*Key Function: parasite_cow_dump_init()*
+
+
+**Why Parasite-Based?**
 1. **Context Requirement:** userfaultfd must be created in target process context
 2. **Inheritance:** Automatically inherited by all threads
 3. **Permissions:** Avoids ptrace permission issues
 4. **Atomic Setup:** All VMAs protected before process resumes
 
-### 3. page-xfer.c (Page Server Integration)
 
-#### Purpose
+##### 3. page-xfer.c (Page Server Integration)
+
 Integrates COW tracking with page transfer, overlaying modified pages during transfer.
 
-#### Key Function: page_server_get_pages()
+Key Function: page_server_get_pages()
 
-Step 1: Read pages from page_pipe                      
+Step 1: Read pages from page_pipe
   page_pipe_read(pp, &pipe_read_dest, vaddr, &nr_pages)
 
-Step 2: Check for COW pages (single pass)              
+Step 2: Check for COW pages at the hash table, recall each modified page is stored in the hash table (single pass)              
  for each page:                                         
     cow_pages[i] = cow_lookup_and_remove_page(addr)     
     cow_count = number of non-NULL entries 
 
-Fast path: (cow_count is zero)
+Fast path: (cow_count is zero, same as done today at the current lazy implementation)
 Zero-copy splice: splice(pipe -> sock) 
  No memory copies!  
 
@@ -142,28 +144,10 @@ wp.mode = 0
 ioctl(uffd, UFFDIO_WRITEPROTECT)
 
 
-### 4. uffd.c (Lazy Pages Daemon)
+### Data Flow Destination
 
+No changes where made at the destination and it is almost the same as in the original code. I implemented a single perf improvement that handles lazy page requests from destination with aggressive pipelining.
 
-
-#### Purpose
-Handles lazy page requests from destination with aggressive pipelining.
-
-#### Key Enhancement: Pipeline Control
-
-
-
-```c
-struct lazy_pages_info {
-    // ... existing fields ...
-    
-    /* Pipeline control */
-    unsigned int pipeline_depth;      /* Current in-flight requests */
-    unsigned int max_pipeline_depth;  /* Max: 256 concurrent requests */
-};
-```
-
-**Aggressive Pipelining Strategy:**
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Traditional: Sequential (1 request at a time)           │
