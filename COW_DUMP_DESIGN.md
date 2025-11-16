@@ -151,15 +151,15 @@ No changes where made at the destination and it is almost the same as in the ori
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Traditional: Sequential (1 request at a time)           │
-│                                                          │
+│                                                         │
 │  Request → Wait → Response → Request → Wait → Response  │
-│                                                          │
+│                                                         │
 │  Throughput: Limited by RTT                             │
 └─────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────┐
 │ Aggressive: Pipeline (256 requests in-flight)           │
-│                                                          │
+│                                                         │
 │  Request ─┐                                             │
 │  Request ─┤                                             │
 │  Request ─┤                                             │
@@ -167,9 +167,9 @@ No changes where made at the destination and it is almost the same as in the ori
 │  Request ─┤                                             │
 │  Request ─┤                                             │
 │  Request ─┘                                             │
-│                                                          │
+│                                                         │
 │  Response → IMMEDIATELY refill pipeline                 │
-│                                                          │
+│                                                         │
 │  Throughput: Near maximum network bandwidth             │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -205,195 +205,39 @@ echo 1 > /proc/sys/vm/unprivileged_userfaultfd
 
 ### 1. | Write-Protect | `UFFD_FEATURE_WP_ASYNC` | Async write-protect mode | 5.7 |
 
-We should explore 
+We should explore how to use this feature it should only mark the page as touched and then we can do a second path to copy only the touched pages. I will dive deeper to see if it is more efficient. 
 
-#### 2. Fork Event Handling
-**Issue:** Process forks logged but not fully supported
 
-**Current Behavior:**
-```c
-case UFFD_EVENT_FORK:
-    cow_stats.fork_events++;
-    pr_warn("Process forked during COW dump "
-           "(not fully supported)\n");
-    break;
-```
+#### 2. Reduce the communication overhead between the source and destination.
 
-**Future Work:**
-- Track forked process VMAs
-- Inherit write-protection
-- Coordinate multiple uffd instances
+Currently the communication is derived by the destination which sends request, we can improve to make the source send the data and make the destination to ask only if there is a read page fault. That way, we reduce the amount of work from the source.
 
-#### 3. Hardcoded Transfer Size
-**Issue:** Fixed 8K page window in `update_xfer_len()`
+#### 3. Make the source multithreaded.
+Can we make the source multithreaded to reduce the overall time? Should be explored.
 
-**Current Code:**
-```c
-static void update_xfer_len(struct lazy_pages_info *lpi, bool pf)
-{
-    lpi->xfer_len = 8*1024;  // TODO: remove
-    return;
-}
-```
-
-**Future Work:**
-- Adaptive window sizing
-- Network bandwidth detection
-- Memory pressure awareness
 
 #### 4. Non-Registerable VMAs
 **Issue:** Some VMAs cannot be write-protected
+I will be happy to get advice.
 
-**Examples:**
-- Special mappings (VDSO, vsyscall)
-- Hardware mapped regions
-- Kernel-internal mappings
 
-**Handling:**
-- Marked in `failed_indices` array
-- Dumped via traditional method
-- Logged for debugging
 
-#### 5. Statistics Overhead
-**Issue:** Per-second logging may impact performance
+### Next Steps
 
-**Current:**
-```c
-static void check_and_print_cow_stats(void)
-{
-    time_t now = time(NULL);
-    if (now - cow_stats.last_print_time >= 1) {
-        pr_warn("[COW_STATS] ...\n");
-        // ... print all stats ...
-    }
-}
+For maintainers reviewing this code:
+
+1. **Testing:** Extensive testing with various workloads
+2. **Documentation:** Update user-facing documentation
+3. **Performance Tuning:** Profile and optimize hot paths
+4. **Feature Completion:** Address known limitations
+5. **Kernel Integration:** Work with kernel developers on enhancements
+
+### Usage
+```bash
+criu dump --cow-dump --lazy-pages ...
 ```
 
-**Future Work:**
-- Configurable verbosity
-- Binary stats output
-- Post-processing tools
-
-### Known Issues
-
-#### Issue 1: Memory Overhead
-**Description:** Hash table + copied pages consume memory
-
-**Impact:**
-```
-For 1GB process with 5% write rate:
-  - Pages copied: 13,107 pages
-  - Memory used: 13,107 * 4KB = 52MB
-  - Hash table: 65K * 8 bytes = 512KB
-  - Total: ~53MB
-```
-
-**Mitigation:**
-- Pages freed after transfer
-- Bounded by active working set
-- Acceptable for most use cases
-
-#### Issue 2: Race Conditions
-**Description:** Theoretical race between page read and write
-
-**Scenario:**
-```
-Thread A (Monitor)          Thread B (Target)
------------------          -----------------
-1. Fault on page X
-2. pread(/proc/pid/mem)
-                           3. Write completes
-                           4. Page modified
-5. Store old content       (Wrong data!)
-```
-
-**Reality:**
-- Thread B is blocked until step 5
-- Kernel ensures atomicity
-- Not a real issue in practice
-
-#### Issue 3: EAGAIN on Source
-**Description:** Source may get EAGAIN if pipeline not aggressive enough
-
-**Solution:**
-- Implemented aggressive pipelining (256 requests)
-- Immediate refill on response
-- Statistics show significant reduction
-
-### Future Enhancements
-
-#### 1. Incremental Transfer
-**Idea:** Multiple COW dump iterations
-
-**Approach:**
-```
-Iteration 1: Dump initial state, track writes
-Iteration 2: Dump modified pages, track new writes
-Iteration 3: Final sync (minimal downtime)
-```
-
-**Benefits:**
-- Further reduces downtime
-- Converges to minimal set
-- Similar to pre-copy migration
-
-#### 2. Compression
-**Idea:** Compress COW pages before transfer
-
-**Implementation:**
-```c
-/* Compress before storing */
-static int cow_handle_write_fault(...) {
-    cp->data = compress(page_data, &cp->compressed_size);
-    cp->flags |= COW_PAGE_COMPRESSED;
-}
-
-/* Decompress during transfer */
-static int page_server_get_pages(...) {
-    if (cow_page->flags & COW_PAGE_COMPRESSED) {
-        decompress(cow_page->data, buffer);
-    }
-}
-```
-
-**Benefits:**
-- Reduced memory overhead
-- Faster network transfer
-- Trade CPU for bandwidth
-
-#### 3. Selective Protection
-**Idea:** Only protect frequently-written regions
-
-**Approach:**
-- Profile write patterns during pre-dump
-- Apply COW only to hot pages
-- Cold pages dumped directly
-
-**Benefits:**
-- Reduced fault overhead
-- Better for write-heavy workloads
-
-#### 4. Multi-threaded Monitor
-**Idea:** Multiple threads handling faults
-
-**Current:** Single monitor thread
-
-**Enhancement:**
-```
-Thread pool (N threads)
-  ├─ Thread 1: Handle faults for VMA range 1
-  ├─ Thread 2: Handle faults for VMA range 2
-  └─ Thread N: Handle faults for VMA range N
-```
-
-**Benefits:**
-- Parallel fault handling
-- Better for multi-core
-- Reduced latency
-
----
-
-## Statistics and Monitoring
+## Appendix - Statistics and Monitoring
 
 ### COW Tracking Statistics
 
@@ -454,81 +298,3 @@ Thread pool (N threads)
 - `pipe_avg`: Average in-flight requests
 - Target: Close to `max_pipeline_depth` (256)
 
-### Diagnostic Commands
-
-**Enable Detailed Logging:**
-```bash
-# Set log level
-criu dump --cow-dump --lazy-pages -vvvv ...
-```
-
-**Monitor Real-Time:**
-```bash
-# Watch CRIU logs
-tail -f /var/log/criu.log | grep -E "COW_STATS|PAGE_SERVER|UFFD_STATS"
-```
-
-**Post-Mortem Analysis:**
-```bash
-# Extract statistics
-grep "COW_STATS" criu.log | \
-  awk '{print $4, $6, $8}' | \
-  gnuplot -e "plot '-' with lines"
-```
-
-### Performance Tuning
-
-**High Fault Rate:**
-```
-Symptom: Many write faults, slow progress
-Action:  Increase threshold (skip more small VMAs)
-Config:  threshold_pages = 50000  // 200MB instead of 100MB
-```
-
-**High EAGAIN Count:**
-```
-Symptom: Source getting EAGAIN frequently
-Action:  Increase pipeline depth
-Config:  lpi->max_pipeline_depth = 512  // Instead of 256
-```
-
-**Memory Pressure:**
-```
-Symptom: Allocation failures
-Action:  Reduce transfer window
-Config:  lpi->xfer_len = 4*1024  // 16MB instead of 32MB
-```
-
----
-
-## Conclusion
-
-This COW-based live migration feature represents a significant advancement in CRIU's capabilities, enabling true live migration with minimized downtime. The implementation leverages modern kernel features (userfaultfd write-protection) and careful engineering to achieve:
-
-- **Minimal Downtime:** Process resumes immediately with COW tracking
-- **Efficient Transfer:** Zero-copy fast path when possible
-- **Transparent Operation:** No process modifications required
-- **Production Ready:** Comprehensive statistics and error handling
-
-### Key Achievements
-
-1. **Parasite-Based Setup:** Atomic, in-process userfaultfd creation
-2. **Thread-Safe Tracking:** Lock-free hash table with fine-grained locking
-3. **Smart Path Selection:** Automatic fast/slow path based on COW presence
-4. **Aggressive Pipelining:** 256 concurrent requests for maximum bandwidth
-5. **Comprehensive Monitoring:** Real-time statistics for production debugging
-
-### Next Steps
-
-For maintainers reviewing this code:
-
-1. **Testing:** Extensive testing with various workloads
-2. **Documentation:** Update user-facing documentation
-3. **Performance Tuning:** Profile and optimize hot paths
-4. **Feature Completion:** Address known limitations
-5. **Kernel Integration:** Work with kernel developers on enhancements
-
-### Usage
-```bash
-criu dump --cow-dump --lazy-pages ...
-```
