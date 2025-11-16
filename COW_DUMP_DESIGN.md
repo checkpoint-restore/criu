@@ -5,7 +5,7 @@
 This feature implements COW (Copy-On-Write) based live migration for CRIU, enabling process duplication to remote instances to achieve the goal of: 
 1. Minimized downtime at the source. 
 2. Making the destination alive ASAP like in the current design of lazy dump.
-3. Transfer the data in high speed to complete the process soon and reduce the amount of COW operations.
+3. Transfer the data at high speed to complete the process soon and reduce the amount of COW operations.
    
    
 The approach uses userfaultfd write-protection to track memory modifications while the process continues running at the source and the destination is loaded same as in the lazy dump implementation. It overcomes the main issue with the lazy dump where the source is frozen during the dump.
@@ -128,9 +128,9 @@ Step 2: Check for COW pages at the hash table, recall each modified page is stor
     cow_pages[i] = cow_lookup_and_remove_page(addr)     
     cow_count = number of non-NULL entries 
 
-Fast path: (cow_count is zero, same as done today at the current lazy implementation)
+Fast path: (cow_count is zero, same as in the current lazy implementation)
 Zero-copy splice: splice(pipe -> sock) 
- No memory copies!  
+No memory copies!
 
 
 Slow path:  (cow_count is above zero)
@@ -146,7 +146,7 @@ ioctl(uffd, UFFDIO_WRITEPROTECT)
 
 ### Data Flow Destination
 
-No changes where made at the destination and it is almost the same as in the original code. I implemented a single perf improvement that handles lazy page requests from destination with aggressive pipelining.
+No changes were made at the destination and it is almost the same as in the original code. I implemented a single performance improvement that handles lazy page requests from destination with aggressive pipelining.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -201,23 +201,24 @@ echo 1 > /proc/sys/vm/unprivileged_userfaultfd
 
 ---
 
-##  Future Work
+## Future Work
 
-### 1. | Write-Protect | `UFFD_FEATURE_WP_ASYNC` | Async write-protect mode | 5.7 |
+#### 1. Explore UFFD_FEATURE_WP_ASYNC
 
-We should explore how to use this feature it should only mark the page as touched and then we can do a second path to copy only the touched pages. I will dive deeper to see if it is more efficient. 
+We should explore how to use this feature. It should only mark the page as touched and then we can do a second pass to copy only the touched pages. I will dive deeper to see if it is more efficient.
 
+#### 2. Reduce communication overhead between source and destination
 
-#### 2. Reduce the communication overhead between the source and destination.
+Currently the communication is driven by the destination which sends requests. We can improve this by making the source send the data and the destination only asks if there is a read page fault. That way, we reduce the amount of work from the source.
 
-Currently the communication is derived by the destination which sends request, we can improve to make the source send the data and make the destination to ask only if there is a read page fault. That way, we reduce the amount of work from the source.
+#### 3. Make the source multithreaded
 
-#### 3. Make the source multithreaded.
 Can we make the source multithreaded to reduce the overall time? Should be explored.
 
-
 #### 4. Non-Registerable VMAs
-**Issue:** Some VMAs cannot be write-protected
+
+**Issue:** Some VMAs cannot be write-protected.
+
 I will be happy to get advice.
 
 
@@ -226,11 +227,10 @@ I will be happy to get advice.
 
 For maintainers reviewing this code:
 
-1. **Testing:** Extensive testing with various workloads
+1. **Testing:** Extensive testing with various workloads + add regression tests.
 2. **Documentation:** Update user-facing documentation
-3. **Performance Tuning:** Profile and optimize hot paths
-4. **Feature Completion:** Address known limitations
-5. **Kernel Integration:** Work with kernel developers on enhancements
+3. **Performance Tuning:** Try differnt techniques discussed at the Future Work section.
+
 
 ### Usage
 ```bash
@@ -297,4 +297,3 @@ criu dump --cow-dump --lazy-pages ...
 **Pipeline Depth:**
 - `pipe_avg`: Average in-flight requests
 - Target: Close to `max_pipeline_depth` (256)
-
