@@ -866,10 +866,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	unsigned long addr, len;
 	unsigned long total_pages = 0;
 	unsigned int *failed_indices;
-	unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
-	/*unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
-				 UFFD_FEATURE_EVENT_FORK |
-				 UFFD_FEATURE_EVENT_REMAP;*/
+
 
 	pr_info("COW dump init: registering %d VMAs\n", args->nr_vmas);
 	
@@ -914,10 +911,6 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 
 		pr_info("Registering VMA %d: %lx-%lx prot=%x len=%lu\n",
 			i, addr, addr + len, vma->prot, len);
-
-		if (((len / PAGE_SIZE) < threshold_pages)){
-			pr_info("Skipping small VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
-		}
 
 		/* Skip non-writable VMAs */
 		if (!(vma->prot & PROT_WRITE)) {
