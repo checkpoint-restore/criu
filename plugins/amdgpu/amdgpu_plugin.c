@@ -33,11 +33,8 @@
 #include "criu-log.h"
 #include "files.h"
 #include "pstree.h"
-<<<<<<< HEAD
-=======
 #include "sockets.h"
 #include "rst-malloc.h"
->>>>>>> upstream/criu-dev
 
 #include "common/list.h"
 #include "amdgpu_drm.h"
@@ -71,8 +68,6 @@ bool plugin_added_to_inventory = false;
 
 bool plugin_disabled = false;
 
-<<<<<<< HEAD
-=======
 struct handle_id {
 	int handle;
 	int fdstore_id;
@@ -86,7 +81,6 @@ struct shared_handle_ids *shared_memory = NULL;
 static mutex_t *shared_memory_mutex;
 
 int current_pid;
->>>>>>> upstream/criu-dev
 /*
  * In the case of a single process (common case), this optimization can effectively
  * reduce the restore latency with parallel restore. In the case of multiple processes,
@@ -1818,11 +1812,8 @@ int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 	size_t img_size;
 	FILE *img_fp = NULL;
 
-<<<<<<< HEAD
-=======
 	*retry_needed = false;
 
->>>>>>> upstream/criu-dev
 	if (plugin_disabled)
 		return -ENOTSUP;
 
@@ -2185,16 +2176,6 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, amdgpu_plugin_resume_devices_late)
 
-<<<<<<< HEAD
-int sdma_copy_bo_helper(uint64_t size, int fd, FILE *storage_fp, void *buffer, size_t buffer_size,
-			amdgpu_device_handle h_dev, uint64_t max_copy_size, enum sdma_op_type type)
-{
-	return sdma_copy_bo((struct kfd_criu_bo_bucket){ 0, size, 0, 0, 0, 0, fd, 0 }, storage_fp, buffer,
-			    buffer_size, h_dev, max_copy_size, SDMA_OP_VRAM_WRITE);
-}
-
-=======
->>>>>>> upstream/criu-dev
 int init_dev(int dev_minor, amdgpu_device_handle *h_dev, uint64_t *max_copy_size)
 {
 	int ret = 0;
@@ -2303,15 +2284,10 @@ void *parallel_restore_bo_contents(void *_thread_data)
 
 		entry = &restore_cmd->entries[i];
 		fseek(bo_contents_fp, entry->read_offset + offset, SEEK_SET);
-<<<<<<< HEAD
-		ret = sdma_copy_bo_helper(entry->size, restore_cmd->fds_write[entry->write_id], bo_contents_fp, buffer,
-					  buffer_size, h_dev, max_copy_size, SDMA_OP_VRAM_WRITE);
-=======
 		ret = sdma_copy_bo(restore_cmd->fds_write[entry->write_id], entry->size, bo_contents_fp,
 				   buffer, buffer_size, h_dev,
 				   max_copy_size, SDMA_OP_VRAM_WRITE, false);
 
->>>>>>> upstream/criu-dev
 		if (ret) {
 			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
 			goto err_sdma;

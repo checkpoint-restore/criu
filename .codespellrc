@@ -1,7 +1,3 @@
 [codespell]
-<<<<<<< HEAD
-skip = ./.git,./test/pki,./tags
-=======
 skip = ./.git,./test/pki,./tags,./plugins/amdgpu/amdgpu_drm.h,./plugins/amdgpu/drm.h,./plugins/amdgpu/drm_mode.h
->>>>>>> upstream/criu-dev
 ignore-words-list = creat,fpr,fle,ue,bord,parms,nd,te,testng,inh,wronly,renderd,bui,clen,sems

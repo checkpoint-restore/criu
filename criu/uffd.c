@@ -953,7 +953,6 @@ static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsi
 	return 0;
 }
 
-<<<<<<< HEAD
 static int xfer_pages(struct lazy_pages_info *lpi);
 /*
  * Aggressively refill pipeline to maximum capacity.
@@ -974,8 +973,7 @@ static int refill_pipeline(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-=======
->>>>>>> upstream/criu-dev
+
 static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *nr_pages)
 {
 	struct uffdio_copy uffdio_copy;

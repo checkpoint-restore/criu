@@ -808,8 +808,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (setup_logging_from_req(req, output_changed_by_rpc_conf))
 		goto err;
 
-<<<<<<< HEAD
-=======
 	if (check_caps())
 		goto err;
 
@@ -820,7 +818,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_pidfd_store_sk && init_pidfd_store_sk(ids.pid, req->pidfd_store_sk))
 		goto err;
 
->>>>>>> upstream/criu-dev
 	if (req->mntns_compat_mode)
 		opts.mntns_compat_mode = true;
 
