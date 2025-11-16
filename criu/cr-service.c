@@ -439,12 +439,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_unprivileged)
 		opts.unprivileged = req->unprivileged;
 
-	if (check_caps())
-		return 1;
-
-	if (kerndat_init())
-		return 1;
-
 	if (log_keep_err()) {
 		pr_perror("Can't tune log");
 		goto err;
@@ -738,9 +732,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		}
 	}
 
-	if (req->has_pidfd_store_sk && init_pidfd_store_sk(ids.pid, req->pidfd_store_sk))
-		goto err;
-
 	if (req->orphan_pts_master)
 		opts.orphan_pts_master = true;
 
@@ -815,6 +806,16 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	/* initiate log file in work dir */
 	if (setup_logging_from_req(req, output_changed_by_rpc_conf))
+		goto err;
+
+	if (check_caps())
+		goto err;
+
+	if (kerndat_init())
+		goto err;
+
+	/* init_pidfd_store_sk must be called after kerndat_init. */
+	if (req->has_pidfd_store_sk && init_pidfd_store_sk(ids.pid, req->pidfd_store_sk))
 		goto err;
 
 	if (req->mntns_compat_mode)

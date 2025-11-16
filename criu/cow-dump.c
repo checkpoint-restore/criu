@@ -8,6 +8,9 @@
 #include <errno.h>
 #include <linux/userfaultfd.h>
 #include <pthread.h>
+#include <time.h>
+#include <string.h>
+#include <poll.h>
 
 #include "types.h"
 #include "cr_options.h"
@@ -37,9 +40,8 @@ struct cow_dump_info {
 	unsigned long dirty_pages_dumped;	/* Pages already written to disk */
 	unsigned long iteration;		/* Current iteration number */
 	struct list_head dirty_list;		/* List of dirty page ranges */
-	struct page_xfer xfer;			/* Page transfer context */
-	struct page_pipe *pp;			/* Page pipe for batching writes */
-	bool xfer_initialized;			/* Whether xfer was opened */
+	struct hlist_head cow_hash[COW_HASH_SIZE];	/* Hash table for copied pages */
+	pthread_spinlock_t cow_hash_locks[COW_HASH_SIZE];	/* Per-bucket spinlocks */
 };
 
 /* Dirty page range */
@@ -56,6 +58,56 @@ static volatile bool g_stop_monitoring = false;
 #define COW_MAX_ITERATIONS 10
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
 #define COW_FLUSH_THRESHOLD 1000       /* Flush to disk every 1000 pages */
+
+/* Statistics tracking structure */
+static struct {
+	/* Event counters */
+	unsigned long write_faults;
+	unsigned long fork_events;
+	unsigned long remap_events;
+	unsigned long unknown_events;
+	
+	/* Operation counters */
+	unsigned long pages_copied;
+	unsigned long pages_unprotected;
+	unsigned long pages_woken;
+	
+	/* Error counters */
+	unsigned long alloc_failures;
+	unsigned long read_failures;
+	unsigned long unprotect_failures;
+	unsigned long wake_failures;
+	unsigned long eagain_errors;
+	unsigned long read_errors;
+	
+	time_t last_print_time;
+} cow_stats;
+
+static void check_and_print_cow_stats(void)
+{
+	time_t now = time(NULL);
+	
+	if (now - cow_stats.last_print_time >= 1) {
+		pr_warn("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu eagain_err=%lu\n",
+			cow_stats.write_faults,
+			cow_stats.fork_events,
+			cow_stats.remap_events,
+			cow_stats.unknown_events,
+			cow_stats.pages_copied,
+			cow_stats.pages_unprotected,
+			cow_stats.pages_woken,
+			cow_stats.alloc_failures,
+			cow_stats.read_failures,
+			cow_stats.unprotect_failures,
+			cow_stats.wake_failures,
+			cow_stats.read_errors,
+			cow_stats.eagain_errors);
+		
+		/* Reset all counters */
+		memset(&cow_stats, 0, sizeof(cow_stats));
+		cow_stats.last_print_time = now;
+	}
+}
 
 bool cow_check_kernel_support(void)
 {
@@ -133,6 +185,12 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	INIT_LIST_HEAD(&cdi->dirty_list);
 	cdi->uffd = -1; /* Will be received from parasite */
 
+	/* Initialize hash table for COW pages */
+	for (int i = 0; i < COW_HASH_SIZE; i++) {
+		INIT_HLIST_HEAD(&cdi->cow_hash[i]);
+		pthread_spin_init(&cdi->cow_hash_locks[i], PTHREAD_PROCESS_PRIVATE);
+	}
+
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
 	if (cdi->proc_mem_fd < 0)
@@ -204,26 +262,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	cdi->total_pages = args->total_pages;
 	cdi->dirty_pages_dumped = 0;
-	cdi->xfer_initialized = false;
-	
-	/* Initialize page_xfer for writing pages to disk */
-	ret = open_page_xfer(&cdi->xfer, CR_FD_PAGEMAP, vpid(item));
-	if (ret < 0) {
-		pr_err("Failed to open page_xfer\n");
-		close(cdi->uffd);
-		goto err_close_mem;
-	}
-	cdi->xfer_initialized = true;
-	
-	/* Create page_pipe for batching page writes */
-	cdi->pp = create_page_pipe(cdi->total_pages, NULL, 0);
-	if (!cdi->pp) {
-		pr_err("Failed to create page_pipe\n");
-		cdi->xfer.close(&cdi->xfer);
-		close(cdi->uffd);
-		goto err_close_mem;
-	}
-
+		
 	pr_info("COW dump initialized: tracking %lu pages, uffd=%d\n", 
 		cdi->total_pages, cdi->uffd);
 	
@@ -241,31 +280,36 @@ err_free:
 void cow_dump_fini(void)
 {
 	struct dirty_range *dr, *tmp;
+	struct cow_page *cp;
+	struct hlist_node *n;
+	int i, remaining = 0;
 
 	if (!g_cow_info)
 		return;
 
 	pr_info("Cleaning up COW dump\n");
 
-	/* Flush any remaining dirty pages before cleanup */
-	if (g_cow_info->pp && g_cow_info->xfer_initialized) {
-		pr_info("Flushing remaining dirty pages: %lu dumped so far\n", 
-			g_cow_info->dirty_pages_dumped);
-		if (page_xfer_dump_pages(&g_cow_info->xfer, g_cow_info->pp) < 0)
-			pr_err("Failed to flush remaining pages during cleanup\n");
+	/* Clean up any remaining COW pages */
+	for (i = 0; i < COW_HASH_SIZE; i++) {
+		pthread_spin_lock(&g_cow_info->cow_hash_locks[i]);
+		hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[i], hash) {
+			hlist_del(&cp->hash);
+			xfree(cp->data);
+			xfree(cp);
+			remaining++;
+		}
+		pthread_spin_unlock(&g_cow_info->cow_hash_locks[i]);
+		pthread_spin_destroy(&g_cow_info->cow_hash_locks[i]);
 	}
+
+	if (remaining > 0)
+		pr_warn("Freed %d remaining COW pages\n", remaining);
 
 	list_for_each_entry_safe(dr, tmp, &g_cow_info->dirty_list, list) {
 		list_del(&dr->list);
 		xfree(dr);
 	}
-
-	if (g_cow_info->pp)
-		destroy_page_pipe(g_cow_info->pp);
-
-	if (g_cow_info->xfer_initialized)
-		g_cow_info->xfer.close(&g_cow_info->xfer);
-
+	
 	if (g_cow_info->proc_mem_fd >= 0)
 		close(g_cow_info->proc_mem_fd);
 	
@@ -275,127 +319,59 @@ void cow_dump_fini(void)
 	xfree(g_cow_info);
 	g_cow_info = NULL;
 }
-#if 0
-/* Flush accumulated dirty pages to disk */
-static int cow_flush_dirty_pages(struct cow_dump_info *cdi)
-{
-	int ret;
-	
-	if (!cdi->pp || !cdi->xfer_initialized)
-		return 0;
-	
-	/* Check if there are pages to flush */
-	if (cdi->pp->nr_pipes == 0)
-		return 0;
-	
-	pr_info("Flushing %lu dirty pages to disk\n", 
-		cdi->dirty_pages_dumped - (cdi->dirty_pages_dumped - cdi->pp->nr_pipes));
-	
-	ret = page_xfer_dump_pages(&cdi->xfer, cdi->pp);
-	if (ret < 0) {
-		pr_err("Failed to flush dirty pages to disk\n");
-		return ret;
-	}
-	
-	/* Reset page_pipe for next batch */
-	page_pipe_reinit(cdi->pp);
-	
-	return 0;
-}
 
-/* Write a single page to the page_pipe */
-static int cow_write_page_to_pipe(struct cow_dump_info *cdi, unsigned long page_addr)
-{
-	unsigned char page_buf[PAGE_SIZE];
-	ssize_t ret;
-	int pipe_fd;
-	
-	/* Read the page from /proc/pid/mem */
-	ret = pread(cdi->proc_mem_fd, page_buf, PAGE_SIZE, page_addr);
-	if (ret != PAGE_SIZE) {
-		if (ret < 0)
-			pr_perror("Failed to read page at 0x%lx from /proc/pid/mem", page_addr);
-		else
-			pr_err("Short read from /proc/pid/mem at 0x%lx: %zd\n", page_addr, ret);
-		return -1;
-	}
-	
-	/* Add page to page_pipe - this creates the iov entry */
-	ret = page_pipe_add_page(cdi->pp, page_addr, 0);
-	if (ret < 0) {
-		if (ret == -EAGAIN) {
-			/* Page pipe is full, flush it */
-			if (cow_flush_dirty_pages(cdi) < 0)
-				return -1;
-			/* Try again after flush */
-			ret = page_pipe_add_page(cdi->pp, page_addr, 0);
-			if (ret < 0) {
-				pr_err("Failed to add page to pipe even after flush\n");
-				return -1;
-			}
-		} else {
-			pr_err("Failed to add page 0x%lx to page_pipe: %d\n", page_addr, (int)ret);
-			return -1;
-		}
-	}
-	
-	/* Write page data to the pipe */
-	/* The page_pipe has buffers, we need to write to the last buffer's write end */
-	if (!list_empty(&cdi->pp->bufs)) {
-		struct page_pipe_buf *ppb = list_entry(cdi->pp->bufs.prev, struct page_pipe_buf, l);
-		pipe_fd = ppb->p[1]; /* Write end of pipe */
-		
-		ret = write(pipe_fd, page_buf, PAGE_SIZE);
-		if (ret != PAGE_SIZE) {
-			if (ret < 0)
-				pr_perror("Failed to write page to pipe");
-			else
-				pr_err("Short write to pipe: %zd\n", ret);
-			return -1;
-		}
-	} else {
-		pr_err("No page_pipe buffers available\n");
-		return -1;
-	}
-	
-	cdi->dirty_pages_dumped++;
-	
-	/* Check if we should flush */
-	if (cdi->dirty_pages_dumped % COW_FLUSH_THRESHOLD == 0) {
-		pr_debug("Reached flush threshold, flushing pages\n");
-		return cow_flush_dirty_pages(cdi);
-	}
-	
-	return 0;
-}
-#endif
 static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 {
-	struct dirty_range *dr;
+	struct cow_page *cp;
 	unsigned long page_addr = addr & ~(PAGE_SIZE - 1);
-	void* page;
 	struct uffdio_writeprotect wp;
 	struct uffdio_range range;
+	ssize_t ret;
+	unsigned int hash;
 	
-    
-	pr_debug("Write fault at 0x%lx\n", page_addr);
+	pr_info("Write fault at 0x%lx\n", page_addr);
 
+	cow_stats.write_faults++;
 	cdi->dirty_pages++;
 
-	/* Add to dirty list for tracking */
-	dr = xmalloc(sizeof(*dr));
-	if (!dr) {
+	/* Allocate cow_page structure */
+	cp = xmalloc(sizeof(*cp));
+	if (!cp) {
+		pr_err("Failed to allocate cow_page structure\n");
+		cow_stats.alloc_failures++;
 		return -1;
 	}
 
-	page = xmalloc(PAGE_SIZE);
-	//memcpy(page,(void*)page_addr, PAGE_SIZE);
+	cp->data = xmalloc(PAGE_SIZE);
+	if (!cp->data) {
+		pr_err("Failed to allocate page data\n");
+		xfree(cp);
+		cow_stats.alloc_failures++;
+		return -1;
+	}
 
-	dr->start = (unsigned long)page;
-	dr->len = PAGE_SIZE;
-	INIT_LIST_HEAD(&dr->list);
-	list_add_tail(&dr->list, &cdi->dirty_list);
+	cp->vaddr = page_addr;
+	INIT_HLIST_NODE(&cp->hash);
+
+	/* Read original page content from /proc/pid/mem */
+	ret = pread(cdi->proc_mem_fd, cp->data, PAGE_SIZE, page_addr);
+	if (ret != PAGE_SIZE) {
+		pr_perror("Failed to read page at 0x%lx (read %zd bytes)", page_addr, ret);
+		xfree(cp->data);
+		xfree(cp);
+		cow_stats.read_failures++;
+		return -1;
+	}
+
+	/* Add to hash table (thread-safe with per-bucket spinlock) */
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
 	
+	pthread_spin_lock(&cdi->cow_hash_locks[hash]);
+	hlist_add_head(&cp->hash, &cdi->cow_hash[hash]);
+	pthread_spin_unlock(&cdi->cow_hash_locks[hash]);
+
+	cow_stats.pages_copied++;
+	pr_debug("Copied page at 0x%lx to hash bucket %u\n", page_addr, hash);
 
 	/* Unprotect the page so the process can continue */
 	wp.range.start = page_addr;
@@ -404,8 +380,11 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 
 	if (ioctl(cdi->uffd, UFFDIO_WRITEPROTECT, &wp)) {
 		pr_perror("Failed to unprotect page at 0x%lx", page_addr);
+		cow_stats.unprotect_failures++;
 		return -1;
 	}
+
+	cow_stats.pages_unprotected++;
 
 	/* Wake up the faulting thread */
 	range.start = page_addr;
@@ -413,9 +392,11 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	
 	if (ioctl(cdi->uffd, UFFDIO_WAKE, &range)) {
 		pr_perror("Failed to wake thread after unprotect");
+		cow_stats.wake_failures++;
 		return -1;
 	}
 	
+	cow_stats.pages_woken++;
 	cdi->total_pages--;
 	return 0;
 }
@@ -423,20 +404,52 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 {
 	struct uffd_msg msg;
-	int ret;
-	//int flags = blocking ? MSG_WAITALL : MSG_DONTWAIT;
+	struct pollfd pfd;
+	int ret, poll_ret;
 
 	while (1) {
+		/* Check and print stats */
+		check_and_print_cow_stats();
+		
+		/* Try reading directly first - avoids poll() overhead when data is ready */
 		ret = read(cdi->uffd, &msg, sizeof(msg));
+		
+		if (ret < 0 && errno == EAGAIN && blocking) {
+			/* No data available and we want to block - use poll() with timeout */
+			pfd.fd = cdi->uffd;
+			pfd.events = POLLIN;
+			pfd.revents = 0;
+			
+			poll_ret = poll(&pfd, 1, 500);  /* 500ms timeout */
+			if (poll_ret < 0) {
+				pr_perror("poll() failed on uffd");
+				cow_stats.read_errors++;
+				return -1;
+			}
+			
+			if (poll_ret == 0) {
+				/* Timeout - no events within 500ms */
+				return 0;
+			}
+			
+			/* Data ready after poll - retry read */
+			ret = read(cdi->uffd, &msg, sizeof(msg));
+		}
+		
 		if (ret < 0) {
-			if (errno == EAGAIN && !blocking)
-				return 0; /* No more events */
+			if (errno == EAGAIN && !blocking) {
+				/* Non-blocking mode and no data */
+				cow_stats.eagain_errors++;
+				return 0;
+			}
 			pr_perror("Failed to read uffd event");
+			cow_stats.read_errors++;
 			return -1;
 		}
 
 		if (ret != sizeof(msg)) {
 			pr_err("Short read from uffd: %d\n", ret);
+			cow_stats.read_errors++;
 			return -1;
 		}
 
@@ -450,14 +463,17 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 			break;
 
 		case UFFD_EVENT_FORK:
+			cow_stats.fork_events++;
 			pr_warn("Process forked during COW dump (not fully supported)\n");
 			break;
 
 		case UFFD_EVENT_REMAP:
+			cow_stats.remap_events++;
 			pr_info("Memory remap event\n");
 			break;
 
 		default:
+			cow_stats.unknown_events++;
 			pr_err("Unexpected uffd event: %u\n", msg.event);
 			return -1;
 		}
@@ -469,28 +485,19 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 /* Background thread that monitors for write faults */
 static void *cow_monitor_thread(void *arg)
 {	
-	int iteration_count = 0;
 	struct cow_dump_info *cdi = (struct cow_dump_info *)arg;
 	
 	pr_info("COW monitor thread started\n");
-	
-	while (g_cow_info->total_pages != 0) {
-			
+	pr_warn("PAGE SERVER READY TO SERVE\n");
+
+	while (!g_stop_monitoring) {
+		
 
 		/* Process events with short timeout */
-		if (cow_process_events(cdi, false) < 0) {
+		if (cow_process_events(cdi, true) < 0) {
 			pr_err("Error processing COW events in monitor thread\n");
 			break;
 		}
-		/* Small delay to avoid busy-waiting */
-		//usleep(1000); /* 1ms */
-		/* Print total pages once per second */
-		iteration_count++;
-		if (iteration_count >= 10000) { /* 1000 * 1ms = 1 second */
-			pr_info("COW monitor: %lu pages remaining\n", g_cow_info->total_pages);
-			iteration_count = 0;
-		}
-
 	}
 	
 	pr_info("COW monitor thread stopped\n");
@@ -537,4 +544,40 @@ int cow_stop_monitor_thread(void)
 	
 	pr_info("COW monitor thread stopped successfully\n");
 	return 0;
+}
+
+int cow_get_uffd(void)
+{
+	if (!g_cow_info)
+		return -1;
+	
+	return g_cow_info->uffd;
+}
+
+struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr)
+{
+	struct cow_page *cp;
+	struct hlist_node *n;
+	unsigned int hash;
+	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
+
+	if (!g_cow_info)
+		return NULL;
+
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
+
+	pthread_spin_lock(&g_cow_info->cow_hash_locks[hash]);
+	
+	hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[hash], hash) {
+		if (cp->vaddr == page_addr) {
+			hlist_del(&cp->hash);
+			pthread_spin_unlock(&g_cow_info->cow_hash_locks[hash]);
+			pr_debug("Found and removed COW page at 0x%lx from hash bucket %u\n", 
+				 page_addr, hash);
+			return cp;
+		}
+	}
+	
+	pthread_spin_unlock(&g_cow_info->cow_hash_locks[hash]);
+	return NULL;
 }

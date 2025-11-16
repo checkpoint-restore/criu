@@ -1711,125 +1711,73 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	mdc.stat = &pps_buf;
 	mdc.parent_ie = parent_ie;
 
-	if (!opts.cow_dump) {
-		/* Normal dump - dump all pages */
-		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
-		if (ret)
-			goto err_cure;
-	} else {
-		/* COW dump mode: split VMAs by size */
-		unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
-		unsigned long large_pages = 0;
-		struct vma_area *vma, *tmp;
-			
-		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.\n", threshold_pages);
-		pr_info("COW dump: splitting VMAs (threshold=%lu pages) vmas.nr=%u nr_aios=%u rst_priv_size=%lu nr_priv_pages_longest=%lu nr_shared_pages_longest=%lu\n", threshold_pages,
-		vmas.nr, vmas.nr_aios, vmas.rst_priv_size, vmas.nr_priv_pages_longest, vmas.nr_shared_pages_longest);
-	
-		/* Split VMAs by size */
-		list_for_each_entry_safe(vma, tmp, &vmas.h, list) {			
-			
-			if (vma_area_is(vma, VMA_AREA_GUARD)) {
-				pr_info("COW dump: splitting VMAs VMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARDVMA_AREA_GUARD(threshold=%lu pages) vmas.\n", threshold_pages);
-				continue;
-			}
-			
-			if ((vma_area_len(vma) / PAGE_SIZE) >= threshold_pages) {
-				vma->e->status |= VMA_AREA_GUARD;
-				large_pages +=1;
-			}
-		}
-		
-		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
-		if (ret) {
-			pr_err("Failed to dump small VMAs\n");
-			goto err_cure;
-		}
-				
-		
-		/* Initialize COW tracking for large VMAs only */
-		if (large_pages > 0) {
-			/* Rebuild the list for large VMAs */
-			list_for_each_entry_safe(vma, tmp, &vmas.h, list) {
-				unsigned long nr_pages;
-				
-				nr_pages = vma_area_len(vma) / PAGE_SIZE;
-				if (nr_pages >= threshold_pages) {
-					vma->e->status = vma->e->status & (~VMA_AREA_GUARD);
-				}
-			}			
-			
-			ret = cow_dump_init(item, &vmas, parasite_ctl);
-			if (ret) {
-				pr_err("Failed to initialize COW dump for large VMAs\n");
-				goto err_cure;
-			}
-			
-			/* Start background thread to monitor page faults */
-			ret = cow_start_monitor_thread();
-			if (ret) {
-				pr_err("Failed to start COW monitor thread\n");
-				goto err_cure;
-			}
+	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
+	if (ret)
+		goto err_cure;
 
-		} else {
-			pr_info("No large VMAs found, skipping COW tracking\n");
-		}
-	}
-	
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump sigactions (pid: %d) with parasite\n", pid);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = parasite_dump_itimers_seized(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump itimers (pid: %d)\n", pid);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = parasite_dump_posix_timers_seized(&proc_args, parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump posix timers (pid: %d)\n", pid);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_core_all(parasite_ctl, item, &pps_buf, cr_imgset, &misc);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_cgroup(parasite_ctl, item);
 	if (ret) {
 		pr_err("Dump cgroup of threads in process (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 
+	if (opts.cow_dump) {
+		/* COW dump mode: split VMAs by size */
+		ret = cow_dump_init(item, &vmas, parasite_ctl);
+		if (ret) {
+			pr_err("Failed to initialize COW dump for VMAs\n");
+			goto err_cure;
+		}
+		
+		/* Start background thread to monitor page faults */
+		ret = cow_start_monitor_thread();
+		if (ret) {
+			pr_err("Failed to start COW monitor thread\n");
+			goto err_cure;
+		}
+	}
 	
 	
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = compel_stop_daemon(parasite_ctl);
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (ret) {
 		pr_err("Can't stop daemon in parasite (pid: %d)\n", pid);
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_threads(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump threads\n");
 		goto err_cure;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/*
 	 * On failure local map will be cured in cr_dump_finish()
 	 * for lazy pages.
 	 */
-
 	if (opts.lazy_pages)
 		ret = compel_cure_remote(parasite_ctl);
 	else
@@ -1838,20 +1786,19 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 		goto err;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_mm(pid, &pps_buf, &misc, &vmas, cr_imgset);
 	if (ret) {
 		pr_err("Dump mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = dump_task_fs(pid, &misc, cr_imgset);
 	if (ret) {
 		pr_err("Dump fs (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
-	
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	exit_code = 0;
 err:
 	close_cr_imgset(&cr_imgset);
@@ -2114,7 +2061,7 @@ static int cr_lazy_mem_dump(void)
 static int cr_dump_finish(int ret)
 {
 	int post_dump_ret = 0;
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (disconnect_from_page_server())
 		ret = -1;
 
@@ -2170,27 +2117,39 @@ static int cr_dump_finish(int ret)
 		delete_link_remaps();
 		clean_cr_time_mounts();
 	}
-	pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
-	 if (!ret && opts.lazy_pages)
-		ret = cr_lazy_mem_dump();
 
-	if (arch_set_thread_regs(root_item, true) < 0)
-		return -1;
-
-	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
-
-	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
-	timing_stop(TIME_FROZEN);
-
-	if (!ret && opts.cow_dump) {
-		pr_info("file = %s, line = %d\n", __FILE__, __LINE__);
+	/* Resume process early if using COW dump with lazy pages */
+	if (!ret && opts.lazy_pages && opts.cow_dump) {
+		pr_info("Resuming process with COW protection active\n");
 		
-		/* Stop the monitor thread before final dump */
+		if (arch_set_thread_regs(root_item, true) < 0)
+			return -1;
+
+		cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+		pstree_switch_state(root_item, TASK_ALIVE);
+		timing_stop(TIME_FROZEN);
+		
+		/* Now start lazy page transfer with process running */
+		ret = cr_lazy_mem_dump();
+		
+		/* Stop the monitor thread after lazy dump completes */
 		if (cow_stop_monitor_thread()) {
 			pr_err("Failed to stop COW monitor thread\n");
 			ret = -1;
 		}
+	} else {
+		/* Standard path: transfer pages then resume */
+		if (!ret && opts.lazy_pages)
+			ret = cr_lazy_mem_dump();
 		
+		if (arch_set_thread_regs(root_item, true) < 0)
+			return -1;
+
+		cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+		pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
+		timing_stop(TIME_FROZEN);
 	}
 	
 	free_pstree(root_item);
@@ -2329,6 +2288,10 @@ int cr_dump_tasks(pid_t pid)
 		if (dump_one_task(item, parent_ie))
 			goto err;
 	}
+
+	ret = run_plugins(DUMP_DEVICES_LATE, pid);
+	if (ret && ret != -ENOTSUP)
+		goto err;
 
 	if (parent_ie) {
 		inventory_entry__free_unpacked(parent_ie, NULL);

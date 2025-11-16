@@ -12,25 +12,33 @@
 #include <sys/sysmacros.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <stdint.h>
 #include <pthread.h>
 #include <semaphore.h>
 
 #include <xf86drm.h>
 #include <libdrm/amdgpu.h>
-#include <libdrm/amdgpu_drm.h>
 
 #include "criu-plugin.h"
 #include "plugin.h"
 #include "criu-amdgpu.pb-c.h"
+#include "util.h"
+#include "util-pie.h"
+#include "fdstore.h"
 
 #include "kfd_ioctl.h"
 #include "xmalloc.h"
 #include "criu-log.h"
 #include "files.h"
 #include "pstree.h"
+#include "sockets.h"
+#include "rst-malloc.h"
 
 #include "common/list.h"
+#include "amdgpu_drm.h"
+#include "amdgpu_plugin_dmabuf.h"
 #include "amdgpu_plugin_drm.h"
 #include "amdgpu_plugin_util.h"
 #include "amdgpu_plugin_topology.h"
@@ -39,6 +47,7 @@
 #include "img-streamer.h"
 #include "image.h"
 #include "cr_options.h"
+#include "util.h"
 
 struct vma_metadata {
 	struct list_head list;
@@ -51,13 +60,6 @@ struct vma_metadata {
 
 /************************************ Global Variables ********************************************/
 
-/**
- * FD of KFD device used to checkpoint. On a multi-process
- * tree the order of checkpointing goes from parent to child
- * and so on - so saving the FD will not be overwritten
- */
-static int kfd_checkpoint_fd;
-
 static LIST_HEAD(update_vma_info_list);
 
 size_t kfd_max_buffer_size;
@@ -66,6 +68,19 @@ bool plugin_added_to_inventory = false;
 
 bool plugin_disabled = false;
 
+struct handle_id {
+	int handle;
+	int fdstore_id;
+};
+struct shared_handle_ids {
+	int num_handles;
+	struct handle_id *handles;
+};
+struct shared_handle_ids *shared_memory = NULL;
+
+static mutex_t *shared_memory_mutex;
+
+int current_pid;
 /*
  * In the case of a single process (common case), this optimization can effectively
  * reduce the restore latency with parallel restore. In the case of multiple processes,
@@ -313,8 +328,6 @@ void getenv_size_t(const char *var, size_t *value)
 	int sh = 0;
 	size_t size;
 
-	pr_info("Value str: %s\n", value_str);
-
 	if (value_str) {
 		size = (size_t)strtoul(value_str, &endp, 0);
 		if (errno || value_str == endp) {
@@ -526,11 +539,11 @@ void free_and_unmap(uint64_t size, amdgpu_bo_handle h_bo, amdgpu_va_handle h_va,
 	amdgpu_bo_free(h_bo);
 }
 
-static int sdma_copy_bo(struct kfd_criu_bo_bucket bo_bucket, FILE *storage_fp,
-						void *buffer, size_t buffer_size, amdgpu_device_handle h_dev,
-						uint64_t max_copy_size, enum sdma_op_type type)
+int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
+		 void *buffer, size_t buffer_size, amdgpu_device_handle h_dev,
+		 uint64_t max_copy_size, enum sdma_op_type type, bool do_not_free)
 {
-	uint64_t size, src_bo_size, dst_bo_size, buffer_bo_size, bytes_remain, buffer_space_remain;
+	uint64_t src_bo_size, dst_bo_size, buffer_bo_size, bytes_remain, buffer_space_remain;
 	uint64_t gpu_addr_src, gpu_addr_dst, gpu_addr_ib, copy_src, copy_dst, copy_size;
 	amdgpu_va_handle h_va_src, h_va_dst, h_va_ib;
 	amdgpu_bo_handle h_bo_src, h_bo_dst, h_bo_ib;
@@ -543,10 +556,8 @@ static int sdma_copy_bo(struct kfd_criu_bo_bucket bo_bucket, FILE *storage_fp,
 	uint32_t expired;
 	amdgpu_context_handle h_ctx;
 	uint32_t *ib = NULL;
-	int j, err, shared_fd, packets_per_buffer;
+	int j, err, packets_per_buffer;
 
-	shared_fd = bo_bucket.dmabuf_fd;
-	size = bo_bucket.size;
 	buffer_bo_size = min(size, buffer_size);
 	packets_per_buffer = ((buffer_bo_size - 1) / max_copy_size) + 1;
 	src_bo_size = (type == SDMA_OP_VRAM_WRITE) ? buffer_bo_size : size;
@@ -757,7 +768,8 @@ err_dst_bo_map:
 	if (err)
 		pr_perror("dest range free failed");
 err_dst_va:
-	err = amdgpu_bo_free(h_bo_dst);
+	if (!do_not_free)
+		err = amdgpu_bo_free(h_bo_dst);
 	if (err)
 		pr_perror("dest bo free failed");
 err_dst_bo_prep:
@@ -845,8 +857,9 @@ void *dump_bo_contents(void *_thread_data)
 		num_bos++;
 
 		/* perform sDMA based vram copy */
-		ret = sdma_copy_bo(bo_buckets[i], bo_contents_fp, buffer, buffer_size, h_dev, max_copy_size,
-				   SDMA_OP_VRAM_READ);
+		ret = sdma_copy_bo(bo_buckets[i].dmabuf_fd, bo_buckets[i].size, bo_contents_fp, buffer, buffer_size, h_dev, max_copy_size,
+				   SDMA_OP_VRAM_READ, false);
+
 		if (ret) {
 			pr_err("Failed to drain the BO using sDMA: bo_buckets[%d]\n", i);
 			break;
@@ -943,8 +956,8 @@ void *restore_bo_contents(void *_thread_data)
 
 		num_bos++;
 
-		ret = sdma_copy_bo(bo_buckets[i], bo_contents_fp, buffer, buffer_size, h_dev, max_copy_size,
-				   SDMA_OP_VRAM_WRITE);
+		ret = sdma_copy_bo(bo_buckets[i].dmabuf_fd, bo_buckets[i].size, bo_contents_fp, buffer, buffer_size, h_dev, max_copy_size,
+				   SDMA_OP_VRAM_WRITE, false);
 		if (ret) {
 			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
 			break;
@@ -1030,28 +1043,163 @@ int restore_hsakmt_shared_mem(const uint64_t shared_mem_size, const uint32_t sha
 	return 0;
 }
 
-static int unpause_process(int fd)
+int amdgpu_unpause_processes(int pid)
 {
 	int ret = 0;
 	struct kfd_ioctl_criu_args args = { 0 };
+	struct list_head *l = get_dumped_fds();
+	struct dumped_fd *st;
 
-	args.op = KFD_CRIU_OP_UNPAUSE;
+	list_for_each_entry(st, l, l) {
+		if (st->is_drm) {
+			close(st->fd);
+		} else {
+			args.op = KFD_CRIU_OP_UNPAUSE;
 
-	ret = kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args);
-	if (ret) {
-		pr_perror("Failed to unpause process");
-		goto exit;
+			ret = kmtIoctl(st->fd, AMDKFD_IOC_CRIU_OP, &args);
+			if (ret) {
+				pr_perror("Failed to unpause process");
+				goto exit;
+			}
+		}
 	}
 
-	// Reset the KFD FD
-	kfd_checkpoint_fd = -1;
-	sys_close_drm_render_devices(&src_topology);
+	if (post_dump_dmabuf_check() < 0)
+		ret = -1;
 
 exit:
 	pr_info("Process unpaused %s (ret:%d)\n", ret ? "Failed" : "Ok", ret);
+	clear_dumped_fds();
 
 	return ret;
 }
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_DEVICES_LATE, amdgpu_unpause_processes)
+
+int store_dmabuf_fd(int handle, int fd)
+{
+	int id;
+
+	id = fdstore_add(fd);
+	mutex_lock(shared_memory_mutex);
+	for (int i = 0; i < shared_memory->num_handles; i++) {
+		if (shared_memory->handles[i].handle == handle) {
+			mutex_unlock(shared_memory_mutex);
+			return 0;
+		}
+		if (shared_memory->handles[i].handle == -1) {
+			shared_memory->handles[i].handle = handle;
+			shared_memory->handles[i].fdstore_id = id;
+			mutex_unlock(shared_memory_mutex);
+			return 0;
+		}
+	}
+	mutex_unlock(shared_memory_mutex);
+
+	return -1;
+}
+
+int amdgpu_id_for_handle(int handle)
+{
+	mutex_lock(shared_memory_mutex);
+	for (int i = 0; i < shared_memory->num_handles; i++) {
+		if (shared_memory->handles[i].handle == handle) {
+			mutex_unlock(shared_memory_mutex);
+			return shared_memory->handles[i].fdstore_id;
+		}
+	}
+	mutex_unlock(shared_memory_mutex);
+	return -1;
+}
+
+int amdgpu_restore_init(void)
+{
+	if (!shared_memory) {
+		int protection = PROT_READ | PROT_WRITE;
+		int visibility = MAP_SHARED | MAP_ANONYMOUS;
+		size_t img_size;
+		FILE *img_fp = NULL;
+		int ret;
+		unsigned char *buf;
+		int num_handles = 0;
+		char img_path[PATH_MAX];
+		CriuRenderNode *rd = NULL;
+		CriuKfd *e = NULL;
+
+		DIR *d;
+		struct dirent *dir;
+		d = opendir(".");
+		if (d) {
+			while ((dir = readdir(d)) != NULL) {
+				if (strncmp("amdgpu-kfd-", dir->d_name, strlen("amdgpu-kfd-")) == 0) {
+					img_fp = open_img_file(dir->d_name, false, &img_size);
+					buf = xmalloc(img_size);
+					if (!buf) {
+						fclose(img_fp);
+						return -ENOMEM;
+					}
+
+					ret = read_fp(img_fp, buf, img_size);
+					if (ret) {
+						pr_perror("Unable to read from %s", img_path);
+						fclose(img_fp);
+						xfree(buf);
+						return ret;
+					}
+
+					fclose(img_fp);
+					e = criu_kfd__unpack(NULL, img_size, buf);
+					num_handles += e->num_of_bos;
+					criu_kfd__free_unpacked(e, NULL);
+					xfree(buf);
+				}
+				if (strncmp("amdgpu-renderD-", dir->d_name, strlen("amdgpu-renderD-")) == 0) {
+					img_fp = open_img_file(dir->d_name, false, &img_size);
+					buf = xmalloc(img_size);
+					if (!buf) {
+						fclose(img_fp);
+						return -ENOMEM;
+					}
+
+					ret = read_fp(img_fp, buf, img_size);
+					if (ret) {
+						pr_perror("Unable to read from %s", img_path);
+						fclose(img_fp);
+						xfree(buf);
+						return ret;
+					}
+
+					fclose(img_fp);
+					rd = criu_render_node__unpack(NULL, img_size, buf);
+					num_handles += rd->num_of_bos;
+					criu_render_node__free_unpacked(rd, NULL);
+					xfree(buf);
+				}
+			}
+			closedir(d);
+		}
+
+		if (num_handles > 0) {
+			shared_memory = mmap(NULL, sizeof(shared_memory), protection, visibility, -1, 0);
+			shared_memory->num_handles = num_handles;
+			shared_memory->handles = mmap(NULL, sizeof(struct handle_id) * num_handles, protection, visibility, -1, 0);
+
+			for (int i = 0; i < num_handles; i++) {
+				shared_memory->handles[i].handle = -1;
+				shared_memory->handles[i].fdstore_id = -1;
+			}
+
+			shared_memory_mutex = shmalloc(sizeof(*shared_memory_mutex));
+			if (!shared_memory_mutex) {
+				pr_err("Can't create amdgpu mutex\n");
+				return -1;
+			}
+			mutex_init(shared_memory_mutex);
+		}
+	}
+
+	return 0;
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESTORE_INIT, amdgpu_restore_init)
 
 static int save_devices(int fd, struct kfd_ioctl_criu_args *args, struct kfd_criu_device_bucket *device_buckets,
 			CriuKfd *e)
@@ -1095,6 +1243,8 @@ static int save_bos(int id, int fd, struct kfd_ioctl_criu_args *args, struct kfd
 {
 	struct thread_data *thread_datas;
 	int ret = 0, i;
+	amdgpu_device_handle h_dev;
+	uint32_t major, minor;
 
 	pr_debug("Dumping %d BOs\n", args->num_bos);
 
@@ -1118,6 +1268,19 @@ static int save_bos(int id, int fd, struct kfd_ioctl_criu_args *args, struct kfd
 		boinfo->size = bo_bucket->size;
 		boinfo->offset = bo_bucket->offset;
 		boinfo->alloc_flags = bo_bucket->alloc_flags;
+
+		ret = amdgpu_device_initialize(node_get_drm_render_device(sys_get_node_by_gpu_id(&src_topology, bo_bucket->gpu_id)), &major, &minor, &h_dev);
+
+		boinfo->handle = get_gem_handle(h_dev, bo_bucket->dmabuf_fd);
+
+		amdgpu_device_deinitialize(h_dev);
+	}
+	for (i = 0; i < e->num_of_bos; i++) {
+		KfdBoEntry *boinfo = e->bo_entries[i];
+
+		ret = record_shared_bo(boinfo->handle, false);
+		if (ret)
+			goto exit;
 	}
 
 	for (int i = 0; i < e->num_of_gpus; i++) {
@@ -1238,10 +1401,17 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		return -1;
 	}
 
-	/* Initialize number of device files that will be checkpointed */
-	init_gpu_count(&src_topology);
+	/* Check whether this plugin was called for kfd, dmabuf or render nodes */
+	ret = get_dmabuf_info(fd, &st);
+	if (ret < 0) {
+		pr_perror("Failed to get dmabuf info");
+		return -1;
+	}
+	if (ret == 0) {
+		pr_info("Dumping dmabuf fd = %d\n", fd);
+		return amdgpu_plugin_dmabuf_dump(fd, id);
+	}
 
-	/* Check whether this plugin was called for kfd or render nodes */
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0) {
 
 		/* This is RenderD dumper plugin, for now just save renderD
@@ -1252,14 +1422,12 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		if (ret)
 			return ret;
 
-		/* Invoke unpause process if needed */
-		decrement_checkpoint_count();
-		if (checkpoint_is_complete()) {
-			ret = unpause_process(kfd_checkpoint_fd);
-		}
+		ret = record_dumped_fd(fd, true);
+		if (ret)
+			return ret;
 
 		/* Need to return success here so that criu can call plugins for renderD nodes */
-		return ret;
+		return try_dump_dmabuf_list();
 	}
 
 	pr_info("%s() called for fd = %d\n", __func__, major(st.st_rdev));
@@ -1354,14 +1522,11 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	xfree(buf);
 
-exit:
-	/* Restore all queues if conditions permit */
-	kfd_checkpoint_fd = fd;
-	decrement_checkpoint_count();
-	if (checkpoint_is_complete()) {
-		ret = unpause_process(fd);
-	}
+	ret = record_dumped_fd(fd, false);
+	if (ret)
+		goto exit;
 
+exit:
 	xfree((void *)args.devices);
 	xfree((void *)args.bos);
 	xfree((void *)args.priv_data);
@@ -1384,7 +1549,6 @@ static int restore_devices(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 	int ret = 0, bucket_index = 0;
 
 	pr_debug("Restoring %d devices\n", e->num_of_gpus);
-
 	args->num_devices = e->num_of_gpus;
 	device_buckets = xzalloc(sizeof(*device_buckets) * args->num_devices);
 	if (!device_buckets)
@@ -1457,6 +1621,29 @@ static int restore_bos(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 	}
 
 	pr_info("Restore BOs Ok\n");
+
+	return 0;
+}
+
+int save_vma_updates(uint64_t offset, uint64_t addr, uint64_t restored_offset, int fd)
+{
+	struct vma_metadata *vma_md;
+
+	vma_md = xmalloc(sizeof(*vma_md));
+	if (!vma_md) {
+		return -ENOMEM;
+	}
+
+	memset(vma_md, 0, sizeof(*vma_md));
+
+	vma_md->old_pgoff = offset;
+	vma_md->vma_entry = addr;
+
+	vma_md->new_pgoff = restored_offset;
+	vma_md->fd = fd;
+
+	list_add_tail(&vma_md->list, &update_vma_info_list);
+
 	return 0;
 }
 
@@ -1614,7 +1801,7 @@ exit:
 	return ret;
 }
 
-int amdgpu_plugin_restore_file(int id)
+int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 {
 	int ret = 0, fd;
 	char img_path[PATH_MAX];
@@ -1624,6 +1811,8 @@ int amdgpu_plugin_restore_file(int id)
 	struct kfd_ioctl_criu_args args = { 0 };
 	size_t img_size;
 	FILE *img_fp = NULL;
+
+	*retry_needed = false;
 
 	if (plugin_disabled)
 		return -ENOTSUP;
@@ -1643,12 +1832,21 @@ int amdgpu_plugin_restore_file(int id)
 		 * first as we assume restore_maps is already filled. Need to fix this later.
 		 */
 		snprintf(img_path, sizeof(img_path), IMG_DRM_FILE, id);
-		pr_info("Restoring RenderD %s\n", img_path);
 
 		img_fp = open_img_file(img_path, false, &img_size);
-		if (!img_fp)
-			return -EINVAL;
-
+		if (!img_fp) {
+			ret = amdgpu_plugin_dmabuf_restore(id);
+			if (ret == 1) {
+				/* This is a dmabuf fd, but the corresponding buffer object that was
+				 * exported to make it has not yet been restored. Need to try again
+				 * later when the buffer object exists, so it can be re-exported.
+				 */
+				*retry_needed = true;
+				return 0;
+			}
+			return ret;
+		}
+		pr_info("Restoring RenderD %s\n", img_path);
 		pr_debug("RenderD Image file size:%ld\n", img_size);
 		buf = xmalloc(img_size);
 		if (!buf) {
@@ -1689,8 +1887,18 @@ int amdgpu_plugin_restore_file(int id)
 		pr_info("render node destination gpu_id = 0x%04x\n", tp_node->gpu_id);
 
 		fd = node_get_drm_render_device(tp_node);
-		if (fd < 0)
+		if (fd < 0) {
 			pr_err("Failed to open render device (minor:%d)\n", tp_node->drm_render_minor);
+			return -1;
+		}
+
+		ret = amdgpu_plugin_drm_restore_file(fd, rd);
+		if (ret == 1)
+			*retry_needed = true;
+		if (ret < 0) {
+			fd = ret;
+			goto fail;
+		}
 	fail:
 		criu_render_node__free_unpacked(rd, NULL);
 		xfree(buf);
@@ -1702,12 +1910,20 @@ int amdgpu_plugin_restore_file(int id)
 		 * copy of the fd. CRIU core owns the duplicated returned fd, and amdgpu_plugin owns the fd stored in
 		 * tp_node.
 		 */
-		fd = dup(fd);
-		if (fd == -1) {
-			pr_perror("unable to duplicate the render fd");
-			return -1;
+
+		if (fd < 0)
+			return fd;
+
+		if (!(*retry_needed)) {
+			fd = dup(fd);
+			if (fd == -1) {
+				pr_perror("unable to duplicate the render fd");
+				return -1;
+			}
+			return fd;
 		}
-		return fd;
+
+		return 0;
 	}
 
 	fd = open(AMDGPU_KFD_DEVICE, O_RDWR | O_CLOEXEC);
@@ -1751,11 +1967,13 @@ int amdgpu_plugin_restore_file(int id)
 	 * This way, we know that the file descriptors we store will not conflict with file descriptors inside core
 	 * CRIU.
 	 */
-	fd_next = find_unused_fd_pid(e->pid);
-	if (fd_next <= 0) {
-		pr_err("Failed to find unused fd (fd:%d)\n", fd_next);
-		ret = -EINVAL;
-		goto exit;
+	if (fd_next == -1) {
+		fd_next = find_unused_fd_pid(e->pid);
+		if (fd_next <= 0) {
+			pr_err("Failed to find unused fd (fd:%d)\n", fd_next);
+			ret = -EINVAL;
+			goto exit;
+		}
 	}
 
 	ret = devinfo_to_topology(e->device_entries, e->num_of_gpus + e->num_of_cpus, &src_topology);
@@ -1788,12 +2006,24 @@ int amdgpu_plugin_restore_file(int id)
 	args.num_objects = e->num_of_objects;
 	args.priv_data_size = e->priv_data.len;
 	args.priv_data = (uintptr_t)e->priv_data.data;
-
 	args.op = KFD_CRIU_OP_RESTORE;
+
 	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args) == -1) {
 		pr_perror("Restore ioctl failed");
 		ret = -1;
 		goto exit;
+	}
+
+	if (ret < 0)
+		goto exit;
+
+	for (int i = 0; i < args.num_bos; i++) {
+		struct kfd_criu_bo_bucket *bo_bucket = &((struct kfd_criu_bo_bucket *)args.bos)[i];
+		KfdBoEntry *bo_entry = e->bo_entries[i];
+
+		if (bo_entry->handle != -1) {
+			store_dmabuf_fd(bo_entry->handle, bo_bucket->dmabuf_fd);
+		}
 	}
 
 	ret = restore_bo_data(id, (struct kfd_criu_bo_bucket *)args.bos, e);
@@ -1938,18 +2168,13 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 		}
 	}
 
+	clear_restore_state();
+
 	close(fd);
 	return exit_code;
 }
 
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, amdgpu_plugin_resume_devices_late)
-
-int sdma_copy_bo_helper(uint64_t size, int fd, FILE *storage_fp, void *buffer, size_t buffer_size,
-			amdgpu_device_handle h_dev, uint64_t max_copy_size, enum sdma_op_type type)
-{
-	return sdma_copy_bo((struct kfd_criu_bo_bucket){ 0, size, 0, 0, 0, 0, fd, 0 }, storage_fp, buffer,
-			    buffer_size, h_dev, max_copy_size, SDMA_OP_VRAM_WRITE);
-}
 
 int init_dev(int dev_minor, amdgpu_device_handle *h_dev, uint64_t *max_copy_size)
 {
@@ -2059,8 +2284,10 @@ void *parallel_restore_bo_contents(void *_thread_data)
 
 		entry = &restore_cmd->entries[i];
 		fseek(bo_contents_fp, entry->read_offset + offset, SEEK_SET);
-		ret = sdma_copy_bo_helper(entry->size, restore_cmd->fds_write[entry->write_id], bo_contents_fp, buffer,
-					  buffer_size, h_dev, max_copy_size, SDMA_OP_VRAM_WRITE);
+		ret = sdma_copy_bo(restore_cmd->fds_write[entry->write_id], entry->size, bo_contents_fp,
+				   buffer, buffer_size, h_dev,
+				   max_copy_size, SDMA_OP_VRAM_WRITE, false);
+
 		if (ret) {
 			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
 			goto err_sdma;

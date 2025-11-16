@@ -50,7 +50,6 @@ static int mprotect_vmas(struct parasite_dump_pages_args *args)
 {
 	struct parasite_vma_entry *vmas, *vma;
 	int ret = 0, i;
-	pr_info("mprotect_vmas file = %s, line = %d\n", __FILE__, __LINE__);
 
 	vmas = pargs_vmas(args);
 	for (i = 0; i < args->nr_vmas; i++) {
@@ -76,19 +75,18 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	struct iovec *iovs;
 	int off, nr_segs;
 	unsigned long spliced_bytes = 0;
-	pr_err("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);	
+
 	tsock = parasite_get_rpc_sock();
 	p = recv_fd(tsock);
 	if (p < 0)
 		return -1;
-	pr_info("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);
+
 	iovs = pargs_iovs(args);
 	off = 0;
 	nr_segs = args->nr_segs;
 	if (nr_segs > UIO_MAXIOV)
 		nr_segs = UIO_MAXIOV;
 	while (1) {
-		pr_info("dump_pages file = %s, line = %d\n", __FILE__, __LINE__);
 		ret = sys_vmsplice(p, &iovs[args->off + off], nr_segs, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 		if (ret < 0) {
 			sys_close(p);
@@ -868,10 +866,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	unsigned long addr, len;
 	unsigned long total_pages = 0;
 	unsigned int *failed_indices;
-	unsigned long threshold_pages = 25000; /* 25K pages ~= 100MB */
-	/*unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
-				 UFFD_FEATURE_EVENT_FORK |
-				 UFFD_FEATURE_EVENT_REMAP;*/
+
 
 	pr_info("COW dump init: registering %d VMAs\n", args->nr_vmas);
 	
@@ -879,10 +874,14 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	failed_indices = cow_dump_failed_indices(args);
 
 	/* Create userfaultfd in target process context */
-	 uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
+	uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
 	if (uffd < 0) {
-		pr_err("Failed to create userfaultfd: %d\n", uffd);
-		return -1;
+		int err = -uffd;  // Convert negative errno to positive
+		pr_err("Failed to create userfaultfd: %d (%s)\n", err, 
+			err == ENOSYS ? "not supported" :
+			err == EPERM ? "permission denied" : 
+			err == EINVAL ? "invalid flags" : "unknown error");
+   		 return -1;
 	}
 
 	/* Initialize userfaultfd API with WP features */
@@ -912,10 +911,6 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 
 		pr_info("Registering VMA %d: %lx-%lx prot=%x len=%lu\n",
 			i, addr, addr + len, vma->prot, len);
-
-		if (((len / PAGE_SIZE) < threshold_pages)){
-			pr_info("Skipping small VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
-		}
 
 		/* Skip non-writable VMAs */
 		if (!(vma->prot & PROT_WRITE)) {

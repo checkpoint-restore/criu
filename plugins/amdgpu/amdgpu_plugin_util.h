@@ -1,6 +1,8 @@
 #ifndef __AMDGPU_PLUGIN_UTIL_H__
 #define __AMDGPU_PLUGIN_UTIL_H__
 
+#include <libdrm/amdgpu.h>
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
 #endif
@@ -51,14 +53,18 @@
 /* Name of file having serialized data of DRM device */
 #define IMG_DRM_FILE			"amdgpu-renderD-%d.img"
 
+/* Name of file having serialized data of dmabuf meta */
+#define IMG_DMABUF_FILE "amdgpu-dmabuf_%d.img"
+
 /* Name of file having serialized data of DRM device buffer objects (BOs) */
-#define IMG_DRM_PAGES_FILE		"amdgpu-drm-pages-%d-%04x.img"
+#define IMG_DRM_PAGES_FILE "amdgpu-drm-pages-%d-%d-%04x.img"
 
 /* Helper macros to Checkpoint and Restore a ROCm file */
 #define HSAKMT_SHM_PATH			"/dev/shm/hsakmt_shared_mem"
 #define HSAKMT_SHM				"/hsakmt_shared_mem"
 #define HSAKMT_SEM_PATH			"/dev/shm/sem.hsakmt_semaphore"
 #define HSAKMT_SEM				"hsakmt_semaphore"
+#define DMABUF_LINK				"/dmabuf"
 
 /* Help macros to build sDMA command packets */
 #define SDMA_PACKET(op, sub_op, e) ((((e)&0xFFFF) << 16) | (((sub_op)&0xFF) << 8) | (((op)&0xFF) << 0))
@@ -71,6 +77,24 @@
 enum sdma_op_type {
 	SDMA_OP_VRAM_READ,
 	SDMA_OP_VRAM_WRITE,
+};
+
+struct dumped_fd {
+	struct list_head l;
+	int fd;
+	bool is_drm;
+};
+
+struct shared_bo {
+	struct list_head l;
+	int handle;
+	bool has_exporter;
+};
+
+struct restore_completed_work {
+	struct list_head l;
+	int handle;
+	int id;
 };
 
 /* Helper structures to encode device topology of SRC and DEST platforms */
@@ -97,10 +121,25 @@ int read_file(const char *file_path, void *buf, const size_t buf_len);
 int write_img_file(char *path, const void *buf, const size_t buf_len);
 FILE *open_img_file(char *path, bool write, size_t *size);
 
-bool checkpoint_is_complete();
-void decrement_checkpoint_count();
-void init_gpu_count(struct tp_system *topology);
+int record_dumped_fd(int fd, bool is_drm);
+struct list_head *get_dumped_fds();
+void clear_dumped_fds();
+
+bool shared_bo_has_exporter(int handle);
+int record_shared_bo(int handle, bool is_imported);
+int handle_for_shared_bo_fd(int dmabuf_fd);
+
+int record_completed_work(int handle, int id);
+bool work_already_completed(int handle, int id);
+
+void clear_restore_state();
 
 void print_kfd_bo_stat(int bo_cnt, struct kfd_criu_bo_bucket *bo_list);
+
+int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
+		 void *buffer, size_t buffer_size, amdgpu_device_handle h_dev,
+		 uint64_t max_copy_size, enum sdma_op_type type, bool do_not_free);
+
+int serve_out_dmabuf_fd(int handle, int fd);
 
 #endif		/* __AMDGPU_PLUGIN_UTIL_H__ */
