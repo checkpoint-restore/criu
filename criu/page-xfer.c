@@ -1218,11 +1218,23 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	 * on 32-bit platforms (e.g. armv7). */
 	nr_pages = pi->nr_pages;
 	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr, &nr_pages, PPB_LAZY);
+<<<<<<< HEAD
 	if (ret) {
 		ps_stats.get_errors++;
+=======
+	if (ret)
+>>>>>>> upstream/criu-dev
 		return ret;
 	}
 
+<<<<<<< HEAD
+=======
+	/*
+	 * The pi is reused for send_psi here, so .nr_pages, .vaddr and
+	 * .dst_id all remain intact.
+	 */
+
+>>>>>>> upstream/criu-dev
 	pi->nr_pages = nr_pages;
 	if (pi->nr_pages == 0) {
 		pr_debug("no iovs found, zero pages\n");

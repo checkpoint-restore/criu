@@ -46,6 +46,7 @@ message kfd_bo_entry {
 	required uint64 offset = 3;
 	required uint32 alloc_flags = 4;
 	required uint32 gpu_id = 5;
+	required uint32 handle = 6;
 }
 
 message criu_kfd {
@@ -61,6 +62,34 @@ message criu_kfd {
 	required bytes priv_data = 10;
 }
 
+message drm_bo_entry {
+	required uint64 addr = 1;
+	required uint64 size = 2;
+	required uint64 offset = 3;
+	required uint64 alloc_flags = 4;
+	required uint64 alignment = 5;
+	required uint32 preferred_domains = 6;
+	required uint32 handle = 7;
+	required uint32 is_import = 8;
+	required uint32 num_of_vms = 9;
+	repeated drm_vm_entry vm_entries = 10;
+}
+
+message drm_vm_entry {
+	required uint64 addr = 1;
+	required uint64 size = 2;
+	required uint64 offset = 3;
+	required uint64 flags = 4;
+}
+
 message criu_render_node {
 	required uint32 gpu_id = 1;
+	required uint32 id = 2;
+	required uint32 drm_render_minor = 3;
+	required uint64 num_of_bos = 4;
+	repeated drm_bo_entry bo_entries = 5;
+}
+
+message criu_dmabuf_node {
+	required uint32 gem_handle = 1;
 }

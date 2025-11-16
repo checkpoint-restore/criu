@@ -2289,6 +2289,10 @@ int cr_dump_tasks(pid_t pid)
 			goto err;
 	}
 
+	ret = run_plugins(DUMP_DEVICES_LATE, pid);
+	if (ret && ret != -ENOTSUP)
+		goto err;
+
 	if (parent_ie) {
 		inventory_entry__free_unpacked(parent_ie, NULL);
 		parent_ie = NULL;

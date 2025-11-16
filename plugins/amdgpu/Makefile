@@ -27,7 +27,11 @@ endif
 criu-amdgpu.pb-c.c: criu-amdgpu.proto
 		protoc --proto_path=. --c_out=. criu-amdgpu.proto
 
+<<<<<<< HEAD
 amdgpu_plugin.so: amdgpu_plugin.c amdgpu_plugin_drm.c amdgpu_plugin_topology.c amdgpu_plugin_util.c criu-amdgpu.pb-c.c amdgpu_socket_utils.c
+=======
+amdgpu_plugin.so: amdgpu_plugin.c amdgpu_plugin_drm.c amdgpu_plugin_dmabuf.c amdgpu_plugin_topology.c amdgpu_plugin_util.c criu-amdgpu.pb-c.c amdgpu_socket_utils.c
+>>>>>>> upstream/criu-dev
 	$(CC) $(PLUGIN_CFLAGS) $(shell $(COMPEL) includes) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) $(LIBDRM_INC)
 
 amdgpu_plugin_clean:
