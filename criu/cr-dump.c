@@ -65,6 +65,7 @@
 #include "stats.h"
 #include "mem.h"
 #include "page-pipe.h"
+#include "cow-dump.h"
 #include "posix-timer.h"
 #include "vdso.h"
 #include "vma.h"
@@ -1744,6 +1745,23 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		goto err_cure;
 	}
 
+	if (opts.cow_dump) {
+		/* COW dump mode: split VMAs by size */
+		ret = cow_dump_init(item, &vmas, parasite_ctl);
+		if (ret) {
+			pr_err("Failed to initialize COW dump for VMAs\n");
+			goto err_cure;
+		}
+		
+		/* Start background thread to monitor page faults */
+		ret = cow_start_monitor_thread();
+		if (ret) {
+			pr_err("Failed to start COW monitor thread\n");
+			goto err_cure;
+		}
+	}
+	
+	
 	ret = compel_stop_daemon(parasite_ctl);
 	if (ret) {
 		pr_err("Can't stop daemon in parasite (pid: %d)\n", pid);
@@ -2100,16 +2118,40 @@ static int cr_dump_finish(int ret)
 		clean_cr_time_mounts();
 	}
 
-	if (!ret && opts.lazy_pages)
+	/* Resume process early if using COW dump with lazy pages */
+	if (!ret && opts.lazy_pages && opts.cow_dump) {
+		pr_info("Resuming process with COW protection active\n");
+		
+		if (arch_set_thread_regs(root_item, true) < 0)
+			return -1;
+
+		cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+		pstree_switch_state(root_item, TASK_ALIVE);
+		timing_stop(TIME_FROZEN);
+		
+		/* Now start lazy page transfer with process running */
 		ret = cr_lazy_mem_dump();
+		
+		/* Stop the monitor thread after lazy dump completes */
+		if (cow_stop_monitor_thread()) {
+			pr_err("Failed to stop COW monitor thread\n");
+			ret = -1;
+		}
+	} else {
+		/* Standard path: transfer pages then resume */
+		if (!ret && opts.lazy_pages)
+			ret = cr_lazy_mem_dump();
+		
+		if (arch_set_thread_regs(root_item, true) < 0)
+			return -1;
 
-	if (arch_set_thread_regs(root_item, true) < 0)
-		return -1;
+		cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
 
-	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
-
-	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
-	timing_stop(TIME_FROZEN);
+		pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
+		timing_stop(TIME_FROZEN);
+	}
+	
 	free_pstree(root_item);
 	seccomp_free_entries();
 	free_file_locks();

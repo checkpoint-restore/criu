@@ -8,6 +8,10 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <linux/userfaultfd.h>
+#include <time.h>
+#include <string.h>
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-xfer: "
@@ -27,6 +31,11 @@
 #include "rst_info.h"
 #include "stats.h"
 #include "tls.h"
+#include "uffd.h"
+#include "cow-dump.h"
+#include "criu-plugin.h"
+#include "plugin.h"
+#include "dump.h"
 
 static int page_server_sk = -1;
 
@@ -1067,6 +1076,55 @@ static int prep_loc_xfer(struct page_server_iov *pi)
 		return 0;
 }
 
+/* Statistics tracking structure */
+static struct {
+	/* page_server_get_pages counters */
+	unsigned long get_total_requests;
+	unsigned long get_with_cow;
+	unsigned long get_no_cow;
+	unsigned long get_total_pages;
+	unsigned long get_cow_pages;
+	unsigned long get_errors;
+	
+	/* page_server_serve counters */
+	unsigned long serve_open;
+	unsigned long serve_open2;
+	unsigned long serve_parent;
+	unsigned long serve_add_f;
+	unsigned long serve_add;
+	unsigned long serve_hole;
+	unsigned long serve_close;
+	unsigned long serve_force_close;
+	unsigned long serve_get;
+	unsigned long serve_unknown;
+	
+	time_t last_print_time;
+} ps_stats;
+
+static void check_and_print_stats(void)
+{
+	time_t now = time(NULL);
+	
+	if (now - ps_stats.last_print_time >= 1) {
+		pr_warn("[PAGE_SERVER_STATS] get_pages: reqs=%lu with_cow=%lu no_cow=%lu pages=%lu cow=%lu errs=%lu | serve: open2=%lu parent=%lu add_f=%lu get=%lu close=%lu\n",
+			ps_stats.get_total_requests,
+			ps_stats.get_with_cow,
+			ps_stats.get_no_cow,
+			ps_stats.get_total_pages,
+			ps_stats.get_cow_pages,
+			ps_stats.get_errors,
+			ps_stats.serve_open2,
+			ps_stats.serve_parent,
+			ps_stats.serve_add_f,
+			ps_stats.serve_get,
+			ps_stats.serve_close + ps_stats.serve_force_close);
+		
+		/* Reset all counters */
+		memset(&ps_stats, 0, sizeof(ps_stats));
+		ps_stats.last_print_time = now;
+	}
+}
+
 static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 {
 	size_t len;
@@ -1141,6 +1199,16 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	struct page_pipe *pp;
 	unsigned long len, nr_pages;
 	int ret;
+	struct uffdio_writeprotect wp;
+	int uffd = -1;
+	void *buffer = NULL;
+	unsigned long i;
+	struct cow_page **cow_pages = NULL;
+	unsigned long cow_count = 0;
+
+	/* Update statistics */
+	ps_stats.get_total_requests++;
+	check_and_print_stats();
 
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
@@ -1150,8 +1218,11 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	 * on 32-bit platforms (e.g. armv7). */
 	nr_pages = pi->nr_pages;
 	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr, &nr_pages, PPB_LAZY);
-	if (ret)
-		return ret;
+
+	if (ret) {
+		ps_stats.get_errors++;
+		return ret;	
+	}
 
 	/*
 	 * The pi is reused for send_psi here, so .nr_pages, .vaddr and
@@ -1161,29 +1232,142 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	pi->nr_pages = nr_pages;
 	if (pi->nr_pages == 0) {
 		pr_debug("no iovs found, zero pages\n");
+		ps_stats.get_errors++;
 		return -1;
 	}
 
-	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
-	if (send_psi(sk, pi))
-		return -1;
-
 	len = pi->nr_pages * PAGE_SIZE;
+	ps_stats.get_total_pages += pi->nr_pages;
 
-	if (opts.tls) {
-		if (tls_send_data_from_fd(pipe_read_dest.p[0], len))
-			return -1;
+	/* Single-pass lookup - collect all COW pages */
+	cow_pages = xzalloc(pi->nr_pages * sizeof(struct cow_page *));
+	if (!cow_pages) {
+		pr_err("Failed to allocate COW pages array\n");
+		ps_stats.get_errors++;
+		return -1;
+	}
+
+	for (i = 0; i < pi->nr_pages; i++) {
+		unsigned long page_addr = pi->vaddr + (i * PAGE_SIZE);
+		cow_pages[i] = cow_lookup_and_remove_page(page_addr);
+		if (cow_pages[i])
+			cow_count++;
+	}
+
+	/*  Send response header */
+	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	if (send_psi(sk, pi)) {
+		xfree(cow_pages);
+		ps_stats.get_errors++;
+		return -1;
+	}
+
+	/* Choose fast or slow path based on COW presence */
+	if (cow_count == 0) {
+		/* FAST PATH: Zero-copy splice from pipe to socket */
+		pr_debug("Zero-copy path: splicing %lu pages directly\n", pi->nr_pages);
+		ps_stats.get_no_cow++;
+		
+		if (opts.tls) {
+			ret = tls_send_data_from_fd(pipe_read_dest.p[0], len);
+			if (ret) {
+				pr_err("Failed to send via TLS from pipe\n");
+				xfree(cow_pages);
+				ps_stats.get_errors++;
+				return -1;
+			}
+		} else {
+			ssize_t spliced = 0;
+			while (spliced < len) {
+				ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, 
+					     len - spliced, SPLICE_F_MOVE);
+				if (ret <= 0) {
+					pr_perror("Failed to splice pipe to socket");
+					xfree(cow_pages);
+					ps_stats.get_errors++;
+					return -1;
+				}
+				spliced += ret;
+			}
+		}
 	} else {
-		ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, len, SPLICE_F_MOVE);
-		if (ret != len)
+		/* SLOW PATH: Buffer + overlay COW pages */
+		pr_debug("Buffered path: overlaying %lu COW pages out of %lu total\n", 
+			 cow_count, pi->nr_pages);
+		ps_stats.get_with_cow++;
+		ps_stats.get_cow_pages += cow_count;
+		
+		buffer = xmalloc(len);
+		if (!buffer) {
+			pr_err("Failed to allocate buffer for %lu pages\n", pi->nr_pages);
+			goto err_free_cow;
+		}
+
+		ret = read(pipe_read_dest.p[0], buffer, len);
+		if (ret != len) {
+			pr_err("Short read from pipe: %d vs %lu\n", ret, len);
+			goto err_free_all;
+		}
+
+		/* Overlay COW pages */
+		for (i = 0; i < pi->nr_pages; i++) {
+			if (cow_pages[i]) {
+				pr_debug("Overlaying COW page at index %lu\n", i);
+				memcpy(buffer + (i * PAGE_SIZE), cow_pages[i]->data, PAGE_SIZE);
+				xfree(cow_pages[i]->data);
+				xfree(cow_pages[i]);
+			}
+		}
+
+		/* Send buffered data */
+		if (opts.tls) {
+			if (__send(sk, buffer, len, 0) != len) {
+				pr_perror("Failed to send page buffer via TLS");
+				goto err_free_all;
+			}
+		} else {
+			if (send(sk, buffer, len, 0) != len) {
+				pr_perror("Failed to send page buffer");
+				goto err_free_all;
+			}
+		}
+
+		xfree(buffer);
+	}
+
+	xfree(cow_pages);
+
+	/* Step 5: Unprotect all pages in one operation */
+	uffd = cow_get_uffd();
+	if (uffd >= 0) {
+		wp.range.start = pi->vaddr;
+		wp.range.len = len;
+		wp.mode = 0; /* Clear write-protect */
+
+		if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
+			pr_perror("Failed to unprotect pages at 0x%llx", wp.range.start);
+			ps_stats.get_errors++;
 			return -1;
+		}
 	}
 
 	tcp_nodelay(sk, true);
-
 	return 0;
-}
 
+err_free_all:
+	xfree(buffer);
+err_free_cow:
+	for (i = 0; i < pi->nr_pages; i++) {
+		if (cow_pages[i]) {
+			xfree(cow_pages[i]->data);
+			xfree(cow_pages[i]);
+		}
+	}
+	xfree(cow_pages);
+	ps_stats.get_errors++;
+	return -1;
+}
+extern void pstree_switch_state(struct pstree_item *root_item, int st);
 static int page_server_serve(int sk)
 {
 	int ret = -1;
@@ -1228,36 +1412,54 @@ static int page_server_serve(int sk)
 		flushed = false;
 		cmd = decode_ps_cmd(pi.cmd);
 
+		/* Check and print stats on each iteration */
+		check_and_print_stats();
+
 		switch (cmd) {
 		case PS_IOV_OPEN:
+			ps_stats.serve_open++;
 			ret = page_server_open(-1, &pi);
 			break;
 		case PS_IOV_OPEN2:
+			ps_stats.serve_open2++;
 			ret = page_server_open(sk, &pi);
 			break;
 		case PS_IOV_PARENT:
+			ps_stats.serve_parent++;
 			ret = page_server_check_parent(sk, &pi);
 			break;
 		case PS_IOV_ADD_F:
 		case PS_IOV_ADD:
 		case PS_IOV_HOLE: {
 			u32 flags;
-
-			if (likely(cmd == PS_IOV_ADD_F))
+			
+			if (likely(cmd == PS_IOV_ADD_F)) {
 				flags = decode_ps_flags(pi.cmd);
-			else if (cmd == PS_IOV_ADD)
+				ps_stats.serve_add_f++;
+			}
+			else if (cmd == PS_IOV_ADD){
 				flags = PE_PRESENT;
+				ps_stats.serve_add++;
+			}
 			else /* PS_IOV_HOLE */
+			{
 				flags = PE_PARENT;
+				ps_stats.serve_hole++;
+			}
 
 			ret = page_server_add(sk, &pi, flags);
 			break;
-		}
+			}
 		case PS_IOV_CLOSE:
 		case PS_IOV_FORCE_CLOSE: {
 			int32_t status = 0;
 
 			ret = 0;
+			
+			if (cmd == PS_IOV_CLOSE)
+				ps_stats.serve_close++;
+			else
+				ps_stats.serve_force_close++;
 
 			/*
 			 * An answer must be sent back to inform another side,
@@ -1272,10 +1474,12 @@ static int page_server_serve(int sk)
 			break;
 		}
 		case PS_IOV_GET:
+			ps_stats.serve_get++;
 			ret = page_server_get_pages(sk, &pi);
 			break;
 		default:
 			pr_err("Unknown command %u\n", pi.cmd);
+			ps_stats.serve_unknown++;
 			ret = -1;
 			break;
 		}
