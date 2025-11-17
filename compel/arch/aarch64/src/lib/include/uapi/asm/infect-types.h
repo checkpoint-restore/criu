@@ -16,7 +16,21 @@
  */
 
 typedef struct user_pt_regs user_regs_struct_t;
-typedef struct user_fpsimd_state user_fpregs_struct_t;
+
+/*
+ * GCS (Guarded Control Stack)
+ */
+struct user_gcs {
+	__u64 features_enabled;
+	__u64 features_locked;
+	__u64 gcspr_el0;
+};
+
+struct user_fpregs_struct {
+	struct user_fpsimd_state fpstate;
+	struct user_gcs gcs;
+};
+typedef struct user_fpregs_struct user_fpregs_struct_t;
 
 #define __compel_arch_fetch_thread_area(tid, th) 0
 #define compel_arch_fetch_thread_area(tctl)	 0
@@ -38,5 +52,10 @@ typedef struct user_fpsimd_state user_fpregs_struct_t;
 		(void)compat;   \
 		__NR_##syscall; \
 	})
+
+struct parasite_ctl;
+extern int __parasite_setup_shstk(struct parasite_ctl *ctl,
+				  user_fpregs_struct_t *ext_regs);
+#define parasite_setup_shstk __parasite_setup_shstk
 
 #endif /* UAPI_COMPEL_ASM_TYPES_H__ */

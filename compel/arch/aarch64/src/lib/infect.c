@@ -13,6 +13,8 @@
 #include "infect.h"
 #include "infect-priv.h"
 #include "asm/breakpoints.h"
+#include "asm/gcs-types.h"
+#include <linux/prctl.h>
 
 unsigned __page_size = 0;
 unsigned __page_shift = 0;
@@ -33,23 +35,44 @@ static inline void __always_unused __check_code_syscall(void)
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
+static bool __compel_gcs_enabled(struct user_gcs *gcs)
+{
+	return gcs && (gcs->features_enabled & PR_SHADOW_STACK_ENABLE) != 0;
+}
+
 int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	struct fpsimd_context *fpsimd = RT_SIGFRAME_FPU(sigframe);
+	struct gcs_context *gcs = RT_SIGFRAME_GCS(sigframe);
 
 	memcpy(sigframe->uc.uc_mcontext.regs, regs->regs, sizeof(regs->regs));
+
+	pr_debug("sigreturn_prep_regs_plain: sp %lx pc %lx\n", (long)regs->sp, (long)regs->pc);
 
 	sigframe->uc.uc_mcontext.sp = regs->sp;
 	sigframe->uc.uc_mcontext.pc = regs->pc;
 	sigframe->uc.uc_mcontext.pstate = regs->pstate;
 
-	memcpy(fpsimd->vregs, fpregs->vregs, 32 * sizeof(__uint128_t));
+	memcpy(fpsimd->vregs, fpregs->fpstate.vregs, 32 * sizeof(__uint128_t));
 
-	fpsimd->fpsr = fpregs->fpsr;
-	fpsimd->fpcr = fpregs->fpcr;
+	fpsimd->fpsr = fpregs->fpstate.fpsr;
+	fpsimd->fpcr = fpregs->fpstate.fpcr;
 
 	fpsimd->head.magic = FPSIMD_MAGIC;
 	fpsimd->head.size = sizeof(*fpsimd);
+
+	if (__compel_gcs_enabled(&fpregs->gcs)) {
+		gcs->head.magic = GCS_MAGIC;
+		gcs->head.size = sizeof(*gcs);
+		gcs->reserved = 0;
+		gcs->gcspr = fpregs->gcs.gcspr_el0 - 8;
+		gcs->features_enabled = fpregs->gcs.features_enabled;
+
+		pr_debug("sigframe gcspr=%llx features_enabled=%llx\n", fpregs->gcs.gcspr_el0 - 8, fpregs->gcs.features_enabled);
+	} else {
+		pr_debug("sigframe gcspr=[disabled]\n");
+		memset(gcs, 0, sizeof(*gcs));
+	}
 
 	return 0;
 }
@@ -59,7 +82,7 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe, struct rt_sigfr
 	return 0;
 }
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
 			 void *arg, __maybe_unused unsigned long flags)
 {
 	struct iovec iov;
@@ -74,14 +97,28 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct
 		goto err;
 	}
 
-	iov.iov_base = fpsimd;
-	iov.iov_len = sizeof(*fpsimd);
+	iov.iov_base = &ext_regs->fpstate;
+	iov.iov_len = sizeof(ext_regs->fpstate);
 	if ((ret = ptrace(PTRACE_GETREGSET, pid, NT_PRFPREG, &iov))) {
 		pr_perror("Failed to obtain FPU registers for %d", pid);
 		goto err;
 	}
 
-	ret = save(pid, arg, regs, fpsimd);
+	memset(&ext_regs->gcs, 0, sizeof(ext_regs->gcs));
+
+	iov.iov_base = &ext_regs->gcs;
+	iov.iov_len = sizeof(ext_regs->gcs);
+	if (ptrace(PTRACE_GETREGSET, pid, NT_ARM_GCS, &iov) == 0) {
+		pr_info("gcs: GCSPR_EL0 for %d: 0x%llx, features: 0x%llx\n",
+			pid, ext_regs->gcs.gcspr_el0, ext_regs->gcs.features_enabled);
+
+		if (!__compel_gcs_enabled(&ext_regs->gcs))
+			pr_info("gcs: GCS is NOT enabled\n");
+	} else {
+		pr_info("gcs: GCS state not available for %d\n", pid);
+	}
+
+	ret = save(pid, arg, regs, ext_regs);
 err:
 	return ret;
 }
@@ -90,14 +127,44 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 {
 	struct iovec iov;
 
+	struct user_gcs gcs;
+	struct iovec gcs_iov = { .iov_base = &gcs, .iov_len = sizeof(gcs) };
+
 	pr_info("Restoring GP/FPU registers for %d\n", pid);
 
-	iov.iov_base = ext_regs;
-	iov.iov_len = sizeof(*ext_regs);
+	iov.iov_base = &ext_regs->fpstate;
+	iov.iov_len = sizeof(ext_regs->fpstate);
 	if (ptrace(PTRACE_SETREGSET, pid, NT_PRFPREG, &iov)) {
 		pr_perror("Failed to set FPU registers for %d", pid);
 		return -1;
 	}
+
+	if (ptrace(PTRACE_GETREGSET, pid, NT_ARM_GCS, &gcs_iov) < 0) {
+		pr_warn("gcs: Failed to get GCS for %d\n", pid);
+	} else {
+		ext_regs->gcs = gcs;
+		compel_set_task_gcs_regs(pid, ext_regs);
+	}
+
+	return 0;
+}
+
+int compel_set_task_gcs_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	struct iovec iov;
+
+	pr_info("gcs: restoring GCS registers for %d\n", pid);
+	pr_info("gcs: restoring GCS: gcspr=%llx features=%llx\n",
+		ext_regs->gcs.gcspr_el0, ext_regs->gcs.features_enabled);
+
+	iov.iov_base = &ext_regs->gcs;
+	iov.iov_len = sizeof(ext_regs->gcs);
+
+	if (ptrace(PTRACE_SETREGSET, pid, NT_ARM_GCS, &iov)) {
+		pr_perror("gcs: Failed to set GCS registers for %d", pid);
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -283,6 +350,68 @@ int ptrace_flush_breakpoints(pid_t pid)
 
 	if (ptrace(PTRACE_SETREGSET, pid, NT_ARM_HW_BREAK, &iovec))
 		return -1;
+
+	return 0;
+}
+
+int inject_gcs_cap_token(struct parasite_ctl *ctl, pid_t pid, struct user_gcs *gcs)
+{
+	struct iovec gcs_iov = { .iov_base = gcs, .iov_len = sizeof(*gcs) };
+
+	uint64_t token_addr = gcs->gcspr_el0 - 8;
+	uint64_t sigtramp_addr = gcs->gcspr_el0 - 16;
+
+	uint64_t cap_token = ALIGN_DOWN(GCS_SIGNAL_CAP(token_addr), 8);
+	unsigned long restorer_addr;
+
+	pr_info("gcs: (setup) CAP token: 0x%lx at addr: 0x%lx\n", cap_token, token_addr);
+
+	/* Inject capability token at gcspr_el0 - 8 */
+	if (ptrace(PTRACE_POKEDATA, pid, (void *)token_addr, cap_token)) {
+		pr_perror("gcs: (setup) Inject GCS cap token failed");
+		return -1;
+	}
+
+	/* Inject restorer trampoline address (gcspr_el0 - 16) */
+	restorer_addr = ctl->parasite_ip;
+	if (ptrace(PTRACE_POKEDATA, pid, (void *)sigtramp_addr, restorer_addr)) {
+		pr_perror("gcs: (setup) Inject GCS restorer failed");
+		return -1;
+	}
+
+	/* Update GCSPR_EL0 */
+	gcs->gcspr_el0 = token_addr;
+	if (ptrace(PTRACE_SETREGSET, pid, NT_ARM_GCS, &gcs_iov)) {
+		pr_perror("gcs: PTRACE_SETREGS FAILED");
+		return -1;
+	}
+
+	pr_debug("gcs: parasite_ip=%#lx sp=%#llx gcspr_el0=%#llx\n",
+		 ctl->parasite_ip, ctl->orig.regs.sp, gcs->gcspr_el0);
+
+	return 0;
+}
+
+int parasite_setup_shstk(struct parasite_ctl *ctl, user_fpregs_struct_t *ext_regs)
+{
+	struct user_gcs gcs;
+	struct iovec gcs_iov = { .iov_base = &gcs, .iov_len = sizeof(gcs) };
+	pid_t pid = ctl->rpid;
+
+	if (ptrace(PTRACE_GETREGSET, pid, NT_ARM_GCS, &gcs_iov) != 0) {
+		pr_perror("GCS state not available for %d", pid);
+		return -1;
+	}
+
+	if (!__compel_gcs_enabled(&gcs))
+		return 0;
+
+	if (inject_gcs_cap_token(ctl, pid, &gcs)) {
+		pr_perror("Failed to inject GCS cap token for %d", pid);
+		return -1;
+	}
+
+	pr_info("gcs: GCS enabled for %d\n", pid);
 
 	return 0;
 }
