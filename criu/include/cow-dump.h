@@ -121,4 +121,25 @@ extern struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr);
  */
 extern pthread_spinlock_t *cow_get_hash_lock(unsigned long vaddr);
 
+struct cow_page_queue_entry;
+
+/**
+ * cow_get_next_page - Get next COW page from the queue
+ *
+ * Thread-safe dequeue of the next COW page that needs to be sent.
+ * The caller is responsible for freeing the returned entry.
+ *
+ * Returns: cow_page_queue_entry on success, NULL if queue is empty
+ */
+extern struct cow_page_queue_entry *cow_get_next_page(void);
+
+/**
+ * cow_has_pending_pages - Check if there are pending COW pages
+ *
+ * Thread-safe check for whether the COW page queue has any entries.
+ *
+ * Returns: true if there are pending pages, false otherwise
+ */
+extern bool cow_has_pending_pages(void);
+
 #endif /* __CR_COW_DUMP_H_ */

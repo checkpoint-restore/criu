@@ -1320,33 +1320,145 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 	unsigned int i;
 	int ret;
 	unsigned long total_pages = 0;
+	unsigned long remaining_pages;
+	unsigned long total_cow_pages = 0;
 	unsigned long j;
+	unsigned char *sent_bitmap = NULL;
+	unsigned long bitmap_size;
+	unsigned long page_idx;
+	unsigned long round = 0;
 
 	pr_info("Batch transfer request for img_id=%lu\n", pi->dst_id);
 
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
 
-	/* Iterate over all pages and send them one by one */
+	/* Count total pages first */
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec *iov = &ppb->iov[i];
-			unsigned long vaddr = (unsigned long)iov->iov_base;
-			unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+			total_pages += iov->iov_len / PAGE_SIZE;
+		}
+	}
 
-			/* Send each page individually */
-			for (j = 0; j < nr_pages; j++) {
-				unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
-				
-				ret = send_one_chunk(sk, pp, page_vaddr, 1, pi->dst_id);
-				if (ret < 0) {
-					pr_err("Failed to send page at %lx\n", page_vaddr);
-					return ret;
+	pr_info("Total pages to send: %lu\n", total_pages);
+
+	/* Allocate bitmap to track sent pages (1 bit per page) */
+	bitmap_size = (total_pages + 7) / 8;
+	sent_bitmap = xzalloc(bitmap_size);
+	if (!sent_bitmap) {
+		pr_err("Failed to allocate sent_bitmap of %lu bytes\n", bitmap_size);
+		return -1;
+	}
+
+	remaining_pages = total_pages;
+
+	/* Continuous COW-priority loop */
+	while (remaining_pages > 0) {
+		unsigned long cow_sent_this_round = 0;
+
+		round++;
+		pr_debug("Round %lu: %lu pages remaining\n", round, remaining_pages);
+
+		/* Get COW pages from queue and send them */
+		while (cow_has_pending_pages() && remaining_pages > 0) {
+			struct cow_page_queue_entry *entry = cow_get_next_page();
+			if (!entry)
+				break;
+
+			/* Find page_idx for this vaddr to mark in bitmap */
+			page_idx = 0;
+			list_for_each_entry(ppb, &pp->bufs, l) {
+				for (i = 0; i < ppb->nr_segs; i++) {
+					struct iovec *iov = &ppb->iov[i];
+					unsigned long vaddr = (unsigned long)iov->iov_base;
+					unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+
+					/* Check if entry->vaddr is within this iov */
+					if (entry->vaddr >= vaddr && entry->vaddr < vaddr + (nr_pages * PAGE_SIZE)) {
+						/* Found it - calculate index */
+						page_idx += (entry->vaddr - vaddr) / PAGE_SIZE;
+						goto found_idx;
+					}
+					page_idx += nr_pages;
 				}
-				total_pages++;
+			}
+found_idx:
+			/* Skip if already sent */
+			if (sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
+				xfree(entry);
+				continue;
+			}
+
+			/* Send the COW page */
+			ret = send_one_chunk(sk, pp, entry->vaddr, 1, pi->dst_id);
+			xfree(entry);
+
+			if (ret < 0) {
+				pr_err("Failed to send COW page at %lx\n", entry->vaddr);
+				xfree(sent_bitmap);
+				return ret;
+			}
+
+			/* Mark as sent in bitmap */
+			sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+			cow_sent_this_round++;
+			total_cow_pages++;
+			remaining_pages--;
+		}
+
+		if (cow_sent_this_round > 0) {
+			pr_debug("Round %lu: sent %lu COW pages from queue\n", round, cow_sent_this_round);
+		}
+
+		/* If no COW pages in queue, send one regular page to make progress */
+		if (cow_sent_this_round == 0 && remaining_pages > 0) {
+			page_idx = 0;
+			list_for_each_entry(ppb, &pp->bufs, l) {
+				bool sent_one = false;
+
+				for (i = 0; i < ppb->nr_segs; i++) {
+					struct iovec *iov = &ppb->iov[i];
+					unsigned long vaddr = (unsigned long)iov->iov_base;
+					unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+
+					for (j = 0; j < nr_pages; j++, page_idx++) {
+						unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
+
+						/* Skip if already sent */
+						if (sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))
+							continue;
+
+						/* Send one regular page */
+						ret = send_one_chunk(sk, pp, page_vaddr, 1, pi->dst_id);
+						if (ret < 0) {
+							pr_err("Failed to send page at %lx\n", page_vaddr);
+							xfree(sent_bitmap);
+							return ret;
+						}
+
+						/* Mark as sent in bitmap */
+						sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+						remaining_pages--;
+						sent_one = true;
+						pr_debug("Round %lu: sent 1 regular page (no COW found)\n", round);
+						break;
+					}
+
+					if (sent_one)
+						break;
+				}
+
+				if (sent_one)
+					break;
 			}
 		}
 	}
+
+	xfree(sent_bitmap);
+
+	pr_info("Batch transfer complete: %lu total pages sent (%lu COW + %lu regular) in %lu rounds\n",
+		total_pages, total_cow_pages, total_pages - total_cow_pages, round);
 
 	/* Send end-of-transfer marker */
 	struct page_server_iov end_marker = {
@@ -1363,7 +1475,6 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 	}
 
 	tcp_nodelay(sk, true);
-	pr_info("Batch transfer complete: %lu pages sent\n", total_pages);
 	return 0;
 }
 

@@ -30,6 +30,12 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "cow-dump: "
 
+/* Queue entry for COW pages waiting to be sent */
+struct cow_page_queue_entry {
+	unsigned long vaddr;
+	struct list_head list;
+};
+
 /* COW dump state for a single process */
 struct cow_dump_info {
 	struct pstree_item *item;
@@ -42,6 +48,8 @@ struct cow_dump_info {
 	struct list_head dirty_list;		/* List of dirty page ranges */
 	struct hlist_head cow_hash[COW_HASH_SIZE];	/* Hash table for copied pages */
 	pthread_spinlock_t cow_hash_locks[COW_HASH_SIZE];	/* Per-bucket spinlocks */
+	struct list_head cow_page_queue;	/* FIFO queue of COW pages */
+	pthread_spinlock_t queue_lock;		/* Protects the queue */
 };
 
 /* Dirty page range */
@@ -191,6 +199,10 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		pthread_spin_init(&cdi->cow_hash_locks[i], PTHREAD_PROCESS_PRIVATE);
 	}
 
+	/* Initialize COW page queue */
+	INIT_LIST_HEAD(&cdi->cow_page_queue);
+	pthread_spin_init(&cdi->queue_lock, PTHREAD_PROCESS_PRIVATE);
+
 	/* Open /proc/pid/mem for reading pages */
 	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
 	if (cdi->proc_mem_fd < 0)
@@ -281,13 +293,27 @@ void cow_dump_fini(void)
 {
 	struct dirty_range *dr, *tmp;
 	struct cow_page *cp;
+	struct cow_page_queue_entry *qe, *qe_tmp;
 	struct hlist_node *n;
-	int i, remaining = 0;
+	int i, remaining = 0, queue_remaining = 0;
 
 	if (!g_cow_info)
 		return;
 
 	pr_info("Cleaning up COW dump\n");
+
+	/* Clean up any remaining queue entries */
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	list_for_each_entry_safe(qe, qe_tmp, &g_cow_info->cow_page_queue, list) {
+		list_del(&qe->list);
+		xfree(qe);
+		queue_remaining++;
+	}
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+	pthread_spin_destroy(&g_cow_info->queue_lock);
+
+	if (queue_remaining > 0)
+		pr_warn("Freed %d remaining queue entries\n", queue_remaining);
 
 	/* Clean up any remaining COW pages */
 	for (i = 0; i < COW_HASH_SIZE; i++) {
@@ -398,6 +424,20 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	
 	cow_stats.pages_woken++;
 	cdi->total_pages--;
+
+	/* Add page to queue for page server */
+	struct cow_page_queue_entry *entry = xmalloc(sizeof(*entry));
+	if (entry) {
+		entry->vaddr = page_addr;
+		INIT_LIST_HEAD(&entry->list);
+		pthread_spin_lock(&cdi->queue_lock);
+		list_add_tail(&entry->list, &cdi->cow_page_queue);
+		pthread_spin_unlock(&cdi->queue_lock);
+		pr_debug("Added page 0x%lx to COW queue\n", page_addr);
+	} else {
+		pr_warn("Failed to allocate queue entry for page 0x%lx\n", page_addr);
+	}
+
 	return 0;
 }
 
@@ -637,4 +677,36 @@ struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr)
 	
 	pthread_spin_unlock(&g_cow_info->cow_hash_locks[hash]);
 	return NULL;
+}
+
+struct cow_page_queue_entry *cow_get_next_page(void)
+{
+	struct cow_page_queue_entry *entry = NULL;
+
+	if (!g_cow_info)
+		return NULL;
+
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	if (!list_empty(&g_cow_info->cow_page_queue)) {
+		entry = list_first_entry(&g_cow_info->cow_page_queue,
+					 struct cow_page_queue_entry, list);
+		list_del(&entry->list);
+	}
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+
+	return entry;
+}
+
+bool cow_has_pending_pages(void)
+{
+	bool has_pages;
+
+	if (!g_cow_info)
+		return false;
+
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	has_pages = !list_empty(&g_cow_info->cow_page_queue);
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+
+	return has_pages;
 }
