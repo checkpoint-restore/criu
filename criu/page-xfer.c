@@ -1197,13 +1197,6 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 /* Chunk size for batch transfer: 4KB = 1 page (to avoid COW race conditions) */
 #define BATCH_CHUNK_SIZE (1)
 
-struct page_chunk {
-	unsigned long vaddr;
-	unsigned long nr_pages;
-	bool has_cow;
-	struct list_head list;
-};
-
 static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, unsigned long nr_pages, u64 dst_id)
 {
 	struct page_server_iov pi;
@@ -1326,88 +1319,33 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 	struct page_pipe_buf *ppb;
 	unsigned int i;
 	int ret;
-	LIST_HEAD(cow_chunks);
-	LIST_HEAD(regular_chunks);
-	struct page_chunk *chunk, *tmp;
 	unsigned long total_pages = 0;
+	unsigned long j;
 
 	pr_info("Batch transfer request for img_id=%lu\n", pi->dst_id);
 
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
 
-	/* Scan page_pipe and organize into chunks */
+	/* Iterate over all pages and send them one by one */
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec *iov = &ppb->iov[i];
 			unsigned long vaddr = (unsigned long)iov->iov_base;
 			unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
-			unsigned long pages_left = nr_pages;
 
-			/* Break into 64KB chunks */
-			while (pages_left > 0) {
-				unsigned long chunk_pages = pages_left > BATCH_CHUNK_SIZE ? BATCH_CHUNK_SIZE : pages_left;
-				bool has_cow = false;
-				unsigned long j;
-
-				/* Check if this chunk has COW pages */
-				for (j = 0; j < chunk_pages; j++) {
-					if (cow_lookup_page(vaddr + (j * PAGE_SIZE))) {
-						has_cow = true;
-						break;
-					}
+			/* Send each page individually */
+			for (j = 0; j < nr_pages; j++) {
+				unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
+				
+				ret = send_one_chunk(sk, pp, page_vaddr, 1, pi->dst_id);
+				if (ret < 0) {
+					pr_err("Failed to send page at %lx\n", page_vaddr);
+					return ret;
 				}
-
-				chunk = xzalloc(sizeof(*chunk));
-				if (!chunk) {
-					ret = -1;
-					goto cleanup;
-				}
-
-				chunk->vaddr = vaddr;
-				chunk->nr_pages = chunk_pages;
-				chunk->has_cow = has_cow;
-
-				if (has_cow)
-					list_add_tail(&chunk->list, &cow_chunks);
-				else
-					list_add_tail(&chunk->list, &regular_chunks);
-
-				vaddr += chunk_pages * PAGE_SIZE;
-				pages_left -= chunk_pages;
-				total_pages += chunk_pages;
+				total_pages++;
 			}
 		}
-	}
-
-	pr_info("Organized %lu pages into chunks: COW first, then sequential\n", total_pages);
-
-	/* Send COW chunks first */
-	list_for_each_entry_safe(chunk, tmp, &cow_chunks, list) {
-		pr_debug("Sending COW chunk: vaddr=%lx nr_pages=%lu\n", chunk->vaddr, chunk->nr_pages);
-		ret = send_one_chunk(sk, pp, chunk->vaddr, chunk->nr_pages, pi->dst_id);
-		if (ret < 0) {
-			pr_err("Failed to send COW chunk at %lx\n", chunk->vaddr);
-			list_del(&chunk->list);
-			xfree(chunk);
-			goto cleanup;
-		}
-		list_del(&chunk->list);
-		xfree(chunk);
-	}
-
-	/* Send regular chunks sequentially */
-	list_for_each_entry_safe(chunk, tmp, &regular_chunks, list) {
-		pr_debug("Sending regular chunk: vaddr=%lx nr_pages=%lu\n", chunk->vaddr, chunk->nr_pages);
-		ret = send_one_chunk(sk, pp, chunk->vaddr, chunk->nr_pages, pi->dst_id);
-		if (ret < 0) {
-			pr_err("Failed to send regular chunk at %lx\n", chunk->vaddr);
-			list_del(&chunk->list);
-			xfree(chunk);
-			goto cleanup;
-		}
-		list_del(&chunk->list);
-		xfree(chunk);
 	}
 
 	/* Send end-of-transfer marker */
@@ -1421,24 +1359,12 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 	ret = send_psi(sk, &end_marker);
 	if (ret < 0) {
 		pr_err("Failed to send end-of-transfer marker\n");
-		goto cleanup;
+		return ret;
 	}
 
 	tcp_nodelay(sk, true);
 	pr_info("Batch transfer complete: %lu pages sent\n", total_pages);
 	return 0;
-
-cleanup:
-	/* Clean up any remaining chunks */
-	list_for_each_entry_safe(chunk, tmp, &cow_chunks, list) {
-		list_del(&chunk->list);
-		xfree(chunk);
-	}
-	list_for_each_entry_safe(chunk, tmp, &regular_chunks, list) {
-		list_del(&chunk->list);
-		xfree(chunk);
-	}
-	return ret;
 }
 
 static int page_server_get_pages(int sk, struct page_server_iov *pi)
