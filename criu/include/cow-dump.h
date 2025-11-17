@@ -79,6 +79,26 @@ extern int cow_stop_monitor_thread(void);
 extern int cow_get_uffd(void);
 
 /**
+ * cow_lookup_page - Look up a COW page without removing it
+ * @vaddr: Virtual address of the page
+ *
+ * Look up a page in the COW hash table without removing it.
+ * IMPORTANT: Caller must hold the hash bucket lock for this page.
+ *
+ * Returns: cow_page structure on success, NULL if not found
+ */
+extern struct cow_page *cow_lookup_page(unsigned long vaddr);
+
+/**
+ * cow_remove_page - Remove and free a COW page
+ * @vaddr: Virtual address of the page
+ *
+ * Remove a page from the COW hash table and free its memory.
+ * IMPORTANT: Caller must hold the hash bucket lock for this page.
+ */
+extern void cow_remove_page(unsigned long vaddr);
+
+/**
  * cow_lookup_and_remove_page - Look up and remove a COW page
  * @vaddr: Virtual address of the page
  *
@@ -89,5 +109,16 @@ extern int cow_get_uffd(void);
  * Returns: cow_page structure on success, NULL if not found
  */
 extern struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr);
+
+/**
+ * cow_get_hash_lock - Get pointer to the spinlock for a page's hash bucket
+ * @vaddr: Virtual address of the page
+ *
+ * Returns the spinlock that protects the hash bucket for the given address.
+ * Used for manual locking around cow_lookup_page/cow_remove_page.
+ *
+ * Returns: Pointer to the spinlock
+ */
+extern pthread_spinlock_t *cow_get_hash_lock(unsigned long vaddr);
 
 #endif /* __CR_COW_DUMP_H_ */

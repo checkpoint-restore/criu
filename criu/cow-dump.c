@@ -554,6 +554,63 @@ int cow_get_uffd(void)
 	return g_cow_info->uffd;
 }
 
+pthread_spinlock_t *cow_get_hash_lock(unsigned long vaddr)
+{
+	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
+	unsigned int hash;
+
+	if (!g_cow_info)
+		return NULL;
+
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
+	return &g_cow_info->cow_hash_locks[hash];
+}
+
+struct cow_page *cow_lookup_page(unsigned long vaddr)
+{
+	struct cow_page *cp;
+	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
+	unsigned int hash;
+
+	if (!g_cow_info)
+		return NULL;
+
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
+
+	/* NOTE: Caller must hold the lock for this hash bucket */
+	hlist_for_each_entry(cp, &g_cow_info->cow_hash[hash], hash) {
+		if (cp->vaddr == page_addr)
+			return cp;
+	}
+
+	return NULL;
+}
+
+void cow_remove_page(unsigned long vaddr)
+{
+	struct cow_page *cp;
+	struct hlist_node *n;
+	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
+	unsigned int hash;
+
+	if (!g_cow_info)
+		return;
+
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
+
+	/* NOTE: Caller must hold the lock for this hash bucket */
+	hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[hash], hash) {
+		if (cp->vaddr == page_addr) {
+			hlist_del(&cp->hash);
+			xfree(cp->data);
+			xfree(cp);
+			pr_debug("Removed COW page at 0x%lx from hash bucket %u\n",
+				 page_addr, hash);
+			return;
+		}
+	}
+}
+
 struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr)
 {
 	struct cow_page *cp;

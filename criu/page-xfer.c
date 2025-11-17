@@ -59,6 +59,7 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_IOV_PARENT 5
 #define PS_IOV_ADD_F  6
 #define PS_IOV_GET    7
+#define PS_IOV_GET_ALL 8
 
 #define PS_IOV_CLOSE	   0x1023
 #define PS_IOV_FORCE_CLOSE 0x1024
@@ -1193,6 +1194,253 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 	return 0;
 }
 
+/* Chunk size for batch transfer: 4KB = 1 page (to avoid COW race conditions) */
+#define BATCH_CHUNK_SIZE (1)
+
+struct page_chunk {
+	unsigned long vaddr;
+	unsigned long nr_pages;
+	bool has_cow;
+	struct list_head list;
+};
+
+static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, unsigned long nr_pages, u64 dst_id)
+{
+	struct page_server_iov pi;
+	struct cow_page *cow_pg;
+	pthread_spinlock_t *lock;
+	int ret;
+	unsigned long actual_nr_pages = 1;
+	int uffd;
+
+	/* Only handle 1 page at a time with new protocol */
+	if (nr_pages != 1) {
+		pr_err("send_one_chunk called with nr_pages=%lu, expected 1\n", nr_pages);
+		return -1;
+	}
+
+	pr_debug("Sending page vaddr=%lx\n", vaddr);
+
+	/* Get hash bucket lock for this page */
+	lock = cow_get_hash_lock(vaddr);
+	if (!lock) {
+		pr_err("Failed to get COW hash lock\n");
+		return -1;
+	}
+
+	/* LOCK: Prevent new COW faults during send */
+	pthread_spin_lock(lock);
+
+	/* 1. Check if COW page exists (without removing) */
+	cow_pg = cow_lookup_page(vaddr);
+
+	/* 2. Send metadata header */
+	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	pi.nr_pages = 1;
+	pi.vaddr = vaddr;
+	pi.dst_id = dst_id;
+
+	if (send_psi(sk, &pi)) {
+		pthread_spin_unlock(lock);
+		return -1;
+	}
+
+	/* 3. Send page data */
+	if (cow_pg) {
+		/* COW path: send COW data directly */
+		pr_debug("Sending COW page at %lx\n", vaddr);
+		
+		if (opts.tls) {
+			ret = __send(sk, cow_pg->data, PAGE_SIZE, 0);
+		} else {
+			ret = send(sk, cow_pg->data, PAGE_SIZE, 0);
+		}
+
+		if (ret != PAGE_SIZE) {
+			pr_perror("Failed to send COW page");
+			pthread_spin_unlock(lock);
+			return -1;
+		}
+	} else {
+		/* Non-COW path: read from pipe and send */
+		pr_debug("Sending non-COW page at %lx\n", vaddr);
+		
+		ret = page_pipe_read(pp, &pipe_read_dest, vaddr, &actual_nr_pages, PPB_LAZY);
+		if (ret) {
+			pr_err("Failed to read page from pipe at %lx\n", vaddr);
+			pthread_spin_unlock(lock);
+			return -1;
+		}
+
+		/* Send via splice or TLS */
+		if (opts.tls) {
+			ret = tls_send_data_from_fd(pipe_read_dest.p[0], PAGE_SIZE);
+			if (ret) {
+				pr_err("Failed to send page via TLS\n");
+				pthread_spin_unlock(lock);
+				return -1;
+			}
+		} else {
+			ret = splice(pipe_read_dest.p[0], NULL, sk, NULL,
+				     PAGE_SIZE, SPLICE_F_MOVE);
+			if (ret != PAGE_SIZE) {
+				pr_perror("Failed to splice page to socket");
+				pthread_spin_unlock(lock);
+				return -1;
+			}
+		}
+
+		/* Unprotect non-COW page only */
+		uffd = cow_get_uffd();
+		if (uffd >= 0 && !cow_pg) {
+			struct uffdio_writeprotect wp;
+			wp.range.start = vaddr;
+			wp.range.len = PAGE_SIZE;
+			wp.mode = 0;
+
+			if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
+				pr_perror("Failed to unprotect page at 0x%lx", vaddr);
+				pthread_spin_unlock(lock);
+				return -1;
+			}
+			pr_debug("Unprotected page at %lx\n", vaddr);
+		}
+	}
+
+	/* 4. Remove COW page from tracking (now safe - data sent) */
+	if (cow_pg) {
+		cow_remove_page(vaddr);
+		pr_debug("Removed COW page at %lx from tracking\n", vaddr);
+	}
+
+	/* UNLOCK */
+	pthread_spin_unlock(lock);
+
+	return 0;
+}
+
+static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
+{
+	struct pstree_item *item;
+	struct page_pipe *pp;
+	struct page_pipe_buf *ppb;
+	unsigned int i;
+	int ret;
+	LIST_HEAD(cow_chunks);
+	LIST_HEAD(regular_chunks);
+	struct page_chunk *chunk, *tmp;
+	unsigned long total_pages = 0;
+
+	pr_info("Batch transfer request for img_id=%lu\n", pi->dst_id);
+
+	item = pstree_item_by_virt(pi->dst_id);
+	pp = dmpi(item)->mem_pp;
+
+	/* Scan page_pipe and organize into chunks */
+	list_for_each_entry(ppb, &pp->bufs, l) {
+		for (i = 0; i < ppb->nr_segs; i++) {
+			struct iovec *iov = &ppb->iov[i];
+			unsigned long vaddr = (unsigned long)iov->iov_base;
+			unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+			unsigned long pages_left = nr_pages;
+
+			/* Break into 64KB chunks */
+			while (pages_left > 0) {
+				unsigned long chunk_pages = pages_left > BATCH_CHUNK_SIZE ? BATCH_CHUNK_SIZE : pages_left;
+				bool has_cow = false;
+				unsigned long j;
+
+				/* Check if this chunk has COW pages */
+				for (j = 0; j < chunk_pages; j++) {
+					if (cow_lookup_page(vaddr + (j * PAGE_SIZE))) {
+						has_cow = true;
+						break;
+					}
+				}
+
+				chunk = xzalloc(sizeof(*chunk));
+				if (!chunk) {
+					ret = -1;
+					goto cleanup;
+				}
+
+				chunk->vaddr = vaddr;
+				chunk->nr_pages = chunk_pages;
+				chunk->has_cow = has_cow;
+
+				if (has_cow)
+					list_add_tail(&chunk->list, &cow_chunks);
+				else
+					list_add_tail(&chunk->list, &regular_chunks);
+
+				vaddr += chunk_pages * PAGE_SIZE;
+				pages_left -= chunk_pages;
+				total_pages += chunk_pages;
+			}
+		}
+	}
+
+	pr_info("Organized %lu pages into chunks: COW first, then sequential\n", total_pages);
+
+	/* Send COW chunks first */
+	list_for_each_entry_safe(chunk, tmp, &cow_chunks, list) {
+		pr_debug("Sending COW chunk: vaddr=%lx nr_pages=%lu\n", chunk->vaddr, chunk->nr_pages);
+		ret = send_one_chunk(sk, pp, chunk->vaddr, chunk->nr_pages, pi->dst_id);
+		if (ret < 0) {
+			pr_err("Failed to send COW chunk at %lx\n", chunk->vaddr);
+			list_del(&chunk->list);
+			xfree(chunk);
+			goto cleanup;
+		}
+		list_del(&chunk->list);
+		xfree(chunk);
+	}
+
+	/* Send regular chunks sequentially */
+	list_for_each_entry_safe(chunk, tmp, &regular_chunks, list) {
+		pr_debug("Sending regular chunk: vaddr=%lx nr_pages=%lu\n", chunk->vaddr, chunk->nr_pages);
+		ret = send_one_chunk(sk, pp, chunk->vaddr, chunk->nr_pages, pi->dst_id);
+		if (ret < 0) {
+			pr_err("Failed to send regular chunk at %lx\n", chunk->vaddr);
+			list_del(&chunk->list);
+			xfree(chunk);
+			goto cleanup;
+		}
+		list_del(&chunk->list);
+		xfree(chunk);
+	}
+
+	/* Send end-of-transfer marker */
+	struct page_server_iov end_marker = {
+		.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
+		.nr_pages = 0,
+		.vaddr = 0,
+		.dst_id = pi->dst_id
+	};
+
+	ret = send_psi(sk, &end_marker);
+	if (ret < 0) {
+		pr_err("Failed to send end-of-transfer marker\n");
+		goto cleanup;
+	}
+
+	tcp_nodelay(sk, true);
+	pr_info("Batch transfer complete: %lu pages sent\n", total_pages);
+	return 0;
+
+cleanup:
+	/* Clean up any remaining chunks */
+	list_for_each_entry_safe(chunk, tmp, &cow_chunks, list) {
+		list_del(&chunk->list);
+		xfree(chunk);
+	}
+	list_for_each_entry_safe(chunk, tmp, &regular_chunks, list) {
+		list_del(&chunk->list);
+		xfree(chunk);
+	}
+	return ret;
+}
+
 static int page_server_get_pages(int sk, struct page_server_iov *pi)
 {
 	struct pstree_item *item;
@@ -1476,6 +1724,10 @@ static int page_server_serve(int sk)
 		case PS_IOV_GET:
 			ps_stats.serve_get++;
 			ret = page_server_get_pages(sk, &pi);
+			break;
+		case PS_IOV_GET_ALL:
+			ps_stats.serve_get++;
+			ret = page_server_get_all_pages(sk, &pi);
 			break;
 		default:
 			pr_err("Unknown command %u\n", pi.cmd);
@@ -1889,6 +2141,24 @@ int request_remote_pages(unsigned long img_id, unsigned long addr, unsigned long
 	};
 
 	/* XXX: why MSG_DONTWAIT here? */
+	if (send_psi_flags(page_server_sk, &pi, MSG_DONTWAIT))
+		return -1;
+
+	tcp_nodelay(page_server_sk, true);
+	return 0;
+}
+
+int request_all_remote_pages(unsigned long img_id)
+{
+	struct page_server_iov pi = {
+		.cmd = PS_IOV_GET_ALL,
+		.nr_pages = 0,  /* Not used in batch mode */
+		.vaddr = 0,     /* Not used in batch mode */
+		.dst_id = img_id,
+	};
+
+	pr_info("Requesting all pages for img_id=%lu in batch mode\n", img_id);
+
 	if (send_psi_flags(page_server_sk, &pi, MSG_DONTWAIT))
 		return -1;
 
