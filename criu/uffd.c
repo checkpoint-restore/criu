@@ -904,14 +904,17 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 
 	/* 
 	 * Set appropriate io_complete callback based on mode:
-	 * - Bulk mode (opts.lazy_pages): simpler callback without pipeline management
-	 * - On-demand mode: full callback with request tracking and pipeline refill
+	 * - Bulk mode (!opts.lazy_pages): simpler callback without pipeline management
+	 * - On-demand mode (opts.lazy_pages): full callback with request tracking and pipeline refill
+	 * 
+	 * IMPORTANT: opts.lazy_pages = true means ON-DEMAND mode (lazy)
+	 *            opts.lazy_pages = false means BULK mode (eager)
 	 */
-	if (opts.lazy_pages) {
-		/* Bulk mode: pages arrive automatically from background thread */
+	if (!opts.lazy_pages) {
+		/* Bulk mode (opts.lazy_pages = false): pages arrive automatically from background thread */
 		lpi->pr.io_complete = uffd_io_complete_bulk;
 	} else {
-		/* On-demand mode: manage pipeline of individual page requests */
+		/* On-demand mode (opts.lazy_pages = true): manage pipeline of individual page requests */
 		lpi->pr.io_complete = uffd_io_complete;
 	}
 
