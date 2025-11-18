@@ -1664,7 +1664,6 @@ static void *unified_page_server_thread(void *arg)
 	
 	while (!g_unified_thread_stop) {
 		struct active_image *img, *tmp;
-		bool did_work = false;
 		
 		pthread_spin_lock(&active_images_lock);
 		
@@ -1730,7 +1729,6 @@ found_cow_idx:
 				img->total_cow_pages++;
 				img->remaining_pages--;
 				sent_this_image = true;
-				did_work = true;
 			}
 			
 			/* Priority 2: Explicit page requests for this image */
@@ -1774,7 +1772,6 @@ found_req_idx:
 					}
 					img->total_req_pages += req->nr_pages;
 					sent_this_image = true;
-					did_work = true;
 				}
 				xfree(req);
 			}
@@ -1803,7 +1800,6 @@ found_req_idx:
 							img->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
 							img->remaining_pages--;
 							sent_one = true;
-							did_work = true;
 							break;
 						}
 						
