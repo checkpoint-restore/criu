@@ -1908,12 +1908,15 @@ static int page_server_serve(int sk)
 
 	/* Initialize page request queue on first use */
 	init_page_request_queue();
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	while (1) {
 		struct page_server_iov pi;
 		u32 cmd;
-
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 		ret = __recv(sk, &pi, sizeof(pi), MSG_WAITALL);
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		if (!ret)
 			break;
 
@@ -1931,21 +1934,25 @@ static int page_server_serve(int sk)
 
 		switch (cmd) {
 		case PS_IOV_OPEN:
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ps_stats.serve_open++;
 			ret = page_server_open(-1, &pi);
 			break;
 		case PS_IOV_OPEN2:
 			ps_stats.serve_open2++;
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ret = page_server_open(sk, &pi);
 			break;
 		case PS_IOV_PARENT:
 			ps_stats.serve_parent++;
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ret = page_server_check_parent(sk, &pi);
 			break;
 		case PS_IOV_ADD_F:
 		case PS_IOV_ADD:
 		case PS_IOV_HOLE: {
 			u32 flags;
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			
 			if (likely(cmd == PS_IOV_ADD_F)) {
 				flags = decode_ps_flags(pi.cmd);
@@ -1967,7 +1974,7 @@ static int page_server_serve(int sk)
 		case PS_IOV_CLOSE:
 		case PS_IOV_FORCE_CLOSE: {
 			int32_t status = 0;
-
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ret = 0;
 			
 			if (cmd == PS_IOV_CLOSE)
@@ -1989,11 +1996,14 @@ static int page_server_serve(int sk)
 		}
 		case PS_IOV_GET:
 			ps_stats.serve_get++;
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ret = page_server_get_pages(sk, &pi);
 			break;
 		case PS_IOV_GET_ALL:
 			ps_stats.serve_get++;
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ret = page_server_get_all_pages(sk, &pi);
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			break;
 		default:
 			pr_err("Unknown command %u\n", pi.cmd);
