@@ -2339,44 +2339,62 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 {
 	int ret, need;
 	void *buf;
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (ar->rb < sizeof(ar->pi)) {
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		/* Reading header */
 		buf = ((void *)&ar->pi) + ar->rb;
 		need = sizeof(ar->pi) - ar->rb;
 	} else {
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		/* Reading page data */
 		buf = ar->pages + (ar->rb - sizeof(ar->pi));
 		need = ar->goal - ar->rb;
 	}
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ret = __recv(page_server_sk, buf, need, flags);
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (ret < 0) {
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
 			return 0; /* Would block */
 		}
 		pr_perror("Error reading bulk stream from page server");
 		return -1;
 	}
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ar->rb += ret;
-	
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/* Check if we completed reading header */
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (ar->rb == sizeof(ar->pi) && ar->goal == 0) {
 		/* Header complete - check for end marker */
 		if (ar->pi.nr_pages == 0) {
 			pr_info("Received end-of-transfer marker\n");
 			return -1; /* Signal completion */
 		}
-		
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		/* Set goal for page data */
 		ar->goal = sizeof(ar->pi) + ar->pi.nr_pages * PAGE_SIZE;
 		return 1; /* Need more data */
 	}
-	
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/* Check if we completed reading page(s) */
 	if (ar->rb == ar->goal && ar->goal > sizeof(ar->pi)) {
 		/* Complete page(s) received - notify caller */
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, 
 				   (int)ar->pi.nr_pages, ar->priv);
 		
@@ -2386,7 +2404,8 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 		
 		return ret;
 	}
-	
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/* Need more data */
 	return 1;
 }
