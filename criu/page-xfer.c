@@ -1222,6 +1222,9 @@ static void init_page_request_queue(void)
 static void add_page_request(unsigned long vaddr, unsigned long nr_pages, int sk, u64 dst_id)
 {
 	struct page_request_entry *entry = xmalloc(sizeof(*entry));
+
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (!entry) {
 		pr_err("Failed to allocate page request entry\n");
 		return;
@@ -1242,6 +1245,7 @@ static void add_page_request(unsigned long vaddr, unsigned long nr_pages, int sk
 
 static struct page_request_entry *get_next_page_request(void)
 {
+
 	struct page_request_entry *entry = NULL;
 
 	pthread_spin_lock(&page_request_lock);

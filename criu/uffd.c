@@ -1086,8 +1086,10 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	 * This is the key to aggressive pipelining and reducing source EAGAIN.
 	 */
 	lpi->pipeline_depth--;
+	pr_debug("file = %s, line = %d   ERRRRRR shold not get here\n", __FILE__, __LINE__);
 
 	if (!lpi->exited && !list_empty(&lpi->iovs)) {
+		pr_debug("file = %s, line = %d   ERRRRRR shold not get here\n", __FILE__, __LINE__);
 		refill_pipeline(lpi);
 	}
 
@@ -1203,6 +1205,7 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 	unsigned long len;
 	int err;
 	int bucket;
+	pr_debug("file = %s, line = %d    We should not get here\n", __FILE__, __LINE__);
 
 	iov = pick_next_range(lpi);
 	if (!iov)
@@ -1497,8 +1500,13 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 		ret = 0;
 
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
-			/* Aggressively refill pipeline to keep it saturated at all times */
-			if (!list_empty(&lpi->iovs)) {
+			/* 
+			 * Only refill pipeline in on-demand mode (opts.lazy_pages = true).
+			 * In bulk mode (opts.lazy_pages = false), the background thread
+			 * automatically sends all pages, so we must NOT call refill_pipeline()
+			 * which would queue pages and block page fault handling.
+			 */
+			if (opts.lazy_pages && !list_empty(&lpi->iovs)) {
 				ret = refill_pipeline(lpi);
 				if (ret < 0)
 					goto out;
