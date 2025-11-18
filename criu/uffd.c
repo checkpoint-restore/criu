@@ -1158,17 +1158,17 @@ static int uffd_seek_pages(struct lazy_pages_info *lpi, __u64 address, unsigned 
 static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, unsigned long nr, unsigned flags)
 {
 	int ret;
-
+	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = uffd_seek_pages(lpi, address, nr);
 	if (ret)
 		return ret;
-
+	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, flags);
 	if (ret <= 0) {
 		lp_err(lpi, "failed reading pages at %llx\n", address);
 		return ret;
 	}
-
+	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	return 0;
 }
 
@@ -1371,17 +1371,18 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	if (is_page_queued(lpi, address))
 		return 0;
-
+	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	iov = find_iov(lpi, address);
 	if (!iov)
 		return uffd_zero(lpi, address, 1);
+	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	iov = extract_range(iov, address, address + PAGE_SIZE);
 	if (!iov)
 		return -1;
 
 	list_move(&iov->l, &lpi->reqs);
-
+	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
 
 	/* Update statistics */
@@ -1389,9 +1390,9 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	uffd_stats.total_pages += nr_pages;
 	bucket = get_histogram_bucket(nr_pages);
 	uffd_stats.pf_hist[bucket]++;
-
+	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	update_xfer_len(lpi, true);
-
+	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	/* Increment pipeline depth BEFORE sending request (just like background transfers) */
 	lpi->pipeline_depth++;
 
@@ -1401,7 +1402,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		lpi->pipeline_depth--; /* Rollback on error */
 		return -1;
 	}
-
+	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	return 0;
 }
 
