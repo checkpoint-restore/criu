@@ -2395,21 +2395,28 @@ static int page_server_async_read_bulk(struct epoll_rfd *f)
 {
 	struct ps_async_read *ar;
 	int ret;
+	pr_debug("page_server_async_read_bulk\n");
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (list_empty(&async_reads)) {
 		pr_err("Bulk async read with empty queue\n");
 		return -1;
 	}
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ar = list_first_entry(&async_reads, struct ps_async_read, l);
 	ret = page_server_read_bulk_stream(ar, MSG_DONTWAIT);
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (ret == -1) {
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		/* End marker or error - cleanup */
 		list_del(&ar->l);
 		xfree(ar);
 		return 0;
 	}
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* ret == 0 (would block) or ret == 1 (need more) - keep going */
 	return 0;
