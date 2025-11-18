@@ -487,6 +487,18 @@ static int read_page_complete(unsigned long img_id, unsigned long vaddr, unsigne
 static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
 {
 	int ret;
+	
+	/* Initiate bulk transfer once per img_id if not in lazy mode */
+	if (!is_bulk_requested(pr->img_id)) {
+		pr_info("Requesting all remote pages for img_id=%lu\n", pr->img_id);
+		if (request_all_remote_pages(pr->img_id) < 0) {
+			pr_err("Failed to request all remote pages\n");
+			close_page_read(pr);
+			return -1;
+		}
+		mark_bulk_requested(pr->img_id);
+	}
+	
 
 	/* We always do PR_ASAP mode here (FIXME?) */
 	ret = request_remote_pages(pr->img_id, vaddr, nr);
@@ -856,17 +868,6 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 
 	if (remote) {
 		pr->maybe_read_page = maybe_read_page_remote;
-		
-		/* Initiate bulk transfer once per img_id if not in lazy mode */
-		if (!is_bulk_requested(img_id)) {
-			pr_info("Requesting all remote pages for img_id=%lu\n", img_id);
-			if (request_all_remote_pages(img_id) < 0) {
-				pr_err("Failed to request all remote pages\n");
-				close_page_read(pr);
-				return -1;
-			}
-			mark_bulk_requested(img_id);
-		}
 	} else if (opts.stream) {
 		pr->maybe_read_page = maybe_read_page_img_streamer;
 	} else {
