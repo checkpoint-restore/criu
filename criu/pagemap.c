@@ -508,7 +508,7 @@ static int maybe_read_page_remote_bulk(struct page_read *pr, unsigned long vaddr
 	 * We don't send individual requests - just wait for pages to arrive.
 	 * Use simpler callback that skips img_id validation.
 	 */
-	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	return page_server_start_read(buf, nr, bulk_page_complete, pr, flags);
 }
 
@@ -528,7 +528,7 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, unsigned
 {
 	pr_info("pr%lu-%u Read %lx %lu pages\n", pr->img_id, pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
-	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (pagemap_in_parent(pr->pe)) {
 		if (read_parent_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
@@ -811,7 +811,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	int flags, i_typ;
 	static unsigned ids = 1;
 	bool remote = pr_flags & PR_REMOTE;
-	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	/*
 	 * Only the top-most page-read can be remote, all the
 	 * others are always local.
@@ -871,7 +871,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 		close_page_read(pr);
 		return -1;
 	}
-	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	pr->read_pages = read_pagemap_page;
 	pr->advance = advance;
 	pr->close = close_page_read;
@@ -882,9 +882,9 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->io_complete = NULL; /* set up by the client if needed */
 	pr->id = ids++;
 	pr->img_id = img_id;
-	lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (remote) {
-		lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 		/* Initiate bulk transfer for non-lazy mode */
 		if (opts.lazy_pages && !is_bulk_requested(img_id)) {
 			pr_info("Requesting all remote pages for img_id=%lu\n", img_id);
@@ -898,7 +898,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 		
 		/* Choose appropriate page read function based on mode */
 		if (opts.lazy_pages) {
-			lp_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			/* Bulk mode: pages arrive automatically from background thread */
 			pr->maybe_read_page = maybe_read_page_remote_bulk;
 		} else {
