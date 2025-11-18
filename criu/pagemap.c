@@ -484,21 +484,37 @@ static int read_page_complete(unsigned long img_id, unsigned long vaddr, unsigne
 	return ret;
 }
 
+/* Bulk mode callback: simpler, no img_id validation needed */
+static int bulk_page_complete(unsigned long img_id, unsigned long vaddr, unsigned long int nr_pages, void *priv)
+{
+	struct page_read *pr = priv;
+	
+	/* 
+	 * In bulk mode, pages arrive automatically in order from background thread.
+	 * No need for img_id validation - just call uffd_copy() directly via io_complete.
+	 */
+	if (pr->io_complete)
+		return pr->io_complete(pr, vaddr, nr_pages);
+	
+	pr_err("Bulk mode without io_complete callback!\n");
+	return -1;
+}
+
+/* Bulk transfer mode: pages arrive automatically from background thread */
+static int maybe_read_page_remote_bulk(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
+{
+	/* 
+	 * In bulk mode, the background thread sends all pages automatically.
+	 * We don't send individual requests - just wait for pages to arrive.
+	 * Use simpler callback that skips img_id validation.
+	 */
+	return page_server_start_read(buf, nr, bulk_page_complete, pr, flags);
+}
+
+/* On-demand transfer mode: request individual pages as needed */
 static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
 {
 	int ret;
-	
-	/* Initiate bulk transfer once per img_id if not in lazy mode */
-	if (!is_bulk_requested(pr->img_id)) {
-		pr_info("Requesting all remote pages for img_id=%lu\n", pr->img_id);
-		if (request_all_remote_pages(pr->img_id) < 0) {
-			pr_err("Failed to request all remote pages\n");
-			exit(0);//close_page_read(pr);
-			return -1;
-		}
-		mark_bulk_requested(pr->img_id);
-	}
-	
 
 	/* We always do PR_ASAP mode here (FIXME?) */
 	ret = request_remote_pages(pr->img_id, vaddr, nr);
@@ -867,7 +883,25 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->img_id = img_id;
 
 	if (remote) {
-		pr->maybe_read_page = maybe_read_page_remote;
+		/* Initiate bulk transfer for non-lazy mode */
+		if (opts.lazy_pages && !is_bulk_requested(img_id)) {
+			pr_info("Requesting all remote pages for img_id=%lu\n", img_id);
+			if (request_all_remote_pages(img_id) < 0) {
+				pr_err("Failed to request all remote pages\n");
+				close_page_read(pr);
+				return -1;
+			}
+			mark_bulk_requested(img_id);
+		}
+		
+		/* Choose appropriate page read function based on mode */
+		if (opts.lazy_pages) {
+			/* Bulk mode: pages arrive automatically from background thread */
+			pr->maybe_read_page = maybe_read_page_remote_bulk;
+		} else {
+			/* On-demand mode: request pages individually as needed */
+			pr->maybe_read_page = maybe_read_page_remote;
+		}
 	} else if (opts.stream) {
 		pr->maybe_read_page = maybe_read_page_img_streamer;
 	} else {

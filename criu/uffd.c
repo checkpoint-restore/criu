@@ -98,10 +98,10 @@ struct lazy_pages_info {
 
 	unsigned long buf_size;
 	void *buf;
-	
+
 	/* Pipeline control */
-	unsigned int pipeline_depth;      /* Current in-flight requests */
-	unsigned int max_pipeline_depth;  /* Max allowed concurrent requests */
+	unsigned int pipeline_depth;	 /* Current in-flight requests */
+	unsigned int max_pipeline_depth; /* Max allowed concurrent requests */
 };
 
 /* global lazy-pages daemon state */
@@ -117,46 +117,64 @@ static int lazy_pages_sk_id = -1;
 /* Histogram statistics structure */
 static struct {
 	/* Histogram buckets by page count: 1, 16, 32, 64, 128, 256, 512, 1024, >1024 */
-	unsigned long pf_hist[9];      /* Page fault histogram */
-	unsigned long bg_hist[9];      /* Background transfer histogram */
-	
+	unsigned long pf_hist[9]; /* Page fault histogram */
+	unsigned long bg_hist[9]; /* Background transfer histogram */
+
 	unsigned long total_pf_reqs;
 	unsigned long total_bg_reqs;
 	unsigned long total_pages;
-	
+
 	/* Pipeline statistics */
 	unsigned long pipeline_depth_sum;
 	unsigned long pipeline_samples;
-	
+
 	time_t last_print_time;
 } uffd_stats;
 
 static int get_histogram_bucket(unsigned long nr_pages)
 {
-	if (nr_pages == 1) return 0;           /* 4KB */
-	if (nr_pages <= 16) return 1;          /* 64KB */
-	if (nr_pages <= 32) return 2;          /* 128KB */
-	if (nr_pages <= 64) return 3;          /* 256KB */
-	if (nr_pages <= 128) return 4;         /* 512KB */
-	if (nr_pages <= 256) return 5;         /* 1MB */
-	if (nr_pages <= 512) return 6;         /* 2MB */
-	if (nr_pages <= 1024) return 7;        /* 4MB */
-	return 8;                               /* >4MB */
+	if (nr_pages == 1)
+		return 0; /* 4KB */
+	if (nr_pages <= 16)
+		return 1; /* 64KB */
+	if (nr_pages <= 32)
+		return 2; /* 128KB */
+	if (nr_pages <= 64)
+		return 3; /* 256KB */
+	if (nr_pages <= 128)
+		return 4; /* 512KB */
+	if (nr_pages <= 256)
+		return 5; /* 1MB */
+	if (nr_pages <= 512)
+		return 6; /* 2MB */
+	if (nr_pages <= 1024)
+		return 7; /* 4MB */
+	return 8;	  /* >4MB */
 }
 
 static const char *get_bucket_label(int bucket)
 {
 	switch (bucket) {
-	case 0: return "4K";
-	case 1: return "64K";
-	case 2: return "128K";
-	case 3: return "256K";
-	case 4: return "512K";
-	case 5: return "1M";
-	case 6: return "2M";
-	case 7: return "4M";
-	case 8: return ">4M";
-	default: return "?";
+	case 0:
+		return "4K";
+	case 1:
+		return "64K";
+	case 2:
+		return "128K";
+	case 3:
+		return "256K";
+	case 4:
+		return "512K";
+	case 5:
+		return "1M";
+	case 6:
+		return "2M";
+	case 7:
+		return "4M";
+	case 8:
+		return ">4M";
+	default:
+		return "?";
 	}
 }
 
@@ -166,30 +184,32 @@ static void check_and_print_uffd_stats(void)
 	int i;
 	bool has_pf = false, has_bg = false;
 	unsigned long avg_pipeline = 0;
-	
+
 	if (now - uffd_stats.last_print_time >= 1) {
 		/* Check if we have any data to print */
 		for (i = 0; i < 9; i++) {
-			if (uffd_stats.pf_hist[i] > 0) has_pf = true;
-			if (uffd_stats.bg_hist[i] > 0) has_bg = true;
+			if (uffd_stats.pf_hist[i] > 0)
+				has_pf = true;
+			if (uffd_stats.bg_hist[i] > 0)
+				has_bg = true;
 		}
-		
+
 		if (!has_pf && !has_bg && uffd_stats.total_pf_reqs == 0 && uffd_stats.total_bg_reqs == 0) {
 			uffd_stats.last_print_time = now;
 			return;
 		}
-		
+
 		/* Calculate average pipeline depth */
 		if (uffd_stats.pipeline_samples > 0)
 			avg_pipeline = uffd_stats.pipeline_depth_sum / uffd_stats.pipeline_samples;
-		
+
 		pr_warn("[UFFD_STATS] reqs=%lu(pf:%lu,bg:%lu) pages=%lu pipe_avg=%lu\n",
 			uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
 			uffd_stats.total_pf_reqs,
 			uffd_stats.total_bg_reqs,
 			uffd_stats.total_pages,
 			avg_pipeline);
-		
+
 		/* Print page fault histogram */
 		if (has_pf) {
 			pr_warn("  PF: ");
@@ -199,7 +219,7 @@ static void check_and_print_uffd_stats(void)
 			}
 			pr_warn("\n");
 		}
-		
+
 		/* Print background transfer histogram */
 		if (has_bg) {
 			pr_warn("  BG: ");
@@ -209,7 +229,7 @@ static void check_and_print_uffd_stats(void)
 			}
 			pr_warn("\n");
 		}
-		
+
 		/* Reset all counters */
 		memset(&uffd_stats, 0, sizeof(uffd_stats));
 		uffd_stats.last_print_time = now;
@@ -233,10 +253,10 @@ static struct lazy_pages_info *lpi_init(void)
 	lpi->lpfd.read_event = handle_uffd_event;
 	lpi->xfer_len = DEFAULT_XFER_LEN;
 	lpi->ref_cnt = 1;
-	
+
 	/* Initialize pipeline control - start with aggressive pipelining */
 	lpi->pipeline_depth = 0;
-	lpi->max_pipeline_depth = 256;  /* 256 concurrent requests for maximum throughput */
+	lpi->max_pipeline_depth = 256; /* 256 concurrent requests for maximum throughput */
 
 	return lpi;
 }
@@ -881,6 +901,12 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		goto out;
 	}
 
+	/* 
+	 * io_complete callback is ALWAYS needed - it performs the uffd_copy()
+	 * operation that copies pages to userspace via UFFDIO_COPY.
+	 * The difference between bulk and on-demand mode is in the
+	 * maybe_read_page function (which controls request sending).
+	 */
 	lpi->pr.io_complete = uffd_io_complete;
 
 	/*
@@ -961,18 +987,17 @@ static int xfer_pages(struct lazy_pages_info *lpi);
 static int refill_pipeline(struct lazy_pages_info *lpi)
 {
 	int ret;
-	
+
 	/* Keep filling until pipeline is full or we run out of data */
-	while (!list_empty(&lpi->iovs) && 
+	while (!list_empty(&lpi->iovs) &&
 	       lpi->pipeline_depth < lpi->max_pipeline_depth) {
 		ret = xfer_pages(lpi);
 		if (ret < 0)
 			return ret;
 	}
-	
+
 	return 0;
 }
-
 
 static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *nr_pages)
 {
@@ -1048,18 +1073,18 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	 */
 	iov_list_insert(req, &lpi->iovs);
 	ret = drop_iovs(lpi, addr, nr * PAGE_SIZE);
-	
+
 	/* 
 	 * Decrement pipeline depth now that response is processed.
 	 * IMMEDIATELY refill pipeline to keep it saturated - don't wait for main loop!
 	 * This is the key to aggressive pipelining and reducing source EAGAIN.
 	 */
 	lpi->pipeline_depth--;
-	
+
 	if (!lpi->exited && !list_empty(&lpi->iovs)) {
 		refill_pipeline(lpi);
 	}
-	
+
 	return ret;
 }
 
@@ -1134,8 +1159,8 @@ static struct lazy_iov *pick_next_range(struct lazy_pages_info *lpi)
  */
 static void update_xfer_len(struct lazy_pages_info *lpi, bool pf)
 {
-	lpi->xfer_len = 8*1024;//MAX_XFER_LEN;
-	return; //TODO remove
+	lpi->xfer_len = 8 * 1024; //MAX_XFER_LEN;
+	return;			  //TODO remove
 	if (pf)
 		lpi->xfer_len = DEFAULT_XFER_LEN;
 	else
@@ -1180,14 +1205,12 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 	err = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (err < 0) {
 		lp_err(lpi, "Error during UFFD copy\n");
-		lpi->pipeline_depth--;  /* Rollback on error */
+		lpi->pipeline_depth--; /* Rollback on error */
 		return -1;
 	}
 
 	return 0;
 }
-
-
 
 static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
@@ -1334,7 +1357,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	list_move(&iov->l, &lpi->reqs);
 
 	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
-	
+
 	/* Update statistics */
 	uffd_stats.total_pf_reqs++;
 	uffd_stats.total_pages += nr_pages;
@@ -1349,7 +1372,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	ret = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		lp_err(lpi, "Error during regular page copy\n");
-		lpi->pipeline_depth--;  /* Rollback on error */
+		lpi->pipeline_depth--; /* Rollback on error */
 		return -1;
 	}
 
@@ -1426,7 +1449,7 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 			uffd_stats.pipeline_depth_sum += lpi->pipeline_depth;
 			uffd_stats.pipeline_samples++;
 		}
-		
+
 		/* Check and print statistics every second */
 		check_and_print_uffd_stats();
 
