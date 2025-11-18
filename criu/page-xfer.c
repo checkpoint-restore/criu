@@ -14,7 +14,6 @@
 #include <string.h>
 #include <pthread.h>
 
-
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-xfer: "
 
@@ -1749,9 +1748,6 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 
 	pr_info("Launching background thread for batch transfer dst_id=%lu\n", pi->dst_id);
 
-	/* Initialize request queue */
-	init_page_request_queue();
-
 	/* Create thread context */
 	ctx = xzalloc(sizeof(*ctx));
 	if (!ctx) {
@@ -1783,12 +1779,7 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 
 static int page_server_get_pages(int sk, struct page_server_iov *pi)
 {
-	/* Update statistics */
-	ps_stats.get_total_requests++;
-	check_and_print_stats();
 
-	/* Initialize page request queue on first use */
-	init_page_request_queue();
 
 	/* Simply enqueue the request for the background thread to handle */
 	add_page_request(pi->vaddr, pi->nr_pages, sk, pi->dst_id);
@@ -1826,6 +1817,10 @@ static int page_server_serve(int sk)
 		pipe_read_dest_init(&pipe_read_dest);
 		tcp_cork(sk, true);
 	}
+
+
+	/* Initialize page request queue on first use */
+	init_page_request_queue();
 
 	while (1) {
 		struct page_server_iov pi;

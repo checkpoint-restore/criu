@@ -26,6 +26,27 @@
 
 #define MAX_BUNCH_SIZE 256
 
+/* Track bulk transfer requests to avoid duplicates per img_id */
+#define MAX_BULK_REQUESTED_IDS 256
+static unsigned long bulk_requested_ids[MAX_BULK_REQUESTED_IDS];
+static unsigned int bulk_requested_count = 0;
+
+static bool is_bulk_requested(unsigned long img_id)
+{
+	unsigned int i;
+	for (i = 0; i < bulk_requested_count; i++) {
+		if (bulk_requested_ids[i] == img_id)
+			return true;
+	}
+	return false;
+}
+
+static void mark_bulk_requested(unsigned long img_id)
+{
+	if (bulk_requested_count < MAX_BULK_REQUESTED_IDS)
+		bulk_requested_ids[bulk_requested_count++] = img_id;
+}
+
 /*
  * One "job" for the preadv() syscall in pagemap.c
  */
@@ -833,11 +854,22 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->id = ids++;
 	pr->img_id = img_id;
 
-	if (remote)
+	if (remote) {
 		pr->maybe_read_page = maybe_read_page_remote;
-	else if (opts.stream)
+		
+		/* Initiate bulk transfer once per img_id if not in lazy mode */
+		if (!is_bulk_requested(img_id)) {
+			pr_info("Requesting all remote pages for img_id=%lu\n", img_id);
+			if (request_all_remote_pages(img_id) < 0) {
+				pr_err("Failed to request all remote pages\n");
+				close_page_read(pr);
+				return -1;
+			}
+			mark_bulk_requested(img_id);
+		}
+	} else if (opts.stream) {
 		pr->maybe_read_page = maybe_read_page_img_streamer;
-	else {
+	} else {
 		pr->maybe_read_page = maybe_read_page_local;
 		if (!pr->parent && !opts.lazy_pages)
 			pr->pieok = true;
