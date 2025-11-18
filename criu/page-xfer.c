@@ -2012,10 +2012,16 @@ static int page_server_serve(int sk)
 			break;
 		}
 
-		if (ret)
+		if (ret){
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			break;
-		if (pi.cmd == PS_IOV_CLOSE || pi.cmd == PS_IOV_FORCE_CLOSE)
+		}
+		if (pi.cmd == PS_IOV_CLOSE || pi.cmd == PS_IOV_FORCE_CLOSE){
+			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+		
 			break;
+		}
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	}
 
 	if (receiving_pages && !ret && !flushed) {
