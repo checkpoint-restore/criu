@@ -493,7 +493,7 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, uns
 		pr_info("Requesting all remote pages for img_id=%lu\n", pr->img_id);
 		if (request_all_remote_pages(pr->img_id) < 0) {
 			pr_err("Failed to request all remote pages\n");
-			close_page_read(pr);
+			exit(0);//close_page_read(pr);
 			return -1;
 		}
 		mark_bulk_requested(pr->img_id);
