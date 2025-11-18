@@ -17,6 +17,11 @@ struct cow_page {
 	struct hlist_node hash;
 };
 
+/* Queue entry for COW pages waiting to be sent */
+struct cow_page_queue_entry {
+	unsigned long vaddr;
+	struct list_head list;
+};
 
 /**
  * cow_dump_init - Initialize COW dump for a process

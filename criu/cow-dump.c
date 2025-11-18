@@ -30,11 +30,7 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "cow-dump: "
 
-/* Queue entry for COW pages waiting to be sent */
-struct cow_page_queue_entry {
-	unsigned long vaddr;
-	struct list_head list;
-};
+
 
 /* COW dump state for a single process */
 struct cow_dump_info {
