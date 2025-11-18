@@ -1380,16 +1380,134 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 	return 0;
 }
 
-/* Background thread context for unified page serving */
-struct page_server_thread_ctx {
+/* Active image tracking for unified background thread */
+struct active_image {
 	u64 dst_id;
 	int main_sk;
-	struct page_pipe *pp;
-	pthread_t thread;
-	volatile bool stop;
+	unsigned long total_pages;
+	unsigned long remaining_pages;
+	unsigned long total_cow_pages;
+	unsigned long total_req_pages;
+	unsigned char *sent_bitmap;
+	struct list_head list;
 };
 
-static struct page_server_thread_ctx *g_ps_thread_ctx = NULL;
+static LIST_HEAD(active_images_queue);
+static pthread_spinlock_t active_images_lock;
+static bool active_images_lock_initialized = false;
+
+/* Single global background thread */
+static pthread_t g_unified_thread;
+static volatile bool g_unified_thread_running = false;
+static volatile bool g_unified_thread_stop = false;
+
+static void init_active_images_queue(void)
+{
+	if (!active_images_lock_initialized) {
+		pthread_spin_init(&active_images_lock, PTHREAD_PROCESS_PRIVATE);
+		active_images_lock_initialized = true;
+	}
+}
+
+static struct active_image *find_active_image(u64 dst_id)
+{
+	struct active_image *img;
+	
+	/* Caller must hold lock */
+	list_for_each_entry(img, &active_images_queue, list) {
+		if (img->dst_id == dst_id)
+			return img;
+	}
+	return NULL;
+}
+
+static int add_active_image(u64 dst_id, int sk)
+{
+	struct active_image *img;
+	struct pstree_item *item;
+	struct page_pipe *pp;
+	struct page_pipe_buf *ppb;
+	unsigned int i;
+	unsigned long total_pages = 0;
+	unsigned long bitmap_size;
+	
+	pthread_spin_lock(&active_images_lock);
+	
+	/* Check if already active */
+	if (find_active_image(dst_id)) {
+		pthread_spin_unlock(&active_images_lock);
+		pr_info("Image dst_id=%lu already active\n", dst_id);
+		return 0;
+	}
+	
+	pthread_spin_unlock(&active_images_lock);
+	
+	/* Count total pages for this image */
+	item = pstree_item_by_virt(dst_id);
+	if (!item || !dmpi(item)->mem_pp) {
+		pr_err("Invalid dst_id or no page pipe\n");
+		return -1;
+	}
+	
+	pp = dmpi(item)->mem_pp;
+	list_for_each_entry(ppb, &pp->bufs, l) {
+		for (i = 0; i < ppb->nr_segs; i++) {
+			struct iovec *iov = &ppb->iov[i];
+			total_pages += iov->iov_len / PAGE_SIZE;
+		}
+	}
+	
+	/* Create active image entry */
+	img = xzalloc(sizeof(*img));
+	if (!img) {
+		pr_err("Failed to allocate active image\n");
+		return -1;
+	}
+	
+	img->dst_id = dst_id;
+	img->main_sk = sk;
+	img->total_pages = total_pages;
+	img->remaining_pages = total_pages;
+	img->total_cow_pages = 0;
+	img->total_req_pages = 0;
+	
+	/* Allocate sent bitmap */
+	bitmap_size = (total_pages + 7) / 8;
+	img->sent_bitmap = xzalloc(bitmap_size);
+	if (!img->sent_bitmap) {
+		xfree(img);
+		pr_err("Failed to allocate sent_bitmap\n");
+		return -1;
+	}
+	
+	INIT_LIST_HEAD(&img->list);
+	
+	pthread_spin_lock(&active_images_lock);
+	list_add_tail(&img->list, &active_images_queue);
+	pthread_spin_unlock(&active_images_lock);
+	
+	pr_info("Added active image dst_id=%lu with %lu pages\n", dst_id, total_pages);
+	return 0;
+}
+
+static void remove_active_image(struct active_image *img)
+{
+	/* Caller must hold lock */
+	list_del(&img->list);
+	xfree(img->sent_bitmap);
+	xfree(img);
+}
+
+static bool has_active_images(void)
+{
+	bool has;
+	
+	pthread_spin_lock(&active_images_lock);
+	has = !list_empty(&active_images_queue);
+	pthread_spin_unlock(&active_images_lock);
+	
+	return has;
+}
 
 /* Helper to send a page request response */
 static int send_page_request_response(struct page_request_entry *req, struct page_pipe *pp)
@@ -1539,241 +1657,225 @@ err_free_cow:
 	return -1;
 }
 
-/* Background thread function for unified page serving */
-static void *page_server_thread_func(void *arg)
+/* Unified background thread serving all images */
+static void *unified_page_server_thread(void *arg)
 {
-	struct page_server_thread_ctx *ctx = (struct page_server_thread_ctx *)arg;
-	struct pstree_item *item;
-	struct page_pipe *pp;
-	struct page_pipe_buf *ppb;
-	unsigned int i;
-	int ret;
-	unsigned long total_pages = 0;
-	unsigned long remaining_pages;
-	unsigned long total_cow_pages = 0;
-	unsigned long total_req_pages = 0;
-	unsigned long j;
-	unsigned char *sent_bitmap = NULL;
-	unsigned long bitmap_size;
-	unsigned long page_idx;
-	unsigned long round = 0;
-	struct page_server_iov end_marker;
-
-	pr_info("Page server background thread started for dst_id=%lu\n", ctx->dst_id);
-
-	item = pstree_item_by_virt(ctx->dst_id);
-	pp = dmpi(item)->mem_pp;
-
-	/* Count total pages */
-	list_for_each_entry(ppb, &pp->bufs, l) {
-		for (i = 0; i < ppb->nr_segs; i++) {
-			struct iovec *iov = &ppb->iov[i];
-			total_pages += iov->iov_len / PAGE_SIZE;
-		}
-	}
-
-	pr_info("Total pages to send: %lu\n", total_pages);
-
-	/* Allocate bitmap */
-	bitmap_size = (total_pages + 7) / 8;
-	sent_bitmap = xzalloc(bitmap_size);
-	if (!sent_bitmap) {
-		pr_err("Failed to allocate sent_bitmap\n");
-		return NULL;
-	}
-
-	remaining_pages = total_pages;
-
-	/* Unified serving loop with priority: COW > Requests > Regular */
-	while (remaining_pages > 0 && !ctx->stop) {
-		unsigned long sent_this_round = 0;
-
-		round++;
-		pr_debug("Round %lu: %lu pages remaining\n", round, remaining_pages);
-
-		/* Priority 1: COW pages */
-		while (cow_has_pending_pages() && remaining_pages > 0) {
-			struct cow_page_queue_entry *entry = cow_get_next_page();
-			if (!entry)
-				break;
-
-			/* Find page index */
-			page_idx = 0;
-			list_for_each_entry(ppb, &pp->bufs, l) {
-				for (i = 0; i < ppb->nr_segs; i++) {
-					struct iovec *iov = &ppb->iov[i];
-					unsigned long vaddr = (unsigned long)iov->iov_base;
-					unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
-
-					if (entry->vaddr >= vaddr && entry->vaddr < vaddr + (nr_pages * PAGE_SIZE)) {
-						page_idx += (entry->vaddr - vaddr) / PAGE_SIZE;
-						goto found_cow_idx;
-					}
-					page_idx += nr_pages;
-				}
-			}
-found_cow_idx:
-			if (sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
-				xfree(entry);
+	pr_info("Unified page server background thread started\n");
+	
+	while (!g_unified_thread_stop) {
+		struct active_image *img, *tmp;
+		bool did_work = false;
+		
+		pthread_spin_lock(&active_images_lock);
+		
+		/* Service each active image */
+		list_for_each_entry_safe(img, tmp, &active_images_queue, list) {
+			struct pstree_item *item;
+			struct page_pipe *pp;
+			struct page_pipe_buf *ppb;
+			unsigned int i;
+			int ret;
+			unsigned long page_idx;
+			unsigned long j;
+			bool sent_this_image = false;
+			
+			pthread_spin_unlock(&active_images_lock);
+			
+			item = pstree_item_by_virt(img->dst_id);
+			if (!item || !dmpi(item)->mem_pp) {
+				pr_err("Invalid dst_id=%lu or no page pipe\n", img->dst_id);
+				pthread_spin_lock(&active_images_lock);
+				remove_active_image(img);
 				continue;
 			}
-
-			ret = send_one_chunk(ctx->main_sk, pp, entry->vaddr, 1, ctx->dst_id);
-			xfree(entry);
-
-			if (ret < 0) {
-				pr_err("Failed to send COW page\n");
-				goto cleanup;
-			}
-
-			sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
-			sent_this_round++;
-			total_cow_pages++;
-			remaining_pages--;
-		}
-
-		/* Priority 2: Requested pages */
-		while (has_page_requests() && remaining_pages > 0) {
-			struct page_request_entry *req = get_next_page_request();
-			if (!req)
-				break;
-
-			pr_debug("Serving page request: vaddr=%lx nr_pages=%lu\n",
-				 req->vaddr, req->nr_pages);
-
-			ret = send_page_request_response(req, pp);
-			if (ret < 0) {
-				pr_err("Failed to send page request response\n");
-				xfree(req);
-				/* Continue with other pages */
-				continue;
-			}
-
-			/* Mark pages as sent in bitmap */
-			for (unsigned long k = 0; k < req->nr_pages; k++) {
-				unsigned long addr = req->vaddr + (k * PAGE_SIZE);
+			
+			pp = dmpi(item)->mem_pp;
+			
+			/* Priority 1: COW pages for this image */
+			while (cow_has_pending_pages() && img->remaining_pages > 0) {
+				struct cow_page_queue_entry *entry = cow_get_next_page();
+				if (!entry)
+					break;
+				
+				/* Find page index */
 				page_idx = 0;
 				list_for_each_entry(ppb, &pp->bufs, l) {
 					for (i = 0; i < ppb->nr_segs; i++) {
 						struct iovec *iov = &ppb->iov[i];
 						unsigned long vaddr = (unsigned long)iov->iov_base;
 						unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
-
-						if (addr >= vaddr && addr < vaddr + (nr_pages * PAGE_SIZE)) {
-							page_idx += (addr - vaddr) / PAGE_SIZE;
-							sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
-							remaining_pages--;
-							goto found_req_idx;
+						
+						if (entry->vaddr >= vaddr && entry->vaddr < vaddr + (nr_pages * PAGE_SIZE)) {
+							page_idx += (entry->vaddr - vaddr) / PAGE_SIZE;
+							goto found_cow_idx;
 						}
 						page_idx += nr_pages;
 					}
 				}
-found_req_idx:
-				;
+found_cow_idx:
+				if (img->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
+					xfree(entry);
+					continue;
+				}
+				
+				ret = send_one_chunk(img->main_sk, pp, entry->vaddr, 1, img->dst_id);
+				xfree(entry);
+				
+				if (ret < 0) {
+					pr_err("Failed to send COW page for dst_id=%lu\n", img->dst_id);
+					break;
+				}
+				
+				img->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+				img->total_cow_pages++;
+				img->remaining_pages--;
+				sent_this_image = true;
+				did_work = true;
 			}
-
-			sent_this_round += req->nr_pages;
-			total_req_pages += req->nr_pages;
-			xfree(req);
-		}
-
-		/* Priority 3: Regular pages (if no COW or requests) */
-		if (sent_this_round == 0 && remaining_pages > 0) {
-			page_idx = 0;
-			list_for_each_entry(ppb, &pp->bufs, l) {
-				bool sent_one = false;
-
-				for (i = 0; i < ppb->nr_segs; i++) {
-					struct iovec *iov = &ppb->iov[i];
-					unsigned long vaddr = (unsigned long)iov->iov_base;
-					unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
-
-					for (j = 0; j < nr_pages; j++, page_idx++) {
-						unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
-
-						if (sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))
-							continue;
-
-						ret = send_one_chunk(ctx->main_sk, pp, page_vaddr, 1, ctx->dst_id);
-						if (ret < 0) {
-							pr_err("Failed to send regular page\n");
-							goto cleanup;
+			
+			/* Priority 2: Explicit page requests for this image */
+			while (has_page_requests() && img->remaining_pages > 0) {
+				struct page_request_entry *req = get_next_page_request();
+				if (!req)
+					break;
+				
+				/* Only handle requests for this image */
+				if (req->dst_id != img->dst_id) {
+					/* Put it back - wrong image */
+					pthread_spin_lock(&page_request_lock);
+					list_add(&req->list, &page_request_queue);
+					pthread_spin_unlock(&page_request_lock);
+					break;
+				}
+				
+				ret = send_page_request_response(req, pp);
+				if (ret >= 0) {
+					/* Mark pages as sent */
+					for (unsigned long k = 0; k < req->nr_pages; k++) {
+						unsigned long addr = req->vaddr + (k * PAGE_SIZE);
+						page_idx = 0;
+						list_for_each_entry(ppb, &pp->bufs, l) {
+							for (i = 0; i < ppb->nr_segs; i++) {
+								struct iovec *iov = &ppb->iov[i];
+								unsigned long vaddr = (unsigned long)iov->iov_base;
+								unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+								
+								if (addr >= vaddr && addr < vaddr + (nr_pages * PAGE_SIZE)) {
+									page_idx += (addr - vaddr) / PAGE_SIZE;
+									img->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+									img->remaining_pages--;
+									goto found_req_idx;
+								}
+								page_idx += nr_pages;
+							}
 						}
-
-						sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
-						remaining_pages--;
-						sent_one = true;
-						sent_this_round++;
-						break;
+found_req_idx:
+						;
 					}
-
+					img->total_req_pages += req->nr_pages;
+					sent_this_image = true;
+					did_work = true;
+				}
+				xfree(req);
+			}
+			
+			/* Priority 3: Send one regular page if no COW/requests */
+			if (!sent_this_image && img->remaining_pages > 0) {
+				page_idx = 0;
+				list_for_each_entry(ppb, &pp->bufs, l) {
+					bool sent_one = false;
+					
+					for (i = 0; i < ppb->nr_segs; i++) {
+						struct iovec *iov = &ppb->iov[i];
+						unsigned long vaddr = (unsigned long)iov->iov_base;
+						unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+						
+						for (j = 0; j < nr_pages; j++, page_idx++) {
+							unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
+							
+							if (img->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))
+								continue;
+							
+							ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
+							if (ret < 0)
+								break;
+							
+							img->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+							img->remaining_pages--;
+							sent_one = true;
+							did_work = true;
+							break;
+						}
+						
+						if (sent_one)
+							break;
+					}
+					
 					if (sent_one)
 						break;
 				}
-
-				if (sent_one)
-					break;
+			}
+			
+			pthread_spin_lock(&active_images_lock);
+			
+			/* Check if this image is complete */
+			if (img->remaining_pages == 0) {
+				struct page_server_iov end_marker;
+				
+				pthread_spin_unlock(&active_images_lock);
+				
+				pr_info("Image dst_id=%lu complete: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
+					img->dst_id, img->total_pages, img->total_cow_pages, img->total_req_pages,
+					img->total_pages - img->total_cow_pages - img->total_req_pages);
+				
+				/* Send end marker */
+				end_marker.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+				end_marker.nr_pages = 0;
+				end_marker.vaddr = 0;
+				end_marker.dst_id = img->dst_id;
+				
+				send_psi(img->main_sk, &end_marker);
+				tcp_nodelay(img->main_sk, true);
+				
+				pthread_spin_lock(&active_images_lock);
+				remove_active_image(img);
 			}
 		}
-
-		if (sent_this_round > 0) {
-			pr_debug("Round %lu: sent %lu pages\n", round, sent_this_round);
-		}
+		
+		pthread_spin_unlock(&active_images_lock);
+		
 	}
-
-cleanup:
-	xfree(sent_bitmap);
-
-	pr_info("Background thread complete: %lu total pages (%lu COW + %lu requested + %lu regular) in %lu rounds\n",
-		total_pages, total_cow_pages, total_req_pages,
-		total_pages - total_cow_pages - total_req_pages, round);
-
-	/* Send end marker */	
-	end_marker.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
-	end_marker.nr_pages = 0;
-	end_marker.vaddr = 0;
-	end_marker.dst_id = ctx->dst_id;
-
-
-	send_psi(ctx->main_sk, &end_marker);
-	tcp_nodelay(ctx->main_sk, true);
-
+	
+	pr_info("Unified page server background thread stopped\n");
 	return NULL;
 }
 
 static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 {
-	struct page_server_thread_ctx *ctx;
 	int ret;
-
-	pr_info("Launching background thread for batch transfer dst_id=%lu\n", pi->dst_id);
-
-	/* Create thread context */
-	ctx = xzalloc(sizeof(*ctx));
-	if (!ctx) {
-		pr_err("Failed to allocate thread context\n");
+	
+	pr_info("Adding image dst_id=%lu to batch transfer queue\n", pi->dst_id);
+	
+	/* Initialize queues */
+	init_active_images_queue();
+	init_page_request_queue();
+	
+	/* Add this image to active queue */
+	ret = add_active_image(pi->dst_id, sk);
+	if (ret < 0)
 		return -1;
+	
+	/* Start unified thread if not already running */
+	if (!g_unified_thread_running) {
+		pr_info("Starting unified page server thread\n");
+		ret = pthread_create(&g_unified_thread, NULL, unified_page_server_thread, NULL);
+		if (ret) {
+			pr_perror("Failed to create unified thread");
+			return -1;
+		}
+		g_unified_thread_running = true;
 	}
-
-	ctx->dst_id = pi->dst_id;
-	ctx->main_sk = sk;
-	ctx->stop = false;
-	ctx->pp = NULL; /* Will be retrieved in thread */
-
-	/* Launch background thread */
-	ret = pthread_create(&ctx->thread, NULL, page_server_thread_func, ctx);
-	if (ret) {
-		pr_perror("Failed to create page server thread");
-		xfree(ctx);
-		return -1;
-	}
-
-	/* Store global context */
-	g_ps_thread_ctx = ctx;
-
-	pr_info("Background thread launched successfully\n");
-
-	/* Return immediately - thread handles everything */
+	
 	return 0;
 }
 
