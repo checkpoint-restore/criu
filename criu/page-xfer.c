@@ -12,6 +12,8 @@
 #include <linux/userfaultfd.h>
 #include <time.h>
 #include <string.h>
+#include <pthread.h>
+
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-xfer: "
@@ -1403,6 +1405,7 @@ static int send_page_request_response(struct page_request_entry *req, struct pag
 	struct cow_page **cow_pages = NULL;
 	unsigned long cow_count = 0;
 	unsigned long len;
+	struct page_server_iov pi;
 
 	item = pstree_item_by_virt(req->dst_id);
 	if (!item || !dmpi(item)->mem_pp) {
@@ -1440,12 +1443,12 @@ static int send_page_request_response(struct page_request_entry *req, struct pag
 	}
 
 	/* Send response header */
-	struct page_server_iov pi = {
-		.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
-		.nr_pages = nr_pages,
-		.vaddr = req->vaddr,
-		.dst_id = req->dst_id
-	};
+	
+	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
+	pi.nr_pages = nr_pages,
+	pi.vaddr = req->vaddr,
+	pi.dst_id = req->dst_id
+
 
 	if (send_psi(req->sk, &pi)) {
 		xfree(cow_pages);
@@ -1556,6 +1559,7 @@ static void *page_server_thread_func(void *arg)
 	unsigned long bitmap_size;
 	unsigned long page_idx;
 	unsigned long round = 0;
+	struct page_server_iov end_marker;
 
 	pr_info("Page server background thread started for dst_id=%lu\n", ctx->dst_id);
 
@@ -1726,13 +1730,12 @@ cleanup:
 		total_pages, total_cow_pages, total_req_pages,
 		total_pages - total_cow_pages - total_req_pages, round);
 
-	/* Send end marker */
-	struct page_server_iov end_marker = {
-		.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
-		.nr_pages = 0,
-		.vaddr = 0,
-		.dst_id = ctx->dst_id
-	};
+	/* Send end marker */	
+	end_marker.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
+	end_marker.nr_pages = 0,
+	end_marker.vaddr = 0,
+	end_marker.dst_id = ctx->dst_id
+
 
 	send_psi(ctx->main_sk, &end_marker);
 	tcp_nodelay(ctx->main_sk, true);
