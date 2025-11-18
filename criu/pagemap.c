@@ -497,7 +497,9 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, uns
 	int ret;
 
 	/* We always do PR_ASAP mode here (FIXME?) */
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = request_remote_pages(pr->img_id, vaddr, nr);
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (!ret)
 		ret = page_server_start_read(buf, nr, read_page_complete, pr, flags);
 	return ret;
