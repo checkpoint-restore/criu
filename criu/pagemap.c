@@ -31,21 +31,6 @@
 static unsigned long bulk_requested_ids[MAX_BULK_REQUESTED_IDS];
 static unsigned int bulk_requested_count = 0;
 
-static bool is_bulk_requested(unsigned long img_id)
-{
-	unsigned int i;
-	for (i = 0; i < bulk_requested_count; i++) {
-		if (bulk_requested_ids[i] == img_id)
-			return true;
-	}
-	return false;
-}
-
-static void mark_bulk_requested(unsigned long img_id)
-{
-	if (bulk_requested_count < MAX_BULK_REQUESTED_IDS)
-		bulk_requested_ids[bulk_requested_count++] = img_id;
-}
 
 /*
  * One "job" for the preadv() syscall in pagemap.c
