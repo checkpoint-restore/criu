@@ -1197,6 +1197,73 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 /* Chunk size for batch transfer: 4KB = 1 page (to avoid COW race conditions) */
 #define BATCH_CHUNK_SIZE (1)
 
+/* Page request queue for PS_IOV_GET requests */
+struct page_request_entry {
+	unsigned long vaddr;
+	unsigned long nr_pages;
+	int sk;
+	u64 dst_id;
+	struct list_head list;
+};
+
+static LIST_HEAD(page_request_queue);
+static pthread_spinlock_t page_request_lock;
+static bool page_request_lock_initialized = false;
+
+static void init_page_request_queue(void)
+{
+	if (!page_request_lock_initialized) {
+		pthread_spin_init(&page_request_lock, PTHREAD_PROCESS_PRIVATE);
+		page_request_lock_initialized = true;
+	}
+}
+
+static void add_page_request(unsigned long vaddr, unsigned long nr_pages, int sk, u64 dst_id)
+{
+	struct page_request_entry *entry = xmalloc(sizeof(*entry));
+	if (!entry) {
+		pr_err("Failed to allocate page request entry\n");
+		return;
+	}
+
+	entry->vaddr = vaddr;
+	entry->nr_pages = nr_pages;
+	entry->sk = sk;
+	entry->dst_id = dst_id;
+	INIT_LIST_HEAD(&entry->list);
+
+	pthread_spin_lock(&page_request_lock);
+	list_add_tail(&entry->list, &page_request_queue);
+	pthread_spin_unlock(&page_request_lock);
+
+	pr_debug("Added page request: vaddr=%lx nr_pages=%lu\n", vaddr, nr_pages);
+}
+
+static struct page_request_entry *get_next_page_request(void)
+{
+	struct page_request_entry *entry = NULL;
+
+	pthread_spin_lock(&page_request_lock);
+	if (!list_empty(&page_request_queue)) {
+		entry = list_first_entry(&page_request_queue, struct page_request_entry, list);
+		list_del(&entry->list);
+	}
+	pthread_spin_unlock(&page_request_lock);
+
+	return entry;
+}
+
+static bool has_page_requests(void)
+{
+	bool has_requests;
+
+	pthread_spin_lock(&page_request_lock);
+	has_requests = !list_empty(&page_request_queue);
+	pthread_spin_unlock(&page_request_lock);
+
+	return has_requests;
+}
+
 static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, unsigned long nr_pages, u64 dst_id)
 {
 	struct page_server_iov pi;
@@ -1312,8 +1379,169 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 	return 0;
 }
 
-static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
+/* Background thread context for unified page serving */
+struct page_server_thread_ctx {
+	u64 dst_id;
+	int main_sk;
+	struct page_pipe *pp;
+	pthread_t thread;
+	volatile bool stop;
+};
+
+static struct page_server_thread_ctx *g_ps_thread_ctx = NULL;
+
+/* Helper to send a page request response */
+static int send_page_request_response(struct page_request_entry *req, struct page_pipe *pp)
 {
+	struct pstree_item *item;
+	unsigned long nr_pages;
+	int ret;
+	struct uffdio_writeprotect wp;
+	int uffd = -1;
+	void *buffer = NULL;
+	unsigned long i;
+	struct cow_page **cow_pages = NULL;
+	unsigned long cow_count = 0;
+	unsigned long len;
+
+	item = pstree_item_by_virt(req->dst_id);
+	if (!item || !dmpi(item)->mem_pp) {
+		pr_err("Invalid dst_id or no page pipe\n");
+		return -1;
+	}
+
+	/* Read pages from pipe */
+	nr_pages = req->nr_pages;
+	ret = page_pipe_read(pp, &pipe_read_dest, req->vaddr, &nr_pages, PPB_LAZY);
+	if (ret) {
+		pr_err("Failed to read pages from pipe\n");
+		return -1;
+	}
+
+	if (nr_pages == 0) {
+		pr_err("No pages found\n");
+		return -1;
+	}
+
+	len = nr_pages * PAGE_SIZE;
+
+	/* Check for COW pages */
+	cow_pages = xzalloc(nr_pages * sizeof(struct cow_page *));
+	if (!cow_pages) {
+		pr_err("Failed to allocate COW pages array\n");
+		return -1;
+	}
+
+	for (i = 0; i < nr_pages; i++) {
+		unsigned long page_addr = req->vaddr + (i * PAGE_SIZE);
+		cow_pages[i] = cow_lookup_and_remove_page(page_addr);
+		if (cow_pages[i])
+			cow_count++;
+	}
+
+	/* Send response header */
+	struct page_server_iov pi = {
+		.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
+		.nr_pages = nr_pages,
+		.vaddr = req->vaddr,
+		.dst_id = req->dst_id
+	};
+
+	if (send_psi(req->sk, &pi)) {
+		xfree(cow_pages);
+		return -1;
+	}
+
+	/* Send page data */
+	if (cow_count == 0) {
+		/* Fast path: splice from pipe */
+		if (opts.tls) {
+			ret = tls_send_data_from_fd(pipe_read_dest.p[0], len);
+			if (ret) {
+				xfree(cow_pages);
+				return -1;
+			}
+		} else {
+			ssize_t spliced = 0;
+			while (spliced < len) {
+				ret = splice(pipe_read_dest.p[0], NULL, req->sk, NULL,
+					     len - spliced, SPLICE_F_MOVE);
+				if (ret <= 0) {
+					xfree(cow_pages);
+					return -1;
+				}
+				spliced += ret;
+			}
+		}
+	} else {
+		/* Slow path: buffer and overlay COW pages */
+		buffer = xmalloc(len);
+		if (!buffer) {
+			goto err_free_cow;
+		}
+
+		ret = read(pipe_read_dest.p[0], buffer, len);
+		if (ret != len) {
+			goto err_free_all;
+		}
+
+		/* Overlay COW pages */
+		for (i = 0; i < nr_pages; i++) {
+			if (cow_pages[i]) {
+				memcpy(buffer + (i * PAGE_SIZE), cow_pages[i]->data, PAGE_SIZE);
+				xfree(cow_pages[i]->data);
+				xfree(cow_pages[i]);
+			}
+		}
+
+		/* Send buffered data */
+		if (opts.tls) {
+			if (__send(req->sk, buffer, len, 0) != len) {
+				goto err_free_all;
+			}
+		} else {
+			if (send(req->sk, buffer, len, 0) != len) {
+				goto err_free_all;
+			}
+		}
+
+		xfree(buffer);
+	}
+
+	xfree(cow_pages);
+
+	/* Unprotect pages */
+	uffd = cow_get_uffd();
+	if (uffd >= 0) {
+		wp.range.start = req->vaddr;
+		wp.range.len = len;
+		wp.mode = 0;
+		if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
+			pr_perror("Failed to unprotect pages at 0x%lx", req->vaddr);
+			return -1;
+		}
+	}
+
+	tcp_nodelay(req->sk, true);
+	return 0;
+
+err_free_all:
+	xfree(buffer);
+err_free_cow:
+	for (i = 0; i < nr_pages; i++) {
+		if (cow_pages[i]) {
+			xfree(cow_pages[i]->data);
+			xfree(cow_pages[i]);
+		}
+	}
+	xfree(cow_pages);
+	return -1;
+}
+
+/* Background thread function for unified page serving */
+static void *page_server_thread_func(void *arg)
+{
+	struct page_server_thread_ctx *ctx = (struct page_server_thread_ctx *)arg;
 	struct pstree_item *item;
 	struct page_pipe *pp;
 	struct page_pipe_buf *ppb;
@@ -1322,18 +1550,19 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 	unsigned long total_pages = 0;
 	unsigned long remaining_pages;
 	unsigned long total_cow_pages = 0;
+	unsigned long total_req_pages = 0;
 	unsigned long j;
 	unsigned char *sent_bitmap = NULL;
 	unsigned long bitmap_size;
 	unsigned long page_idx;
 	unsigned long round = 0;
 
-	pr_info("Batch transfer request for img_id=%lu\n", pi->dst_id);
+	pr_info("Page server background thread started for dst_id=%lu\n", ctx->dst_id);
 
-	item = pstree_item_by_virt(pi->dst_id);
+	item = pstree_item_by_virt(ctx->dst_id);
 	pp = dmpi(item)->mem_pp;
 
-	/* Count total pages first */
+	/* Count total pages */
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec *iov = &ppb->iov[i];
@@ -1343,30 +1572,30 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 
 	pr_info("Total pages to send: %lu\n", total_pages);
 
-	/* Allocate bitmap to track sent pages (1 bit per page) */
+	/* Allocate bitmap */
 	bitmap_size = (total_pages + 7) / 8;
 	sent_bitmap = xzalloc(bitmap_size);
 	if (!sent_bitmap) {
-		pr_err("Failed to allocate sent_bitmap of %lu bytes\n", bitmap_size);
-		return -1;
+		pr_err("Failed to allocate sent_bitmap\n");
+		return NULL;
 	}
 
 	remaining_pages = total_pages;
 
-	/* Continuous COW-priority loop */
-	while (remaining_pages > 0) {
-		unsigned long cow_sent_this_round = 0;
+	/* Unified serving loop with priority: COW > Requests > Regular */
+	while (remaining_pages > 0 && !ctx->stop) {
+		unsigned long sent_this_round = 0;
 
 		round++;
 		pr_debug("Round %lu: %lu pages remaining\n", round, remaining_pages);
 
-		/* Get COW pages from queue and send them */
+		/* Priority 1: COW pages */
 		while (cow_has_pending_pages() && remaining_pages > 0) {
 			struct cow_page_queue_entry *entry = cow_get_next_page();
 			if (!entry)
 				break;
 
-			/* Find page_idx for this vaddr to mark in bitmap */
+			/* Find page index */
 			page_idx = 0;
 			list_for_each_entry(ppb, &pp->bufs, l) {
 				for (i = 0; i < ppb->nr_segs; i++) {
@@ -1374,45 +1603,80 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 					unsigned long vaddr = (unsigned long)iov->iov_base;
 					unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
 
-					/* Check if entry->vaddr is within this iov */
 					if (entry->vaddr >= vaddr && entry->vaddr < vaddr + (nr_pages * PAGE_SIZE)) {
-						/* Found it - calculate index */
 						page_idx += (entry->vaddr - vaddr) / PAGE_SIZE;
-						goto found_idx;
+						goto found_cow_idx;
 					}
 					page_idx += nr_pages;
 				}
 			}
-found_idx:
-			/* Skip if already sent */
+found_cow_idx:
 			if (sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
 				xfree(entry);
 				continue;
 			}
 
-			/* Send the COW page */
-			ret = send_one_chunk(sk, pp, entry->vaddr, 1, pi->dst_id);
+			ret = send_one_chunk(ctx->main_sk, pp, entry->vaddr, 1, ctx->dst_id);
 			xfree(entry);
 
 			if (ret < 0) {
-				pr_err("Failed to send COW page at %lx\n", entry->vaddr);
-				xfree(sent_bitmap);
-				return ret;
+				pr_err("Failed to send COW page\n");
+				goto cleanup;
 			}
 
-			/* Mark as sent in bitmap */
 			sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
-			cow_sent_this_round++;
+			sent_this_round++;
 			total_cow_pages++;
 			remaining_pages--;
 		}
 
-		if (cow_sent_this_round > 0) {
-			pr_debug("Round %lu: sent %lu COW pages from queue\n", round, cow_sent_this_round);
+		/* Priority 2: Requested pages */
+		while (has_page_requests() && remaining_pages > 0) {
+			struct page_request_entry *req = get_next_page_request();
+			if (!req)
+				break;
+
+			pr_debug("Serving page request: vaddr=%lx nr_pages=%lu\n",
+				 req->vaddr, req->nr_pages);
+
+			ret = send_page_request_response(req, pp);
+			if (ret < 0) {
+				pr_err("Failed to send page request response\n");
+				xfree(req);
+				/* Continue with other pages */
+				continue;
+			}
+
+			/* Mark pages as sent in bitmap */
+			for (unsigned long k = 0; k < req->nr_pages; k++) {
+				unsigned long addr = req->vaddr + (k * PAGE_SIZE);
+				page_idx = 0;
+				list_for_each_entry(ppb, &pp->bufs, l) {
+					for (i = 0; i < ppb->nr_segs; i++) {
+						struct iovec *iov = &ppb->iov[i];
+						unsigned long vaddr = (unsigned long)iov->iov_base;
+						unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+
+						if (addr >= vaddr && addr < vaddr + (nr_pages * PAGE_SIZE)) {
+							page_idx += (addr - vaddr) / PAGE_SIZE;
+							sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+							remaining_pages--;
+							goto found_req_idx;
+						}
+						page_idx += nr_pages;
+					}
+				}
+found_req_idx:
+				;
+			}
+
+			sent_this_round += req->nr_pages;
+			total_req_pages += req->nr_pages;
+			xfree(req);
 		}
 
-		/* If no COW pages in queue, send one regular page to make progress */
-		if (cow_sent_this_round == 0 && remaining_pages > 0) {
+		/* Priority 3: Regular pages (if no COW or requests) */
+		if (sent_this_round == 0 && remaining_pages > 0) {
 			page_idx = 0;
 			list_for_each_entry(ppb, &pp->bufs, l) {
 				bool sent_one = false;
@@ -1425,23 +1689,19 @@ found_idx:
 					for (j = 0; j < nr_pages; j++, page_idx++) {
 						unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
 
-						/* Skip if already sent */
 						if (sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))
 							continue;
 
-						/* Send one regular page */
-						ret = send_one_chunk(sk, pp, page_vaddr, 1, pi->dst_id);
+						ret = send_one_chunk(ctx->main_sk, pp, page_vaddr, 1, ctx->dst_id);
 						if (ret < 0) {
-							pr_err("Failed to send page at %lx\n", page_vaddr);
-							xfree(sent_bitmap);
-							return ret;
+							pr_err("Failed to send regular page\n");
+							goto cleanup;
 						}
 
-						/* Mark as sent in bitmap */
 						sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
 						remaining_pages--;
 						sent_one = true;
-						pr_debug("Round %lu: sent 1 regular page (no COW found)\n", round);
+						sent_this_round++;
 						break;
 					}
 
@@ -1453,204 +1713,89 @@ found_idx:
 					break;
 			}
 		}
+
+		if (sent_this_round > 0) {
+			pr_debug("Round %lu: sent %lu pages\n", round, sent_this_round);
+		}
 	}
 
+cleanup:
 	xfree(sent_bitmap);
 
-	pr_info("Batch transfer complete: %lu total pages sent (%lu COW + %lu regular) in %lu rounds\n",
-		total_pages, total_cow_pages, total_pages - total_cow_pages, round);
+	pr_info("Background thread complete: %lu total pages (%lu COW + %lu requested + %lu regular) in %lu rounds\n",
+		total_pages, total_cow_pages, total_req_pages,
+		total_pages - total_cow_pages - total_req_pages, round);
 
-	/* Send end-of-transfer marker */
+	/* Send end marker */
 	struct page_server_iov end_marker = {
 		.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
 		.nr_pages = 0,
 		.vaddr = 0,
-		.dst_id = pi->dst_id
+		.dst_id = ctx->dst_id
 	};
 
-	ret = send_psi(sk, &end_marker);
-	if (ret < 0) {
-		pr_err("Failed to send end-of-transfer marker\n");
-		return ret;
+	send_psi(ctx->main_sk, &end_marker);
+	tcp_nodelay(ctx->main_sk, true);
+
+	return NULL;
+}
+
+static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
+{
+	struct page_server_thread_ctx *ctx;
+	int ret;
+
+	pr_info("Launching background thread for batch transfer dst_id=%lu\n", pi->dst_id);
+
+	/* Initialize request queue */
+	init_page_request_queue();
+
+	/* Create thread context */
+	ctx = xzalloc(sizeof(*ctx));
+	if (!ctx) {
+		pr_err("Failed to allocate thread context\n");
+		return -1;
 	}
 
-	tcp_nodelay(sk, true);
+	ctx->dst_id = pi->dst_id;
+	ctx->main_sk = sk;
+	ctx->stop = false;
+	ctx->pp = NULL; /* Will be retrieved in thread */
+
+	/* Launch background thread */
+	ret = pthread_create(&ctx->thread, NULL, page_server_thread_func, ctx);
+	if (ret) {
+		pr_perror("Failed to create page server thread");
+		xfree(ctx);
+		return -1;
+	}
+
+	/* Store global context */
+	g_ps_thread_ctx = ctx;
+
+	pr_info("Background thread launched successfully\n");
+
+	/* Return immediately - thread handles everything */
 	return 0;
 }
 
 static int page_server_get_pages(int sk, struct page_server_iov *pi)
 {
-	struct pstree_item *item;
-	struct page_pipe *pp;
-	unsigned long len, nr_pages;
-	int ret;
-	struct uffdio_writeprotect wp;
-	int uffd = -1;
-	void *buffer = NULL;
-	unsigned long i;
-	struct cow_page **cow_pages = NULL;
-	unsigned long cow_count = 0;
-
 	/* Update statistics */
 	ps_stats.get_total_requests++;
 	check_and_print_stats();
 
-	item = pstree_item_by_virt(pi->dst_id);
-	pp = dmpi(item)->mem_pp;
+	/* Initialize page request queue on first use */
+	init_page_request_queue();
 
-	/* page_pipe_read() uses 'unsigned long *' but pi->nr_pages is u64.
-	 * Use a temporary variable to fix the incompatible pointer type
-	 * on 32-bit platforms (e.g. armv7). */
-	nr_pages = pi->nr_pages;
-	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr, &nr_pages, PPB_LAZY);
+	/* Simply enqueue the request for the background thread to handle */
+	add_page_request(pi->vaddr, pi->nr_pages, sk, pi->dst_id);
 
-	if (ret) {
-		ps_stats.get_errors++;
-		return ret;	
-	}
+	pr_debug("Enqueued page request: vaddr=%lx nr_pages=%lu\n", 
+		 (unsigned long)pi->vaddr, (unsigned long)pi->nr_pages);
 
-	/*
-	 * The pi is reused for send_psi here, so .nr_pages, .vaddr and
-	 * .dst_id all remain intact.
-	 */
-
-	pi->nr_pages = nr_pages;
-	if (pi->nr_pages == 0) {
-		pr_debug("no iovs found, zero pages\n");
-		ps_stats.get_errors++;
-		return -1;
-	}
-
-	len = pi->nr_pages * PAGE_SIZE;
-	ps_stats.get_total_pages += pi->nr_pages;
-
-	/* Single-pass lookup - collect all COW pages */
-	cow_pages = xzalloc(pi->nr_pages * sizeof(struct cow_page *));
-	if (!cow_pages) {
-		pr_err("Failed to allocate COW pages array\n");
-		ps_stats.get_errors++;
-		return -1;
-	}
-
-	for (i = 0; i < pi->nr_pages; i++) {
-		unsigned long page_addr = pi->vaddr + (i * PAGE_SIZE);
-		cow_pages[i] = cow_lookup_and_remove_page(page_addr);
-		if (cow_pages[i])
-			cow_count++;
-	}
-
-	/*  Send response header */
-	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
-	if (send_psi(sk, pi)) {
-		xfree(cow_pages);
-		ps_stats.get_errors++;
-		return -1;
-	}
-
-	/* Choose fast or slow path based on COW presence */
-	if (cow_count == 0) {
-		/* FAST PATH: Zero-copy splice from pipe to socket */
-		pr_debug("Zero-copy path: splicing %lu pages directly\n", pi->nr_pages);
-		ps_stats.get_no_cow++;
-		
-		if (opts.tls) {
-			ret = tls_send_data_from_fd(pipe_read_dest.p[0], len);
-			if (ret) {
-				pr_err("Failed to send via TLS from pipe\n");
-				xfree(cow_pages);
-				ps_stats.get_errors++;
-				return -1;
-			}
-		} else {
-			ssize_t spliced = 0;
-			while (spliced < len) {
-				ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, 
-					     len - spliced, SPLICE_F_MOVE);
-				if (ret <= 0) {
-					pr_perror("Failed to splice pipe to socket");
-					xfree(cow_pages);
-					ps_stats.get_errors++;
-					return -1;
-				}
-				spliced += ret;
-			}
-		}
-	} else {
-		/* SLOW PATH: Buffer + overlay COW pages */
-		pr_debug("Buffered path: overlaying %lu COW pages out of %lu total\n", 
-			 cow_count, pi->nr_pages);
-		ps_stats.get_with_cow++;
-		ps_stats.get_cow_pages += cow_count;
-		
-		buffer = xmalloc(len);
-		if (!buffer) {
-			pr_err("Failed to allocate buffer for %lu pages\n", pi->nr_pages);
-			goto err_free_cow;
-		}
-
-		ret = read(pipe_read_dest.p[0], buffer, len);
-		if (ret != len) {
-			pr_err("Short read from pipe: %d vs %lu\n", ret, len);
-			goto err_free_all;
-		}
-
-		/* Overlay COW pages */
-		for (i = 0; i < pi->nr_pages; i++) {
-			if (cow_pages[i]) {
-				pr_debug("Overlaying COW page at index %lu\n", i);
-				memcpy(buffer + (i * PAGE_SIZE), cow_pages[i]->data, PAGE_SIZE);
-				xfree(cow_pages[i]->data);
-				xfree(cow_pages[i]);
-			}
-		}
-
-		/* Send buffered data */
-		if (opts.tls) {
-			if (__send(sk, buffer, len, 0) != len) {
-				pr_perror("Failed to send page buffer via TLS");
-				goto err_free_all;
-			}
-		} else {
-			if (send(sk, buffer, len, 0) != len) {
-				pr_perror("Failed to send page buffer");
-				goto err_free_all;
-			}
-		}
-
-		xfree(buffer);
-	}
-
-	xfree(cow_pages);
-
-	/* Step 5: Unprotect all pages in one operation */
-	uffd = cow_get_uffd();
-	if (uffd >= 0) {
-		wp.range.start = pi->vaddr;
-		wp.range.len = len;
-		wp.mode = 0; /* Clear write-protect */
-
-		if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
-			pr_perror("Failed to unprotect pages at 0x%llx", wp.range.start);
-			ps_stats.get_errors++;
-			return -1;
-		}
-	}
-
-	tcp_nodelay(sk, true);
+	/* Return immediately - background thread will send the response */
 	return 0;
-
-err_free_all:
-	xfree(buffer);
-err_free_cow:
-	for (i = 0; i < pi->nr_pages; i++) {
-		if (cow_pages[i]) {
-			xfree(cow_pages[i]->data);
-			xfree(cow_pages[i]);
-		}
-	}
-	xfree(cow_pages);
-	ps_stats.get_errors++;
-	return -1;
 }
 extern void pstree_switch_state(struct pstree_item *root_item, int st);
 static int page_server_serve(int sk)
