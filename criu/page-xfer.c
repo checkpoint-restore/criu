@@ -2339,6 +2339,7 @@ static int page_server_read(struct ps_async_read *ar, int flags)
 {
 	int ret, need;
 	void *buf;
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (ar->rb < sizeof(ar->pi)) {
 		/* Header */
@@ -2352,8 +2353,11 @@ static int page_server_read(struct ps_async_read *ar, int flags)
 		buf = ar->pages + (ar->rb - sizeof(ar->pi));
 		need = ar->goal - ar->rb;
 	}
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ret = __recv(page_server_sk, buf, need, flags);
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (ret < 0) {
 		if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
 			ret = 0;
@@ -2371,6 +2375,8 @@ static int page_server_read(struct ps_async_read *ar, int flags)
 	 * IO complete -- notify the caller and drop the request
 	 */
 	BUG_ON(ar->rb > ar->goal);
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	return ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, (int)ar->pi.nr_pages, ar->priv);
 }
 

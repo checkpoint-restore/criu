@@ -449,11 +449,13 @@ static int read_page_complete(unsigned long img_id, unsigned long vaddr, unsigne
 {
 	int ret = 0;
 	struct page_read *pr = priv;
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (pr->img_id != img_id) {
 		pr_err("Out of order read completed (want %lu have %lu)\n", pr->img_id, img_id);
 		return -1;
 	}
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr_pages);
