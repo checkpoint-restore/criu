@@ -858,6 +858,7 @@ free_mm:
 }
 
 static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, unsigned long nr);
+static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsigned long nr);
 
 static int ud_open(int client, struct lazy_pages_info **_lpi)
 {
