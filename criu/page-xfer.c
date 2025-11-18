@@ -1442,12 +1442,11 @@ static int send_page_request_response(struct page_request_entry *req, struct pag
 			cow_count++;
 	}
 
-	/* Send response header */
-	
-	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
-	pi.nr_pages = nr_pages,
-	pi.vaddr = req->vaddr,
-	pi.dst_id = req->dst_id
+	/* Send response header */	
+	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	pi.nr_pages = nr_pages;
+	pi.vaddr = req->vaddr;
+	pi.dst_id = req->dst_i;
 
 
 	if (send_psi(req->sk, &pi)) {
@@ -1731,10 +1730,10 @@ cleanup:
 		total_pages - total_cow_pages - total_req_pages, round);
 
 	/* Send end marker */	
-	end_marker.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
-	end_marker.nr_pages = 0,
-	end_marker.vaddr = 0,
-	end_marker.dst_id = ctx->dst_id
+	end_marker.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	end_marker.nr_pages = 0;
+	end_marker.vaddr = 0;
+	end_marker.dst_id = ctx->dst_id;
 
 
 	send_psi(ctx->main_sk, &end_marker);
