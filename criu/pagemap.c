@@ -495,8 +495,6 @@ static int maybe_read_page_remote_bulk(struct page_read *pr, unsigned long vaddr
 	 * Use simpler callback that skips img_id validation.
 	 */
 	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-	ret = request_remote_pages(pr->img_id, vaddr, nr);
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	return page_server_start_read(buf, nr, bulk_page_complete, pr, flags);
 }
 
