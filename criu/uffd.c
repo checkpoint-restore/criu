@@ -902,12 +902,17 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 	}
 
 	/* 
-	 * io_complete callback is ALWAYS needed - it performs the uffd_copy()
-	 * operation that copies pages to userspace via UFFDIO_COPY.
-	 * The difference between bulk and on-demand mode is in the
-	 * maybe_read_page function (which controls request sending).
+	 * Set appropriate io_complete callback based on mode:
+	 * - Bulk mode (opts.lazy_pages): simpler callback without pipeline management
+	 * - On-demand mode: full callback with request tracking and pipeline refill
 	 */
-	lpi->pr.io_complete = uffd_io_complete;
+	if (opts.lazy_pages) {
+		/* Bulk mode: pages arrive automatically from background thread */
+		lpi->pr.io_complete = uffd_io_complete_bulk;
+	} else {
+		/* On-demand mode: manage pipeline of individual page requests */
+		lpi->pr.io_complete = uffd_io_complete;
+	}
 
 	/*
 	 * Find the memory pages belonging to the restored process
@@ -1086,6 +1091,26 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	}
 
 	return ret;
+}
+
+/*
+ * Bulk mode io_complete: simpler version without pipeline management.
+ * In bulk mode, the background thread sends all pages automatically,
+ * so we don't need to manage a pipeline of requests from uffd.c.
+ */
+static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsigned long nr)
+{
+	struct lazy_pages_info *lpi;
+	unsigned long pages = nr;
+	
+	lpi = container_of(pr, struct lazy_pages_info, pr);
+	
+	/* Process may exit while pages are in flight */
+	if (lpi->exited)
+		return 0;
+	
+	/* Just copy pages to userspace - no pipeline management needed */
+	return uffd_copy(lpi, vaddr, &pages);
 }
 
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long nr_pages)
