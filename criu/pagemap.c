@@ -886,7 +886,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	if (remote) {
 		pr_debug("file = %s, line = %d opts.lazy_pages=%d\n", __FILE__, __LINE__, opts.lazy_pages);
 		/* Initiate bulk transfer for non-lazy mode */
-		if (opts.lazy_pages && !is_bulk_requested(img_id)) {
+		if (!opts.lazy_pages && !is_bulk_requested(img_id)) {
 			pr_info("Requesting all remote pages for img_id=%lu\n", img_id);
 			if (request_all_remote_pages(img_id) < 0) {
 				pr_err("Failed to request all remote pages\n");
@@ -897,7 +897,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 		}
 		
 		/* Choose appropriate page read function based on mode */
-		if (opts.lazy_pages) {
+		if (!opts.lazy_pages) {
 			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			/* Bulk mode: pages arrive automatically from background thread */
 			pr->maybe_read_page = maybe_read_page_remote_bulk;
