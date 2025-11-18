@@ -2331,6 +2331,117 @@ static int page_server_start_async_read(void *buf, unsigned long nr_pages, ps_as
 }
 
 /*
+ * Bulk mode continuous stream reader.
+ * Processes headers and pages as they arrive without correlation to requests.
+ * The server's background thread sends pages continuously.
+ */
+static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
+{
+	int ret, need;
+	void *buf;
+
+	if (ar->rb < sizeof(ar->pi)) {
+		/* Reading header */
+		buf = ((void *)&ar->pi) + ar->rb;
+		need = sizeof(ar->pi) - ar->rb;
+	} else {
+		/* Reading page data */
+		buf = ar->pages + (ar->rb - sizeof(ar->pi));
+		need = ar->goal - ar->rb;
+	}
+
+	ret = __recv(page_server_sk, buf, need, flags);
+	if (ret < 0) {
+		if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
+			return 0; /* Would block */
+		}
+		pr_perror("Error reading bulk stream from page server");
+		return -1;
+	}
+
+	ar->rb += ret;
+	
+	/* Check if we completed reading header */
+	if (ar->rb == sizeof(ar->pi) && ar->goal == 0) {
+		/* Header complete - check for end marker */
+		if (ar->pi.nr_pages == 0) {
+			pr_info("Received end-of-transfer marker\n");
+			return -1; /* Signal completion */
+		}
+		
+		/* Set goal for page data */
+		ar->goal = sizeof(ar->pi) + ar->pi.nr_pages * PAGE_SIZE;
+		return 1; /* Need more data */
+	}
+	
+	/* Check if we completed reading page(s) */
+	if (ar->rb == ar->goal && ar->goal > sizeof(ar->pi)) {
+		/* Complete page(s) received - notify caller */
+		ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, 
+				   (int)ar->pi.nr_pages, ar->priv);
+		
+		/* Reset for next header */
+		ar->rb = 0;
+		ar->goal = 0;
+		
+		return ret;
+	}
+	
+	/* Need more data */
+	return 1;
+}
+
+static int page_server_async_read_bulk(struct epoll_rfd *f)
+{
+	struct ps_async_read *ar;
+	int ret;
+
+	if (list_empty(&async_reads)) {
+		pr_err("Bulk async read with empty queue\n");
+		return -1;
+	}
+
+	ar = list_first_entry(&async_reads, struct ps_async_read, l);
+	ret = page_server_read_bulk_stream(ar, MSG_DONTWAIT);
+
+	if (ret == -1) {
+		/* End marker or error - cleanup */
+		list_del(&ar->l);
+		xfree(ar);
+		return 0;
+	}
+
+	/* ret == 0 (would block) or ret == 1 (need more) - keep going */
+	return 0;
+}
+
+static int page_server_start_async_read_bulk(void *buf, unsigned long nr_pages, 
+					      ps_async_read_complete complete, void *priv)
+{
+	struct ps_async_read *ar;
+
+	/* In bulk mode, only create reader once - it processes continuous stream */
+	if (!list_empty(&async_reads)) {
+		/* Already have a stream reader */
+		return 0;
+	}
+
+	ar = xmalloc(sizeof(*ar));
+	if (ar == NULL)
+		return -1;
+
+	ar->pages = buf;
+	ar->rb = 0;
+	ar->goal = 0; /* Will be set when header arrives */
+	ar->nr_pages = nr_pages; /* Max buffer size */
+	ar->complete = complete;
+	ar->priv = priv;
+	
+	list_add_tail(&ar->l, &async_reads);
+	return 0;
+}
+
+/*
  * There are two possible event types we need to handle:
  * - page info is available as a reply to request_remote_page
  * - page data is available, and it follows page info we've just received
@@ -2417,7 +2528,11 @@ int connect_to_page_server_to_recv(int epfd)
 		return -1;
 
 	ps_rfd.fd = page_server_sk;
-	ps_rfd.read_event = page_server_async_read;
+	/* Use bulk stream reader in bulk mode, regular reader in on-demand mode */
+	if (!opts.lazy_pages)
+		ps_rfd.read_event = page_server_async_read_bulk;
+	else
+		ps_rfd.read_event = page_server_async_read;
 	ps_rfd.hangup_event = page_server_hangup_event;
 
 	return epoll_add_rfd(epfd, &ps_rfd);
@@ -2471,6 +2586,17 @@ static int page_server_start_sync_read(void *buf, unsigned long nr, ps_async_rea
 
 int page_server_start_read(void *buf, unsigned long nr, ps_async_read_complete complete, void *priv, unsigned flags)
 {
+	/* In bulk mode, use continuous stream reader */
+	if (!opts.lazy_pages) {
+		if (flags & PR_ASYNC)
+			return page_server_start_async_read_bulk(buf, nr, complete, priv);
+		else {
+			pr_err("Bulk mode doesn't support synchronous reads\n");
+			return -1;
+		}
+	}
+	
+	/* On-demand mode: traditional request/response */
 	if (flags & PR_ASYNC)
 		return page_server_start_async_read(buf, nr, complete, priv);
 	else
