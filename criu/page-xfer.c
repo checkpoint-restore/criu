@@ -1498,17 +1498,6 @@ static void remove_active_image(struct active_image *img)
 	xfree(img);
 }
 
-static bool has_active_images(void)
-{
-	bool has;
-	
-	pthread_spin_lock(&active_images_lock);
-	has = !list_empty(&active_images_queue);
-	pthread_spin_unlock(&active_images_lock);
-	
-	return has;
-}
-
 /* Helper to send a page request response */
 static int send_page_request_response(struct page_request_entry *req, struct page_pipe *pp)
 {
