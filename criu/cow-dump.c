@@ -354,6 +354,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	struct uffdio_range range;
 	ssize_t ret;
 	unsigned int hash;
+	struct cow_page_queue_entry *entry;
 	
 	pr_info("Write fault at 0x%lx\n", page_addr);
 
@@ -426,7 +427,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	cdi->total_pages--;
 
 	/* Add page to queue for page server */
-	struct cow_page_queue_entry *entry = xmalloc(sizeof(*entry));
+	entry = xmalloc(sizeof(*entry));
 	if (entry) {
 		entry->vaddr = page_addr;
 		INIT_LIST_HEAD(&entry->list);
