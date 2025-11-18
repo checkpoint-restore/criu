@@ -884,7 +884,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->img_id = img_id;
 	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (remote) {
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+		pr_debug("file = %s, line = %d opts.lazy_pages=%d\n", __FILE__, __LINE__, opts.lazy_pages);
 		/* Initiate bulk transfer for non-lazy mode */
 		if (opts.lazy_pages && !is_bulk_requested(img_id)) {
 			pr_info("Requesting all remote pages for img_id=%lu\n", img_id);
