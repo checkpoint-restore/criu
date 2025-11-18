@@ -26,12 +26,6 @@
 
 #define MAX_BUNCH_SIZE 256
 
-/* Track bulk transfer requests to avoid duplicates per img_id */
-#define MAX_BULK_REQUESTED_IDS 256
-static unsigned long bulk_requested_ids[MAX_BULK_REQUESTED_IDS];
-static unsigned int bulk_requested_count = 0;
-
-
 /*
  * One "job" for the preadv() syscall in pagemap.c
  */
