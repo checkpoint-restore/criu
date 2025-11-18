@@ -1021,9 +1021,11 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 
 	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) &&
-	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy))
+	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)){
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 		return -1;
-
+	}
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	lpi->copied_pages += *nr_pages;
 
 	return 0;
@@ -1066,8 +1068,11 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	 */
 	req_pages = (req->end - req->start) / PAGE_SIZE;
 	nr = min(nr, req_pages);
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ret = uffd_copy(lpi, addr, &nr);
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (ret < 0)
 		return ret;
 
@@ -1114,7 +1119,8 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	/* Process may exit while pages are in flight */
 	if (lpi->exited)
 		return 0;
-	
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/* Just copy pages to userspace - no pipeline management needed */
 	return uffd_copy(lpi, vaddr, &pages);
 }

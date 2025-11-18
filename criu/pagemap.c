@@ -385,6 +385,8 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr, unsi
 	 * for us for urgent async read, just do the regular
 	 * cached read.
 	 */
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if ((flags & (PR_ASYNC | PR_ASAP)) == PR_ASYNC)
 		ret = pagemap_enqueue_iovec(pr, buf, len, &pr->async);
 	else {
@@ -436,6 +438,7 @@ static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vadd
 
 	if (opts.auto_dedup)
 		pr_warn_once("Can't dedup when streaming images\n");
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr);
@@ -474,6 +477,8 @@ static int bulk_page_complete(unsigned long img_id, unsigned long vaddr, unsigne
 	 * In bulk mode, pages arrive automatically in order from background thread.
 	 * No need for img_id validation - just call uffd_copy() directly via io_complete.
 	 */
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (pr->io_complete)
 		return pr->io_complete(pr, vaddr, nr_pages);
 	
