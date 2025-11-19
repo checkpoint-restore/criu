@@ -707,3 +707,15 @@ bool cow_has_pending_pages(void)
 
 	return has_pages;
 }
+
+void cow_put_back_page(struct cow_page_queue_entry *entry)
+{
+	if (!g_cow_info || !entry)
+		return;
+
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	list_add(&entry->list, &g_cow_info->cow_page_queue);
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+
+	pr_debug("Re-queued COW page 0x%lx\n", entry->vaddr);
+}

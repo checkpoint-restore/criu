@@ -1689,8 +1689,9 @@ static void *unified_page_server_thread(void *arg)
 				if (!entry)
 					break;
 				
-				/* Find page index */
+				/* Find page index - also validates this page belongs to current image */
 				page_idx = 0;
+				bool found = false;
 				list_for_each_entry(ppb, &pp->bufs, l) {
 					for (i = 0; i < ppb->nr_segs; i++) {
 						struct iovec *iov = &ppb->iov[i];
@@ -1699,17 +1700,30 @@ static void *unified_page_server_thread(void *arg)
 						
 						if (entry->vaddr >= vaddr && entry->vaddr < vaddr + (nr_pages * PAGE_SIZE)) {
 							page_idx += (entry->vaddr - vaddr) / PAGE_SIZE;
+							found = true;
 							goto found_cow_idx;
 						}
 						page_idx += nr_pages;
 					}
 				}
+				
 found_cow_idx:
+				/* Check if this COW page belongs to current image */
+				if (!found) {
+					/* This COW page doesn't belong to current image - put it back */
+					cow_put_back_page(entry);
+					pr_debug("COW page 0x%lx doesn't belong to image dst_id=%lu, re-queued\n",
+						 entry->vaddr, img->dst_id);
+					break;  /* Move to next priority/image */
+				}
+				
+				/* Check if already sent */
 				if (img->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
 					xfree(entry);
 					continue;
 				}
 				
+				pr_debug("Priority 1: COW page for current image\n");
 				ret = send_one_chunk(img->main_sk, pp, entry->vaddr, 1, img->dst_id);
 				xfree(entry);
 				
@@ -1725,7 +1739,7 @@ found_cow_idx:
 			}
 			
 			/* Priority 2: Explicit page requests for this image */
-			while (has_page_requests() && img->remaining_pages > 0) {
+			while (has_page_requests()) {
 				struct page_request_entry *req = get_next_page_request();
 				if (!req)
 					break;
@@ -1738,7 +1752,7 @@ found_cow_idx:
 					pthread_spin_unlock(&page_request_lock);
 					break;
 				}
-				
+				pr_debug("Priority 2: Explicit page requests for this image\n");
 				ret = send_page_request_response(req, pp);
 				if (ret >= 0) {
 					/* Mark pages as sent */
@@ -1785,7 +1799,7 @@ found_req_idx:
 							
 							if (img->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))
 								continue;
-							
+							pr_debug("Priority 3: Send one regular page\n");
 							ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
 							if (ret < 0)
 								break;

@@ -147,4 +147,13 @@ extern struct cow_page_queue_entry *cow_get_next_page(void);
  */
 extern bool cow_has_pending_pages(void);
 
+/**
+ * cow_put_back_page - Put a COW page back in the queue
+ * @entry: Queue entry to re-queue
+ *
+ * Thread-safe re-insertion of a COW page at the head of the queue.
+ * Used when a page doesn't belong to the current image being processed.
+ */
+extern void cow_put_back_page(struct cow_page_queue_entry *entry);
+
 #endif /* __CR_COW_DUMP_H_ */
