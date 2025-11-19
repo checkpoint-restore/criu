@@ -1507,9 +1507,10 @@ static int add_active_image(u64 dst_id, int sk)
 			bitmap_size = (ppb->pages_in + 7) / 8;
 			ppb->sent_bitmap = xzalloc(bitmap_size);
 			if (!ppb->sent_bitmap) {
+				struct page_pipe_buf *tmp_ppb;
 				pr_err("Failed to allocate sent_bitmap for buffer %u\n", buf_idx);
 				/* Clean up previously allocated bitmaps */
-				struct page_pipe_buf *tmp_ppb;
+				
 				list_for_each_entry(tmp_ppb, &pp->bufs, l) {
 					if (tmp_ppb == ppb)
 						break;
@@ -1773,7 +1774,7 @@ static void *unified_page_server_thread(void *arg)
 			list_for_each_entry(ppb, &pp->bufs, l) {
 				/* Skip buffers without bitmap */
 				if (!ppb->sent_bitmap) {
-					pr_err("no bitmap \n")
+					pr_err("no bitmap \n");
 					exit(0);
 					continue;
 				}
@@ -1831,8 +1832,7 @@ found_cow_idx:
 			/* Priority 2: Explicit page requests for this image */
 			while (has_page_requests()) {
 				bool skip = false;
-				struct page_request_entry *req = get_next_page_request();
-				struct page_pipe_buf *req_ppb;
+				struct page_request_entry *req = get_next_page_request();				
 				unsigned long local_page_idx;
 				
 				if (!req)
