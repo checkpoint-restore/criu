@@ -1331,12 +1331,14 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 		pr_debug("Sending non-COW page at %lx\n", vaddr);
 		
 		ret = page_pipe_read(pp, &pipe_read_dest, vaddr, &actual_nr_pages, PPB_LAZY);
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		if (ret) {
 			pr_err("Failed to read page from pipe at %lx\n", vaddr);
 			pthread_spin_unlock(lock);
 			return -1;
 		}
-
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 		/* Send via splice or TLS */
 		if (opts.tls) {
 			ret = tls_send_data_from_fd(pipe_read_dest.p[0], PAGE_SIZE);
@@ -1346,6 +1348,8 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 				return -1;
 			}
 		} else {
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 			ret = splice(pipe_read_dest.p[0], NULL, sk, NULL,
 				     PAGE_SIZE, SPLICE_F_MOVE);
 			if (ret != PAGE_SIZE) {
@@ -1353,7 +1357,10 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 				pthread_spin_unlock(lock);
 				return -1;
 			}
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		}
+		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		/* Unprotect non-COW page only */
 		uffd = cow_get_uffd();
@@ -1362,21 +1369,26 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 			wp.range.start = vaddr;
 			wp.range.len = PAGE_SIZE;
 			wp.mode = 0;
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 			if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
 				pr_perror("Failed to unprotect page at 0x%lx", vaddr);
 				pthread_spin_unlock(lock);
 				return -1;
 			}
+				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 			pr_debug("Unprotected page at %lx\n", vaddr);
 		}
 	}
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* 4. Remove COW page from tracking (now safe - data sent) */
 	if (cow_pg) {
 		cow_remove_page(vaddr);
 		pr_debug("Removed COW page at %lx from tracking\n", vaddr);
 	}
+	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* UNLOCK */
 	pthread_spin_unlock(lock);
@@ -1743,6 +1755,7 @@ found_cow_idx:
 			
 			/* Priority 2: Explicit page requests for this image */
 			while (has_page_requests()) {
+				bool skip = false;
 				struct page_request_entry *req = get_next_page_request();
 				if (!req)
 					break;
@@ -1755,7 +1768,36 @@ found_cow_idx:
 					pthread_spin_unlock(&page_request_lock);
 					break;
 				}
+
 				pr_debug("Priority 2: Explicit page requests for this image\n");
+
+				/* Mark pages as sent */
+				for (unsigned long k = 0; k < req->nr_pages; k++) {
+					unsigned long addr = req->vaddr + (k * PAGE_SIZE);
+					page_idx = 0;
+					list_for_each_entry(ppb, &pp->bufs, l) {
+						for (i = 0; i < ppb->nr_segs; i++) {
+							struct iovec *iov = &ppb->iov[i];
+							unsigned long vaddr = (unsigned long)iov->iov_base;
+							unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+							
+							if (addr >= vaddr && addr < vaddr + (nr_pages * PAGE_SIZE)) {
+								page_idx += (addr - vaddr) / PAGE_SIZE;
+								/* Only mark and decrement if not already sent */
+								if ((img->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))) {
+									pr_debug("SKIPED!!!!!!!!!!!!\n");
+									skip = true;
+									break;
+								}
+							}
+						}
+					}
+				}
+				if (skip) {
+					break;
+				}
+				pr_debug("Priority 2: Explicit page requests for this image send!!!!\n");
+
 				ret = send_page_request_response(req, pp);
 				if (ret >= 0) {
 					/* Mark pages as sent */
