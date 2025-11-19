@@ -1754,7 +1754,7 @@ static void *unified_page_server_thread(void *arg)
 		/* Check if we should print stats */
 		current_time = time(NULL);
 		if (current_time - last_stats_time >= 1) {
-			pr_info("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec\n",
+			pr_warn("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec\n",
 				priority1_pages, priority2_pages, priority3_pages);
 			
 			/* Reset counters */
