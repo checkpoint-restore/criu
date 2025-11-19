@@ -12,6 +12,9 @@
 #include "stats.h"
 #include "cr_options.h"
 
+#include "syscall.h"
+#include <linux/sockios.h>   // defines FIONREAD
+
 /* can existing iov accumulate the page? */
 static inline bool iov_grow_page(struct iovec *iov, unsigned long addr)
 {
@@ -424,8 +427,8 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 	ioctl(ppb->p[0], FIONREAD, &avail);
 	pr_debug("ppb->p[0] available = %d, len=%lu, skip=%lu\n", avail, len, skip);
 
-	int pipe_sz = fcntl(prd->p[1], F_GETPIPE_SZ);
-	pr_debug("prd pipe size = %d\n", pipe_sz);
+	avail = fcntl(prd->p[1], F_GETPIPE_SZ);
+	pr_debug("prd pipe size = %d\n", avail);
 
 	ret = tee(ppb->p[0], prd->p[1], len, 0);
 	if (ret != len) {
