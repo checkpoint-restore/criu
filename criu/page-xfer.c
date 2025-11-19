@@ -1468,10 +1468,31 @@ static int add_active_image(u64 dst_id, int sk)
 	
 	/* Count ONLY pages that have actual pipe data
 	 * This excludes write-protected pages which are holes/parent refs */
+	pr_info("=== Scanning page_pipe buffers for dst_id=%lu ===\n", dst_id);
+	
+	unsigned int buf_idx = 0;
 	list_for_each_entry(ppb, &pp->bufs, l) {
+		pr_info("[BUF %u] pages_in=%lu flags=0x%x nr_segs=%u\n",
+			buf_idx, ppb->pages_in, ppb->flags, ppb->nr_segs);
+		
+		/* Show each segment in this buffer */
+		for (unsigned int seg_idx = 0; seg_idx < ppb->nr_segs; seg_idx++) {
+			struct iovec *iov = &ppb->iov[seg_idx];
+			unsigned long start = (unsigned long)iov->iov_base;
+			unsigned long end = start + iov->iov_len;
+			unsigned long seg_pages = iov->iov_len / PAGE_SIZE;
+			
+			pr_info("  [SEG %u] addr=0x%lx-0x%lx len=%lu (%lu pages)%s\n",
+				seg_idx, start, end, iov->iov_len, seg_pages,
+				(ppb->pages_in == 0) ? " [SKIPPED - no pipe data]" : "");
+		}
+		
 		/* Only count pages actually in the pipe */
 		total_pages += ppb->pages_in;
+		buf_idx++;
 	}
+	
+	pr_info("=== Total pages with pipe data: %lu ===\n", total_pages);
 	
 	if (total_pages == 0) {
 		pr_warn("Image dst_id=%lu has no pages with pipe data\n", dst_id);
