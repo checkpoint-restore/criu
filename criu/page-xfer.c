@@ -1728,10 +1728,19 @@ err_free_cow:
 static void *unified_page_server_thread(void *arg)
 {
 	bool found = false;
+	bool DONE = false;
+	int done_count = 0;
 	pr_info("Unified page server background thread started\n");
 	
 	while (!g_unified_thread_stop) {
 		struct active_image *img, *tmp;
+		if (DONE) {
+			done_count++;
+			sleep(0.1);
+		}
+		if (done_count == 30) {
+			exit(0);
+		}
 		
 		pthread_spin_lock(&active_images_lock);
 		
@@ -1755,6 +1764,8 @@ static void *unified_page_server_thread(void *arg)
 				remove_active_image(img);
 				continue;
 			}
+			DONE = false;
+			done_count = 0;
 			pr_info("Start loop Image dst_id=%lu total_pages: %lu img->remaining_pages: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
 					img->dst_id, img->total_pages, img->remaining_pages, img->total_cow_pages, img->total_req_pages,
 					img->total_pages - img->total_cow_pages - img->total_req_pages);
@@ -2002,7 +2013,7 @@ found_cow_idx:
 				pr_info("Image dst_id=%lu complete: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
 					img->dst_id, img->total_pages, img->total_cow_pages, img->total_req_pages,
 					img->total_pages - img->total_cow_pages - img->total_req_pages);
-				
+				DONE = true;
 				/* Send end marker */
 				end_marker.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
 				end_marker.nr_pages = 0;
