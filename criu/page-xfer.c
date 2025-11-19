@@ -1443,7 +1443,6 @@ static int add_active_image(u64 dst_id, int sk)
 	struct pstree_item *item;
 	struct page_pipe *pp;
 	struct page_pipe_buf *ppb;
-	unsigned int i;
 	unsigned long total_pages = 0;
 	unsigned long bitmap_size;
 	
@@ -1466,11 +1465,17 @@ static int add_active_image(u64 dst_id, int sk)
 	}
 	
 	pp = dmpi(item)->mem_pp;
+	
+	/* Count ONLY pages that have actual pipe data
+	 * This excludes write-protected pages which are holes/parent refs */
 	list_for_each_entry(ppb, &pp->bufs, l) {
-		for (i = 0; i < ppb->nr_segs; i++) {
-			struct iovec *iov = &ppb->iov[i];
-			total_pages += iov->iov_len / PAGE_SIZE;
-		}
+		/* Only count pages actually in the pipe */
+		total_pages += ppb->pages_in;
+	}
+	
+	if (total_pages == 0) {
+		pr_warn("Image dst_id=%lu has no pages with pipe data\n", dst_id);
+		return 0;  /* Nothing to send */
 	}
 	
 	/* Create active image entry */
@@ -1487,7 +1492,7 @@ static int add_active_image(u64 dst_id, int sk)
 	img->total_cow_pages = 0;
 	img->total_req_pages = 0;
 	
-	/* Allocate sent bitmap */
+	/* Allocate sent bitmap - only for pages with actual data */
 	bitmap_size = (total_pages + 7) / 8;
 	img->sent_bitmap = xzalloc(bitmap_size);
 	if (!img->sent_bitmap) {
@@ -1502,7 +1507,8 @@ static int add_active_image(u64 dst_id, int sk)
 	list_add_tail(&img->list, &active_images_queue);
 	pthread_spin_unlock(&active_images_lock);
 	
-	pr_info("Added active image dst_id=%lu with %lu pages\n", dst_id, total_pages);
+	pr_info("Added active image dst_id=%lu with %lu pages (pages with pipe data only)\n", 
+		dst_id, total_pages);
 	return 0;
 }
 
@@ -1828,41 +1834,45 @@ found_req_idx:
 				xfree(req);
 			}
 			
-			/* Priority 3: Send one regular page if no COW/requests */
-			if (!sent_this_image && img->remaining_pages > 0) {
-				page_idx = 0;
-				list_for_each_entry(ppb, &pp->bufs, l) {
-					bool sent_one = false;
+		/* Priority 3: Send one regular page if no COW/requests */
+		if (!sent_this_image && img->remaining_pages > 0) {
+			page_idx = 0;
+			list_for_each_entry(ppb, &pp->bufs, l) {
+				bool sent_one = false;
+				
+				/* Skip buffers with no actual pipe data (write-protected regions) */
+				if (ppb->pages_in == 0)
+					continue;
+				
+				for (i = 0; i < ppb->nr_segs; i++) {
+					struct iovec *iov = &ppb->iov[i];
+					unsigned long vaddr = (unsigned long)iov->iov_base;
+					unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
 					
-					for (i = 0; i < ppb->nr_segs; i++) {
-						struct iovec *iov = &ppb->iov[i];
-						unsigned long vaddr = (unsigned long)iov->iov_base;
-						unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+					for (j = 0; j < nr_pages; j++, page_idx++) {
+						unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
 						
-						for (j = 0; j < nr_pages; j++, page_idx++) {
-							unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
-							
-							if (img->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))
-								continue;
-							pr_debug("Priority 3: Send one regular page\n");
-							ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
-							if (ret < 0)
-								break;
-							
-							img->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
-							img->remaining_pages--;
-							sent_one = true;
+						if (img->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))
+							continue;
+						pr_debug("Priority 3: Send one regular page\n");
+						ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
+						if (ret < 0)
 							break;
-						}
 						
-						if (sent_one)
-							break;
+						img->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+						img->remaining_pages--;
+						sent_one = true;
+						break;
 					}
 					
 					if (sent_one)
 						break;
 				}
+				
+				if (sent_one)
+					break;
 			}
+		}
 			
 			pthread_spin_lock(&active_images_lock);
 			
