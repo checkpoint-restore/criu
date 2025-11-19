@@ -1445,7 +1445,7 @@ static int add_active_image(u64 dst_id, int sk)
 	struct page_pipe_buf *ppb;
 	unsigned long total_pages = 0;
 	unsigned long bitmap_size;
-	
+	unsigned int buf_idx = 0;
 	pthread_spin_lock(&active_images_lock);
 	
 	/* Check if already active */
@@ -1470,7 +1470,7 @@ static int add_active_image(u64 dst_id, int sk)
 	 * This excludes write-protected pages which are holes/parent refs */
 	pr_info("=== Scanning page_pipe buffers for dst_id=%lu ===\n", dst_id);
 	
-	unsigned int buf_idx = 0;
+	
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		pr_info("[BUF %u] pages_in=%lu flags=0x%x nr_segs=%u\n",
 			buf_idx, ppb->pages_in, ppb->flags, ppb->nr_segs);
