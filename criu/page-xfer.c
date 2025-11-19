@@ -1730,16 +1730,38 @@ static void *unified_page_server_thread(void *arg)
 	bool found = false;
 	bool DONE = false;
 	int done_count = 0;
+	
+	/* Per-second statistics counters */
+	static time_t last_stats_time = 0;
+	unsigned long priority1_pages = 0;  /* COW pages */
+	unsigned long priority2_pages = 0;  /* Request pages */
+	unsigned long priority3_pages = 0;  /* Regular pages */
+	
 	pr_info("Unified page server background thread started\n");
 	
 	while (!g_unified_thread_stop) {
 		struct active_image *img, *tmp;
+		time_t current_time;
+		
 		if (DONE) {
 			done_count++;
 			sleep(0.1);
 		}
 		if (done_count == 30) {
 			exit(0);
+		}
+		
+		/* Check if we should print stats */
+		current_time = time(NULL);
+		if (current_time - last_stats_time >= 1) {
+			pr_info("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec\n",
+				priority1_pages, priority2_pages, priority3_pages);
+			
+			/* Reset counters */
+			priority1_pages = 0;
+			priority2_pages = 0;
+			priority3_pages = 0;
+			last_stats_time = current_time;
 		}
 		
 		pthread_spin_lock(&active_images_lock);
@@ -1836,6 +1858,7 @@ found_cow_idx:
 			img->total_cow_pages++;
 			img->remaining_pages--;
 			sent_this_image = true;
+			priority1_pages++;  /* Increment COW counter */
 		}
 			
 			/* Priority 2: Explicit page requests for this image */
@@ -1943,6 +1966,7 @@ found_cow_idx:
 					}
 					img->total_req_pages += req->nr_pages;
 					sent_this_image = true;
+					priority2_pages += req->nr_pages;  /* Increment request counter */
 				}
 				xfree(req);
 			}
@@ -1986,12 +2010,13 @@ found_cow_idx:
 						if (ret < 0)
 							break;
 						
-						/* Mark in per-buffer bitmap */
-						ppb->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
-						img->remaining_pages--;
-						sent_one = true;
-						break;
-					}
+					/* Mark in per-buffer bitmap */
+					ppb->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+					img->remaining_pages--;
+					sent_one = true;
+					priority3_pages++;  /* Increment regular page counter */
+					break;
+				}
 					
 					if (sent_one)
 						break;
