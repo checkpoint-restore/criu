@@ -2354,10 +2354,10 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 		buf = ar->pages + (ar->rb - sizeof(ar->pi));
 		need = ar->goal - ar->rb;
 	}
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+			pr_debug("file = %s, line = %d need=%d\n", __FILE__, __LINE__, need);
 
 	ret = __recv(page_server_sk, buf, need, flags);
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+			pr_debug("file = %s, line = %d ret=%d\n", __FILE__, __LINE__, ret);
 
 	if (ret < 0) {
 				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
@@ -2368,13 +2368,11 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 		pr_perror("Error reading bulk stream from page server");
 		return -1;
 	}
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ar->rb += ret;
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* Check if we completed reading header */
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+			pr_debug("file = %s, line = %d ar->rb=%lu\n", __FILE__, __LINE__, ar->rb);
 
 	if (ar->rb == sizeof(ar->pi) && ar->goal == 0) {
 		/* Header complete - check for end marker */
@@ -2382,10 +2380,11 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 			pr_info("Received end-of-transfer marker\n");
 			return -1; /* Signal completion */
 		}
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+				
 
 		/* Set goal for page data */
 		ar->goal = sizeof(ar->pi) + ar->pi.nr_pages * PAGE_SIZE;
+		pr_debug("file = %s, line = %d ar->goal=%lun", __FILE__, __LINE__, ar->goal);
 		return 1; /* Need more data */
 	}
 			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
