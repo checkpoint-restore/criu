@@ -1773,9 +1773,7 @@ static void *unified_page_server_thread(void *arg)
 			found = false;
 			list_for_each_entry(ppb, &pp->bufs, l) {
 				/* Skip buffers without bitmap */
-				if (!ppb->sent_bitmap) {
-					pr_err("no bitmap \n");
-					exit(0);
+				if (!ppb->sent_bitmap) {			
 					continue;
 				}
 				
@@ -1858,8 +1856,6 @@ found_cow_idx:
 					/* Find which buffer contains this page */
 					list_for_each_entry(ppb, &pp->bufs, l) {
 						if (!ppb->sent_bitmap){
-							pr_err("ERROR no bitmap\n");
-							exit(0);
 							continue;
 						}
 						
