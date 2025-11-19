@@ -99,6 +99,9 @@ struct page_pipe_buf {
 	unsigned int flags;
 	struct iovec *iov;  /* vaddr:len map */
 	struct list_head l; /* links into page_pipe->bufs */
+	
+	/* Per-buffer sent tracking for page server */
+	unsigned char *sent_bitmap;
 };
 
 /*
