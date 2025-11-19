@@ -1488,7 +1488,9 @@ static int add_active_image(u64 dst_id, int sk)
 		}
 		
 		/* Only count pages actually in the pipe */
-		total_pages += ppb->pages_in;
+		if (ppb->flags == PPB_LAZY) {
+			total_pages += ppb->pages_in;
+		}
 		buf_idx++;
 	}
 	
@@ -1862,7 +1864,7 @@ found_req_idx:
 				bool sent_one = false;
 				
 				/* Skip buffers with no actual pipe data (write-protected regions) */
-				if (ppb->pages_in == 0)
+				if (ppb->pages_in == 0 || ppb->flags != PPB_LAZY)
 					continue;
 				
 				for (i = 0; i < ppb->nr_segs; i++) {
