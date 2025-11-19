@@ -13,7 +13,7 @@
 #include "cr_options.h"
 
 #include "syscall.h"
-#include <linux/sockios.h>   // defines FIONREAD
+#include <sys/ioctl.h>  // defines FIONREAD
 
 /* can existing iov accumulate the page? */
 static inline bool iov_grow_page(struct iovec *iov, unsigned long addr)
