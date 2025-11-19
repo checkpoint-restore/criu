@@ -1798,7 +1798,7 @@ found_cow_idx:
 					break;
 				}
 
-				pr_debug("Priority 2: Explicit page requests for this image\n");
+				pr_debug("Priority 2: Explicit page requests for this image req->vaddr =%lu req->nr_pages=%lu\n",req->vaddr, req->nr_pages );
 
 				/* Mark pages as sent */
 				for (unsigned long k = 0; k < req->nr_pages; k++) {
