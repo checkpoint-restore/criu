@@ -1653,6 +1653,7 @@ err_free_cow:
 /* Unified background thread serving all images */
 static void *unified_page_server_thread(void *arg)
 {
+	bool found = false;
 	pr_info("Unified page server background thread started\n");
 	
 	while (!g_unified_thread_stop) {
@@ -1691,7 +1692,7 @@ static void *unified_page_server_thread(void *arg)
 				
 				/* Find page index - also validates this page belongs to current image */
 				page_idx = 0;
-				bool found = false;
+				found = false;
 				list_for_each_entry(ppb, &pp->bufs, l) {
 					for (i = 0; i < ppb->nr_segs; i++) {
 						struct iovec *iov = &ppb->iov[i];
