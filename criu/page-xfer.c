@@ -1681,7 +1681,9 @@ static void *unified_page_server_thread(void *arg)
 				remove_active_image(img);
 				continue;
 			}
-			
+			pr_info("Start loop Image dst_id=%lu complete: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
+					img->dst_id, img->total_pages, img->total_cow_pages, img->total_req_pages,
+					img->total_pages - img->total_cow_pages - img->total_req_pages);
 			pp = dmpi(item)->mem_pp;
 			
 			/* Priority 1: COW pages for this image */
