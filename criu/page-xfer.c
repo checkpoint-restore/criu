@@ -2384,7 +2384,7 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 
 		/* Set goal for page data */
 		ar->goal = sizeof(ar->pi) + ar->pi.nr_pages * PAGE_SIZE;
-		pr_debug("file = %s, line = %d ar->goal=%lun", __FILE__, __LINE__, ar->goal);
+		pr_debug("file = %s, line = %d ar->goal=%lu\n", __FILE__, __LINE__, ar->goal);
 		return 1; /* Need more data */
 	}
 			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);

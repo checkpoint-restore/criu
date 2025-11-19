@@ -494,8 +494,15 @@ static int maybe_read_page_remote_bulk(struct page_read *pr, unsigned long vaddr
 	 * We don't send individual requests - just wait for pages to arrive.
 	 * Use simpler callback that skips img_id validation.
 	 */
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-	return page_server_start_read(buf, nr, bulk_page_complete, pr, flags);
+	int ret = 0;
+	if (flags & PR_ASAP) {
+		ret = request_remote_pages(pr->img_id, vaddr, nr);
+	}
+	pr_debug("file = %s, line = %d ASAP=%d\n", __FILE__, __LINE__, flags & PR_ASAP);
+	if (!ret) {
+		ret = page_server_start_read(buf, nr, bulk_page_complete, pr, flags);
+	}
+	return ret;
 }
 
 /* On-demand transfer mode: request individual pages as needed */
