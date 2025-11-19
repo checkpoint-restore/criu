@@ -426,14 +426,15 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 	
 	ioctl(ppb->p[0], FIONREAD, &avail);
 	pr_debug("ppb->p[0] available = %d, len=%lu, skip=%lu\n", avail, len, skip);
-
-	avail = fcntl(prd->p[1], F_GETPIPE_SZ);
-	pr_debug("prd pipe size = %d\n", avail);
-
 	if (avail == 0)
 	{
 		return 0;
 	}
+
+	avail = fcntl(prd->p[1], F_GETPIPE_SZ);
+	pr_debug("prd pipe size = %d\n", avail);
+
+	
 	ret = tee(ppb->p[0], prd->p[1], len, 0);
 	if (ret != len) {
 		pr_perror("tee: %zd", ret);
