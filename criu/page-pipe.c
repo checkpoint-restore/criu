@@ -399,12 +399,12 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 		*nr_pages = 0;
 		return 0;
 	}
-
+#if 0
 	if (!(ppb->flags & ppb_flags)) {
 		pr_err("PPB flags mismatch: %x %x\n", ppb_flags, ppb->flags);
 		return false;
 	}
-
+#endif
 	/* clamp the request if it passes the end of iovec */
 	len = min((unsigned long)iov->iov_base + iov->iov_len - addr, *nr_pages * PAGE_SIZE);
 	*nr_pages = len / PAGE_SIZE;
