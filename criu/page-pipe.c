@@ -388,6 +388,7 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 	struct iovec *iov = NULL;
 	unsigned long skip = 0, len;
 	ssize_t ret;
+	int avail = 0;
 
 	/*
 	 * Get ppb that contains addr and count length of data between
@@ -419,6 +420,12 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 	/* we should tee() the requested length + the beginning of the pipe */
 	len += skip;
 		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+	
+	ioctl(ppb->p[0], FIONREAD, &avail);
+	pr_debug("ppb->p[0] available = %d, len=%lu, skip=%lu\n", avail, len, skip);
+
+	int pipe_sz = fcntl(prd->p[1], F_GETPIPE_SZ);
+	pr_debug("prd pipe size = %d\n", pipe_sz);
 
 	ret = tee(ppb->p[0], prd->p[1], len, 0);
 	if (ret != len) {
