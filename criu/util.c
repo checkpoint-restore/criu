@@ -354,8 +354,11 @@ int set_proc_fd(int fd)
 		pr_perror("dup() failed");
 		return -1;
 	}
-	if (install_service_fd(PROC_FD_OFF, _fd) < 0)
+	if (install_service_fd(PROC_FD_OFF, _fd) < 0) {
+		/* Avoid leaking the duplicated descriptor on failure. */
+		close(_fd);
 		return -1;
+	}
 	return 0;
 }
 
@@ -371,8 +374,11 @@ static int open_proc_sfd(char *path)
 	}
 
 	ret = install_service_fd(PROC_FD_OFF, fd);
-	if (ret < 0)
+	if (ret < 0) {
+		/* install_service_fd failed; close the fd to prevent a leak. */
+		close(fd);
 		return -1;
+	}
 
 	return 0;
 }
