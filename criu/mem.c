@@ -608,6 +608,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 			goto out_xfer;
 	}
 
+	pr_info("generate_vma_iovs ended\n");
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
 
@@ -617,15 +618,18 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * actual optimization which reduces time for which process was frozen
 	 * during pre-dump.
 	 */
+	pr_info("pargs_iovs ended\n");
+
 	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ)
 		ret = 0;
 	else
 		ret = drain_pages(pp, ctl, args);
-
+	pr_info("drain_pages ended\n");
 	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
 	if (ret)
 		goto out_xfer;
+	pr_info("xfer_pages ended\n");
 
 	timing_stop(TIME_MEMDUMP);
 
@@ -647,7 +651,7 @@ out_pp:
 		dmpi(item)->mem_pp = pp;
 out:
 	pmc_fini(&pmc);
-	pr_info("----------------------------------------\n");
+	pr_info("Dumping pages done ----------------------------------------\n");
 	return exit_code;
 }
 

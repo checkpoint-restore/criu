@@ -131,6 +131,7 @@ int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap
 	if (ret < 0)
 		goto err;
 
+	pr_info("parse_smaps ended (pid: %d)\n", pid);	
 	/*
 	 * In addition to real process VMAs we should keep an info about
 	 * madvise(MADV_GUARD_INSTALL) pages. While these are not represented
