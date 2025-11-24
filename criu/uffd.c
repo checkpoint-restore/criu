@@ -198,24 +198,24 @@ static void check_and_print_uffd_stats(void)
 			avg_pipeline);
 
 		/* Print page fault histogram */
-		if (has_pf) {
+		
 			pr_warn("  PF: ");
 			for (i = 0; i < 9; i++) {
 				if (uffd_stats.pf_hist[i] > 0)
 					pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.pf_hist[i]);
 			}
 			pr_warn("\n");
-		}
+		
 
 		/* Print background transfer histogram */
-		if (has_bg) {
+		
 			pr_warn("  BG: ");
 			for (i = 0; i < 9; i++) {
 				if (uffd_stats.bg_hist[i] > 0)
 					pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
 			}
 			pr_warn("\n");
-		}
+		
 
 		/* Reset all counters */
 		memset(&uffd_stats, 0, sizeof(uffd_stats));
