@@ -1721,6 +1721,7 @@ static void *unified_page_server_thread(void *arg)
 	unsigned long priority1_pages = 0;  /* COW pages */
 	unsigned long priority2_pages = 0;  /* Request pages */
 	unsigned long priority3_pages = 0;  /* Regular pages */
+	unsigned long total_skips = 0;      /* Total pages skipped in Priority 3 */
 	
 	pr_info("Unified page server background thread started\n");
 	
@@ -1739,13 +1740,15 @@ static void *unified_page_server_thread(void *arg)
 		/* Check if we should print stats */
 		current_time = time(NULL);
 		if (current_time - last_stats_time >= 1) {
-			pr_warn("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec\n",
-				priority1_pages, priority2_pages, priority3_pages);
+			unsigned long avg_skips = priority3_pages > 0 ? total_skips / priority3_pages : 0;
+			pr_warn("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec | AvgSkips=%lu TotalSkips=%lu\n",
+				priority1_pages, priority2_pages, priority3_pages, avg_skips, total_skips);
 			
 			/* Reset counters */
 			priority1_pages = 0;
 			priority2_pages = 0;
 			priority3_pages = 0;
+			total_skips = 0;
 			last_stats_time = current_time;
 		}
 		
@@ -1986,6 +1989,7 @@ found_cow_idx:
 						/* Check per-buffer bitmap */
 						if (ppb->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))
 						{
+							total_skips++;  /* Count each skip */
 							pr_debug(" SKIP page 0x%lx\n", page_vaddr);
 							continue;
 						}

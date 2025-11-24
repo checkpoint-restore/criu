@@ -182,22 +182,9 @@ static void check_and_print_uffd_stats(void)
 {
 	time_t now = time(NULL);
 	int i;
-	bool has_pf = false, has_bg = false;
 	unsigned long avg_pipeline = 0;
 
-	if (now - uffd_stats.last_print_time >= 1) {
-		/* Check if we have any data to print */
-		for (i = 0; i < 9; i++) {
-			if (uffd_stats.pf_hist[i] > 0)
-				has_pf = true;
-			if (uffd_stats.bg_hist[i] > 0)
-				has_bg = true;
-		}
-
-		if (!has_pf && !has_bg && uffd_stats.total_pf_reqs == 0 && uffd_stats.total_bg_reqs == 0) {
-			uffd_stats.last_print_time = now;
-			return;
-		}
+	if (now - uffd_stats.last_print_time >= 1) {	
 
 		/* Calculate average pipeline depth */
 		if (uffd_stats.pipeline_samples > 0)

@@ -1425,12 +1425,39 @@ static int epoll_hangup_event(int epollfd, struct epoll_rfd *rfd)
 	return ret;
 }
 
+/* Epoll statistics tracking */
+static struct {
+	unsigned long total_read_calls;
+	unsigned long total_read_success;
+	time_t last_print_time;
+} epoll_stats;
+
+static void check_and_print_epoll_stats(void)
+{
+	time_t now = time(NULL);
+	
+	if (now - epoll_stats.last_print_time >= 1) {
+		if (epoll_stats.total_read_calls > 0 || epoll_stats.total_read_success > 0) {
+			pr_warn("[EPOLL_STATS] read_calls=%lu read_success=%lu\n",
+				epoll_stats.total_read_calls,
+				epoll_stats.total_read_success);
+		}
+		
+		/* Reset counters */
+		memset(&epoll_stats, 0, sizeof(epoll_stats));
+		epoll_stats.last_print_time = now;
+	}
+}
+
 int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
 {
 	int ret, i, nr_events;
 	bool have_a_break = false;
 
 	while (1) {
+		/* Check and print stats periodically */
+		check_and_print_epoll_stats();
+		
 		ret = epoll_wait(epollfd, evs, nr_fds, timeout);
 		if (ret <= 0) {
 			if (ret < 0)
@@ -1447,11 +1474,14 @@ int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout
 			events = evs[i].events;
 
 			if (events & EPOLLIN) {
+				epoll_stats.total_read_calls++;
 				ret = rfd->read_event(rfd);
 				if (ret < 0)
 					goto out;
-				if (ret > 0)
+				if (ret > 0) {
+					epoll_stats.total_read_success++;
 					have_a_break = true;
+				}
 			}
 
 			if (events & (EPOLLHUP | EPOLLRDHUP)) {
