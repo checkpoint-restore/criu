@@ -398,22 +398,16 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 	 * the beginning of the pipe and addr. If no ppb is found, the
 	 * requested page is mapped to zero pfn
 	 */
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 	ppb = get_ppb(pp, addr, &iov, &skip);
 	if (!ppb) {
 		*nr_pages = 0;
 		return 0;
 	}
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
-#if 0
 	if (!(ppb->flags & ppb_flags)) {
 		pr_err("PPB flags mismatch: %x %x\n", ppb_flags, ppb->flags);
 		return false;
 	}
-#endif
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* clamp the request if it passes the end of iovec */
 	len = min((unsigned long)iov->iov_base + iov->iov_len - addr, *nr_pages * PAGE_SIZE);
@@ -422,32 +416,27 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 	skip += ppb->pipe_off * PAGE_SIZE;
 	/* we should tee() the requested length + the beginning of the pipe */
 	len += skip;
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	
 	ioctl(ppb->p[0], FIONREAD, &avail);
-	pr_debug("ppb->p[0] available = %d, len=%lu, skip=%lu\n", avail, len, skip);
 	if (avail == 0)
 	{
+		exit(0); // TODO REMOVE!!!!
 		return 0;
 	}
 
 	avail = fcntl(prd->p[1], F_GETPIPE_SZ);
-	pr_debug("prd pipe size = %d\n", avail);
-
 	
 	ret = tee(ppb->p[0], prd->p[1], len, 0);
 	if (ret != len) {
 		pr_perror("tee: %zd", ret);
 		return -1;
 	}
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ret = splice(prd->p[0], NULL, prd->sink_fd, NULL, skip, 0);
 	if (ret != skip) {
 		pr_perror("splice: %zd", ret);
 		return -1;
 	}
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	return 0;
 }

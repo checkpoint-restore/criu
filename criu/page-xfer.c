@@ -1223,8 +1223,6 @@ static void add_page_request(unsigned long vaddr, unsigned long nr_pages, int sk
 {
 	struct page_request_entry *entry = xmalloc(sizeof(*entry));
 
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 	if (!entry) {
 		pr_err("Failed to allocate page request entry\n");
 		return;
@@ -1240,12 +1238,10 @@ static void add_page_request(unsigned long vaddr, unsigned long nr_pages, int sk
 	list_add_tail(&entry->list, &page_request_queue);
 	pthread_spin_unlock(&page_request_lock);
 
-	pr_debug("Added page request: vaddr=%lx nr_pages=%lu\n", vaddr, nr_pages);
 }
 
 static struct page_request_entry *get_next_page_request(void)
 {
-
 	struct page_request_entry *entry = NULL;
 
 	pthread_spin_lock(&page_request_lock);
@@ -1283,8 +1279,6 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 		pr_err("send_one_chunk called with nr_pages=%lu, expected 1\n", nr_pages);
 		return -1;
 	}
-
-	pr_debug("Sending page vaddr=%lx\n", vaddr);
 
 	/* Get hash bucket lock for this page */
 	lock = cow_get_hash_lock(vaddr);
@@ -1328,17 +1322,15 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 		}
 	} else {
 		/* Non-COW path: read from pipe and send */
-		pr_debug("Sending non-COW page at %lx\n", vaddr);
 		
 		ret = page_pipe_read(pp, &pipe_read_dest, vaddr, &actual_nr_pages, PPB_LAZY);
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		if (ret) {
 			pr_err("Failed to read page from pipe at %lx\n", vaddr);
 			pthread_spin_unlock(lock);
 			return -1;
 		}
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		/* Send via splice or TLS */
 		if (opts.tls) {
 			ret = tls_send_data_from_fd(pipe_read_dest.p[0], PAGE_SIZE);
@@ -1357,10 +1349,7 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 				pthread_spin_unlock(lock);
 				return -1;
 			}
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 		}
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		/* Unprotect non-COW page only */
 		uffd = cow_get_uffd();
@@ -1369,26 +1358,22 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 			wp.range.start = vaddr;
 			wp.range.len = PAGE_SIZE;
 			wp.mode = 0;
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 			if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
 				pr_perror("Failed to unprotect page at 0x%lx", vaddr);
 				pthread_spin_unlock(lock);
 				return -1;
 			}
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 			pr_debug("Unprotected page at %lx\n", vaddr);
 		}
 	}
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* 4. Remove COW page from tracking (now safe - data sent) */
 	if (cow_pg) {
 		cow_remove_page(vaddr);
 		pr_debug("Removed COW page at %lx from tracking\n", vaddr);
 	}
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* UNLOCK */
 	pthread_spin_unlock(lock);
@@ -2134,14 +2119,12 @@ static int page_server_serve(int sk)
 
 	/* Initialize page request queue on first use */
 	init_page_request_queue();
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	while (1) {
 		struct page_server_iov pi;
 		u32 cmd;
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		ret = __recv(sk, &pi, sizeof(pi), MSG_WAITALL);
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		if (!ret)
 			break;
@@ -2160,25 +2143,21 @@ static int page_server_serve(int sk)
 
 		switch (cmd) {
 		case PS_IOV_OPEN:
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ps_stats.serve_open++;
 			ret = page_server_open(-1, &pi);
 			break;
 		case PS_IOV_OPEN2:
 			ps_stats.serve_open2++;
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ret = page_server_open(sk, &pi);
 			break;
 		case PS_IOV_PARENT:
 			ps_stats.serve_parent++;
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ret = page_server_check_parent(sk, &pi);
 			break;
 		case PS_IOV_ADD_F:
 		case PS_IOV_ADD:
 		case PS_IOV_HOLE: {
 			u32 flags;
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			
 			if (likely(cmd == PS_IOV_ADD_F)) {
 				flags = decode_ps_flags(pi.cmd);
@@ -2200,7 +2179,7 @@ static int page_server_serve(int sk)
 		case PS_IOV_CLOSE:
 		case PS_IOV_FORCE_CLOSE: {
 			int32_t status = 0;
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 			ret = 0;
 			
 			if (cmd == PS_IOV_CLOSE)
@@ -2222,14 +2201,11 @@ static int page_server_serve(int sk)
 		}
 		case PS_IOV_GET:
 			ps_stats.serve_get++;
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ret = page_server_get_pages(sk, &pi);
 			break;
 		case PS_IOV_GET_ALL:
 			ps_stats.serve_get++;
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			ret = page_server_get_all_pages(sk, &pi);
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			break;
 		default:
 			pr_err("Unknown command %u\n", pi.cmd);
@@ -2239,15 +2215,12 @@ static int page_server_serve(int sk)
 		}
 
 		if (ret){
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 			break;
 		}
 		if (pi.cmd == PS_IOV_CLOSE || pi.cmd == PS_IOV_FORCE_CLOSE){
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 		
 			break;
 		}
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	}
 
 	if (receiving_pages && !ret && !flushed) {
@@ -2561,28 +2534,21 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 {
 	int ret, need;
 	void *buf;
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (ar->rb < sizeof(ar->pi)) {
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 		/* Reading header */
 		buf = ((void *)&ar->pi) + ar->rb;
 		need = sizeof(ar->pi) - ar->rb;
 	} else {
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 		/* Reading page data */
 		buf = ar->pages + (ar->rb - sizeof(ar->pi));
 		need = ar->goal - ar->rb;
 	}
-			pr_debug("file = %s, line = %d need=%d\n", __FILE__, __LINE__, need);
 
 	ret = __recv(page_server_sk, buf, need, flags);
-			pr_debug("file = %s, line = %d ret=%d\n", __FILE__, __LINE__, ret);
+
 
 	if (ret < 0) {
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
 			return 0; /* Would block */
@@ -2594,8 +2560,6 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 	ar->rb += ret;
 
 	/* Check if we completed reading header */
-			pr_debug("file = %s, line = %d ar->rb=%lu\n", __FILE__, __LINE__, ar->rb);
-
 	if (ar->rb == sizeof(ar->pi) && ar->goal == 0) {
 		/* Header complete - check for end marker */
 		if (ar->pi.nr_pages == 0) {
@@ -2606,16 +2570,12 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 
 		/* Set goal for page data */
 		ar->goal = sizeof(ar->pi) + ar->pi.nr_pages * PAGE_SIZE;
-		pr_debug("file = %s, line = %d ar->goal=%lu\n", __FILE__, __LINE__, ar->goal);
 		return 1; /* Need more data */
 	}
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* Check if we completed reading page(s) */
 	if (ar->rb == ar->goal && ar->goal > sizeof(ar->pi)) {
 		/* Complete page(s) received - notify caller */
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 		ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, 
 				   (int)ar->pi.nr_pages, ar->priv);
 		
@@ -2625,7 +2585,6 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 		
 		return ret;
 	}
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* Need more data */
 	return 1;
@@ -2636,27 +2595,21 @@ static int page_server_async_read_bulk(struct epoll_rfd *f)
 	struct ps_async_read *ar;
 	int ret;
 	pr_debug("page_server_async_read_bulk\n");
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (list_empty(&async_reads)) {
 		pr_err("Bulk async read with empty queue\n");
 		return -1;
 	}
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ar = list_first_entry(&async_reads, struct ps_async_read, l);
 	ret = page_server_read_bulk_stream(ar, MSG_DONTWAIT);
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (ret == -1) {
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 		/* End marker or error - cleanup */
 		list_del(&ar->l);
 		xfree(ar);
 		return 0;
 	}
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* ret == 0 (would block) or ret == 1 (need more) - keep going */
 	return 0;
@@ -2701,7 +2654,6 @@ static int page_server_read(struct ps_async_read *ar, int flags)
 {
 	int ret, need;
 	void *buf;
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (ar->rb < sizeof(ar->pi)) {
 		/* Header */
@@ -2715,11 +2667,8 @@ static int page_server_read(struct ps_async_read *ar, int flags)
 		buf = ar->pages + (ar->rb - sizeof(ar->pi));
 		need = ar->goal - ar->rb;
 	}
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ret = __recv(page_server_sk, buf, need, flags);
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 	if (ret < 0) {
 		if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
 			ret = 0;
@@ -2737,8 +2686,6 @@ static int page_server_read(struct ps_async_read *ar, int flags)
 	 * IO complete -- notify the caller and drop the request
 	 */
 	BUG_ON(ar->rb > ar->goal);
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 	return ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, (int)ar->pi.nr_pages, ar->priv);
 }
 
@@ -2776,7 +2723,7 @@ int connect_to_page_server_to_recv(int epfd)
 
 	ps_rfd.fd = page_server_sk;
 	/* Use bulk stream reader in bulk mode, regular reader in on-demand mode */
-	if (!opts.lazy_pages)
+	if (opts.cow_dump)
 		ps_rfd.read_event = page_server_async_read_bulk;
 	else
 		ps_rfd.read_event = page_server_async_read;
@@ -2793,7 +2740,7 @@ int request_remote_pages(unsigned long img_id, unsigned long addr, unsigned long
 		.vaddr = addr,
 		.dst_id = img_id,
 	};
-	pr_debug("file = %s line = %d, PS_IOV_GET\n", __FILE__, __LINE__);
+
 	/* XXX: why MSG_DONTWAIT here? */
 	if (send_psi_flags(page_server_sk, &pi, MSG_DONTWAIT))
 		return -1;
@@ -2834,7 +2781,7 @@ static int page_server_start_sync_read(void *buf, unsigned long nr, ps_async_rea
 int page_server_start_read(void *buf, unsigned long nr, ps_async_read_complete complete, void *priv, unsigned flags)
 {
 	/* In bulk mode, use continuous stream reader */
-	if (!opts.lazy_pages) {
+	if (opts.cow_dump) {
 		if (flags & PR_ASYNC)
 			return page_server_start_async_read_bulk(buf, nr, complete, priv);
 		else {

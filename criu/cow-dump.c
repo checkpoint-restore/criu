@@ -30,8 +30,6 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "cow-dump: "
 
-
-
 /* COW dump state for a single process */
 struct cow_dump_info {
 	struct pstree_item *item;

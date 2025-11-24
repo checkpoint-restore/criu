@@ -385,8 +385,6 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr, unsi
 	 * for us for urgent async read, just do the regular
 	 * cached read.
 	 */
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 	if ((flags & (PR_ASYNC | PR_ASAP)) == PR_ASYNC)
 		ret = pagemap_enqueue_iovec(pr, buf, len, &pr->async);
 	else {
@@ -438,7 +436,6 @@ static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vadd
 
 	if (opts.auto_dedup)
 		pr_warn_once("Can't dedup when streaming images\n");
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr);
@@ -452,13 +449,11 @@ static int read_page_complete(unsigned long img_id, unsigned long vaddr, unsigne
 {
 	int ret = 0;
 	struct page_read *pr = priv;
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (pr->img_id != img_id) {
 		pr_err("Out of order read completed (want %lu have %lu)\n", pr->img_id, img_id);
 		return -1;
 	}
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr_pages);
@@ -477,7 +472,6 @@ static int bulk_page_complete(unsigned long img_id, unsigned long vaddr, unsigne
 	 * In bulk mode, pages arrive automatically in order from background thread.
 	 * No need for img_id validation - just call uffd_copy() directly via io_complete.
 	 */
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (pr->io_complete)
 		return pr->io_complete(pr, vaddr, nr_pages);
@@ -498,7 +492,7 @@ static int maybe_read_page_remote_bulk(struct page_read *pr, unsigned long vaddr
 	if (flags & PR_ASAP) {
 		ret = request_remote_pages(pr->img_id, vaddr, nr);
 	}
-	pr_debug("file = %s, line = %d ASAP=%d\n", __FILE__, __LINE__, flags & PR_ASAP);
+
 	if (!ret) {
 		ret = page_server_start_read(buf, nr, bulk_page_complete, pr, flags);
 	}
@@ -511,9 +505,7 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, uns
 	int ret;
 
 	/* We always do PR_ASAP mode here (FIXME?) */
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	ret = request_remote_pages(pr->img_id, vaddr, nr);
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 	if (!ret)
 		ret = page_server_start_read(buf, nr, read_page_complete, pr, flags);
 	return ret;
@@ -523,7 +515,7 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, unsigned
 {
 	pr_info("pr%lu-%u Read %lx %lu pages\n", pr->img_id, pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (pagemap_in_parent(pr->pe)) {
 		if (read_parent_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
@@ -806,7 +798,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	int flags, i_typ;
 	static unsigned ids = 1;
 	bool remote = pr_flags & PR_REMOTE;
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/*
 	 * Only the top-most page-read can be remote, all the
 	 * others are always local.
@@ -866,7 +858,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 		close_page_read(pr);
 		return -1;
 	}
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	pr->read_pages = read_pagemap_page;
 	pr->advance = advance;
 	pr->close = close_page_read;
@@ -877,13 +869,11 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->io_complete = NULL; /* set up by the client if needed */
 	pr->id = ids++;
 	pr->img_id = img_id;
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (remote) {
-		pr_debug("file = %s, line = %d opts.lazy_pages=%d\n", __FILE__, __LINE__, opts.lazy_pages);
 		
 		/* Choose appropriate page read function based on mode */
-		if (!opts.lazy_pages) {
-			pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+		if (opts.cow_dump) {
 			/* Bulk mode: pages arrive automatically from background thread */
 			pr->maybe_read_page = maybe_read_page_remote_bulk;
 		} else {

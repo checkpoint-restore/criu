@@ -904,17 +904,15 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 
 	/* 
 	 * Set appropriate io_complete callback based on mode:
-	 * - Bulk mode (!opts.lazy_pages): simpler callback without pipeline management
-	 * - On-demand mode (opts.lazy_pages): full callback with request tracking and pipeline refill
+	 * - Bulk mode : simpler callback without pipeline management
+	 * - On-demand mode : full callback with request tracking and pipeline refill
 	 * 
-	 * IMPORTANT: opts.lazy_pages = true means ON-DEMAND mode (lazy)
-	 *            opts.lazy_pages = false means BULK mode (eager)
 	 */
-	if (!opts.lazy_pages) {
-		/* Bulk mode (opts.lazy_pages = false): pages arrive automatically from background thread */
+	if (opts.cow_dump) {
+		/* Bulk mode: pages arrive automatically from background thread */
 		lpi->pr.io_complete = uffd_io_complete_bulk;
 	} else {
-		/* On-demand mode (opts.lazy_pages = true): manage pipeline of individual page requests */
+		/* On-demand mode: manage pipeline of individual page requests */
 		lpi->pr.io_complete = uffd_io_complete;
 	}
 
@@ -996,17 +994,17 @@ static int xfer_pages(struct lazy_pages_info *lpi);
 static int refill_pipeline(struct lazy_pages_info *lpi)
 {
 	int ret;
-
 	/* Keep filling until pipeline is full or we run out of data */
-	while (!list_empty(&lpi->iovs) &&
+	while (!list_empty(&lpi->iovs) && 
 	       lpi->pipeline_depth < lpi->max_pipeline_depth) {
 		ret = xfer_pages(lpi);
 		if (ret < 0)
 			return ret;
 	}
-
+	
 	return 0;
 }
+
 
 static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *nr_pages)
 {
@@ -1021,11 +1019,9 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 
 	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) &&
-	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)){
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy))
 		return -1;
-	}
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	lpi->copied_pages += *nr_pages;
 
 	return 0;
@@ -1068,11 +1064,8 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	 */
 	req_pages = (req->end - req->start) / PAGE_SIZE;
 	nr = min(nr, req_pages);
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	ret = uffd_copy(lpi, addr, &nr);
-		pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 	if (ret < 0)
 		return ret;
 
@@ -1087,20 +1080,18 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	 */
 	iov_list_insert(req, &lpi->iovs);
 	ret = drop_iovs(lpi, addr, nr * PAGE_SIZE);
-
+	
 	/* 
 	 * Decrement pipeline depth now that response is processed.
 	 * IMMEDIATELY refill pipeline to keep it saturated - don't wait for main loop!
 	 * This is the key to aggressive pipelining and reducing source EAGAIN.
 	 */
 	lpi->pipeline_depth--;
-	pr_debug("file = %s, line = %d   ERRRRRR shold not get here\n", __FILE__, __LINE__);
-
+	
 	if (!lpi->exited && !list_empty(&lpi->iovs)) {
-		pr_debug("file = %s, line = %d   ERRRRRR shold not get here\n", __FILE__, __LINE__);
 		refill_pipeline(lpi);
 	}
-
+	
 	return ret;
 }
 
@@ -1120,8 +1111,6 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	if (lpi->exited)
 		return 0;
 	
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-
 	/* Just copy pages to userspace - no pipeline management needed */
 	return uffd_copy(lpi, vaddr, &pages);
 }
@@ -1170,17 +1159,17 @@ static int uffd_seek_pages(struct lazy_pages_info *lpi, __u64 address, unsigned 
 static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, unsigned long nr, unsigned flags)
 {
 	int ret;
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = uffd_seek_pages(lpi, address, nr);
 	if (ret)
 		return ret;
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, flags);
 	if (ret <= 0) {
 		lp_err(lpi, "failed reading pages at %llx\n", address);
 		return ret;
 	}
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	return 0;
 }
 
@@ -1197,8 +1186,8 @@ static struct lazy_iov *pick_next_range(struct lazy_pages_info *lpi)
  */
 static void update_xfer_len(struct lazy_pages_info *lpi, bool pf)
 {
-	lpi->xfer_len = 8 * 1024; //MAX_XFER_LEN;
-	return;			  //TODO remove
+	lpi->xfer_len = 8*1024;//MAX_XFER_LEN;
+	return; //TODO remove
 	if (pf)
 		lpi->xfer_len = DEFAULT_XFER_LEN;
 	else
@@ -1215,7 +1204,6 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 	unsigned long len;
 	int err;
 	int bucket;
-	pr_debug("file = %s, line = %d    We should not get here\n", __FILE__, __LINE__);
 
 	iov = pick_next_range(lpi);
 	if (!iov)
@@ -1244,7 +1232,7 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 	err = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (err < 0) {
 		lp_err(lpi, "Error during UFFD copy\n");
-		lpi->pipeline_depth--; /* Rollback on error */
+		lpi->pipeline_depth--;  /* Rollback on error */
 		return -1;
 	}
 
@@ -1384,38 +1372,37 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	if (is_page_queued(lpi, address))
 		return 0;
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	iov = find_iov(lpi, address);
 	if (!iov)
 		return uffd_zero(lpi, address, 1);
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	iov = extract_range(iov, address, address + PAGE_SIZE);
 	if (!iov)
 		return -1;
 
 	list_move(&iov->l, &lpi->reqs);
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
-	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
 
+	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
+	
 	/* Update statistics */
 	uffd_stats.total_pf_reqs++;
 	uffd_stats.total_pages += nr_pages;
 	bucket = get_histogram_bucket(nr_pages);
 	uffd_stats.pf_hist[bucket]++;
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	update_xfer_len(lpi, true);
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	/* Increment pipeline depth BEFORE sending request (just like background transfers) */
 	lpi->pipeline_depth++;
 
 	ret = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		lp_err(lpi, "Error during regular page copy\n");
-		lpi->pipeline_depth--; /* Rollback on error */
+		lpi->pipeline_depth--;  /* Rollback on error */
 		return -1;
 	}
-	pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	return 0;
 }
 
@@ -1489,7 +1476,7 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 			uffd_stats.pipeline_depth_sum += lpi->pipeline_depth;
 			uffd_stats.pipeline_samples++;
 		}
-
+		
 		/* Check and print statistics every second */
 		check_and_print_uffd_stats();
 
@@ -1511,12 +1498,12 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
 			/* 
-			 * Only refill pipeline in on-demand mode (opts.lazy_pages = true).
-			 * In bulk mode (opts.lazy_pages = false), the background thread
+			 * Only refill pipeline in on-demand mode.
+			 * In bulk mode, the background thread
 			 * automatically sends all pages, so we must NOT call refill_pipeline()
 			 * which would queue pages and block page fault handling.
 			 */
-			if (opts.lazy_pages && !list_empty(&lpi->iovs)) {
+			if (!opts.cow_dump && !list_empty(&lpi->iovs)) {
 				ret = refill_pipeline(lpi);
 				if (ret < 0)
 					goto out;
@@ -1719,7 +1706,7 @@ int cr_lazy_pages(bool daemon)
 		}
 		
 		/* Now that socket is connected, request all pages for bulk mode */
-		if (!opts.lazy_pages) {
+		if (opts.cow_dump) {
 			list_for_each_entry(lpi, &lpis, l) {
 				pr_info("Requesting all remote pages for pid=%d\n", lpi->pid);
 				if (request_all_remote_pages(lpi->pr.img_id) < 0) {
