@@ -749,3 +749,20 @@ void cow_put_back_page(struct cow_page_queue_entry *entry)
 
 	pr_debug("Re-queued COW page 0x%lx\n", entry->vaddr);
 }
+
+unsigned long cow_get_queue_size(void)
+{
+	unsigned long count = 0;
+	struct cow_page_queue_entry *entry;
+
+	if (!g_cow_info)
+		return 0;
+
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	list_for_each_entry(entry, &g_cow_info->cow_page_queue, list) {
+		count++;
+	}
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+
+	return count;
+}

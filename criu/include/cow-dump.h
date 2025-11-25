@@ -162,4 +162,13 @@ extern bool cow_has_pending_pages(void);
  */
 extern void cow_put_back_page(struct cow_page_queue_entry *entry);
 
+/**
+ * cow_get_queue_size - Get the number of pending COW pages in the queue
+ *
+ * Thread-safe count of COW pages waiting to be sent.
+ *
+ * Returns: Number of entries in the COW page queue
+ */
+extern unsigned long cow_get_queue_size(void);
+
 #endif /* __CR_COW_DUMP_H_ */

@@ -1279,6 +1279,20 @@ static bool has_page_requests(void)
 	return has_requests;
 }
 
+static unsigned long get_page_request_queue_size(void)
+{
+	unsigned long count = 0;
+	struct page_request_entry *entry;
+
+	pthread_spin_lock(&page_request_lock);
+	list_for_each_entry(entry, &page_request_queue, list) {
+		count++;
+	}
+	pthread_spin_unlock(&page_request_lock);
+
+	return count;
+}
+
 struct active_image {
 	u64 dst_id;
 	int main_sk;
@@ -1847,6 +1861,7 @@ static void *unified_page_server_thread(void *arg)
 	unsigned long priority1_pages = 0;  /* COW pages */
 	unsigned long priority2_pages = 0;  /* Request pages */
 	unsigned long priority3_pages = 0;  /* Regular pages */
+	unsigned long priority3_skips = 0;  /* Skipped pages in P3 */
 	
 	pr_info("Unified page server background thread started\n");
 	
@@ -1918,13 +1933,18 @@ static void *unified_page_server_thread(void *arg)
 
 					current_time = time(NULL);
 					if (current_time - last_stats_time >= 1) {
-						pr_warn("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec\n",
-							priority1_pages, priority2_pages, priority3_pages);
+						unsigned long cow_queue = cow_get_queue_size();
+						unsigned long req_queue = get_page_request_queue_size();
+						
+						pr_warn("[UNIFIED_THREAD_STATS] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu\n",
+							priority1_pages, priority2_pages, priority3_pages, priority3_skips,
+							cow_queue, req_queue);
 						
 						/* Reset counters */
 						priority1_pages = 0;
 						priority2_pages = 0;
 						priority3_pages = 0;
+						priority3_skips = 0;
 						last_stats_time = current_time;
 		}
 					
@@ -1977,8 +1997,10 @@ static void *unified_page_server_thread(void *arg)
 					}
 					
 					/* === PRIORITY 3: Send regular page if not already sent === */
-					if (ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8)))
+					if (ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8))) {
+						priority3_skips++;
 						continue;  /* Already sent, skip to next page */
+					}
 					
 					/* Send this page */
 					pr_debug("Priority 3: Sending regular page at %lx\n", page_vaddr);
