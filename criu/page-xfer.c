@@ -1908,8 +1908,8 @@ static void *unified_page_server_thread(void *arg)
 					img->total_pages - img->total_cow_pages - img->total_req_pages);
 			pp = dmpi(item)->mem_pp;
 			
-		/* Unified loop: iterate through all pages, checking priorities at each position */
-		list_for_each_entry(ppb, &pp->bufs, l) {
+			/* Unified loop: iterate through all pages, checking priorities at each position */
+			list_for_each_entry(ppb, &pp->bufs, l) {
 			/* Skip buffers with no actual pipe data */
 			if (ppb->pages_in == 0 || ppb->flags != PPB_LAZY)
 				continue;
@@ -1998,13 +1998,13 @@ static void *unified_page_server_thread(void *arg)
 					
 					/* === PRIORITY 3: Send regular page if not already sent === */
 					if (ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8))) {
-						pr_warn("Priority 3: priority3_skips regular page at %lx\n", page_vaddr);
+						pr_debug("Priority 3: priority3_skips regular page at %lx\n", page_vaddr);
 						priority3_skips++;
 						continue;  /* Already sent, skip to next page */
 					}
 					
 					/* Send this page */
-					pr_warn("Priority 3: Sending regular page at %lx\n", page_vaddr);
+					pr_debug("Priority 3: Sending regular page at %lx\n", page_vaddr);
 					ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
 					if (ret < 0) {
 						pr_err("Failed to send regular page at %lx\n", page_vaddr);
@@ -2048,8 +2048,9 @@ static void *unified_page_server_thread(void *arg)
 				remove_active_image(img);
 			}
 		}
-		
+		pr_err("Out of outer loop!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 		pthread_spin_unlock(&active_images_lock);
+		g_unified_thread_stop = true;
 		
 	}
 	
