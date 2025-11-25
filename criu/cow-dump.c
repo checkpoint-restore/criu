@@ -349,6 +349,11 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	ssize_t ret;
 	unsigned int hash;
 	struct cow_page_queue_entry *entry;
+	struct page_pipe *pp = NULL;
+	struct page_pipe_buf *ppb;
+	unsigned int seg_idx;
+	unsigned long page_idx_in_seg;
+	bool found = false;
 	
 	pr_info("Write fault at 0x%lx\n", page_addr);
 
@@ -421,11 +426,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	cdi->total_pages--;
 
 	/* Find which buffer and segment contains this page */
-	struct page_pipe *pp = dmpi(cdi->item)->mem_pp;
-	struct page_pipe_buf *ppb;
-	unsigned int seg_idx;
-	unsigned long page_idx_in_seg;
-	bool found = false;
+	pp = dmpi(cdi->item)->mem_pp;
 	
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		for (seg_idx = 0; seg_idx < ppb->nr_segs; seg_idx++) {
