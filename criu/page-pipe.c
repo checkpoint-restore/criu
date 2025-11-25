@@ -278,8 +278,8 @@ out:
 
 static inline int try_add_page(struct page_pipe *pp, unsigned long addr, unsigned int flags)
 {
-	pr_warn("DEBUG try_add_page\n");
-	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+	//pr_warn("DEBUG try_add_page\n");
+	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	BUG_ON(list_empty(&pp->bufs));
 	return try_add_page_to(pp, list_entry(pp->bufs.prev, struct page_pipe_buf, l), addr, flags);
 }
@@ -338,7 +338,7 @@ static struct page_pipe_buf *get_ppb(struct page_pipe *pp, unsigned long addr, s
 {
 	struct page_pipe_buf *ppb;
 	int i;
-	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		for (i = 0, *len = 0; i < ppb->nr_segs; i++) {
 			struct iovec *iov = &ppb->iov[i];
@@ -352,8 +352,8 @@ static struct page_pipe_buf *get_ppb(struct page_pipe *pp, unsigned long addr, s
 			/* got iov that contains the addr */
 			*len += (addr - base);
 			*iov_ret = iov;
-			pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
-			list_move(&ppb->l, &pp->bufs);
+			//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+			//list_move(&ppb->l, &pp->bufs); TODO ADD BACK
 			return ppb;
 		}
 	}
