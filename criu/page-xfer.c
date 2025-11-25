@@ -1265,6 +1265,39 @@ static bool has_page_requests(void)
 	return has_requests;
 }
 
+/* Helper to send a COW page using stored location info */
+static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image *img, struct page_pipe *pp)
+{
+	unsigned long local_page_idx;
+	int ret;
+	
+	/* Calculate bitmap index directly from stored segment info */
+	local_page_idx = 0;
+	for (unsigned int i = 0; i < entry->seg_idx; i++) {
+		local_page_idx += entry->ppb->iov[i].iov_len / PAGE_SIZE;
+	}
+	local_page_idx += entry->page_idx_in_seg;
+	
+	/* Check if already sent */
+	if (entry->ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8))) {
+		pr_debug("COW page 0x%lx already sent\n", entry->vaddr);
+		return 0;  /* Already sent */
+	}
+	
+	/* Send COW page */
+	pr_debug("Sending COW page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu)\n",
+		 entry->vaddr, entry->ppb, entry->seg_idx, entry->page_idx_in_seg, local_page_idx);
+	ret = send_one_chunk(img->main_sk, pp, entry->vaddr, 1, img->dst_id);
+	if (ret < 0)
+		return -1;
+	
+	/* Mark as sent */
+	entry->ppb->sent_bitmap[local_page_idx / 8] |= (1 << (local_page_idx % 8));
+	img->remaining_pages--;
+	
+	return 1;  /* Sent successfully */
+}
+
 static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, unsigned long nr_pages, u64 dst_id)
 {
 	struct page_server_iov pi;
@@ -1802,68 +1835,28 @@ static void *unified_page_server_thread(void *arg)
 					unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
 					unsigned long local_page_idx = page_idx + j;
 					
-					/* === PRIORITY 1: Drain ALL COW pages for this image === */
+					/* === PRIORITY 1: Drain ALL COW pages (from any image) === */
 					while (cow_has_pending_pages() && img->remaining_pages > 0) {
 						struct cow_page_queue_entry *entry = cow_get_next_page();
-						struct page_pipe_buf *cow_ppb = NULL;
-						unsigned long cow_local_idx = 0;
-						bool cow_found = false;
 						
 						if (!entry)
 							break;
 						
-						/* Find which buffer contains this COW page */
-						list_for_each_entry(cow_ppb, &pp->bufs, l) {
-							if (!cow_ppb->sent_bitmap)
-								continue;
-							
-							cow_local_idx = 0;
-							for (unsigned int seg = 0; seg < cow_ppb->nr_segs; seg++) {
-								struct iovec *cow_iov = &cow_ppb->iov[seg];
-								unsigned long cow_vaddr = (unsigned long)cow_iov->iov_base;
-								unsigned long cow_nr_pages = cow_iov->iov_len / PAGE_SIZE;
-								
-								if (entry->vaddr >= cow_vaddr && 
-								    entry->vaddr < cow_vaddr + (cow_nr_pages * PAGE_SIZE)) {
-									cow_local_idx += (entry->vaddr - cow_vaddr) / PAGE_SIZE;
-									cow_found = true;
-									goto found_cow_buffer;
-								}
-								cow_local_idx += cow_nr_pages;
-							}
+						/* Send using stored location info */
+						ret = send_cow_page(entry, img, pp);
+						
+						if (ret > 0) {
+							/* Successfully sent */
+							img->total_cow_pages++;
+							priority1_pages++;
 						}
 						
-found_cow_buffer:
-						/* Check if belongs to current image */
-						if (!cow_found) {
-							cow_put_back_page(entry);
-							pr_debug("COW page 0x%lx doesn't belong to image dst_id=%lu\n",
-								 entry->vaddr, img->dst_id);
-							break;
-						}
-						
-						/* Check if already sent */
-						if (cow_ppb->sent_bitmap[cow_local_idx / 8] & (1 << (cow_local_idx % 8))) {
-							pr_debug("COW page 0x%lx already sent\n", entry->vaddr);
-							xfree(entry);
-							continue;
-						}
-						
-						/* Send COW page */
-						pr_debug("Priority 1: Sending COW page at %lx\n", entry->vaddr);
-						ret = send_one_chunk(img->main_sk, pp, entry->vaddr, 1, img->dst_id);
 						xfree(entry);
 						
 						if (ret < 0) {
 							pr_err("Failed to send COW page\n");
 							break;
 						}
-						
-						/* Mark as sent */
-						cow_ppb->sent_bitmap[cow_local_idx / 8] |= (1 << (cow_local_idx % 8));
-						img->total_cow_pages++;
-						img->remaining_pages--;
-						priority1_pages++;
 					}
 					
 					/* === PRIORITY 2: Drain ALL page requests for this image === */

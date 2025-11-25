@@ -420,15 +420,46 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	cow_stats.pages_woken++;
 	cdi->total_pages--;
 
-	/* Add page to queue for page server */
+	/* Find which buffer and segment contains this page */
+	struct page_pipe *pp = dmpi(cdi->item)->mem_pp;
+	struct page_pipe_buf *ppb;
+	unsigned int seg_idx;
+	unsigned long page_idx_in_seg;
+	bool found = false;
+	
+	list_for_each_entry(ppb, &pp->bufs, l) {
+		for (seg_idx = 0; seg_idx < ppb->nr_segs; seg_idx++) {
+			struct iovec *iov = &ppb->iov[seg_idx];
+			unsigned long vaddr = (unsigned long)iov->iov_base;
+			unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+			
+			if (page_addr >= vaddr && page_addr < vaddr + (nr_pages * PAGE_SIZE)) {
+				page_idx_in_seg = (page_addr - vaddr) / PAGE_SIZE;
+				found = true;
+				goto found_location;
+			}
+		}
+	}
+	
+found_location:
+	if (!found) {
+		pr_err("COW page 0x%lx not found in any buffer\n", page_addr);
+		return -1;
+	}
+	
+	/* Add page to queue for page server with location info */
 	entry = xmalloc(sizeof(*entry));
 	if (entry) {
 		entry->vaddr = page_addr;
+		entry->ppb = ppb;
+		entry->seg_idx = seg_idx;
+		entry->page_idx_in_seg = page_idx_in_seg;
 		INIT_LIST_HEAD(&entry->list);
 		pthread_spin_lock(&cdi->queue_lock);
 		list_add_tail(&entry->list, &cdi->cow_page_queue);
 		pthread_spin_unlock(&cdi->queue_lock);
-		pr_debug("Added page 0x%lx to COW queue\n", page_addr);
+		pr_debug("Added page 0x%lx to COW queue (buf=%p, seg=%u, idx=%lu)\n",
+			 page_addr, ppb, seg_idx, page_idx_in_seg);
 	} else {
 		pr_warn("Failed to allocate queue entry for page 0x%lx\n", page_addr);
 	}

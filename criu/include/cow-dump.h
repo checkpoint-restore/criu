@@ -17,9 +17,15 @@ struct cow_page {
 	struct hlist_node hash;
 };
 
+/* Forward declaration */
+struct page_pipe_buf;
+
 /* Queue entry for COW pages waiting to be sent */
 struct cow_page_queue_entry {
 	unsigned long vaddr;
+	struct page_pipe_buf *ppb;      /* Buffer containing this page */
+	unsigned int seg_idx;            /* Segment index within buffer */
+	unsigned long page_idx_in_seg;   /* Page index within segment */
 	struct list_head list;
 };
 
