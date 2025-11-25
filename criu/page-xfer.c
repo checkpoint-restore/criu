@@ -1450,6 +1450,154 @@ static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image
 	return 1;  /* Sent successfully */
 }
 
+/* Helper to send a page request response */
+static int send_page_request_response(struct page_request_entry *req, struct page_pipe *pp)
+{
+	struct pstree_item *item;
+	unsigned long nr_pages;
+	int ret;
+	struct uffdio_writeprotect wp;
+	int uffd = -1;
+	void *buffer = NULL;
+	unsigned long i;
+	struct cow_page **cow_pages = NULL;
+	unsigned long cow_count = 0;
+	unsigned long len;
+	struct page_server_iov pi;
+
+	item = pstree_item_by_virt(req->dst_id);
+	if (!item || !dmpi(item)->mem_pp) {
+		pr_err("Invalid dst_id or no page pipe\n");
+		return -1;
+	}
+
+	/* Read pages from pipe */
+	nr_pages = req->nr_pages;
+	ret = page_pipe_read(pp, &pipe_read_dest, req->vaddr, &nr_pages, PPB_LAZY);
+	if (ret) {
+		pr_err("Failed to read pages from pipe\n");
+		return -1;
+	}
+
+	if (nr_pages == 0) {
+		pr_err("No pages found\n");
+		return -1;
+	}
+
+	len = nr_pages * PAGE_SIZE;
+
+	/* Check for COW pages */
+	cow_pages = xzalloc(nr_pages * sizeof(struct cow_page *));
+	if (!cow_pages) {
+		pr_err("Failed to allocate COW pages array\n");
+		return -1;
+	}
+
+	for (i = 0; i < nr_pages; i++) {
+		unsigned long page_addr = req->vaddr + (i * PAGE_SIZE);
+		cow_pages[i] = cow_lookup_and_remove_page(page_addr);
+		if (cow_pages[i])
+			cow_count++;
+	}
+
+	/* Send response header */	
+	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	pi.nr_pages = nr_pages;
+	pi.vaddr = req->vaddr;
+	pi.dst_id = req->dst_id;
+
+
+	if (send_psi(req->sk, &pi)) {
+		xfree(cow_pages);
+		return -1;
+	}
+
+	/* Send page data */
+	if (cow_count == 0) {
+		/* Fast path: splice from pipe */
+		if (opts.tls) {
+			ret = tls_send_data_from_fd(pipe_read_dest.p[0], len);
+			if (ret) {
+				xfree(cow_pages);
+				return -1;
+			}
+		} else {
+			ssize_t spliced = 0;
+			while (spliced < len) {
+				ret = splice(pipe_read_dest.p[0], NULL, req->sk, NULL,
+					     len - spliced, SPLICE_F_MOVE);
+				if (ret <= 0) {
+					xfree(cow_pages);
+					return -1;
+				}
+				spliced += ret;
+			}
+		}
+	} else {
+		/* Slow path: buffer and overlay COW pages */
+		buffer = xmalloc(len);
+		if (!buffer) {
+			goto err_free_cow;
+		}
+
+		ret = read(pipe_read_dest.p[0], buffer, len);
+		if (ret != len) {
+			goto err_free_all;
+		}
+
+		/* Overlay COW pages */
+		for (i = 0; i < nr_pages; i++) {
+			if (cow_pages[i]) {
+				memcpy(buffer + (i * PAGE_SIZE), cow_pages[i]->data, PAGE_SIZE);
+				xfree(cow_pages[i]->data);
+				xfree(cow_pages[i]);
+			}
+		}
+
+		/* Send buffered data */
+		if (opts.tls) {
+			if (__send(req->sk, buffer, len, 0) != len) {
+				goto err_free_all;
+			}
+		} else {
+			if (send(req->sk, buffer, len, 0) != len) {
+				goto err_free_all;
+			}
+		}
+
+		xfree(buffer);
+	}
+
+	xfree(cow_pages);
+
+	/* Unprotect pages */
+	uffd = cow_get_uffd();
+	if (uffd >= 0) {
+		wp.range.start = req->vaddr;
+		wp.range.len = len;
+		wp.mode = 0;
+		if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
+			pr_perror("Failed to unprotect pages at 0x%lx", req->vaddr);
+			return -1;
+		}
+	}
+
+	tcp_nodelay(req->sk, true);
+	return 0;
+
+err_free_all:
+	xfree(buffer);
+err_free_cow:
+	for (i = 0; i < nr_pages; i++) {
+		if (cow_pages[i]) {
+			xfree(cow_pages[i]->data);
+			xfree(cow_pages[i]);
+		}
+	}
+	xfree(cow_pages);
+	return -1;
+}
+
 /* Helper to send a page request using lazy-evaluated location info */
 static int send_request_page(struct page_request_entry *req, struct active_image *img, struct page_pipe *pp)
 {
@@ -1463,10 +1611,11 @@ static int send_request_page(struct page_request_entry *req, struct active_image
 		
 		/* Search for page location in buffers */
 		list_for_each_entry(ppb, &pp->bufs, l) {
+			unsigned int seg_idx;
 			if (!ppb->sent_bitmap)
 				continue;
 			
-			unsigned int seg_idx;
+			
 			local_page_idx = 0;
 			
 			for (seg_idx = 0; seg_idx < ppb->nr_segs; seg_idx++) {
@@ -1685,153 +1834,7 @@ static void remove_active_image(struct active_image *img)
 	xfree(img);
 }
 
-/* Helper to send a page request response */
-static int send_page_request_response(struct page_request_entry *req, struct page_pipe *pp)
-{
-	struct pstree_item *item;
-	unsigned long nr_pages;
-	int ret;
-	struct uffdio_writeprotect wp;
-	int uffd = -1;
-	void *buffer = NULL;
-	unsigned long i;
-	struct cow_page **cow_pages = NULL;
-	unsigned long cow_count = 0;
-	unsigned long len;
-	struct page_server_iov pi;
 
-	item = pstree_item_by_virt(req->dst_id);
-	if (!item || !dmpi(item)->mem_pp) {
-		pr_err("Invalid dst_id or no page pipe\n");
-		return -1;
-	}
-
-	/* Read pages from pipe */
-	nr_pages = req->nr_pages;
-	ret = page_pipe_read(pp, &pipe_read_dest, req->vaddr, &nr_pages, PPB_LAZY);
-	if (ret) {
-		pr_err("Failed to read pages from pipe\n");
-		return -1;
-	}
-
-	if (nr_pages == 0) {
-		pr_err("No pages found\n");
-		return -1;
-	}
-
-	len = nr_pages * PAGE_SIZE;
-
-	/* Check for COW pages */
-	cow_pages = xzalloc(nr_pages * sizeof(struct cow_page *));
-	if (!cow_pages) {
-		pr_err("Failed to allocate COW pages array\n");
-		return -1;
-	}
-
-	for (i = 0; i < nr_pages; i++) {
-		unsigned long page_addr = req->vaddr + (i * PAGE_SIZE);
-		cow_pages[i] = cow_lookup_and_remove_page(page_addr);
-		if (cow_pages[i])
-			cow_count++;
-	}
-
-	/* Send response header */	
-	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
-	pi.nr_pages = nr_pages;
-	pi.vaddr = req->vaddr;
-	pi.dst_id = req->dst_id;
-
-
-	if (send_psi(req->sk, &pi)) {
-		xfree(cow_pages);
-		return -1;
-	}
-
-	/* Send page data */
-	if (cow_count == 0) {
-		/* Fast path: splice from pipe */
-		if (opts.tls) {
-			ret = tls_send_data_from_fd(pipe_read_dest.p[0], len);
-			if (ret) {
-				xfree(cow_pages);
-				return -1;
-			}
-		} else {
-			ssize_t spliced = 0;
-			while (spliced < len) {
-				ret = splice(pipe_read_dest.p[0], NULL, req->sk, NULL,
-					     len - spliced, SPLICE_F_MOVE);
-				if (ret <= 0) {
-					xfree(cow_pages);
-					return -1;
-				}
-				spliced += ret;
-			}
-		}
-	} else {
-		/* Slow path: buffer and overlay COW pages */
-		buffer = xmalloc(len);
-		if (!buffer) {
-			goto err_free_cow;
-		}
-
-		ret = read(pipe_read_dest.p[0], buffer, len);
-		if (ret != len) {
-			goto err_free_all;
-		}
-
-		/* Overlay COW pages */
-		for (i = 0; i < nr_pages; i++) {
-			if (cow_pages[i]) {
-				memcpy(buffer + (i * PAGE_SIZE), cow_pages[i]->data, PAGE_SIZE);
-				xfree(cow_pages[i]->data);
-				xfree(cow_pages[i]);
-			}
-		}
-
-		/* Send buffered data */
-		if (opts.tls) {
-			if (__send(req->sk, buffer, len, 0) != len) {
-				goto err_free_all;
-			}
-		} else {
-			if (send(req->sk, buffer, len, 0) != len) {
-				goto err_free_all;
-			}
-		}
-
-		xfree(buffer);
-	}
-
-	xfree(cow_pages);
-
-	/* Unprotect pages */
-	uffd = cow_get_uffd();
-	if (uffd >= 0) {
-		wp.range.start = req->vaddr;
-		wp.range.len = len;
-		wp.mode = 0;
-		if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
-			pr_perror("Failed to unprotect pages at 0x%lx", req->vaddr);
-			return -1;
-		}
-	}
-
-	tcp_nodelay(req->sk, true);
-	return 0;
-
-err_free_all:
-	xfree(buffer);
-err_free_cow:
-	for (i = 0; i < nr_pages; i++) {
-		if (cow_pages[i]) {
-			xfree(cow_pages[i]->data);
-			xfree(cow_pages[i]);
-		}
-	}
-	xfree(cow_pages);
-	return -1;
-}
 
 /* Unified background thread serving all images */
 static void *unified_page_server_thread(void *arg)
