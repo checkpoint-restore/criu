@@ -1908,6 +1908,14 @@ static void *unified_page_server_thread(void *arg)
 			done_count = 0;
 
 			pp = dmpi(item)->mem_pp;
+			list_for_each_entry(ppb, &pp->bufs, l) {
+				pr_warn("Debug loop ppb=0x%p\n",ppb);
+				for (i = 0; i < ppb->nr_segs; i++) {
+					struct iovec *iov = &ppb->iov[i];				
+					pr_warn("Start loop segment=%d out of ppb->nr_segs=%u iov=%p\n",i,ppb->nr_segs, iov );
+				}				
+			}
+			exit(0);
 			
 			/* Unified loop: iterate through all pages, checking priorities at each position */
 			list_for_each_entry(ppb, &pp->bufs, l) {
