@@ -1893,6 +1893,9 @@ static void *unified_page_server_thread(void *arg)
 			unsigned long j;
 			
 			pthread_spin_unlock(&active_images_lock);
+			pr_warn("Start loop Image dst_id=%lu total_pages: %lu img->remaining_pages: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
+					img->dst_id, img->total_pages, img->remaining_pages, img->total_cow_pages, img->total_req_pages,
+					img->total_pages - img->total_cow_pages - img->total_req_pages);
 			
 			item = pstree_item_by_virt(img->dst_id);
 			if (!item || !dmpi(item)->mem_pp) {
@@ -1903,9 +1906,7 @@ static void *unified_page_server_thread(void *arg)
 			}
 			DONE = false;
 			done_count = 0;
-			pr_info("Start loop Image dst_id=%lu total_pages: %lu img->remaining_pages: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
-					img->dst_id, img->total_pages, img->remaining_pages, img->total_cow_pages, img->total_req_pages,
-					img->total_pages - img->total_cow_pages - img->total_req_pages);
+
 			pp = dmpi(item)->mem_pp;
 			
 			/* Unified loop: iterate through all pages, checking priorities at each position */
@@ -2046,7 +2047,7 @@ static void *unified_page_server_thread(void *arg)
 				
 				pthread_spin_lock(&active_images_lock);
 				//remove_active_image(img);
-			}
+				}
 		}
 		pr_err("Out of outer loop!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 		pthread_spin_unlock(&active_images_lock);
