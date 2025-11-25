@@ -1968,31 +1968,29 @@ static void *unified_page_server_thread(void *arg)
 						}
 					}
 					
-					/* === PRIORITY 3: Send this ONE regular page === */
+					/* === PRIORITY 3: Send regular page if not already sent === */
 					if (ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8)))
 						continue;  /* Already sent, skip to next page */
 					
 					/* Send this page */
 					pr_debug("Priority 3: Sending regular page at %lx\n", page_vaddr);
 					ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
-					if (ret < 0)
-						goto done_with_image;
+					if (ret < 0) {
+						pr_err("Failed to send regular page at %lx\n", page_vaddr);
+						continue;  /* Exit inner loop on error */
+					}
 					
 					/* Mark as sent */
 					ppb->sent_bitmap[local_page_idx / 8] |= (1 << (local_page_idx % 8));
 					img->remaining_pages--;
 					priority3_pages++;
 					
-					/* Exit after sending ONE P3 page */
-					goto done_with_image;
+					/* Continue to next page naturally */
 				}
 				
 				page_idx += nr_pages;
 			}
 		}
-		
-done_with_image:
-		;  /* Empty statement for label */
 			
 			pthread_spin_lock(&active_images_lock);
 			
