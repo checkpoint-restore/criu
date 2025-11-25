@@ -1279,6 +1279,26 @@ static bool has_page_requests(void)
 	return has_requests;
 }
 
+struct active_image {
+	u64 dst_id;
+	int main_sk;
+	unsigned long total_pages;
+	unsigned long remaining_pages;
+	unsigned long total_cow_pages;
+	unsigned long total_req_pages;
+	
+	struct list_head list;
+};
+
+static LIST_HEAD(active_images_queue);
+static pthread_spinlock_t active_images_lock;
+static bool active_images_lock_initialized = false;
+
+/* Single global background thread */
+static pthread_t g_unified_thread;
+static volatile bool g_unified_thread_running = false;
+static volatile bool g_unified_thread_stop = false;
+
 /* Helper to send a COW page using stored location info */
 static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image *img, struct page_pipe *pp)
 {
@@ -1500,25 +1520,7 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 }
 
 /* Active image tracking for unified background thread */
-struct active_image {
-	u64 dst_id;
-	int main_sk;
-	unsigned long total_pages;
-	unsigned long remaining_pages;
-	unsigned long total_cow_pages;
-	unsigned long total_req_pages;
-	
-	struct list_head list;
-};
 
-static LIST_HEAD(active_images_queue);
-static pthread_spinlock_t active_images_lock;
-static bool active_images_lock_initialized = false;
-
-/* Single global background thread */
-static pthread_t g_unified_thread;
-static volatile bool g_unified_thread_running = false;
-static volatile bool g_unified_thread_stop = false;
 
 static void init_active_images_queue(void)
 {
