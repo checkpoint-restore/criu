@@ -1898,7 +1898,7 @@ static void *unified_page_server_thread(void *arg)
 			if (!item || !dmpi(item)->mem_pp) {
 				pr_err("Invalid dst_id=%lu or no page pipe\n", img->dst_id);
 				pthread_spin_lock(&active_images_lock);
-				remove_active_image(img);
+		//		remove_active_image(img);
 				continue;
 			}
 			DONE = false;
@@ -2045,7 +2045,7 @@ static void *unified_page_server_thread(void *arg)
 				tcp_nodelay(img->main_sk, true);
 				
 				pthread_spin_lock(&active_images_lock);
-				remove_active_image(img);
+				//remove_active_image(img);
 			}
 		}
 		pr_err("Out of outer loop!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
@@ -2062,7 +2062,7 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 {
 	int ret;
 	
-	pr_info("Adding image dst_id=%lu to batch transfer queue\n", pi->dst_id);
+	pr_warn("Adding image dst_id=%lu to batch transfer queue\n", pi->dst_id);
 	
 	/* Initialize queues */
 	init_active_images_queue();
