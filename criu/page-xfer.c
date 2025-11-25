@@ -1617,7 +1617,6 @@ static int send_request_page(struct page_request_entry *req, struct active_image
 {
 	unsigned long local_page_idx;
 	int ret;
-	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	/* Lazy location lookup - only done once */
 	if (!req->location_found) {
 		struct page_pipe_buf *ppb;
