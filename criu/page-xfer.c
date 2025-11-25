@@ -1389,6 +1389,12 @@ struct active_image {
 	unsigned long remaining_pages;
 	unsigned long total_cow_pages;
 	unsigned long total_req_pages;
+	
+	/* Cursor optimization for Priority 3 */
+	struct page_pipe_buf *last_ppb;  /* Last buffer we sent from */
+	unsigned int last_seg_idx;       /* Last segment index within buffer */
+	unsigned long last_page_in_seg;  /* Last page within segment */
+	
 	struct list_head list;
 };
 
@@ -1525,6 +1531,11 @@ static int add_active_image(u64 dst_id, int sk)
 	img->remaining_pages = total_pages;
 	img->total_cow_pages = 0;
 	img->total_req_pages = 0;
+	
+	/* Initialize cursor to start of first buffer */
+	img->last_ppb = NULL;
+	img->last_seg_idx = 0;
+	img->last_page_in_seg = 0;
 	
 	INIT_LIST_HEAD(&img->list);
 	
@@ -1961,59 +1972,114 @@ found_cow_idx:
 			
 		/* Priority 3: Send one regular page if no COW/requests */
 		if (!sent_this_image && img->remaining_pages > 0) {
-			list_for_each_entry(ppb, &pp->bufs, l) {
-				bool sent_one = false;
-				
-				/* Skip buffers with no actual pipe data (write-protected regions) */
+			struct page_pipe_buf *start_ppb = img->last_ppb;
+			unsigned int start_seg = img->last_seg_idx;
+			unsigned long start_page = img->last_page_in_seg;
+			bool wrapped = false;
+			bool sent_one = false;
+			
+			/* Resume from cursor position */
+			list_for_each_entry(ppb, start_ppb ? &start_ppb->l : &pp->bufs, l) {
+				/* Skip buffers with no actual pipe data */
 				if (ppb->pages_in == 0 || ppb->flags != PPB_LAZY)
 					continue;
 				
-				/* Skip if no bitmap allocated for this buffer */
+				/* Skip if no bitmap allocated */
 				if (!ppb->sent_bitmap) {
 					pr_err("ERROR no bitmap\n");
 					exit(0);
 					continue;
 				}
-					
 				
-				/* Use per-buffer page index */
+				/* Start from cursor position for current buffer */
+				unsigned int seg_start = (ppb == start_ppb) ? start_seg : 0;
+				
 				page_idx = 0;
-				for (i = 0; i < ppb->nr_segs; i++) {
+				/* Calculate starting page_idx for this buffer */
+				for (i = 0; i < seg_start; i++) {
+					struct iovec *iov = &ppb->iov[i];
+					page_idx += iov->iov_len / PAGE_SIZE;
+				}
+				
+				/* Iterate through segments starting from cursor */
+				for (i = seg_start; i < ppb->nr_segs; i++) {
 					struct iovec *iov = &ppb->iov[i];
 					unsigned long vaddr = (unsigned long)iov->iov_base;
 					unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+					unsigned long j_start = (ppb == start_ppb && i == start_seg) ? start_page : 0;
 					
-					for (j = 0; j < nr_pages; j++, page_idx++) {
+					/* Quick check: is entire segment already sent? */
+					bool segment_complete = true;
+					for (j = j_start; j < nr_pages; j++) {
+						if (!(ppb->sent_bitmap[(page_idx + j) / 8] & (1 << ((page_idx + j) % 8)))) {
+							segment_complete = false;
+							break;
+						}
+					}
+					
+					if (segment_complete) {
+						/* Skip entire segment */
+						total_skips += (nr_pages - j_start);
+						page_idx += nr_pages;
+						continue;
+					}
+					
+					/* Find first unsent page in segment */
+					for (j = j_start; j < nr_pages; j++) {
 						unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
 						
 						/* Check per-buffer bitmap */
-						if (ppb->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8)))
-						{
-							total_skips++;  /* Count each skip */
-							pr_debug(" SKIP page 0x%lx\n", page_vaddr);
+						if (ppb->sent_bitmap[(page_idx + j) / 8] & (1 << ((page_idx + j) % 8))) {
+							total_skips++;
 							continue;
 						}
 						
-						pr_debug("Priority 3: Send one regular page from buffer\n");
+						pr_debug("Priority 3: Send regular page from buffer (cursor optimization)\n");
 						ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
-						if (ret < 0)
-							break;
+						if (ret < 0) {
+							sent_one = false;
+							goto priority3_done;
+						}
 						
-					/* Mark in per-buffer bitmap */
-					ppb->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
-					img->remaining_pages--;
-					sent_one = true;
-					priority3_pages++;  /* Increment regular page counter */
-					break;
-				}
+						/* Mark in per-buffer bitmap */
+						ppb->sent_bitmap[(page_idx + j) / 8] |= (1 << ((page_idx + j) % 8));
+						img->remaining_pages--;
+						sent_one = true;
+						priority3_pages++;
+						
+						/* Update cursor to next page */
+						img->last_ppb = ppb;
+						img->last_seg_idx = i;
+						img->last_page_in_seg = j + 1;
+						if (img->last_page_in_seg >= nr_pages) {
+							/* Move to next segment */
+							img->last_seg_idx++;
+							img->last_page_in_seg = 0;
+							if (img->last_seg_idx >= ppb->nr_segs) {
+								/* Move to next buffer */
+								if (ppb->l.next == &pp->bufs) {
+									/* Wrap to start */
+									img->last_ppb = NULL;
+									img->last_seg_idx = 0;
+								}
+							}
+						}
+						
+						goto priority3_done;
+					}
 					
-					if (sent_one)
-						break;
+					page_idx += nr_pages;
 				}
 				
-				if (sent_one)
-					break;
+				/* If we started mid-list, wrap around to beginning */
+				if (!wrapped && start_ppb != NULL) {
+					wrapped = true;
+					/* Continue from start of buffer list */
+				}
 			}
+			
+priority3_done:
+			(void)sent_one; /* Suppress unused warning */
 		}
 			
 			pthread_spin_lock(&active_images_lock);
