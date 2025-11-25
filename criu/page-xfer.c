@@ -2031,7 +2031,7 @@ static void *unified_page_server_thread(void *arg)
 				
 				pthread_spin_unlock(&active_images_lock);
 				
-				pr_info("Image dst_id=%lu complete: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
+				pr_warn("Image dst_id=%lu complete: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
 					img->dst_id, img->total_pages, img->total_cow_pages, img->total_req_pages,
 					img->total_pages - img->total_cow_pages - img->total_req_pages);
 				DONE = true;
