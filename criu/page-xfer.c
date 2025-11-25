@@ -1977,6 +1977,7 @@ found_cow_idx:
 			unsigned long start_page = img->last_page_in_seg;
 			bool wrapped = false;
 			bool sent_one = false;
+			unsigned int seg_start = 0;
 			
 			/* Resume from cursor position */
 			list_for_each_entry(ppb, start_ppb ? &start_ppb->l : &pp->bufs, l) {
@@ -1992,7 +1993,7 @@ found_cow_idx:
 				}
 				
 				/* Start from cursor position for current buffer */
-				unsigned int seg_start = (ppb == start_ppb) ? start_seg : 0;
+				seg_start = (ppb == start_ppb) ? start_seg : 0;
 				
 				page_idx = 0;
 				/* Calculate starting page_idx for this buffer */
