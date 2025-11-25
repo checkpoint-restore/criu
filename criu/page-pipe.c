@@ -133,7 +133,7 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, unsigned int ppb_fl
 		ppb->pipe_size = ppb_size / PAGE_SIZE;
 		pp->nr_pipes++;
 	}
-	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	list_add_tail(&ppb->l, &pp->bufs);
 
 	pp_update_prev_ppb(pp, ppb, ppb_flags);
@@ -165,8 +165,8 @@ static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
 	struct page_pipe_buf *ppb;
 	struct iovec *free_iov;
 
-	pr_warn("Will grow page pipe (iov off is %u)\n", pp->free_iov);
-	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+//	pr_warn("Will grow page pipe (iov off is %u)\n", pp->free_iov);
+	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	if (!list_empty(&pp->free_bufs)) {
 		ppb = list_first_entry(&pp->free_bufs, struct page_pipe_buf, l);
 		list_move_tail(&ppb->l, &pp->bufs);
@@ -191,8 +191,8 @@ struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, uns
 {
 	struct page_pipe *pp;
 
-	pr_debug("Create page pipe for %u segs\n", nr_segs);
-pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+//	pr_debug("Create page pipe for %u segs\n", nr_segs);
+//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	pp = xzalloc(sizeof(*pp));
 	if (!pp)
 		return NULL;
@@ -227,8 +227,7 @@ void destroy_page_pipe(struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb, *n;
 
-	pr_warn("Killing page pipe\n");
-pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+//	pr_warn("Killing page pipe\n");
 	list_splice(&pp->free_bufs, &pp->bufs);
 	list_for_each_entry_safe(ppb, n, &pp->bufs, l)
 		ppb_destroy(ppb);
@@ -244,8 +243,7 @@ void page_pipe_reinit(struct page_pipe *pp)
 
 	BUG_ON(!(pp->flags & PP_CHUNK_MODE));
 
-	pr_warn("Clean up page pipe\n");
-pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+//	pr_warn("Clean up page pipe\n");
 	list_for_each_entry_safe(ppb, n, &pp->bufs, l)
 		list_move(&ppb->l, &pp->free_bufs);
 
@@ -460,7 +458,7 @@ void debug_show_page_pipe(struct page_pipe *pp)
 
 	pr_debug("Page pipe:\n");
 	pr_debug("* %u pipes %u/%u iovs:\n", pp->nr_pipes, pp->free_iov, pp->nr_iovs);
-	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		pr_debug("\tbuf %lx pages, %u iovs, flags: %x pipe_off: %lx :\n", ppb->pages_in, ppb->nr_segs, ppb->flags,
 			 ppb->pipe_off);
