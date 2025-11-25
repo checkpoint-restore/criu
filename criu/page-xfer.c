@@ -1390,11 +1390,6 @@ struct active_image {
 	unsigned long total_cow_pages;
 	unsigned long total_req_pages;
 	
-	/* Cursor optimization for Priority 3 */
-	struct page_pipe_buf *last_ppb;  /* Last buffer we sent from */
-	unsigned int last_seg_idx;       /* Last segment index within buffer */
-	unsigned long last_page_in_seg;  /* Last page within segment */
-	
 	struct list_head list;
 };
 
@@ -1531,11 +1526,6 @@ static int add_active_image(u64 dst_id, int sk)
 	img->remaining_pages = total_pages;
 	img->total_cow_pages = 0;
 	img->total_req_pages = 0;
-	
-	/* Initialize cursor to start of first buffer */
-	img->last_ppb = NULL;
-	img->last_seg_idx = 0;
-	img->last_page_in_seg = 0;
 	
 	INIT_LIST_HEAD(&img->list);
 	
@@ -1732,7 +1722,6 @@ static void *unified_page_server_thread(void *arg)
 	unsigned long priority1_pages = 0;  /* COW pages */
 	unsigned long priority2_pages = 0;  /* Request pages */
 	unsigned long priority3_pages = 0;  /* Regular pages */
-	unsigned long total_skips = 0;      /* Total pages skipped in Priority 3 */
 	
 	pr_info("Unified page server background thread started\n");
 	
@@ -1751,15 +1740,13 @@ static void *unified_page_server_thread(void *arg)
 		/* Check if we should print stats */
 		current_time = time(NULL);
 		if (current_time - last_stats_time >= 1) {
-			unsigned long avg_skips = priority3_pages > 0 ? total_skips / priority3_pages : 0;
-			pr_warn("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec | AvgSkips=%lu TotalSkips=%lu\n",
-				priority1_pages, priority2_pages, priority3_pages, avg_skips, total_skips);
+			pr_warn("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec\n",
+				priority1_pages, priority2_pages, priority3_pages);
 			
 			/* Reset counters */
 			priority1_pages = 0;
 			priority2_pages = 0;
 			priority3_pages = 0;
-			total_skips = 0;
 			last_stats_time = current_time;
 		}
 		
@@ -1792,296 +1779,208 @@ static void *unified_page_server_thread(void *arg)
 					img->total_pages - img->total_cow_pages - img->total_req_pages);
 			pp = dmpi(item)->mem_pp;
 			
-		/* Priority 1: COW pages for this image */
-		while (cow_has_pending_pages() && img->remaining_pages > 0) {
-			struct cow_page_queue_entry *entry = cow_get_next_page();
-			struct page_pipe_buf *cow_ppb = NULL;
-			unsigned long local_page_idx = 0;
-			
-			if (!entry)
-				break;
-			
-			/* Find which buffer contains this COW page */
-			found = false;
-			list_for_each_entry(ppb, &pp->bufs, l) {
-				/* Skip buffers without bitmap */
-				if (!ppb->sent_bitmap) {			
-					continue;
-				}
-				
-				/* Calculate local page index within this buffer */
-				local_page_idx = 0;
-				for (i = 0; i < ppb->nr_segs; i++) {
-					struct iovec *iov = &ppb->iov[i];
-					unsigned long vaddr = (unsigned long)iov->iov_base;
-					unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
-					
-					if (entry->vaddr >= vaddr && entry->vaddr < vaddr + (nr_pages * PAGE_SIZE)) {
-						local_page_idx += (entry->vaddr - vaddr) / PAGE_SIZE;
-						cow_ppb = ppb;
-						found = true;
-						goto found_cow_idx;
-					}
-					local_page_idx += nr_pages;
-				}
-			}
-			
-found_cow_idx:
-			/* Check if this COW page belongs to current image */
-			if (!found || !cow_ppb) {
-				/* This COW page doesn't belong to current image - put it back */
-				cow_put_back_page(entry);
-				pr_debug("COW page 0x%lx doesn't belong to image dst_id=%lu, re-queued\n",
-					 entry->vaddr, img->dst_id);
-				break;  /* Move to next priority/image */
-			}
-			
-			/* Check if already sent using buffer's bitmap */
-			if (cow_ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8))) {
-				pr_debug("COW page 0x%lx already sent, skipping\n", entry->vaddr);
-				xfree(entry);
+		/* Unified loop: iterate through all pages, checking priorities at each position */
+		list_for_each_entry(ppb, &pp->bufs, l) {
+			/* Skip buffers with no actual pipe data */
+			if (ppb->pages_in == 0 || ppb->flags != PPB_LAZY)
 				continue;
-			}
 			
-			pr_debug("Priority 1: COW page for current image\n");
-			ret = send_one_chunk(img->main_sk, pp, entry->vaddr, 1, img->dst_id);
-			xfree(entry);
+			/* Skip if no bitmap allocated */
+			if (!ppb->sent_bitmap)
+				continue;
 			
-			if (ret < 0) {
-				pr_err("Failed to send COW page for dst_id=%lu\n", img->dst_id);
-				break;
-			}
+			page_idx = 0;
 			
-			/* Mark as sent in buffer's bitmap */
-			cow_ppb->sent_bitmap[local_page_idx / 8] |= (1 << (local_page_idx % 8));
-			img->total_cow_pages++;
-			img->remaining_pages--;
-			sent_this_image = true;
-			priority1_pages++;  /* Increment COW counter */
-		}
-			
-			/* Priority 2: Explicit page requests for this image */
-			while (has_page_requests()) {
-				bool skip = false;
-				struct page_request_entry *req = get_next_page_request();				
-				unsigned long local_page_idx;
+			/* Iterate through all segments */
+			for (i = 0; i < ppb->nr_segs; i++) {
+				struct iovec *iov = &ppb->iov[i];
+				unsigned long vaddr = (unsigned long)iov->iov_base;
+				unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
 				
-				if (!req)
-					break;
-				
-				/* Only handle requests for this image */
-				if (req->dst_id != img->dst_id) {
-					/* Put it back - wrong image */
-					pthread_spin_lock(&page_request_lock);
-					list_add(&req->list, &page_request_queue);
-					pthread_spin_unlock(&page_request_lock);
-					break;
-				}
-
-				pr_debug("Priority 2: Explicit page requests for this image req->vaddr=%lx req->nr_pages=%lu\n",
-					 req->vaddr, req->nr_pages);
-
-				/* Pre-check: determine if any pages are already sent */
-				for (unsigned long k = 0; k < req->nr_pages; k++) {
-					unsigned long addr = req->vaddr + (k * PAGE_SIZE);
-					bool found_page = false;
+				/* Check each page in segment */
+				for (j = 0; j < nr_pages; j++) {
+					unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
+					unsigned long local_page_idx = page_idx + j;
 					
-					/* Find which buffer contains this page */
-					list_for_each_entry(ppb, &pp->bufs, l) {
-						if (!ppb->sent_bitmap){
-							continue;
-						}
+					/* === PRIORITY 1: Drain ALL COW pages for this image === */
+					while (cow_has_pending_pages() && img->remaining_pages > 0) {
+						struct cow_page_queue_entry *entry = cow_get_next_page();
+						struct page_pipe_buf *cow_ppb = NULL;
+						unsigned long cow_local_idx = 0;
+						bool cow_found = false;
 						
-						/* Calculate local page index within this buffer */
-						local_page_idx = 0;
-						for (i = 0; i < ppb->nr_segs; i++) {
-							struct iovec *iov = &ppb->iov[i];
-							unsigned long vaddr = (unsigned long)iov->iov_base;
-							unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
-							
-							if (addr >= vaddr && addr < vaddr + (nr_pages * PAGE_SIZE)) {
-								local_page_idx += (addr - vaddr) / PAGE_SIZE;
-								
-								/* Check if already sent in this buffer's bitmap */
-								if (ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8))) {
-									pr_debug("Page %lx already sent, skipping request\n", addr);
-									skip = true;
-								}
-								found_page = true;
-								break;
-							}
-							local_page_idx += nr_pages;
-						}
-						
-						if (found_page)
+						if (!entry)
 							break;
-					}
-				}
-				
-				if (skip) {
-					xfree(req);
-					continue;
-				}
-				
-				pr_debug("Priority 2: Sending page request response\n");
-
-				ret = send_page_request_response(req, pp);
-				if (ret >= 0) {
-					/* Mark pages as sent in their respective buffers */
-					for (unsigned long k = 0; k < req->nr_pages; k++) {
-						unsigned long addr = req->vaddr + (k * PAGE_SIZE);
-						bool found_page = false;
 						
-						/* Find which buffer contains this page */
-						list_for_each_entry(ppb, &pp->bufs, l) {
-							if (!ppb->sent_bitmap) {
-								pr_err("ERROR no bitmap\n");
-							exit(0);
-							continue;
-						}
+						/* Find which buffer contains this COW page */
+						list_for_each_entry(cow_ppb, &pp->bufs, l) {
+							if (!cow_ppb->sent_bitmap)
+								continue;
 							
-							/* Calculate local page index within this buffer */
-							local_page_idx = 0;
-							for (i = 0; i < ppb->nr_segs; i++) {
-								struct iovec *iov = &ppb->iov[i];
-								unsigned long vaddr = (unsigned long)iov->iov_base;
-								unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+							cow_local_idx = 0;
+							for (unsigned int seg = 0; seg < cow_ppb->nr_segs; seg++) {
+								struct iovec *cow_iov = &cow_ppb->iov[seg];
+								unsigned long cow_vaddr = (unsigned long)cow_iov->iov_base;
+								unsigned long cow_nr_pages = cow_iov->iov_len / PAGE_SIZE;
 								
-								if (addr >= vaddr && addr < vaddr + (nr_pages * PAGE_SIZE)) {
-									local_page_idx += (addr - vaddr) / PAGE_SIZE;
-									
-									/* Mark in buffer's bitmap */
-									ppb->sent_bitmap[local_page_idx / 8] |= (1 << (local_page_idx % 8));
-									img->remaining_pages--;
-									found_page = true;
-									break;
+								if (entry->vaddr >= cow_vaddr && 
+								    entry->vaddr < cow_vaddr + (cow_nr_pages * PAGE_SIZE)) {
+									cow_local_idx += (entry->vaddr - cow_vaddr) / PAGE_SIZE;
+									cow_found = true;
+									goto found_cow_buffer;
 								}
-								local_page_idx += nr_pages;
+								cow_local_idx += cow_nr_pages;
 							}
-							
-							if (found_page)
-								break;
 						}
-					}
-					img->total_req_pages += req->nr_pages;
-					sent_this_image = true;
-					priority2_pages += req->nr_pages;  /* Increment request counter */
-				}
-				xfree(req);
-			}
-			
-		/* Priority 3: Send one regular page if no COW/requests */
-		if (!sent_this_image && img->remaining_pages > 0) {
-			struct page_pipe_buf *start_ppb = img->last_ppb;
-			unsigned int start_seg = img->last_seg_idx;
-			unsigned long start_page = img->last_page_in_seg;
-			bool wrapped = false;
-			bool sent_one = false;
-			unsigned int seg_start = 0;
-			
-			/* Resume from cursor position */
-			list_for_each_entry(ppb, start_ppb ? &start_ppb->l : &pp->bufs, l) {
-				/* Skip buffers with no actual pipe data */
-				if (ppb->pages_in == 0 || ppb->flags != PPB_LAZY)
-					continue;
-				
-				/* Skip if no bitmap allocated */
-				if (!ppb->sent_bitmap) {
-					pr_err("ERROR no bitmap\n");
-					exit(0);
-					continue;
-				}
-				
-				/* Start from cursor position for current buffer */
-				seg_start = (ppb == start_ppb) ? start_seg : 0;
-				
-				page_idx = 0;
-				/* Calculate starting page_idx for this buffer */
-				for (i = 0; i < seg_start; i++) {
-					struct iovec *iov = &ppb->iov[i];
-					page_idx += iov->iov_len / PAGE_SIZE;
-				}
-				
-				/* Iterate through segments starting from cursor */
-				for (i = seg_start; i < ppb->nr_segs; i++) {
-					struct iovec *iov = &ppb->iov[i];
-					unsigned long vaddr = (unsigned long)iov->iov_base;
-					unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
-					unsigned long j_start = (ppb == start_ppb && i == start_seg) ? start_page : 0;
-					
-					/* Quick check: is entire segment already sent? */
-					bool segment_complete = true;
-					for (j = j_start; j < nr_pages; j++) {
-						if (!(ppb->sent_bitmap[(page_idx + j) / 8] & (1 << ((page_idx + j) % 8)))) {
-							segment_complete = false;
+						
+found_cow_buffer:
+						/* Check if belongs to current image */
+						if (!cow_found) {
+							cow_put_back_page(entry);
+							pr_debug("COW page 0x%lx doesn't belong to image dst_id=%lu\n",
+								 entry->vaddr, img->dst_id);
 							break;
 						}
-					}
-					
-					if (segment_complete) {
-						/* Skip entire segment */
-						total_skips += (nr_pages - j_start);
-						page_idx += nr_pages;
-						continue;
-					}
-					
-					/* Find first unsent page in segment */
-					for (j = j_start; j < nr_pages; j++) {
-						unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
 						
-						/* Check per-buffer bitmap */
-						if (ppb->sent_bitmap[(page_idx + j) / 8] & (1 << ((page_idx + j) % 8))) {
-							total_skips++;
+						/* Check if already sent */
+						if (cow_ppb->sent_bitmap[cow_local_idx / 8] & (1 << (cow_local_idx % 8))) {
+							pr_debug("COW page 0x%lx already sent\n", entry->vaddr);
+							xfree(entry);
 							continue;
 						}
 						
-						pr_debug("Priority 3: Send regular page from buffer (cursor optimization)\n");
-						ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
+						/* Send COW page */
+						pr_debug("Priority 1: Sending COW page at %lx\n", entry->vaddr);
+						ret = send_one_chunk(img->main_sk, pp, entry->vaddr, 1, img->dst_id);
+						xfree(entry);
+						
 						if (ret < 0) {
-							sent_one = false;
-							goto priority3_done;
+							pr_err("Failed to send COW page\n");
+							break;
 						}
 						
-						/* Mark in per-buffer bitmap */
-						ppb->sent_bitmap[(page_idx + j) / 8] |= (1 << ((page_idx + j) % 8));
+						/* Mark as sent */
+						cow_ppb->sent_bitmap[cow_local_idx / 8] |= (1 << (cow_local_idx % 8));
+						img->total_cow_pages++;
 						img->remaining_pages--;
-						sent_one = true;
-						priority3_pages++;
+						priority1_pages++;
+					}
+					
+					/* === PRIORITY 2: Drain ALL page requests for this image === */
+					while (has_page_requests() && img->remaining_pages > 0) {
+						struct page_request_entry *req = get_next_page_request();
+						bool req_skip = false;
 						
-						/* Update cursor to next page */
-						img->last_ppb = ppb;
-						img->last_seg_idx = i;
-						img->last_page_in_seg = j + 1;
-						if (img->last_page_in_seg >= nr_pages) {
-							/* Move to next segment */
-							img->last_seg_idx++;
-							img->last_page_in_seg = 0;
-							if (img->last_seg_idx >= ppb->nr_segs) {
-								/* Move to next buffer */
-								if (ppb->l.next == &pp->bufs) {
-									/* Wrap to start */
-									img->last_ppb = NULL;
-									img->last_seg_idx = 0;
+						if (!req)
+							break;
+						
+						/* Only handle requests for this image */
+						if (req->dst_id != img->dst_id) {
+							pthread_spin_lock(&page_request_lock);
+							list_add(&req->list, &page_request_queue);
+							pthread_spin_unlock(&page_request_lock);
+							break;
+						}
+						
+						/* Check if already sent */
+						for (unsigned long k = 0; k < req->nr_pages; k++) {
+							unsigned long addr = req->vaddr + (k * PAGE_SIZE);
+							bool found_page = false;
+							
+							list_for_each_entry(ppb, &pp->bufs, l) {
+								if (!ppb->sent_bitmap)
+									continue;
+								
+								unsigned long req_local_idx = 0;
+								for (unsigned int seg = 0; seg < ppb->nr_segs; seg++) {
+									struct iovec *req_iov = &ppb->iov[seg];
+									unsigned long req_vaddr = (unsigned long)req_iov->iov_base;
+									unsigned long req_nr_pages = req_iov->iov_len / PAGE_SIZE;
+									
+									if (addr >= req_vaddr && addr < req_vaddr + (req_nr_pages * PAGE_SIZE)) {
+										req_local_idx += (addr - req_vaddr) / PAGE_SIZE;
+										
+										if (ppb->sent_bitmap[req_local_idx / 8] & (1 << (req_local_idx % 8))) {
+											req_skip = true;
+										}
+										found_page = true;
+										break;
+									}
+									req_local_idx += req_nr_pages;
 								}
+								if (found_page)
+									break;
 							}
 						}
 						
-						goto priority3_done;
+						if (req_skip) {
+							xfree(req);
+							continue;
+						}
+						
+						/* Send request */
+						pr_debug("Priority 2: Sending page request at %lx\n", req->vaddr);
+						ret = send_page_request_response(req, pp);
+						if (ret >= 0) {
+							/* Mark as sent */
+							for (unsigned long k = 0; k < req->nr_pages; k++) {
+								unsigned long addr = req->vaddr + (k * PAGE_SIZE);
+								bool found_page = false;
+								
+								list_for_each_entry(ppb, &pp->bufs, l) {
+									if (!ppb->sent_bitmap)
+										continue;
+									
+									unsigned long req_local_idx = 0;
+									for (unsigned int seg = 0; seg < ppb->nr_segs; seg++) {
+										struct iovec *req_iov = &ppb->iov[seg];
+										unsigned long req_vaddr = (unsigned long)req_iov->iov_base;
+										unsigned long req_nr_pages = req_iov->iov_len / PAGE_SIZE;
+										
+										if (addr >= req_vaddr && addr < req_vaddr + (req_nr_pages * PAGE_SIZE)) {
+											req_local_idx += (addr - req_vaddr) / PAGE_SIZE;
+											ppb->sent_bitmap[req_local_idx / 8] |= (1 << (req_local_idx % 8));
+											img->remaining_pages--;
+											found_page = true;
+											break;
+										}
+										req_local_idx += req_nr_pages;
+									}
+									if (found_page)
+										break;
+								}
+							}
+							img->total_req_pages += req->nr_pages;
+							priority2_pages += req->nr_pages;
+						}
+						xfree(req);
 					}
 					
-					page_idx += nr_pages;
+					/* === PRIORITY 3: Send this ONE regular page === */
+					if (ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8)))
+						continue;  /* Already sent, skip to next page */
+					
+					/* Send this page */
+					pr_debug("Priority 3: Sending regular page at %lx\n", page_vaddr);
+					ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
+					if (ret < 0)
+						goto done_with_image;
+					
+					/* Mark as sent */
+					ppb->sent_bitmap[local_page_idx / 8] |= (1 << (local_page_idx % 8));
+					img->remaining_pages--;
+					priority3_pages++;
+					
+					/* Exit after sending ONE P3 page */
+					goto done_with_image;
 				}
 				
-				/* If we started mid-list, wrap around to beginning */
-				if (!wrapped && start_ppb != NULL) {
-					wrapped = true;
-					/* Continue from start of buffer list */
-				}
+				page_idx += nr_pages;
 			}
-			
-priority3_done:
-			(void)sent_one; /* Suppress unused warning */
 		}
+		
+done_with_image:
+		;  /* Empty statement for label */
 			
 			pthread_spin_lock(&active_images_lock);
 			
@@ -2148,14 +2047,16 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 
 static int page_server_get_pages(int sk, struct page_server_iov *pi)
 {
-
-
-	/* Simply enqueue the request for the background thread to handle */
-	add_page_request(pi->vaddr, pi->nr_pages, sk, pi->dst_id);
-
-	pr_debug("Enqueued page request: vaddr=%lx nr_pages=%lu\n", 
-		 (unsigned long)pi->vaddr, (unsigned long)pi->nr_pages);
-
+	unsigned long i;
+	
+	/* Split multi-page requests into individual page requests */
+	for (i = 0; i < pi->nr_pages; i++) {
+		add_page_request(pi->vaddr + (i * PAGE_SIZE), 1, sk, pi->dst_id);
+	}
+	
+	pr_debug("Split and enqueued %lu page requests starting at vaddr=%lx\n", 
+		 (unsigned long)pi->nr_pages, (unsigned long)pi->vaddr);
+	
 	/* Return immediately - background thread will send the response */
 	return 0;
 }
