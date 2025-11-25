@@ -1907,20 +1907,9 @@ static void *unified_page_server_thread(void *arg)
 			done_count = 0;
 
 			pp = dmpi(item)->mem_pp;
-#if 0
-			list_for_each_entry(ppb, &pp->bufs, l) {
-				pr_warn("Debug loop ppb=0x%p\n",ppb);
-				for (i = 0; i < ppb->nr_segs; i++) {
-					struct iovec *iov = &ppb->iov[i];				
-					pr_warn("Start loop segment=%d out of ppb->nr_segs=%u iov=%p\n",i,ppb->nr_segs, iov );
-				}				
-			}
-			exit(0);
-			#endif
 			
 			/* Unified loop: iterate through all pages, checking priorities at each position */
 			list_for_each_entry(ppb, &pp->bufs, l) {
-				pr_warn("Start loop ppb=0x%p\n",ppb);
 			/* Skip buffers with no actual pipe data */
 			if (ppb->pages_in == 0 || ppb->flags != PPB_LAZY)
 				continue;
@@ -1937,8 +1926,7 @@ static void *unified_page_server_thread(void *arg)
 				struct iovec *iov = &ppb->iov[i];
 				unsigned long vaddr = (unsigned long)iov->iov_base;
 				unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
-				if (i == 0)
-					pr_warn("Start loop segment=%d out of ppb->nr_segs=%u iov=%p\n",i,ppb->nr_segs, iov );
+				
 				/* Check each page in segment */
 				for (j = 0; j < nr_pages; j++) {
 					unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
