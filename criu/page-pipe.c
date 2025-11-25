@@ -133,7 +133,7 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, unsigned int ppb_fl
 		ppb->pipe_size = ppb_size / PAGE_SIZE;
 		pp->nr_pipes++;
 	}
-
+	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	list_add_tail(&ppb->l, &pp->bufs);
 
 	pp_update_prev_ppb(pp, ppb, ppb_flags);
@@ -165,8 +165,8 @@ static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
 	struct page_pipe_buf *ppb;
 	struct iovec *free_iov;
 
-	pr_debug("Will grow page pipe (iov off is %u)\n", pp->free_iov);
-
+	pr_warn("Will grow page pipe (iov off is %u)\n", pp->free_iov);
+	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	if (!list_empty(&pp->free_bufs)) {
 		ppb = list_first_entry(&pp->free_bufs, struct page_pipe_buf, l);
 		list_move_tail(&ppb->l, &pp->bufs);
@@ -227,7 +227,7 @@ void destroy_page_pipe(struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb, *n;
 
-	pr_debug("Killing page pipe\n");
+	pr_warn("Killing page pipe\n");
 
 	list_splice(&pp->free_bufs, &pp->bufs);
 	list_for_each_entry_safe(ppb, n, &pp->bufs, l)
@@ -244,7 +244,7 @@ void page_pipe_reinit(struct page_pipe *pp)
 
 	BUG_ON(!(pp->flags & PP_CHUNK_MODE));
 
-	pr_debug("Clean up page pipe\n");
+	pr_warn("Clean up page pipe\n");
 
 	list_for_each_entry_safe(ppb, n, &pp->bufs, l)
 		list_move(&ppb->l, &pp->free_bufs);
@@ -278,6 +278,7 @@ out:
 
 static inline int try_add_page(struct page_pipe *pp, unsigned long addr, unsigned int flags)
 {
+	pr_warn("DEBUG try_add_page\n");
 	BUG_ON(list_empty(&pp->bufs));
 	return try_add_page_to(pp, list_entry(pp->bufs.prev, struct page_pipe_buf, l), addr, flags);
 }

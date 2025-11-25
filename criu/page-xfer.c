@@ -1617,7 +1617,7 @@ static int send_request_page(struct page_request_entry *req, struct active_image
 {
 	unsigned long local_page_idx;
 	int ret;
-	
+	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	/* Lazy location lookup - only done once */
 	if (!req->location_found) {
 		struct page_pipe_buf *ppb;
@@ -1740,7 +1740,7 @@ static int add_active_image(u64 dst_id, int sk)
 	/* Count ONLY pages that have actual pipe data
 	 * This excludes write-protected pages which are holes/parent refs */
 	pr_info("=== Scanning page_pipe buffers for dst_id=%lu ===\n", dst_id);
-	
+	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		pr_info("[BUF %u] pages_in=%lu flags=0x%x nr_segs=%u\n",
@@ -1771,7 +1771,7 @@ static int add_active_image(u64 dst_id, int sk)
 		pr_warn("Image dst_id=%lu has no pages with pipe data\n", dst_id);
 		return 0;  /* Nothing to send */
 	}
-	
+	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	/* Allocate per-buffer sent bitmaps for PPB_LAZY buffers */
 	buf_idx = 0;
 	list_for_each_entry(ppb, &pp->bufs, l) {
@@ -1908,6 +1908,7 @@ static void *unified_page_server_thread(void *arg)
 			done_count = 0;
 
 			pp = dmpi(item)->mem_pp;
+#if 0
 			list_for_each_entry(ppb, &pp->bufs, l) {
 				pr_warn("Debug loop ppb=0x%p\n",ppb);
 				for (i = 0; i < ppb->nr_segs; i++) {
@@ -1916,6 +1917,7 @@ static void *unified_page_server_thread(void *arg)
 				}				
 			}
 			exit(0);
+			#endif
 			
 			/* Unified loop: iterate through all pages, checking priorities at each position */
 			list_for_each_entry(ppb, &pp->bufs, l) {
