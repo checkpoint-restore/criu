@@ -1998,12 +1998,13 @@ static void *unified_page_server_thread(void *arg)
 					
 					/* === PRIORITY 3: Send regular page if not already sent === */
 					if (ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8))) {
+						pr_warn("Priority 3: priority3_skips regular page at %lx\n", page_vaddr);
 						priority3_skips++;
 						continue;  /* Already sent, skip to next page */
 					}
 					
 					/* Send this page */
-					pr_debug("Priority 3: Sending regular page at %lx\n", page_vaddr);
+					pr_warn("Priority 3: Sending regular page at %lx\n", page_vaddr);
 					ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
 					if (ret < 0) {
 						pr_err("Failed to send regular page at %lx\n", page_vaddr);
