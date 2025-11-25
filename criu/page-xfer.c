@@ -1839,7 +1839,6 @@ static void remove_active_image(struct active_image *img)
 /* Unified background thread serving all images */
 static void *unified_page_server_thread(void *arg)
 {
-	bool found = false;
 	bool DONE = false;
 	int done_count = 0;
 	
@@ -1887,7 +1886,6 @@ static void *unified_page_server_thread(void *arg)
 			int ret;
 			unsigned long page_idx;
 			unsigned long j;
-			bool sent_this_image = false;
 			
 			pthread_spin_unlock(&active_images_lock);
 			
