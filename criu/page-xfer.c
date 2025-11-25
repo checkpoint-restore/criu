@@ -1204,6 +1204,13 @@ struct page_request_entry {
 	unsigned long nr_pages;
 	int sk;
 	u64 dst_id;
+	
+	/* Location info (filled on first access) */
+	struct page_pipe_buf *ppb;
+	unsigned int seg_idx;
+	unsigned long page_idx_in_seg;
+	bool location_found;  /* Flag: have we looked up location yet? */
+	
 	struct list_head list;
 };
 
@@ -1232,6 +1239,13 @@ static void add_page_request(unsigned long vaddr, unsigned long nr_pages, int sk
 	entry->nr_pages = nr_pages;
 	entry->sk = sk;
 	entry->dst_id = dst_id;
+	
+	/* Location will be looked up on first access */
+	entry->ppb = NULL;
+	entry->seg_idx = 0;
+	entry->page_idx_in_seg = 0;
+	entry->location_found = false;
+	
 	INIT_LIST_HEAD(&entry->list);
 
 	pthread_spin_lock(&page_request_lock);
@@ -1293,6 +1307,77 @@ static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image
 	
 	/* Mark as sent */
 	entry->ppb->sent_bitmap[local_page_idx / 8] |= (1 << (local_page_idx % 8));
+	img->remaining_pages--;
+	
+	return 1;  /* Sent successfully */
+}
+
+/* Helper to send a page request using lazy-evaluated location info */
+static int send_request_page(struct page_request_entry *req, struct active_image *img, struct page_pipe *pp)
+{
+	unsigned long local_page_idx;
+	int ret;
+	
+	/* Lazy location lookup - only done once */
+	if (!req->location_found) {
+		struct page_pipe_buf *ppb;
+		bool found = false;
+		
+		/* Search for page location in buffers */
+		list_for_each_entry(ppb, &pp->bufs, l) {
+			if (!ppb->sent_bitmap)
+				continue;
+			
+			unsigned int seg_idx;
+			local_page_idx = 0;
+			
+			for (seg_idx = 0; seg_idx < ppb->nr_segs; seg_idx++) {
+				struct iovec *iov = &ppb->iov[seg_idx];
+				unsigned long vaddr = (unsigned long)iov->iov_base;
+				unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+				
+				if (req->vaddr >= vaddr && req->vaddr < vaddr + (nr_pages * PAGE_SIZE)) {
+					/* Found it - store location */
+					req->ppb = ppb;
+					req->seg_idx = seg_idx;
+					req->page_idx_in_seg = (req->vaddr - vaddr) / PAGE_SIZE;
+					req->location_found = true;
+					found = true;
+					goto found_request_location;
+				}
+				local_page_idx += nr_pages;
+			}
+		}
+		
+found_request_location:
+		if (!found) {
+			pr_err("Request page 0x%lx not found in any buffer\n", req->vaddr);
+			return -1;
+		}
+	}
+	
+	/* Calculate bitmap index from stored location */
+	local_page_idx = 0;
+	for (unsigned int i = 0; i < req->seg_idx; i++) {
+		local_page_idx += req->ppb->iov[i].iov_len / PAGE_SIZE;
+	}
+	local_page_idx += req->page_idx_in_seg;
+	
+	/* Check if already sent */
+	if (req->ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8))) {
+		pr_debug("Request page 0x%lx already sent\n", req->vaddr);
+		return 0;  /* Already sent */
+	}
+	
+	/* Send the page */
+	pr_debug("Sending request page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu)\n",
+		 req->vaddr, req->ppb, req->seg_idx, req->page_idx_in_seg, local_page_idx);
+	ret = send_page_request_response(req, pp);
+	if (ret < 0)
+		return -1;
+	
+	/* Mark as sent */
+	req->ppb->sent_bitmap[local_page_idx / 8] |= (1 << (local_page_idx % 8));
 	img->remaining_pages--;
 	
 	return 1;  /* Sent successfully */
@@ -1859,94 +1944,28 @@ static void *unified_page_server_thread(void *arg)
 						}
 					}
 					
-					/* === PRIORITY 2: Drain ALL page requests for this image === */
+					/* === PRIORITY 2: Drain ALL page requests (from any image) === */
 					while (has_page_requests() && img->remaining_pages > 0) {
 						struct page_request_entry *req = get_next_page_request();
-						bool req_skip = false;
 						
 						if (!req)
 							break;
 						
-						/* Only handle requests for this image */
-						if (req->dst_id != img->dst_id) {
-							pthread_spin_lock(&page_request_lock);
-							list_add(&req->list, &page_request_queue);
-							pthread_spin_unlock(&page_request_lock);
-							break;
-						}
+						/* Send using lazy-evaluated location info */
+						ret = send_request_page(req, img, pp);
 						
-						/* Check if already sent */
-						for (unsigned long k = 0; k < req->nr_pages; k++) {
-							unsigned long addr = req->vaddr + (k * PAGE_SIZE);
-							bool found_page = false;
-							
-							list_for_each_entry(ppb, &pp->bufs, l) {
-								if (!ppb->sent_bitmap)
-									continue;
-								
-								unsigned long req_local_idx = 0;
-								for (unsigned int seg = 0; seg < ppb->nr_segs; seg++) {
-									struct iovec *req_iov = &ppb->iov[seg];
-									unsigned long req_vaddr = (unsigned long)req_iov->iov_base;
-									unsigned long req_nr_pages = req_iov->iov_len / PAGE_SIZE;
-									
-									if (addr >= req_vaddr && addr < req_vaddr + (req_nr_pages * PAGE_SIZE)) {
-										req_local_idx += (addr - req_vaddr) / PAGE_SIZE;
-										
-										if (ppb->sent_bitmap[req_local_idx / 8] & (1 << (req_local_idx % 8))) {
-											req_skip = true;
-										}
-										found_page = true;
-										break;
-									}
-									req_local_idx += req_nr_pages;
-								}
-								if (found_page)
-									break;
-							}
-						}
-						
-						if (req_skip) {
-							xfree(req);
-							continue;
-						}
-						
-						/* Send request */
-						pr_debug("Priority 2: Sending page request at %lx\n", req->vaddr);
-						ret = send_page_request_response(req, pp);
-						if (ret >= 0) {
-							/* Mark as sent */
-							for (unsigned long k = 0; k < req->nr_pages; k++) {
-								unsigned long addr = req->vaddr + (k * PAGE_SIZE);
-								bool found_page = false;
-								
-								list_for_each_entry(ppb, &pp->bufs, l) {
-									if (!ppb->sent_bitmap)
-										continue;
-									
-									unsigned long req_local_idx = 0;
-									for (unsigned int seg = 0; seg < ppb->nr_segs; seg++) {
-										struct iovec *req_iov = &ppb->iov[seg];
-										unsigned long req_vaddr = (unsigned long)req_iov->iov_base;
-										unsigned long req_nr_pages = req_iov->iov_len / PAGE_SIZE;
-										
-										if (addr >= req_vaddr && addr < req_vaddr + (req_nr_pages * PAGE_SIZE)) {
-											req_local_idx += (addr - req_vaddr) / PAGE_SIZE;
-											ppb->sent_bitmap[req_local_idx / 8] |= (1 << (req_local_idx % 8));
-											img->remaining_pages--;
-											found_page = true;
-											break;
-										}
-										req_local_idx += req_nr_pages;
-									}
-									if (found_page)
-										break;
-								}
-							}
+						if (ret > 0) {
+							/* Successfully sent */
 							img->total_req_pages += req->nr_pages;
 							priority2_pages += req->nr_pages;
 						}
+						
 						xfree(req);
+						
+						if (ret < 0) {
+							pr_err("Failed to send request page\n");
+							break;
+						}
 					}
 					
 					/* === PRIORITY 3: Send this ONE regular page === */
