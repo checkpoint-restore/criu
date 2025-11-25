@@ -1823,7 +1823,7 @@ static int add_active_image(u64 dst_id, int sk)
 		dst_id, total_pages);
 	return 0;
 }
-
+#if 0
 static void remove_active_image(struct active_image *img)
 {
 	struct pstree_item *item;
@@ -1848,7 +1848,7 @@ static void remove_active_image(struct active_image *img)
 	xfree(img);
 }
 
-
+#endif
 
 /* Unified background thread serving all images */
 static void *unified_page_server_thread(void *arg)
