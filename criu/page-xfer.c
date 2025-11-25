@@ -1863,17 +1863,7 @@ static void *unified_page_server_thread(void *arg)
 		}
 		
 		/* Check if we should print stats */
-		current_time = time(NULL);
-		if (current_time - last_stats_time >= 1) {
-			pr_warn("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec\n",
-				priority1_pages, priority2_pages, priority3_pages);
-			
-			/* Reset counters */
-			priority1_pages = 0;
-			priority2_pages = 0;
-			priority3_pages = 0;
-			last_stats_time = current_time;
-		}
+	
 		
 		pthread_spin_lock(&active_images_lock);
 		
@@ -1925,6 +1915,18 @@ static void *unified_page_server_thread(void *arg)
 				for (j = 0; j < nr_pages; j++) {
 					unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
 					unsigned long local_page_idx = page_idx + j;
+
+					current_time = time(NULL);
+					if (current_time - last_stats_time >= 1) {
+						pr_warn("[UNIFIED_THREAD_STATS] Priority1(COW)=%lu Priority2(Requests)=%lu Priority3(Regular)=%lu pages/sec\n",
+							priority1_pages, priority2_pages, priority3_pages);
+						
+						/* Reset counters */
+						priority1_pages = 0;
+						priority2_pages = 0;
+						priority3_pages = 0;
+						last_stats_time = current_time;
+		}
 					
 					/* === PRIORITY 1: Drain ALL COW pages (from any image) === */
 					while (cow_has_pending_pages() && img->remaining_pages > 0) {
