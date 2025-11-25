@@ -1004,7 +1004,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 	uffdio_copy.mode = 0;
 	uffdio_copy.copy = 0;
 
-	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
+	lp_warn(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) &&
 	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy))
 		return -1;
@@ -1355,7 +1355,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	/* Align requested address to the next page boundary */
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
-	lp_debug(lpi, "#PF at 0x%llx\n", address);
+	lp_warn(lpi, "#PF at 0x%llx\n", address);
 
 	if (is_page_queued(lpi, address))
 		return 0;
