@@ -1357,16 +1357,22 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
 	lp_warn(lpi, "#PF at 0x%llx\n", address);
 
-	if (is_page_queued(lpi, address))
+	if (is_page_queued(lpi, address)){
+		lp_warn(lpi, "#PF at 0x%llx queued\n", address);
 		return 0;
+	}
 
 	iov = find_iov(lpi, address);
-	if (!iov)
+	if (!iov){
+		lp_warn(lpi, "#PF at 0x%llx !iov\n", address);
 		return uffd_zero(lpi, address, 1);
+	}
 
 	iov = extract_range(iov, address, address + PAGE_SIZE);
-	if (!iov)
+	if (!iov){
+		lp_warn(lpi, "#PF at 0x%llx !iov2\n", address);
 		return -1;
+	}
 
 	list_move(&iov->l, &lpi->reqs);
 
