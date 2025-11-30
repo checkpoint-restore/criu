@@ -1,6 +1,7 @@
 #include <stdarg.h>
 
 #include "common/bitsperlong.h"
+#include "common/lock.h"
 #include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/string.h>
 #include <compel/plugins/std/log.h>
@@ -17,6 +18,7 @@ static int logfd = -1;
 static int cur_loglevel = COMPEL_DEFAULT_LOGLEVEL;
 static struct timeval start;
 static gettimeofday_t __std_gettimeofday;
+static spinlock_t log_lock = SPINLOCK_INIT;
 
 static void sbuf_log_flush(struct simple_buf *b);
 
@@ -44,6 +46,7 @@ static void sbuf_log_init(struct simple_buf *b)
 {
 	char pbuf[12], *s;
 	int n;
+	struct timeval local_start;
 
 	/*
 	 * Format:
@@ -52,11 +55,15 @@ static void sbuf_log_init(struct simple_buf *b)
 	 */
 	b->bp = b->buf;
 
-	if (start.tv_sec != 0) {
+	spin_lock(&log_lock);
+	local_start = start;
+	spin_unlock(&log_lock);
+
+	if (local_start.tv_sec != 0) {
 		struct timeval now;
 
 		std_gettimeofday(&now, NULL);
-		timediff(&start, &now);
+		timediff(&local_start, &now);
 
 		/* Seconds */
 		n = std_vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_sec, &s);
@@ -91,11 +98,18 @@ static void sbuf_log_init(struct simple_buf *b)
 
 static void sbuf_log_flush(struct simple_buf *b)
 {
+	int local_logfd;
+
 	if (b->bp == b->buf + b->prefix_len)
 		return;
 
-	sys_write(logfd, b->buf, b->bp - b->buf);
+	spin_lock(&log_lock);
+	local_logfd = logfd;
+	
+
+	sys_write(local_logfd, b->buf, b->bp - b->buf);
 	b->bp = b->buf + b->prefix_len;
+	spin_unlock(&log_lock);
 }
 
 static void sbuf_putc(struct simple_buf *b, char c)
@@ -117,13 +131,17 @@ static void sbuf_putc(struct simple_buf *b, char c)
 
 void std_log_set_fd(int fd)
 {
+	spin_lock(&log_lock);
 	sys_close(logfd);
 	logfd = fd;
+	spin_unlock(&log_lock);
 }
 
 void std_log_set_loglevel(enum __compel_log_levels level)
 {
+	spin_lock(&log_lock);
 	cur_loglevel = level;
+	spin_unlock(&log_lock);
 }
 
 void std_log_set_start(struct timeval *s)
