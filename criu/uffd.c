@@ -902,7 +902,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		pr_err("recv_fd error\n");
 		goto out;
 	}
-	pr_debug("Received PID: %d, uffd: %d\n", lpi->pid, lpi->lpfd.fd);
+	pr_err("Received PID: %d, uffd: %d\n", lpi->pid, lpi->lpfd.fd);
 
 	if (opts.use_page_server)
 		pr_flags |= PR_REMOTE;
@@ -1258,7 +1258,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	unreg.start = msg->arg.remove.start;
 	unreg.len = msg->arg.remove.end - msg->arg.remove.start;
 
-	lp_debug(lpi, "%s: %llx(%llx)\n", msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP", unreg.start, unreg.len);
+	lp_err(lpi, "%s: %llx(%llx)\n", msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP", unreg.start, unreg.len);
 
 	/*
 	 * The REMOVE event does not change the VMA, so we need to
