@@ -909,12 +909,12 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		addr = vma->start;
 		len = vma->len;
 
-		pr_info("Registering VMA %d: %lx-%lx prot=%x len=%lu\n",
+		pr_err("Registering VMA %d: %lx-%lx prot=%x len=%lu\n",
 			i, addr, addr + len, vma->prot, len);
 
 		/* Skip non-writable VMAs */
 		if (!(vma->prot & PROT_WRITE)) {
-			pr_info("Skipping non-writable VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
+			pr_err("Skipping non-writable VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
 			
 			/* Mark for later dump by CRIU */
     		failed_indices[args->nr_failed_vmas++] = i;

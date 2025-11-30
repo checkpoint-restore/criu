@@ -1240,6 +1240,8 @@ static void add_page_request(unsigned long vaddr, unsigned long nr_pages, int sk
 	entry->sk = sk;
 	entry->dst_id = dst_id;
 	
+	pr_err("Requesting page at %lx (nr_pages=%lu, dst_id=%lu)\n", vaddr, nr_pages, dst_id);
+	
 	/* Location will be looked up on first access */
 	entry->ppb = NULL;
 	entry->seg_idx = 0;
@@ -1357,7 +1359,7 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 	/* 3. Send page data */
 	if (cow_pg) {
 		/* COW path: send COW data directly */
-		pr_debug("Sending COW page at %lx\n", vaddr);
+		pr_err("Sending COW page at %lx\n", vaddr);
 		
 		if (opts.tls) {
 			ret = __send(sk, cow_pg->data, PAGE_SIZE, 0);
@@ -1451,8 +1453,9 @@ static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image
 	}
 	
 	/* Send COW page */
-	pr_debug("Sending COW page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu)\n",
-		 entry->vaddr, entry->ppb, entry->seg_idx, entry->page_idx_in_seg, local_page_idx);
+	pr_err("Sending COW page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu, seg_addr=%p)\n",
+		 entry->vaddr, entry->ppb, entry->seg_idx, entry->page_idx_in_seg, local_page_idx,
+		 entry->ppb->iov[entry->seg_idx].iov_base);
 	ret = send_one_chunk(img->main_sk, pp, entry->vaddr, 1, img->dst_id);
 	if (ret < 0)
 		return -1;
@@ -1670,8 +1673,9 @@ found_request_location:
 	}
 	
 	/* Send the page */
-	pr_debug("Sending request page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu)\n",
-		 req->vaddr, req->ppb, req->seg_idx, req->page_idx_in_seg, local_page_idx);
+	pr_err("Sending request page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu, seg_addr=%p)\n",
+		 req->vaddr, req->ppb, req->seg_idx, req->page_idx_in_seg, local_page_idx,
+		 req->ppb->iov[req->seg_idx].iov_base);
 	ret = send_page_request_response(req, pp);
 	if (ret < 0)
 		return -1;
