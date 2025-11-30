@@ -817,12 +817,13 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 			(unsigned long long)start, (unsigned long long)end, 
 			(unsigned long)pr->pe->nr_pages);
 
-		for (; n_vma < mm->n_vmas; n_vma++) {
+		while (n_vma < mm->n_vmas) {
 			VmaEntry *vma = mm->vmas[n_vma];
 
 			if (start >= vma->end) {
 				lp_err(lpi, "  Skipping VMA %d: 0x%llx-0x%llx (start >= vma->end)\n",
 					 n_vma, (unsigned long long)vma->start, (unsigned long long)vma->end);
+				n_vma++;
 				continue;
 			}
 
@@ -846,6 +847,7 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 				break;
 
 			start = vma->end;
+			n_vma++;
 		}
 	}
 
