@@ -226,8 +226,15 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	unsigned long vaddr;
 	bool dump_all_pages;
 	int ret = 0;
+	unsigned long vma_start = *pvaddr;
+	unsigned long pages_skipped = 0;
 
 	dump_all_pages = should_dump_entire_vma(vma->e);
+
+	pr_warn("generate_iovs: VMA 0x%llx-0x%llx (start=0x%llx) dump_all=%d has_parent=%d lazy_capable=%d\n",
+		(unsigned long long)vma->e->start, (unsigned long long)vma->e->end,
+		(unsigned long long)vma_start, dump_all_pages, has_parent,
+		vma_entry_can_be_lazy(vma->e));
 
 	nr_scanned = 0;
 	for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {
@@ -240,6 +247,10 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			return -1;
 
 		if (!dump_all_pages && page_info.next != vaddr) {
+			pages_skipped++;
+			if (pages_skipped <= 5 || pages_skipped % 100 == 0)
+				pr_debug("  Skipping 0x%lx (next=0x%llx)\n", vaddr, 
+					(unsigned long long)page_info.next);
 			vaddr = page_info.next - PAGE_SIZE;
 			continue;
 		}
@@ -257,12 +268,18 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		if (has_parent && page_in_parent(page_info.softdirty)) {
 			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
 			st = 0;
+			pr_debug("  Page 0x%lx -> HOLE (in parent)\n", vaddr);
 		} else {
 			ret = page_pipe_add_page(pp, vaddr, ppb_flags);
-			if (ppb_flags & PPB_LAZY && opts.lazy_pages)
+			if (ppb_flags & PPB_LAZY && opts.lazy_pages) {
 				st = 1;
-			else
+				if (pages[1] < 5 || pages[1] % 100 == 0)
+					pr_warn("  Page 0x%lx -> LAZY\n", vaddr);
+			} else {
 				st = 2;
+				if (pages[2] < 5 || pages[2] % 100 == 0)
+					pr_debug("  Page 0x%lx -> IMMEDIATE\n", vaddr);
+			}
 		}
 
 		if (ret) {
@@ -280,7 +297,9 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	cnt_add(CNT_PAGES_LAZY, pages[1]);
 	cnt_add(CNT_PAGES_WRITTEN, pages[2]);
 
-	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes\n", pages[2] + pages[1], pages[1], pages[0]);
+	pr_warn("generate_iovs complete: VMA 0x%llx-0x%llx: %lu pages (%lu lazy) %lu holes, %lu skipped\n",
+		(unsigned long long)vma->e->start, (unsigned long long)vma->e->end,
+		pages[2] + pages[1], pages[1], pages[0], pages_skipped);
 	return ret;
 }
 

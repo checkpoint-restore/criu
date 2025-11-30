@@ -790,24 +790,41 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 	struct page_read *pr = &lpi->pr;
 	struct lazy_iov *iov;
 	MmEntry *mm;
+	unsigned long total_pagemap_entries = 0;
+	unsigned long lazy_pagemap_entries = 0;
 
 	mm = init_mm_entry(lpi);
 	if (!mm)
 		return -1;
 
-	while (pr->advance(pr)) {
-		if (!pagemap_lazy(pr->pe))
-			continue;
+	lp_err(lpi, "Starting IOV collection for %zd VMAs\n", mm->n_vmas);
 
+	while (pr->advance(pr)) {
+		total_pagemap_entries++;
+		
+		if (!pagemap_lazy(pr->pe)) {
+			lp_err(lpi, "Skipping non-lazy pagemap entry at 0x%llx (%lu pages)\n",
+				 (unsigned long long)pr->pe->vaddr, (unsigned long)pr->pe->nr_pages);
+			continue;
+		}
+
+		lazy_pagemap_entries++;
 		start = pr->pe->vaddr;
 		end = start + pr->pe->nr_pages * page_size();
 		nr_pages += pr->pe->nr_pages;
 
+		lp_warn(lpi, "Processing lazy pagemap entry: 0x%llx-0x%llx (%lu pages)\n",
+			(unsigned long long)start, (unsigned long long)end, 
+			(unsigned long)pr->pe->nr_pages);
+
 		for (; n_vma < mm->n_vmas; n_vma++) {
 			VmaEntry *vma = mm->vmas[n_vma];
 
-			if (start >= vma->end)
+			if (start >= vma->end) {
+				lp_err(lpi, "  Skipping VMA %d: 0x%llx-0x%llx (start >= vma->end)\n",
+					 n_vma, (unsigned long long)vma->start, (unsigned long long)vma->end);
 				continue;
+			}
 
 			iov = xzalloc(sizeof(*iov));
 			if (!iov)
@@ -819,6 +836,9 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 			iov->end = iov->start + len;
 			list_add_tail(&iov->l, &lpi->iovs);
 
+			lp_warn(lpi, "  Created IOV for VMA %d: 0x%lx-0x%lx (len=%lu, %lu pages)\n",
+				n_vma, iov->start, iov->end, len, len / PAGE_SIZE);
+
 			if (len > max_iov_len)
 				max_iov_len = len;
 
@@ -828,6 +848,9 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 			start = vma->end;
 		}
 	}
+
+	lp_warn(lpi, "IOV collection complete: %lu total pagemap entries, %lu lazy entries, %lu pages in IOVs\n",
+		total_pagemap_entries, lazy_pagemap_entries, nr_pages);
 
 	lpi->buf_size = max_iov_len;
 	if (posix_memalign(&lpi->buf, PAGE_SIZE, lpi->buf_size))
@@ -1148,8 +1171,10 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, unsigne
 	int ret;
 
 	ret = uffd_seek_pages(lpi, address, nr);
-	if (ret)
+	if (ret){
+		lp_warn(lpi, "#PF at 0x%llx uffd_seek_pages failed\n", address);
 		return ret;
+	}
 
 	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, flags);
 	if (ret <= 0) {
