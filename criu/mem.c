@@ -274,7 +274,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			if (ppb_flags & PPB_LAZY && opts.lazy_pages) {
 				st = 1;
 				if (pages[1] < 5 || pages[1] % 100 == 0)
-					pr_warn("  Page 0x%lx -> LAZY\n", vaddr);
+					pr_debug("  Page 0x%lx -> LAZY\n", vaddr);
 			} else {
 				st = 2;
 				if (pages[2] < 5 || pages[2] % 100 == 0)

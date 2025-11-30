@@ -977,6 +977,7 @@ static bool uffd_recoverable_error(int mcopy_rc)
 static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsigned long *nr_pages, long mcopy_rc)
 {
 	if (errno == ENOSPC || errno == ESRCH) {
+		lp_err(lpi, "uffd_copy1:ERROR\n");
 		handle_exit(lpi);
 		return 0;
 	}
@@ -986,7 +987,7 @@ static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsi
 		return -1;
 	}
 
-	lp_debug(lpi, "%s: mcopy_rc:%ld, errno:%d\n", op, mcopy_rc, errno);
+	lp_err(lpi, "%s: mcopy_rc:%ld, errno:%d\n", op, mcopy_rc, errno);
 
 	if (mcopy_rc <= 0)
 		*nr_pages = 0;
@@ -1029,8 +1030,10 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 
 	lp_err(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) &&
-	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy))
+	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)){
+		lp_err(lpi, "uffd_copy failed: 0x%llx/%ld\n", uffdio_copy.dst, len);
 		return -1;
+	}
 
 	lpi->copied_pages += *nr_pages;
 
