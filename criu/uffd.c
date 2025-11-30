@@ -1039,7 +1039,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 
 	
 
-	if (ioctl(fd, UFFDIO_COPY, &uffdio_copy) == -1) {
+	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
     	// "hard" ioctl error: invalid args, bad fd, etc.
     	lp_err(lpi,"UFFDIO_COPY ioctl failed");
     	return -1;
