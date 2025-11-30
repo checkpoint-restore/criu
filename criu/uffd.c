@@ -983,7 +983,7 @@ static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsi
 	}
 
 	if (!uffd_recoverable_error(mcopy_rc)) {
-		lp_perror(lpi, "%s: mcopy_rc:%ld", op, mcopy_rc);
+		lp_perror(lpi, "%s: mcopy_rc:%ld\n", op, mcopy_rc);
 		return -1;
 	}
 
@@ -1041,21 +1041,24 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
     	// "hard" ioctl error: invalid args, bad fd, etc.
-    	lp_err(lpi,"UFFDIO_COPY ioctl failed");
+    	lp_err(lpi,"UFFDIO_COPY ioctl failed\n");
+		uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy);
     	return -1;
 	}
 
 	if (uffdio_copy.copy < 0) {
 		// "soft" userfaultfd error: encoded as -errno in copy
 		errno = -uffdio_copy.copy;
-		lp_err(lpi,"UFFDIO_COPY logical error");
+		lp_err(lpi,"UFFDIO_COPY logical error\n");
+		uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy);
 		return -1;
 	}
 
 	// success with at least some bytes copied:
 	if (uffdio_copy.copy == 0) {
 		// this is weird, usually means nothing copied
-		lp_err(lpi,"UFFDIO_COPY logical error uffdio_copy.copy == 0");
+		lp_err(lpi,"UFFDIO_COPY logical error uffdio_copy.copy == 0\n");
+		uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy);
 	}
 
 	uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy);
