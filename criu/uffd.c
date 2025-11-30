@@ -1029,12 +1029,36 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 	uffdio_copy.copy = 0;
 
 	lp_err(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
+	#if 0
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) &&
 	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)){
 		lp_err(lpi, "uffd_copy failed: 0x%llx/%ld\n", uffdio_copy.dst, len);
 		return -1;
 	}
+	#endif
 
+	
+
+	if (ioctl(fd, UFFDIO_COPY, &uffdio_copy) == -1) {
+    	// "hard" ioctl error: invalid args, bad fd, etc.
+    	lp_err(lpi,"UFFDIO_COPY ioctl failed");
+    	return -1;
+	}
+
+	if (uffdio_copy.copy < 0) {
+		// "soft" userfaultfd error: encoded as -errno in copy
+		errno = -uffdio_copy.copy;
+		lp_err(lpi,"UFFDIO_COPY logical error");
+		return -1;
+	}
+
+	// success with at least some bytes copied:
+	if (uffdio_copy.copy == 0) {
+		// this is weird, usually means nothing copied
+		lp_err(lpi,"UFFDIO_COPY logical error uffdio_copy.copy == 0");
+	}
+
+	uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy);
 	lpi->copied_pages += *nr_pages;
 
 	return 0;
