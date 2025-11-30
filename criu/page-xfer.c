@@ -61,6 +61,7 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_IOV_ADD_F  6
 #define PS_IOV_GET    7
 #define PS_IOV_GET_ALL 8
+#define PS_IOV_ADD_F_PF 9
 
 #define PS_IOV_CLOSE	   0x1023
 #define PS_IOV_FORCE_CLOSE 0x1024
@@ -1518,7 +1519,7 @@ static int send_page_request_response(struct page_request_entry *req, struct pag
 	}
 
 	/* Send response header */	
-	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F_PF, PE_PRESENT);
 	pi.nr_pages = nr_pages;
 	pi.vaddr = req->vaddr;
 	pi.dst_id = req->dst_id;
@@ -2174,10 +2175,16 @@ static int page_server_serve(int sk)
 			ret = page_server_check_parent(sk, &pi);
 			break;
 		case PS_IOV_ADD_F:
+		case PS_IOV_ADD_F_PF:
 		case PS_IOV_ADD:
 		case PS_IOV_HOLE: {
 			u32 flags;
-			
+			if (cmd == PS_IOV_ADD_F_PF)
+			{
+				cmd = PS_IOV_ADD_F;
+				pr_err("PS_IOV_ADD_F_PF %" PRIx64 " - %" PRIx64 "\n",
+		 				pi->vaddr, pi.vaddr + pi.nr_pages * PAGE_SIZE);				
+			}
 			if (likely(cmd == PS_IOV_ADD_F)) {
 				flags = decode_ps_flags(pi.cmd);
 				ps_stats.serve_add_f++;
