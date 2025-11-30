@@ -1021,6 +1021,8 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 {
 	struct uffdio_copy uffdio_copy;
 	unsigned long len = *nr_pages * page_size();
+	int retry_count = 0;
+	const int MAX_RETRIES = 10;
 
 	uffdio_copy.dst = address;
 	uffdio_copy.src = (unsigned long)lpi->buf;
@@ -1029,41 +1031,55 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 	uffdio_copy.copy = 0;
 
 	lp_err(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
-	#if 0
-	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) &&
-	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)){
-		lp_err(lpi, "uffd_copy failed: 0x%llx/%ld\n", uffdio_copy.dst, len);
-		return -1;
-	}
-	#endif
 
-	
-
+retry:
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
-    	// "hard" ioctl error: invalid args, bad fd, etc.
-    	lp_err(lpi,"UFFDIO_COPY ioctl failed\n");
-		uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy);
-    	return -1;
+		/* Retry on EAGAIN - transient condition */
+		if (errno == EAGAIN && retry_count < MAX_RETRIES) {
+			retry_count++;
+			usleep(1000 * retry_count);  /* Exponential backoff */
+			lp_err(lpi, "UFFDIO_COPY got EAGAIN, retrying (%d/%d)\n", 
+				 retry_count, MAX_RETRIES);
+			goto retry;
+		}
+		
+		/* Check for other errors */
+		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)){
+			lp_err(lpi, "UFFDIO_COPY got error\n");				 
+			return -1;
+		}
+			
+		/* If uffd_check_op_error handled it (e.g., ENOSPC/ESRCH), return success */
+		return 0;
 	}
 
 	if (uffdio_copy.copy < 0) {
-		// "soft" userfaultfd error: encoded as -errno in copy
+		/* Soft userfaultfd error: encoded as -errno in copy */
 		errno = -uffdio_copy.copy;
-		lp_err(lpi,"UFFDIO_COPY logical error\n");
-		uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy);
-		return -1;
+		
+		/* Retry on EAGAIN */
+		if (errno == EAGAIN && retry_count < MAX_RETRIES) {
+			retry_count++;
+			usleep(1000 * retry_count);
+			lp_debug(lpi, "UFFDIO_COPY logical EAGAIN, retrying (%d/%d)\n",
+				 retry_count, MAX_RETRIES);
+			goto retry;
+		}
+		
+		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)){
+			lp_err(lpi, "UFFDIO_COPY err \n");				 
+			return -1;
+		}
+		return 0;
 	}
 
-	// success with at least some bytes copied:
+	/* Success */
 	if (uffdio_copy.copy == 0) {
-		// this is weird, usually means nothing copied
-		lp_err(lpi,"UFFDIO_COPY logical error uffdio_copy.copy == 0\n");
-		uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy);
+		lp_err(lpi, "UFFDIO_COPY copied 0 bytes at 0x%llx\n", uffdio_copy.dst);
+		*nr_pages = 0;
 	}
 
-	uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy);
 	lpi->copied_pages += *nr_pages;
-
 	return 0;
 }
 
@@ -1144,6 +1160,8 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 {
 	struct lazy_pages_info *lpi;
 	unsigned long pages = nr;
+	struct lazy_iov *iov;
+	int ret;
 	
 	lpi = container_of(pr, struct lazy_pages_info, pr);
 	
@@ -1151,8 +1169,26 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	if (lpi->exited)
 		return 0;
 	
-	/* Just copy pages to userspace - no pipeline management needed */
-	return uffd_copy(lpi, vaddr, &pages);
+	/* Check if this address is still tracked (not removed/unmapped) */
+	iov = find_iov(lpi, vaddr);
+	if (!iov) {
+		lp_debug(lpi, "Page at 0x%lx no longer needed (unmapped), dropping\n", vaddr);
+		return 0;  /* Silently ignore - region was unmapped */
+	}
+	
+	/* Copy pages to userspace */
+	ret = uffd_copy(lpi, vaddr, &pages);
+	if (ret < 0)
+		return ret;
+	
+	/* Recheck if process exited (may be detected in uffd_copy) */
+	if (lpi->exited)
+		return 0;
+	
+	/* CRITICAL: Remove copied pages from IOV tracking to prevent duplicate faults */
+	ret = drop_iovs(lpi, vaddr, pages * PAGE_SIZE);
+	
+	return ret;
 }
 
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long nr_pages)
