@@ -474,7 +474,7 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 	struct pollfd pfd;
 	int ret, poll_ret;
 
-	while (1) {
+	while (!g_stop_monitoring) {
 		/* Check and print stats */
 		check_and_print_cow_stats();
 		
@@ -600,7 +600,7 @@ int cow_stop_monitor_thread(void)
 		return 0; /* Nothing to stop */
 	}
 	
-	pr_info("Stopping COW monitor thread\n");
+	pr_warn("Stopping COW monitor thread\n");
 	g_stop_monitoring = true;
 	
 	/* Wait for thread to finish */
