@@ -2183,7 +2183,7 @@ static int page_server_serve(int sk)
 			{
 				cmd = PS_IOV_ADD_F;
 				pr_err("PS_IOV_ADD_F_PF %" PRIx64 " - %" PRIx64 "\n",
-		 				pi->vaddr, pi.vaddr + pi.nr_pages * PAGE_SIZE);				
+		 				pi.vaddr, pi.vaddr + pi.nr_pages * PAGE_SIZE);				
 			}
 			if (likely(cmd == PS_IOV_ADD_F)) {
 				flags = decode_ps_flags(pi.cmd);
