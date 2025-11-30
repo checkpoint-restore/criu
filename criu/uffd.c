@@ -1166,13 +1166,15 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	lpi = container_of(pr, struct lazy_pages_info, pr);
 	
 	/* Process may exit while pages are in flight */
-	if (lpi->exited)
+	if (lpi->exited){
+		lp_err(lpi, "Page at 0x%lx no longer needed existed\n",vaddr); 
 		return 0;
+	}
 	
 	/* Check if this address is still tracked (not removed/unmapped) */
 	iov = find_iov(lpi, vaddr);
 	if (!iov) {
-		lp_debug(lpi, "Page at 0x%lx no longer needed (unmapped), dropping\n", vaddr);
+		lp_err(lpi, "Page at 0x%lx no longer needed (unmapped), dropping\n", vaddr);
 		return 0;  /* Silently ignore - region was unmapped */
 	}
 	
@@ -1200,7 +1202,7 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long n
 	uffdio_zeropage.range.len = len;
 	uffdio_zeropage.mode = 0;
 
-	lp_debug(lpi, "zero page at 0x%llx\n", address);
+	lp_err(lpi, "zero page at 0x%llx\n", address);
 	if (ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage) &&
 	    uffd_check_op_error(lpi, "zero", &nr_pages, uffdio_zeropage.zeropage))
 		return -1;
