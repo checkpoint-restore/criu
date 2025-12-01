@@ -251,6 +251,7 @@ static struct lazy_pages_info *lpi_init(void)
 static void free_iovs(struct lazy_pages_info *lpi)
 {
 	struct lazy_iov *p, *n;
+	lp_err(lpi, "=== free_iovs ===\n");
 
 	list_for_each_entry_safe(p, n, &lpi->iovs, l) {
 		list_del(&p->l);
@@ -884,6 +885,21 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 	lp_warn(lpi, "IOV collection complete: %lu total pagemap entries, %lu lazy entries, %lu pages in IOVs\n",
 		total_pagemap_entries, lazy_pagemap_entries, nr_pages);
 
+	/* Dump all collected IOVs for debugging */
+	{
+		struct lazy_iov *iov;
+		unsigned long iov_count = 0;
+		
+		lp_err(lpi, "=== IOV DUMP START ===\n");
+		list_for_each_entry(iov, &lpi->iovs, l) {
+			lp_err(lpi, "IOV[%lu]: start=0x%lx end=0x%lx img_start=0x%lx len=%lu pages=%lu\n",
+				iov_count, iov->start, iov->end, iov->img_start,
+				iov->end - iov->start, (iov->end - iov->start) / PAGE_SIZE);
+			iov_count++;
+		}
+		lp_err(lpi, "=== IOV DUMP END: %lu IOVs total ===\n", iov_count);
+	}
+
 	lpi->buf_size = max_iov_len;
 	if (posix_memalign(&lpi->buf, PAGE_SIZE, lpi->buf_size))
 		goto free_iovs;
@@ -1077,7 +1093,7 @@ retry:
 		
 		/* Check for other errors */
 		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)){
-			lp_err(lpi, "UFFDIO_COPY got error\n");				 
+			lp_err(lpi, "UFFDIO_COPY got error\n");	 
 			return -1;
 		}
 			
