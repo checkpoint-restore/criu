@@ -1431,8 +1431,10 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		pr_perror("Failed to unregister (%llx - %llx)", unreg.start, unreg.start + unreg.len);
 		return -1;
 	}
-#endif
+
 	return drop_iovs(lpi, unreg.start, unreg.len);
+	#endif
+	return 0;
 }
 
 static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
