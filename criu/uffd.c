@@ -1222,7 +1222,33 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	/* Check if this address is still tracked (not removed/unmapped) */
 	iov = find_iov(lpi, vaddr);
 	if (!iov) {
+		struct lazy_iov *tmp_iov;
+		unsigned long iovs_count = 0;
+		unsigned long reqs_count = 0;
+		
 		lp_err(lpi, "Page at 0x%lx no longer needed (unmapped), dropping\n", vaddr);
+		
+		/* Dump all IOVs to understand what happened */
+		lp_err(lpi, "=== IOV STATE DUMP (address 0x%lx not found) ===\n", vaddr);
+		
+		lp_err(lpi, "Main IOVs list:\n");
+		list_for_each_entry(tmp_iov, &lpi->iovs, l) {
+			lp_err(lpi, "  IOV[%lu]: 0x%lx-0x%lx (img_start=0x%lx, len=%lu, pages=%lu)\n",
+				iovs_count, tmp_iov->start, tmp_iov->end, tmp_iov->img_start,
+				tmp_iov->end - tmp_iov->start, (tmp_iov->end - tmp_iov->start) / PAGE_SIZE);
+			iovs_count++;
+		}
+		
+		lp_err(lpi, "Requests list:\n");
+		list_for_each_entry(tmp_iov, &lpi->reqs, l) {
+			lp_err(lpi, "  REQ[%lu]: 0x%lx-0x%lx (img_start=0x%lx, len=%lu, pages=%lu)\n",
+				reqs_count, tmp_iov->start, tmp_iov->end, tmp_iov->img_start,
+				tmp_iov->end - tmp_iov->start, (tmp_iov->end - tmp_iov->start) / PAGE_SIZE);
+			reqs_count++;
+		}
+		
+		lp_err(lpi, "=== IOV DUMP END: %lu main IOVs, %lu requests ===\n", iovs_count, reqs_count);
+		
 		return 0;  /* Silently ignore - region was unmapped */
 	}
 	
