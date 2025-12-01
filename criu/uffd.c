@@ -635,7 +635,7 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 {
 	struct lazy_iov *iov, *n;
 
-	pr_info"__drop_iovs: addr=0x%lx len=0x%x\n", addr, len);
+	pr_info("__drop_iovs: addr=0x%lx len=0x%x\n", addr, len);
 
 	list_for_each_entry_safe(iov, n, iovs, l) {
 		unsigned long start = iov->start;
