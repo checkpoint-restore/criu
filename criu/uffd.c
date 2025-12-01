@@ -1061,7 +1061,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 	struct uffdio_copy uffdio_copy;
 	unsigned long len = *nr_pages * page_size();
 	int retry_count = 0;
-	const int MAX_RETRIES = 10;
+	const int MAX_RETRIES = 100;
 
 	uffdio_copy.dst = address;
 	uffdio_copy.src = (unsigned long)lpi->buf;
@@ -1417,8 +1417,8 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	 * make sure that we won't handle #PFs in the removed
 	 * range. With UNMAP, there's no VMA to worry about
 	 */
-	#if 0
-	if (msg->event == UFFD_EVENT_REMOVE && ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
+
+	 if (msg->event == UFFD_EVENT_REMOVE && ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
 		/*
 		 * The kernel returns -ENOMEM when unregister is
 		 * called after the process has gone
@@ -1433,8 +1433,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	}
 
 	return drop_iovs(lpi, unreg.start, unreg.len);
-	#endif
-	return 0;
+
 }
 
 static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
