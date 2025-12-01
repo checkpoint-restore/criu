@@ -992,7 +992,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 		}
 		if (  uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy))
 		{
-			lp_err(lpi, "uffd_copy EAGAIN: 0x%llx/%ld uffdio_copy.copy=%ld\n", uffdio_copy.dst, len, uffdio_copy.copy);
+			lp_err(lpi, "uffd_copy EAGAIN: 0x%llx/%ld uffdio_copy.copy=%lld\n", uffdio_copy.dst, len, uffdio_copy.copy);
 			return -1;
 		}
 	}
