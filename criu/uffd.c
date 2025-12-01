@@ -1077,7 +1077,7 @@ retry:
 		if (errno == EAGAIN && retry_count < MAX_RETRIES) {
 			retry_count++;
 			usleep(1000 * retry_count); /* Exponential backoff */
-			lp_err(lpi, "uffd_copy EAGAIN: 0x%llx/%ld\n", uffdio_copy.dst, len);
+			lp_err(lpi, "uffd_copy EAGAIN: 0x%llx/%ld uffdio_copy.copy = %ld\n", uffdio_copy.dst, len, uffdio_copy.copy);
 			lp_err(lpi, "UFFDIO_COPY got EAGAIN, retrying (%d/%d)\n",
 			       retry_count, MAX_RETRIES);
 			goto retry;
