@@ -635,7 +635,7 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 {
 	struct lazy_iov *iov, *n;
 
-	pr_err("__drop_iovs: addr=0x%lx len=0x%x\n", addr, len);
+	pr_info"__drop_iovs: addr=0x%lx len=0x%x\n", addr, len);
 
 	list_for_each_entry_safe(iov, n, iovs, l) {
 		unsigned long start = iov->start;
@@ -1069,7 +1069,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 	uffdio_copy.mode = 0;
 	uffdio_copy.copy = 0;
 
-	lp_err(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
+	lp_info(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 
 retry:
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
