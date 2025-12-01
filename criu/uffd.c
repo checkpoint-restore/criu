@@ -643,21 +643,19 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 	list_for_each_entry_safe(iov, n, iovs, l) {
 		unsigned long start = iov->start;
 		unsigned long end = iov->end;
-
-		pr_err("  Processing IOV: 0x%lx-0x%lx\n", start, end);
-
+		
 		if (len <= 0 || addr + len < start) {
-			pr_err("    Breaking: len exhausted or before iov\n");
+			pr_debug("    Breaking: len exhausted or before iov\n");
 			break;
 		}
 
 		if (addr >= end) {
-			pr_err("    Skipping: addr >= iov->end\n");
+			pr_debug("    Skipping: addr >= iov->end\n");
 			continue;
 		}
 
 		if (addr < start) {
-			pr_err("    Adjusting: addr < start, moving addr to 0x%lx\n", start);
+			pr_debug("    Adjusting: addr < start, moving addr to 0x%lx\n", start);
 			len -= (start - addr);
 			addr = start;
 		}
@@ -671,12 +669,12 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 		 */
 		if (addr + len < end) {
 			if (addr == start) {
-				pr_err("    Partial drop: adjusting IOV start 0x%lx -> 0x%lx\n", 
+				pr_debug("    Partial drop: adjusting IOV start 0x%lx -> 0x%lx\n", 
 				       iov->start, iov->start + len);
 				iov->start += len;
 				iov->img_start += len;
 			} else {
-				pr_err("    Partial drop: splitting at 0x%lx, truncating to 0x%lx\n",
+				pr_debug("    Partial drop: splitting at 0x%lx, truncating to 0x%lx\n",
 				       addr + len, addr);
 				if (split_iov(iov, addr + len))
 					return -1;
@@ -692,11 +690,11 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 		 * and continue to the next one with the updated range
 		 */
 		if (addr == start) {
-			pr_err("    Full drop: deleting entire IOV 0x%lx-0x%lx\n", start, end);
+			pr_debug("    Full drop: deleting entire IOV 0x%lx-0x%lx\n", start, end);
 			list_del(&iov->l);
 			xfree(iov);
 		} else {
-			pr_err("    Partial drop: truncating IOV end 0x%lx -> 0x%lx\n", end, addr);
+			pr_debug("    Partial drop: truncating IOV end 0x%lx -> 0x%lx\n", end, addr);
 			iov->end = addr;
 		}
 
@@ -704,7 +702,6 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 		addr = end;
 	}
 
-	pr_err("__drop_iovs: complete\n");
 	return 0;
 }
 
@@ -746,26 +743,25 @@ static int __remap_iovs(struct list_head *iovs, unsigned long from, unsigned lon
 	pr_err("__remap_iovs: from=0x%lx to=0x%lx len=0x%lx (off=0x%lx)\n", from, to, len, off);
 
 	list_for_each_entry_safe(iov, n, iovs, l) {
-		pr_err("  Processing IOV: 0x%lx-0x%lx\n", iov->start, iov->end);
 		
 		if (from >= iov->end) {
-			pr_err("    Skipping: from >= iov->end\n");
+			pr_debug("    Skipping: from >= iov->end\n");
 			continue;
 		}
 
 		if (len <= 0 || from + len <= iov->start) {
-			pr_err("    Breaking: len exhausted or past iov\n");
+			pr_debug("    Breaking: len exhausted or past iov\n");
 			break;
 		}
 
 		if (from < iov->start) {
-			pr_err("    Adjusting: from < iov->start, moving from to 0x%lx\n", iov->start);
+			pr_debug("    Adjusting: from < iov->start, moving from to 0x%lx\n", iov->start);
 			len -= (iov->start - from);
 			from = iov->start;
 		}
 
 		if (from > iov->start) {
-			pr_err("    Splitting IOV at from=0x%lx\n", from);
+			pr_debug("    Splitting IOV at from=0x%lx\n", from);
 			if (split_iov(iov, from))
 				return -1;
 			list_safe_reset_next(iov, n, l);
@@ -773,14 +769,14 @@ static int __remap_iovs(struct list_head *iovs, unsigned long from, unsigned lon
 		}
 
 		if (from + len < iov->end) {
-			pr_err("    Splitting IOV at from+len=0x%lx\n", from + len);
+			pr_debug("    Splitting IOV at from+len=0x%lx\n", from + len);
 			if (split_iov(iov, from + len))
 				return -1;
 			list_safe_reset_next(iov, n, l);
 		}
 
 		/* here we have iov->start = from, iov->end <= from + len */
-		pr_err("    Remapping IOV: 0x%lx-0x%lx -> 0x%lx-0x%lx\n", 
+		pr_debug("    Remapping IOV: 0x%lx-0x%lx -> 0x%lx-0x%lx\n", 
 		       iov->start, iov->end, iov->start + off, iov->end + off);
 		from = iov->end;
 		len -= iov->end - iov->start;
@@ -790,7 +786,7 @@ static int __remap_iovs(struct list_head *iovs, unsigned long from, unsigned lon
 	}
 
 	merge_iov_lists(&remaps, iovs);
-	pr_err("__remap_iovs: complete\n");
+	pr_debug("__remap_iovs: complete\n");
 
 	return 0;
 }
@@ -1220,14 +1216,29 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	}
 	
 	/* Check if this address is still tracked (not removed/unmapped) */
+	/* First check main IOVs list */
 	iov = find_iov(lpi, vaddr);
+	
+	/* If not found in main list, check requests list (may have been queued by page fault) */
 	if (!iov) {
+		list_for_each_entry(iov, &lpi->reqs, l) {
+			if (vaddr >= iov->start && vaddr < iov->end) {
+				lp_debug(lpi, "Page at 0x%lx found in requests list\n", vaddr);
+				goto found_iov;
+			}
+		}
+		iov = NULL;  /* Reset if not found in reqs either */
+	}
+	
+	if (!iov) {
+	#if 0
 		struct lazy_iov *tmp_iov;
 		unsigned long iovs_count = 0;
 		unsigned long reqs_count = 0;
-		
+	#endif
+	
 		lp_err(lpi, "Page at 0x%lx no longer needed (unmapped), dropping\n", vaddr);
-		
+	#if 0	
 		/* Dump all IOVs to understand what happened */
 		lp_err(lpi, "=== IOV STATE DUMP (address 0x%lx not found) ===\n", vaddr);
 		
@@ -1248,9 +1259,11 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 		}
 		
 		lp_err(lpi, "=== IOV DUMP END: %lu main IOVs, %lu requests ===\n", iovs_count, reqs_count);
-		
+	#endif
 		return 0;  /* Silently ignore - region was unmapped */
 	}
+
+found_iov:
 	
 	/* Copy pages to userspace */
 	ret = uffd_copy(lpi, vaddr, &pages);
