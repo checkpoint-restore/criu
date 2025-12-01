@@ -1878,6 +1878,8 @@ static void *unified_page_server_thread(void *arg)
 			sleep(0.1);
 		}
 		if (done_count == 30) {
+			pr_perror("EXIT TODO REMOVE2\n");
+
 			exit(0);
 		}
 		
