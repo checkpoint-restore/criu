@@ -986,7 +986,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 	uffdio_copy.copy = 0;
 
 	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
-	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) {
+	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy)) {
 		if (errno == EAGAIN) {
 			lp_err(lpi, "uffd_copy EAGAIN: 0x%llx/%ld\n", uffdio_copy.dst, len);
 		}
