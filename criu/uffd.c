@@ -1417,6 +1417,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	 * make sure that we won't handle #PFs in the removed
 	 * range. With UNMAP, there's no VMA to worry about
 	 */
+	#if 0
 	if (msg->event == UFFD_EVENT_REMOVE && ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
 		/*
 		 * The kernel returns -ENOMEM when unregister is
@@ -1430,7 +1431,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		pr_perror("Failed to unregister (%llx - %llx)", unreg.start, unreg.start + unreg.len);
 		return -1;
 	}
-
+#endif
 	return drop_iovs(lpi, unreg.start, unreg.len);
 }
 
