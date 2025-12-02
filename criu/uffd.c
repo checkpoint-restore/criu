@@ -1763,7 +1763,7 @@ static int process_eagain_requests(void)
 	}
 
 	if (processed > 0) {
-		pr_debug("Processed %d EAGAIN requests, %d succeeded\n", 
+		pr_err("Processed %d EAGAIN requests, %d succeeded\n", 
 			 processed, succeeded);
 	}
 
