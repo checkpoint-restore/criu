@@ -114,6 +114,16 @@ static struct epoll_rfd lazy_sk_rfd;
 /* socket for communication with lazy-pages daemon */
 static int lazy_pages_sk_id = -1;
 
+/* Pending EAGAIN requests (for bulk mode) */
+struct uffd_eagain_request {
+	struct list_head l;
+	struct lazy_pages_info *lpi;
+	__u64 address;
+	unsigned long nr_pages;
+	void *buf;  /* Copy of data that couldn't be written */
+};
+static LIST_HEAD(eagain_requests);
+
 /* Histogram statistics structure */
 static struct {
 	/* Histogram buckets by page count: 1, 16, 32, 64, 128, 256, 512, 1024, >1024 */
@@ -1071,18 +1081,43 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 
 	lp_info(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 
-retry:
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
-		/* Retry on EAGAIN - transient condition */
-		if (errno == EAGAIN && retry_count < MAX_RETRIES) {
-			retry_count++;
-			usleep(1000 * retry_count); /* Exponential backoff */
-			lp_err(lpi, "uffd_copy EAGAIN: 0x%llx/%ld uffdio_copy.copy = %lld\n", uffdio_copy.dst, len, uffdio_copy.copy);
-			lp_err(lpi, "UFFDIO_COPY got EAGAIN, retrying (%d/%d)\n",
-			       retry_count, MAX_RETRIES);
-			goto retry;
+		/* In COW dump mode, queue EAGAIN requests instead of blocking */
+		if (errno == EAGAIN && opts.cow_dump) {
+			struct uffd_eagain_request *req;
+			void *buf_copy;
+			
+			lp_err(lpi, "uffd_copy EAGAIN in COW mode: queueing 0x%llx/%ld for later\n", 
+			       uffdio_copy.dst, len);
+			
+			/* Allocate and copy buffer data */
+			buf_copy = xmalloc(len);
+			if (!buf_copy) {
+				lp_err(lpi, "Failed to allocate buffer for EAGAIN request\n");
+				return -1;
+			}
+			memcpy(buf_copy, lpi->buf, len);
+			
+			/* Create request entry */
+			req = xmalloc(sizeof(*req));
+			if (!req) {
+				xfree(buf_copy);
+				return -1;
+			}
+			
+			req->lpi = lpi;
+			req->address = address;
+			req->nr_pages = *nr_pages;
+			req->buf = buf_copy;
+			INIT_LIST_HEAD(&req->l);
+			
+			list_add_tail(&req->l, &eagain_requests);
+			
+			/* Return success - will retry later */
+			return 0;
 		}
-
+		
+		/* Non-COW mode or non-EAGAIN: */		
 		/* Check for other errors */
 		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)) {
 			lp_err(lpi, "UFFDIO_COPY got error\n");
@@ -1097,15 +1132,39 @@ retry:
 		/* Soft userfaultfd error: encoded as -errno in copy */
 		errno = -uffdio_copy.copy;
 
-		/* Retry on EAGAIN */
-		if (errno == EAGAIN && retry_count < MAX_RETRIES) {
-			retry_count++;
-			usleep(1000 * retry_count);
-			lp_err(lpi, "uffd_copy EAGAIN: 0x%llx/%ld\n", uffdio_copy.dst, len);
-			lp_debug(lpi, "UFFDIO_COPY logical EAGAIN, retrying (%d/%d)\n",
-				 retry_count, MAX_RETRIES);
-			goto retry;
+		/* In COW dump mode, queue EAGAIN requests */
+		if (errno == EAGAIN && opts.cow_dump) {
+			struct uffd_eagain_request *req;
+			void *buf_copy;
+			
+			lp_err(lpi, "uffd_copy logical EAGAIN in COW mode: queueing 0x%llx/%ld\n",
+			       uffdio_copy.dst, len);
+			
+			buf_copy = xmalloc(len);
+			if (!buf_copy) {
+				lp_err(lpi, "Failed to allocate buffer for EAGAIN request\n");
+				return -1;
+			}
+			memcpy(buf_copy, lpi->buf, len);
+			
+			req = xmalloc(sizeof(*req));
+			if (!req) {
+				xfree(buf_copy);
+				return -1;
+			}
+			
+			req->lpi = lpi;
+			req->address = address;
+			req->nr_pages = *nr_pages;
+			req->buf = buf_copy;
+			INIT_LIST_HEAD(&req->l);
+			
+			list_add_tail(&req->l, &eagain_requests);
+			
+			return 0;
 		}
+		
+		/* Retry on EAGAIN in non-COW mode */		
 
 		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)) {
 			lp_err(lpi, "UFFDIO_COPY err \n");
@@ -1636,6 +1695,83 @@ static void lazy_pages_summary(struct lazy_pages_info *lpi)
 #endif
 }
 
+/*
+ * Process pending EAGAIN requests.
+ * Attempts to retry UFFDIO_COPY for requests that previously failed with EAGAIN.
+ */
+static int process_eagain_requests(void)
+{
+	struct uffd_eagain_request *req, *n;
+	struct uffdio_copy uffdio_copy;
+	int processed = 0;
+	int succeeded = 0;
+
+	list_for_each_entry_safe(req, n, &eagain_requests, l) {
+		/* Skip if process has exited */
+		if (req->lpi->exited) {
+			list_del(&req->l);
+			xfree(req->buf);
+			xfree(req);
+			continue;
+		}
+
+		/* Attempt UFFDIO_COPY with saved buffer */
+		uffdio_copy.dst = req->address;
+		uffdio_copy.src = (unsigned long)req->buf;
+		uffdio_copy.len = req->nr_pages * page_size();
+		uffdio_copy.mode = 0;
+		uffdio_copy.copy = 0;
+
+		processed++;
+
+		if (ioctl(req->lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
+			/* Still EAGAIN - keep in queue for next attempt */
+			if (errno == EAGAIN)
+				continue;
+
+			/* Other error - log and remove */
+			lp_err(req->lpi, "EAGAIN retry failed for 0x%llx: %d\n", 
+			       req->address, errno);
+			list_del(&req->l);
+			xfree(req->buf);
+			xfree(req);
+			continue;
+		}
+
+		/* Check for soft error */
+		if (uffdio_copy.copy < 0) {
+			errno = -uffdio_copy.copy;
+			if (errno == EAGAIN)
+				continue;
+
+			/* Other soft error */
+			lp_err(req->lpi, "EAGAIN retry soft error for 0x%llx: %d\n",
+			       req->address, errno);
+			list_del(&req->l);
+			xfree(req->buf);
+			xfree(req);
+			continue;
+		}
+
+		/* Success! */
+		succeeded++;
+		req->lpi->copied_pages += req->nr_pages;
+		lp_debug(req->lpi, "EAGAIN retry succeeded for 0x%llx\n", req->address);
+
+		/* Clean up and remove from queue */
+		list_del(&req->l);
+		xfree(req->buf);
+		xfree(req);
+	}
+
+	if (processed > 0) {
+		pr_debug("Processed %d EAGAIN requests, %d succeeded\n", 
+			 processed, succeeded);
+	}
+
+	return 0;
+}
+
 static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
@@ -1651,6 +1787,13 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 
 		/* Check and print statistics every second */
 		check_and_print_uffd_stats();
+
+		/* In COW dump mode, process pending EAGAIN requests */
+		if (opts.cow_dump) {
+			ret = process_eagain_requests();
+			if (ret < 0)
+				goto out;
+		}
 
 		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)
