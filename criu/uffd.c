@@ -1070,9 +1070,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 {
 	struct uffdio_copy uffdio_copy;
 	unsigned long len = *nr_pages * page_size();
-	int retry_count = 0;
-	const int MAX_RETRIES = 100;
-
+	
 	uffdio_copy.dst = address;
 	uffdio_copy.src = (unsigned long)lpi->buf;
 	uffdio_copy.len = len;
