@@ -247,10 +247,6 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			return -1;
 
 		if (!dump_all_pages && page_info.next != vaddr) {
-			pages_skipped++;
-			if (pages_skipped <= 5 || pages_skipped % 100 == 0)
-				pr_debug("  Skipping 0x%lx (next=0x%llx)\n", vaddr, 
-					(unsigned long long)page_info.next);
 			vaddr = page_info.next - PAGE_SIZE;
 			continue;
 		}
@@ -268,18 +264,12 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		if (has_parent && page_in_parent(page_info.softdirty)) {
 			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
 			st = 0;
-			pr_debug("  Page 0x%lx -> HOLE (in parent)\n", vaddr);
 		} else {
 			ret = page_pipe_add_page(pp, vaddr, ppb_flags);
-			if (ppb_flags & PPB_LAZY && opts.lazy_pages) {
+			if (ppb_flags & PPB_LAZY && opts.lazy_pages)
 				st = 1;
-				if (pages[1] < 5 || pages[1] % 100 == 0)
-					pr_debug("  Page 0x%lx -> LAZY\n", vaddr);
-			} else {
+			else
 				st = 2;
-				if (pages[2] < 5 || pages[2] % 100 == 0)
-					pr_debug("  Page 0x%lx -> IMMEDIATE\n", vaddr);
-			}
 		}
 
 		if (ret) {
@@ -721,8 +711,8 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 	 * 9. syscall fails to copy
 	 *    data from M
 	 */
-	
-	if ((pargs->nr_vmas != 0) &&(!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE)) {
+
+	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
 		pargs->add_prot = PROT_READ;
 		ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
 		if (ret) {
@@ -742,7 +732,8 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 		/* Parasite will unprotect VMAs after fail in fini() */
 		return ret;
 	}
-	if ((pargs->nr_vmas != 0) &&(!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE)) {	
+
+	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
 		pargs->add_prot = 0;
 		if (compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
 			pr_err("Can't rollback unprotected vmas with parasite\n");

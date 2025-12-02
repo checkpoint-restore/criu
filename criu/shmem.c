@@ -699,7 +699,7 @@ int add_shmem_area(pid_t pid, VmaEntry *vma, pmc_t *pmc)
 static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer)
 {
 	struct page_pipe_buf *ppb;
-pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+
 	list_for_each_entry(ppb, &pp->bufs, l)
 		if (vmsplice(ppb->p[1], ppb->iov, ppb->nr_segs, SPLICE_F_GIFT | SPLICE_F_NONBLOCK) !=
 		    ppb->pages_in * PAGE_SIZE) {

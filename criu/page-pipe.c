@@ -133,7 +133,7 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, unsigned int ppb_fl
 		ppb->pipe_size = ppb_size / PAGE_SIZE;
 		pp->nr_pipes++;
 	}
-	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+
 	list_add_tail(&ppb->l, &pp->bufs);
 
 	pp_update_prev_ppb(pp, ppb, ppb_flags);
@@ -165,8 +165,8 @@ static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
 	struct page_pipe_buf *ppb;
 	struct iovec *free_iov;
 
-//	pr_warn("Will grow page pipe (iov off is %u)\n", pp->free_iov);
-	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+	pr_debug("Will grow page pipe (iov off is %u)\n", pp->free_iov);
+
 	if (!list_empty(&pp->free_bufs)) {
 		ppb = list_first_entry(&pp->free_bufs, struct page_pipe_buf, l);
 		list_move_tail(&ppb->l, &pp->bufs);
@@ -191,8 +191,8 @@ struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, uns
 {
 	struct page_pipe *pp;
 
-//	pr_debug("Create page pipe for %u segs\n", nr_segs);
-//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+	pr_debug("Create page pipe for %u segs\n", nr_segs);
+
 	pp = xzalloc(sizeof(*pp));
 	if (!pp)
 		return NULL;
@@ -227,7 +227,8 @@ void destroy_page_pipe(struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb, *n;
 
-//	pr_warn("Killing page pipe\n");
+	pr_debug("Killing page pipe\n");
+
 	list_splice(&pp->free_bufs, &pp->bufs);
 	list_for_each_entry_safe(ppb, n, &pp->bufs, l)
 		ppb_destroy(ppb);
@@ -243,7 +244,8 @@ void page_pipe_reinit(struct page_pipe *pp)
 
 	BUG_ON(!(pp->flags & PP_CHUNK_MODE));
 
-//	pr_warn("Clean up page pipe\n");
+	pr_debug("Clean up page pipe\n");
+
 	list_for_each_entry_safe(ppb, n, &pp->bufs, l)
 		list_move(&ppb->l, &pp->free_bufs);
 
@@ -276,8 +278,6 @@ out:
 
 static inline int try_add_page(struct page_pipe *pp, unsigned long addr, unsigned int flags)
 {
-	//pr_warn("DEBUG try_add_page\n");
-	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	BUG_ON(list_empty(&pp->bufs));
 	return try_add_page_to(pp, list_entry(pp->bufs.prev, struct page_pipe_buf, l), addr, flags);
 }
@@ -336,7 +336,7 @@ static struct page_pipe_buf *get_ppb(struct page_pipe *pp, unsigned long addr, s
 {
 	struct page_pipe_buf *ppb;
 	int i;
-	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
+
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		for (i = 0, *len = 0; i < ppb->nr_segs; i++) {
 			struct iovec *iov = &ppb->iov[i];
@@ -391,7 +391,6 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 	struct iovec *iov = NULL;
 	unsigned long skip = 0, len;
 	ssize_t ret;
-	int avail = 0;
 
 	/*
 	 * Get ppb that contains addr and count length of data between
@@ -416,16 +415,7 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 	skip += ppb->pipe_off * PAGE_SIZE;
 	/* we should tee() the requested length + the beginning of the pipe */
 	len += skip;
-	
-	ioctl(ppb->p[0], FIONREAD, &avail);
-	if (avail == 0)
-	{
-		exit(0); // TODO REMOVE!!!!
-		return 0;
-	}
 
-	avail = fcntl(prd->p[1], F_GETPIPE_SZ);
-	
 	ret = tee(ppb->p[0], prd->p[1], len, 0);
 	if (ret != len) {
 		pr_perror("tee: %zd", ret);
@@ -458,7 +448,6 @@ void debug_show_page_pipe(struct page_pipe *pp)
 
 	pr_debug("Page pipe:\n");
 	pr_debug("* %u pipes %u/%u iovs:\n", pp->nr_pipes, pp->free_iov, pp->nr_iovs);
-	//pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		pr_debug("\tbuf %lx pages, %u iovs, flags: %x pipe_off: %lx :\n", ppb->pages_in, ppb->nr_segs, ppb->flags,
 			 ppb->pipe_off);
