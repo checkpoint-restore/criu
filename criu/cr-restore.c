@@ -2440,6 +2440,7 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_he
 
 	end_vma.e = &end_e;
 	end_e.start = end_e.end = kdat.task_size;
+	INIT_LIST_HEAD(&end_vma.list);
 
 	s_vma = list_first_entry(self_vma_list, struct vma_area, list);
 	t_vma = list_first_entry(tgt_vma_list, struct vma_area, list);

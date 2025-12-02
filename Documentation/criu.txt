@@ -502,8 +502,8 @@ Restores previously checkpointed processes.
 The 'resource' argument can be one of the following:
 +
     - **tty[**__rdev__**:**__dev__**]**
-    - **pipe[**__inode__**]**
-    - **socket[**__inode__*]*
+    - **pipe:[**__inode__**]**
+    - **socket:[**__inode__*]*
     - **file[**__mnt_id__**:**__inode__**]**
     - 'path/to/file'
 
