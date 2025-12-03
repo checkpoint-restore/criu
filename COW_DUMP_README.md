@@ -25,16 +25,24 @@ Traditional CRIU lazy-pages mode keeps the source process halted during memory t
 - **Privileges**: CAP_SYS_PTRACE or `sysctl vm.unprivileged_userfaultfd=1`
 
 ## Usage
-
+At the source create a custom valkey.conf at /etc/valkey/valkey.conf 
 ```bash
-# Perform COW dump
-sudo criu dump --tree <pid> \
-    --images-dir /path/to/images \
-    --cow-dump \
-    --leave-running
+# Perform COW dump src
+sudo cp valkey.confg /etc/valkey/valkey.conf 
+```
 
-# Check kernel support
-criu check --feature cow_dump
+At the source call to
+```bash
+# Perform COW dump src
+sudo scripts/./dump_replica_lazy.sh
+
+```
+
+At the dest 
+```bash
+# Perform COW dump src
+sudo scripts/./orchestrate_kill_and_sync.sh
+
 ```
 
 ## Command-Line Options
