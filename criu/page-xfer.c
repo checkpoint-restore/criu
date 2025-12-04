@@ -1360,7 +1360,7 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 	/* 3. Send page data */
 	if (cow_pg) {
 		/* COW path: send COW data directly */
-		pr_err("Sending COW page at %lx\n", vaddr);
+		pr_info("Sending COW page at %lx\n", vaddr);
 		
 		if (opts.tls) {
 			ret = __send(sk, cow_pg->data, PAGE_SIZE, 0);
@@ -1454,7 +1454,7 @@ static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image
 	}
 	
 	/* Send COW page */
-	pr_err("Sending COW page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu, seg_addr=%p)\n",
+	pr_info("Sending COW page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu, seg_addr=%p)\n",
 		 entry->vaddr, entry->ppb, entry->seg_idx, entry->page_idx_in_seg, local_page_idx,
 		 entry->ppb->iov[entry->seg_idx].iov_base);
 	ret = send_one_chunk(img->main_sk, pp, entry->vaddr, 1, img->dst_id);
@@ -1938,11 +1938,13 @@ static void *unified_page_server_thread(void *arg)
 				for (j = 0; j < nr_pages; j++) {
 					unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
 					unsigned long local_page_idx = page_idx + j;
+					int max_cow_pages_per_iter = 100;
 
 					current_time = time(NULL);
 					if (current_time - last_stats_time >= 1) {
 						unsigned long cow_queue = cow_get_queue_size();
 						unsigned long req_queue = get_page_request_queue_size();
+						
 						
 						pr_warn("[UNIFIED_THREAD_STATS] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu\n",
 							priority1_pages, priority2_pages, priority3_pages, priority3_skips,
@@ -1954,12 +1956,12 @@ static void *unified_page_server_thread(void *arg)
 						priority3_pages = 0;
 						priority3_skips = 0;
 						last_stats_time = current_time;
-		}
+					}
 					
 					/* === PRIORITY 1: Drain ALL COW pages (from any image) === */
-					while (cow_has_pending_pages() && img->remaining_pages > 0) {
+					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
 						struct cow_page_queue_entry *entry = cow_get_next_page();
-						
+						max_cow_pages_per_iter--;
 						if (!entry)
 							break;
 						
