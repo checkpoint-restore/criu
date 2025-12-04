@@ -1066,6 +1066,50 @@ static int refill_pipeline(struct lazy_pages_info *lpi)
 	return 0;
 }
 
+/*
+ * Queue an EAGAIN request for later retry in COW dump mode.
+ * For copy operations, buf should point to the data to copy.
+ * For zero operations, buf should be NULL.
+ */
+static int queue_eagain_request(struct lazy_pages_info *lpi, __u64 address, 
+                                unsigned long nr_pages, void *buf, const char *op_name)
+{
+	struct uffd_eagain_request *req;
+	void *buf_copy = NULL;
+	unsigned long len = nr_pages * page_size();
+	
+	lp_err(lpi, "uffd_%s EAGAIN in COW mode: queueing 0x%llx/%ld for later\n", 
+	       op_name, address, len);
+	
+	/* Copy buffer if provided (copy operation) */
+	if (buf) {
+		buf_copy = xmalloc(len);
+		if (!buf_copy) {
+			lp_err(lpi, "Failed to allocate buffer for EAGAIN request\n");
+			return -1;
+		}
+		memcpy(buf_copy, buf, len);
+	}
+	
+	/* Create request entry */
+	req = xmalloc(sizeof(*req));
+	if (!req) {
+		if (buf_copy)
+			xfree(buf_copy);
+		return -1;
+	}
+	
+	req->lpi = lpi;
+	req->address = address;
+	req->nr_pages = nr_pages;
+	req->buf = buf_copy;  /* NULL for zero operations */
+	INIT_LIST_HEAD(&req->l);
+	
+	list_add_tail(&req->l, &eagain_requests);
+	
+	return 0;
+}
+
 static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *nr_pages)
 {
 	struct uffdio_copy uffdio_copy;
@@ -1081,42 +1125,10 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
 		/* In COW dump mode, queue EAGAIN requests instead of blocking */
-		if (errno == EAGAIN && opts.cow_dump) {
-			struct uffd_eagain_request *req;
-			void *buf_copy;
-			
-			lp_err(lpi, "uffd_copy EAGAIN in COW mode: queueing 0x%llx/%ld for later\n", 
-			       uffdio_copy.dst, len);
-			
-			/* Allocate and copy buffer data */
-			buf_copy = xmalloc(len);
-			if (!buf_copy) {
-				lp_err(lpi, "Failed to allocate buffer for EAGAIN request\n");
-				return -1;
-			}
-			memcpy(buf_copy, lpi->buf, len);
-			
-			/* Create request entry */
-			req = xmalloc(sizeof(*req));
-			if (!req) {
-				xfree(buf_copy);
-				return -1;
-			}
-			
-			req->lpi = lpi;
-			req->address = address;
-			req->nr_pages = *nr_pages;
-			req->buf = buf_copy;
-			INIT_LIST_HEAD(&req->l);
-			
-			list_add_tail(&req->l, &eagain_requests);
-			
-			/* Return success - will retry later */
-			return 0;
-		}
+		if (errno == EAGAIN && opts.cow_dump)
+			return queue_eagain_request(lpi, address, *nr_pages, lpi->buf, "copy");
 		
-		/* Non-COW mode or non-EAGAIN: */		
-		/* Check for other errors */
+		/* Non-COW mode or non-EAGAIN: check for other errors */
 		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)) {
 			lp_err(lpi, "UFFDIO_COPY got error\n");
 			return -1;
@@ -1131,38 +1143,8 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 		errno = -uffdio_copy.copy;
 
 		/* In COW dump mode, queue EAGAIN requests */
-		if (errno == EAGAIN && opts.cow_dump) {
-			struct uffd_eagain_request *req;
-			void *buf_copy;
-			
-			lp_err(lpi, "uffd_copy logical EAGAIN in COW mode: queueing 0x%llx/%ld\n",
-			       uffdio_copy.dst, len);
-			
-			buf_copy = xmalloc(len);
-			if (!buf_copy) {
-				lp_err(lpi, "Failed to allocate buffer for EAGAIN request\n");
-				return -1;
-			}
-			memcpy(buf_copy, lpi->buf, len);
-			
-			req = xmalloc(sizeof(*req));
-			if (!req) {
-				xfree(buf_copy);
-				return -1;
-			}
-			
-			req->lpi = lpi;
-			req->address = address;
-			req->nr_pages = *nr_pages;
-			req->buf = buf_copy;
-			INIT_LIST_HEAD(&req->l);
-			
-			list_add_tail(&req->l, &eagain_requests);
-			
-			return 0;
-		}
-		
-		/* Retry on EAGAIN in non-COW mode */		
+		if (errno == EAGAIN && opts.cow_dump)
+			return queue_eagain_request(lpi, address, *nr_pages, lpi->buf, "copy");
 
 		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)) {
 			lp_err(lpi, "UFFDIO_COPY err \n");
@@ -1342,11 +1324,35 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long n
 	uffdio_zeropage.range.start = address;
 	uffdio_zeropage.range.len = len;
 	uffdio_zeropage.mode = 0;
+	uffdio_zeropage.zeropage = 0;
 
 	lp_err(lpi, "zero page at 0x%llx\n", address);
-	if (ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage) &&
-	    uffd_check_op_error(lpi, "zero", &nr_pages, uffdio_zeropage.zeropage))
-		return -1;
+	
+	if (ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage) == -1) {
+		/* In COW dump mode, queue EAGAIN requests instead of blocking */
+		if (errno == EAGAIN && opts.cow_dump)
+			return queue_eagain_request(lpi, address, nr_pages, NULL, "zero");
+		
+		/* Non-COW mode or non-EAGAIN: check for errors */
+		if (uffd_check_op_error(lpi, "zero", &nr_pages, uffdio_zeropage.zeropage))
+			return -1;
+			
+		return 0;
+	}
+	
+	/* Check for soft error */
+	if (uffdio_zeropage.zeropage < 0) {
+		errno = -uffdio_zeropage.zeropage;
+		
+		/* In COW dump mode, queue EAGAIN requests */
+		if (errno == EAGAIN && opts.cow_dump)
+			return queue_eagain_request(lpi, address, nr_pages, NULL, "zero");
+		
+		if (uffd_check_op_error(lpi, "zero", &nr_pages, uffdio_zeropage.zeropage))
+			return -1;
+			
+		return 0;
+	}
 
 	return 0;
 }
@@ -1694,76 +1700,136 @@ static void lazy_pages_summary(struct lazy_pages_info *lpi)
 }
 
 /*
+ * Retry a copy operation that previously failed with EAGAIN.
+ * Returns: 0 on success, -EAGAIN if still blocked, -1 on error
+ */
+static int retry_uffd_copy(struct uffd_eagain_request *req)
+{
+	struct uffdio_copy uffdio_copy;
+	
+	uffdio_copy.dst = req->address;
+	uffdio_copy.src = (unsigned long)req->buf;
+	uffdio_copy.len = req->nr_pages * page_size();
+	uffdio_copy.mode = 0;
+	uffdio_copy.copy = 0;
+
+	if (ioctl(req->lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
+		if (errno == EAGAIN)
+			return -EAGAIN;
+		
+		lp_err(req->lpi, "EAGAIN copy retry failed for 0x%llx: %d\n", 
+		       req->address, errno);
+		return -1;
+	}
+
+	/* Check for soft error */
+	if (uffdio_copy.copy < 0) {
+		errno = -uffdio_copy.copy;
+		if (errno == EAGAIN)
+			return -EAGAIN;
+		
+		lp_err(req->lpi, "EAGAIN copy retry soft error for 0x%llx: %d\n",
+		       req->address, errno);
+		return -1;
+	}
+
+	/* Success */
+	req->lpi->copied_pages += req->nr_pages;
+	lp_debug(req->lpi, "EAGAIN copy retry succeeded for 0x%llx\n", req->address);
+	return 0;
+}
+
+/*
+ * Retry a zero operation that previously failed with EAGAIN.
+ * Returns: 0 on success, -EAGAIN if still blocked, -1 on error
+ */
+static int retry_uffd_zero(struct uffd_eagain_request *req)
+{
+	struct uffdio_zeropage uffdio_zeropage;
+	
+	uffdio_zeropage.range.start = req->address;
+	uffdio_zeropage.range.len = req->nr_pages * page_size();
+	uffdio_zeropage.mode = 0;
+	uffdio_zeropage.zeropage = 0;
+
+	if (ioctl(req->lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage) == -1) {
+		if (errno == EAGAIN)
+			return -EAGAIN;
+		
+		lp_err(req->lpi, "EAGAIN zero retry failed for 0x%llx: %d\n", 
+		       req->address, errno);
+		return -1;
+	}
+
+	/* Check for soft error */
+	if (uffdio_zeropage.zeropage < 0) {
+		errno = -uffdio_zeropage.zeropage;
+		if (errno == EAGAIN)
+			return -EAGAIN;
+		
+		lp_err(req->lpi, "EAGAIN zero retry soft error for 0x%llx: %d\n",
+		       req->address, errno);
+		return -1;
+	}
+
+	/* Success */
+	lp_debug(req->lpi, "EAGAIN zero retry succeeded for 0x%llx\n", req->address);
+	return 0;
+}
+
+/*
  * Process pending EAGAIN requests.
- * Attempts to retry UFFDIO_COPY for requests that previously failed with EAGAIN.
+ * Attempts to retry UFFDIO_COPY or UFFDIO_ZEROPAGE for requests that previously failed with EAGAIN.
  */
 static int process_eagain_requests(void)
 {
 	struct uffd_eagain_request *req, *n;
-	struct uffdio_copy uffdio_copy;
 	int processed = 0;
 	int succeeded = 0;
+	int ret;
 
 	list_for_each_entry_safe(req, n, &eagain_requests, l) {
 		/* Skip if process has exited */
 		if (req->lpi->exited) {
 			list_del(&req->l);
-			xfree(req->buf);
+			if (req->buf)
+				xfree(req->buf);
 			xfree(req);
 			continue;
 		}
-
-		/* Attempt UFFDIO_COPY with saved buffer */
-		uffdio_copy.dst = req->address;
-		uffdio_copy.src = (unsigned long)req->buf;
-		uffdio_copy.len = req->nr_pages * page_size();
-		uffdio_copy.mode = 0;
-		uffdio_copy.copy = 0;
 
 		processed++;
 
-		if (ioctl(req->lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
-			/* Still EAGAIN - keep in queue for next attempt */
-			if (errno == EAGAIN)
-				continue;
+		/* Call appropriate retry function based on operation type */
+		if (req->buf)
+			ret = retry_uffd_copy(req);
+		else
+			ret = retry_uffd_zero(req);
 
-			/* Other error - log and remove */
-			lp_err(req->lpi, "EAGAIN retry failed for 0x%llx: %d\n", 
-			       req->address, errno);
-			list_del(&req->l);
-			xfree(req->buf);
-			xfree(req);
+		if (ret == -EAGAIN) {
+			/* Still blocked - keep in queue for next attempt */
 			continue;
-		}
-
-		/* Check for soft error */
-		if (uffdio_copy.copy < 0) {
-			errno = -uffdio_copy.copy;
-			if (errno == EAGAIN)
-				continue;
-
-			/* Other soft error */
-			lp_err(req->lpi, "EAGAIN retry soft error for 0x%llx: %d\n",
-			       req->address, errno);
+		} else if (ret < 0) {
+			/* Error - remove from queue */
 			list_del(&req->l);
-			xfree(req->buf);
+			if (req->buf)
+				xfree(req->buf);
 			xfree(req);
 			continue;
 		}
 
 		/* Success! */
 		succeeded++;
-		req->lpi->copied_pages += req->nr_pages;
-		lp_debug(req->lpi, "EAGAIN retry succeeded for 0x%llx\n", req->address);
 
 		/* Clean up and remove from queue */
 		list_del(&req->l);
-		xfree(req->buf);
+		if (req->buf)
+			xfree(req->buf);
 		xfree(req);
 	}
 
 	if (processed > 0) {
-		pr_err("Processed %d EAGAIN requests, %d succeeded\n", 
+		pr_debug("Processed %d EAGAIN requests, %d succeeded\n", 
 			 processed, succeeded);
 	}
 
