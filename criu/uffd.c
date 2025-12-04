@@ -1027,9 +1027,9 @@ static bool uffd_recoverable_error(int mcopy_rc)
 static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsigned long *nr_pages, long mcopy_rc)
 {
 	if (errno == ENOSPC || errno == ESRCH) {
-		lp_err(lpi, "uffd_copy1:ERROR\n");
+		lp_err(lpi, "uffd_copy1:ERROR errno=%d\n", errno);
 		handle_exit(lpi);
-		return 0;
+		return -1;
 	}
 
 	if (!uffd_recoverable_error(mcopy_rc)) {
