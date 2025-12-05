@@ -35,6 +35,7 @@
 #include "protobuf.h"
 #include "util.h"
 #include "namespaces.h"
+#include "plugin.h"
 
 #include "images/inventory.pb-c.h"
 
@@ -707,8 +708,14 @@ static inline int tcp_connection(InetSkEntry *ie)
 static int collect_one_inetsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct inet_sk_info *ii = o;
+	int ret;
 
 	ii->ie = pb_msg(base, InetSkEntry);
+	
+	ret = run_plugins(UPDATE_INETSK, ii->ie->family, ii->ie->state, ii->ie->src_addr, ii->ie->dst_addr);
+	if (ret < 0 && ret != -ENOTSUP)
+		return -1;
+
 	if (tcp_connection(ii->ie))
 		tcp_locked_conn_add(ii);
 
