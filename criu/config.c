@@ -18,6 +18,7 @@
 #include "cr_options.h"
 #include "filesystems.h"
 #include "file-lock.h"
+#include "image.h"
 #include "irmap.h"
 #include "mount.h"
 #include "mount-v2.h"
@@ -703,7 +704,8 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		BOOL_OPT("mntns-compat-mode", &opts.mntns_compat_mode),
 		BOOL_OPT("unprivileged", &opts.unprivileged),
 		BOOL_OPT("ghost-fiemap", &opts.ghost_fiemap),
-        { "posix-sem-migration", no_argument, 0, 1101 },
+		{ "posix-sem-migration", no_argument, 0, 1101 },
+		BOOL_OPT(OPT_ALLOW_UPROBES, &opts.allow_uprobes),
 		{},
 	};
 
@@ -1044,9 +1046,9 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 				return 1;
 			}
 			break;
-        case 1101:
-            opts.posix_sem_migration = true;
-            break;
+		case 1101:
+			opts.posix_sem_migration = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))

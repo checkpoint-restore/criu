@@ -55,6 +55,7 @@ run_test() {
 run_test test_sub
 run_test test_self
 run_test test_notify
+run_test test_rpc_config
 if [ "$(uname -m)" = "x86_64" ]; then
 	# Skip this on aarch64 as aarch64 has no dirty page tracking
 	run_test test_iters
@@ -62,6 +63,7 @@ if [ "$(uname -m)" = "x86_64" ]; then
 fi
 run_test test_errno
 run_test test_join_ns
+run_test test_check
 if criu check --feature mem_dirty_track > /dev/null; then
 	export CRIU_FEATURE_MEM_TRACK=1
 fi

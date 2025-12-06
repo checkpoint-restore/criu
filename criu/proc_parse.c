@@ -75,6 +75,8 @@ struct buffer {
 
 static struct buffer __buf;
 static char *buf = __buf.buf;
+/* only ever goes from false to true, if at all */
+static bool uprobes_vma_exists = false;
 
 /*
  * This is how AIO ring buffers look like in proc
@@ -203,8 +205,10 @@ static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
 	 * vmsplice doesn't work for VM_IO and VM_PFNMAP mappings, the
 	 * only exception is VVAR area that mapped by the kernel as
 	 * VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP
+	 *
+	 * The uprobes vma is also mapped by the kernel with VM_IO, among other flags
 	 */
-	if (io_pf && !vma_area_is(vma_area, VMA_AREA_VVAR) && !vma_entry_is(vma_area->e, VMA_FILE_SHARED))
+	if (io_pf && !vma_area_is(vma_area, VMA_AREA_VVAR) && !vma_entry_is(vma_area->e, VMA_FILE_SHARED) && !vma_area_is(vma_area, VMA_AREA_UPROBES))
 		vma_area->e->status |= VMA_UNSUPP;
 
 	if (vma_area->e->madv)
@@ -604,25 +608,24 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 			goto err;
 	} else if (!strcmp(file_path, "[heap]")) {
 		vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
-	} else if (vfi->dev_maj == 0 && vfi->dev_min == 0 && vfi->ino == 0 && 
-			   file_path[0] != '/') {
+	} else if (vfi->dev_maj == 0 && vfi->dev_min == 0 && vfi->ino == 0 &&
+		   file_path[0] != '/') {
 		/* Anonymous mapping with special name */
 		vma_area->e->status = VMA_AREA_REGULAR;
 	} else if (file_path[0] == '/' && strstr(file_path, "/dev/shm/sem.")) {
 		pr_info("Found POSIX semaphore VMA mapping: %s\n", file_path);
-		
+
 		if (opts.posix_sem_migration) {
 			pr_info("POSIX semaphore migration mode enabled, dumping as object: %s\n", file_path);
 			if (access(file_path, F_OK) != 0) {
 				pr_info("POSIX semaphore VMA mapping for deleted semaphore: %s\n", file_path);
-				
+
 				/* create a POSIX semaphore file entry for this VMA */
-				if (try_dump_posix_semaphore(file_path + 1, *vm_file_fd, vma_area->vmst->st_ino, 
-											 &(struct fd_parms){
-												 .stat = *vma_area->vmst,
-												 .mnt_id = vma_area->mnt_id,
-												 .fs_type = TMPFS_MAGIC
-											 }) == 1) {
+				if (try_dump_posix_semaphore(file_path + 1, *vm_file_fd, vma_area->vmst->st_ino,
+							     &(struct fd_parms){
+								     .stat = *vma_area->vmst,
+								     .mnt_id = vma_area->mnt_id,
+								     .fs_type = TMPFS_MAGIC }) == 1) {
 					pr_info("Skipping refular file processing for POSIX semaphore VMA\n");
 					close_safe(vm_file_fd);
 					vma_area->e->status = VMA_AREA_REGULAR | VMA_AREA_POSIX_SEM;
@@ -635,9 +638,17 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 				vma_area->e->status = VMA_AREA_REGULAR | VMA_AREA_POSIX_SEM;
 			}
 		} else {
-            /* link remap would be needed for this case */
+			/* link remap would be needed for this case */
 			vma_area->e->status = VMA_AREA_REGULAR;
 		}
+	} else if (!strcmp(file_path, "[uprobes]")) {
+		uprobes_vma_exists = true;
+		if (!opts.allow_uprobes) {
+			pr_err("PID %d has uprobes vma. Consider using --" OPT_ALLOW_UPROBES ".\n",
+			       pid);
+			goto err;
+		}
+		vma_area->e->status |= VMA_AREA_UPROBES;
 	} else {
 		vma_area->e->status = VMA_AREA_REGULAR;
 	}
@@ -774,6 +785,10 @@ static int vma_list_add(struct vma_area *vma_area, struct vm_area_list *vma_area
 		 */
 		pr_debug("Device file mapping %016" PRIx64 "-%016" PRIx64 " supported via device plugins\n",
 			 vma_area->e->start, vma_area->e->end);
+	} else if (vma_area->e->status & VMA_AREA_UPROBES) {
+		pr_debug("Skipping uprobes vma %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
+			 vma_area->e->end);
+		return 0;
 	} else if (vma_area->e->status & VMA_UNSUPP) {
 		pr_err("Unsupported mapping found %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
 		       vma_area->e->end);
@@ -1476,7 +1491,7 @@ static void cure_path(char *path)
 		if (off)
 			path[i - off] = path[i];
 		continue;
-	replace:
+replace:
 		off += 3;
 		i += 3;
 	}
@@ -1755,7 +1770,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 				goto end;
 			}
 		}
-	end:
+end:
 		if (fsname)
 			free(fsname);
 
@@ -2833,7 +2848,7 @@ int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups)
 				nc->controllers[nc->n_controllers - 1] = n;
 			}
 
-		skip:
+skip:
 			if (!off)
 				break;
 			controllers = off + 1;
@@ -2963,4 +2978,9 @@ int parse_uptime(uint64_t *upt)
 
 	fclose(f);
 	return 0;
+}
+
+bool found_uprobes_vma(void)
+{
+	return uprobes_vma_exists;
 }

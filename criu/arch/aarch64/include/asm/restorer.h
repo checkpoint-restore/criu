@@ -1,7 +1,7 @@
 #ifndef __CR_ASM_RESTORER_H__
 #define __CR_ASM_RESTORER_H__
 
-#include <asm/sigcontext.h>
+#include <signal.h>
 #include <sys/ucontext.h>
 
 #include "asm/types.h"

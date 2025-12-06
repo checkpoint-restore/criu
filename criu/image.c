@@ -95,6 +95,11 @@ int check_img_inventory(bool restore)
 		goto out_err;
 	}
 
+	if (restore && he->allow_uprobes && !opts.allow_uprobes) {
+		pr_err("Dumped with --" OPT_ALLOW_UPROBES ". Need to set it on restore as well.\n");
+		goto out_err;
+	}
+
 	if (restore) {
 		if (!he->has_network_lock_method) {
 			/*
@@ -712,7 +717,7 @@ struct cr_img *img_from_fd(int fd)
  * This is used when opts.stream is enabled for picking the right streamer
  * socket name. `mode` is ignored when opts.stream is not enabled.
  */
-int open_image_dir(char *dir, int mode)
+int open_image_dir(const char *dir, int mode)
 {
 	int fd, ret;
 

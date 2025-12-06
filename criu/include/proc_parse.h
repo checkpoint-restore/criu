@@ -105,4 +105,6 @@ extern int parse_uptime(uint64_t *upt);
 
 extern int parse_timens_offsets(struct timespec *boff, struct timespec *moff);
 
+extern bool found_uprobes_vma(void);
+
 #endif /* __CR_PROC_PARSE_H__ */

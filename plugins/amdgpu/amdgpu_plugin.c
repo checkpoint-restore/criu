@@ -66,18 +66,6 @@ bool plugin_added_to_inventory = false;
 
 bool plugin_disabled = false;
 
-/*
- * In the case of a single process (common case), this optimization can effectively
- * reduce the restore latency with parallel restore. In the case of multiple processes,
- * states are already restored in parallel within different processes. Therefore, this
- * optimization does not introduce further improvement and will be disabled by default
- * in this case. The flag, parallel_disabled, is used to control whether the
- * optimization is enabled or disabled.
- */
-bool parallel_disabled = false;
-
-pthread_t parallel_thread = 0;
-int parallel_thread_result = 0;
 /**************************************************************************************************/
 
 /* Call ioctl, restarting if it is interrupted */
@@ -527,8 +515,8 @@ void free_and_unmap(uint64_t size, amdgpu_bo_handle h_bo, amdgpu_va_handle h_va,
 }
 
 static int sdma_copy_bo(struct kfd_criu_bo_bucket bo_bucket, FILE *storage_fp,
-						void *buffer, size_t buffer_size, amdgpu_device_handle h_dev,
-						uint64_t max_copy_size, enum sdma_op_type type)
+			void *buffer, size_t buffer_size, amdgpu_device_handle h_dev,
+			uint64_t max_copy_size, enum sdma_op_type type)
 {
 	uint64_t size, src_bo_size, dst_bo_size, buffer_bo_size, bytes_remain, buffer_space_remain;
 	uint64_t gpu_addr_src, gpu_addr_dst, gpu_addr_ib, copy_src, copy_dst, copy_size;
@@ -1243,7 +1231,6 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	/* Check whether this plugin was called for kfd or render nodes */
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0) {
-
 		/* This is RenderD dumper plugin, for now just save renderD
 		 * minor number to be used during restore. In later phases this
 		 * needs to save more data for video decode etc.
@@ -1691,7 +1678,7 @@ int amdgpu_plugin_restore_file(int id)
 		fd = node_get_drm_render_device(tp_node);
 		if (fd < 0)
 			pr_err("Failed to open render device (minor:%d)\n", tp_node->drm_render_minor);
-	fail:
+fail:
 		criu_render_node__free_unpacked(rd, NULL);
 		xfree(buf);
 		/*
@@ -1898,25 +1885,6 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 
 	if (plugin_disabled)
 		return -ENOTSUP;
-
-	if (!parallel_disabled) {
-		pr_info("Close parallel restore server\n");
-		if (close_parallel_restore_server()) {
-			pr_err("Close parallel restore server fail\n");
-			return -1;
-		}
-
-		exit_code = pthread_join(parallel_thread, NULL);
-		if (exit_code) {
-			pr_err("Failed to join parallel thread ret:%d\n", exit_code);
-			return -1;
-		}
-		if (parallel_thread_result) {
-			pr_err("Parallel restore fail\n");
-			return parallel_thread_result;
-		}
-	}
-
 	pr_info("Inside %s for target pid = %d\n", __func__, target_pid);
 
 	fd = open(AMDGPU_KFD_DEVICE, O_RDWR | O_CLOEXEC);

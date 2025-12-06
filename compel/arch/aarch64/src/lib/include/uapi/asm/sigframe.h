@@ -1,10 +1,11 @@
 #ifndef UAPI_COMPEL_ASM_SIGFRAME_H__
 #define UAPI_COMPEL_ASM_SIGFRAME_H__
 
-#include <asm/sigcontext.h>
+#include <signal.h>
 #include <sys/ucontext.h>
 
 #include <stdint.h>
+#include <asm/types.h>
 
 /* Copied from the kernel header arch/arm64/include/uapi/asm/sigcontext.h */
 

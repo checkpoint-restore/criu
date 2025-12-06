@@ -8,3 +8,4 @@ test_pre_dump
 test_feature_check
 output/
 libcriu.so.*
+test_rpc_config

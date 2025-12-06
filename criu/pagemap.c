@@ -162,7 +162,7 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 
 		if (end <= vaddr)
 			skip_pagemap_pages(pr, end - pr->cvaddr);
-	adv:; /* otherwise "label at end of compound stmt" gcc error */
+adv:; /* otherwise "label at end of compound stmt" gcc error */
 	} while (advance(pr));
 
 	return 0;
@@ -171,7 +171,7 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, unsigned long int nr)
 {
 	if (vaddr < pe->vaddr || (vaddr - pe->vaddr) / PAGE_SIZE + nr > pe->nr_pages) {
-		pr_err("Page read err %" PRIx64 ":%lx vs %lx:%lx\n", pe->vaddr, pe->nr_pages, vaddr, nr);
+		pr_err("Page read err %" PRIx64 ":%" PRIx64 " vs %lx:%lx\n", pe->vaddr, pe->nr_pages, vaddr, nr);
 		BUG();
 	}
 }
@@ -539,7 +539,7 @@ static int process_async_reads(struct page_read *pr)
 
 		pr_debug("Read piov iovs %d, from %ju, len %ju, first %p:%zu\n", piov->nr, piov->from,
 			 piov->end - piov->from, piov->to->iov_base, piov->to->iov_len);
-	more:
+more:
 		ret = preadv(fd, piov->to, piov->nr, piov->from);
 		if (fault_injected(FI_PARTIAL_PAGES)) {
 			/*

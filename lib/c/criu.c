@@ -2041,3 +2041,22 @@ void criu_set_empty_ns(int namespaces)
 {
 	criu_local_set_empty_ns(global_opts, namespaces);
 }
+
+int criu_local_set_config_file(criu_opts *opts, const char *path)
+{
+	char *new;
+
+	new = strdup(path);
+	if (!new)
+		return -ENOMEM;
+
+	free(opts->rpc->config_file);
+	opts->rpc->config_file = new;
+
+	return 0;
+}
+
+int criu_set_config_file(const char *path)
+{
+	return criu_local_set_config_file(global_opts, path);
+}

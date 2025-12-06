@@ -73,6 +73,23 @@ int arch_shstk_trampoline(struct pstree_item *item, CoreEntry *core,
 		      int (*func)(void *arg), void *arg);
 #define arch_shstk_trampoline arch_shstk_trampoline
 
+static always_inline long shstk_restorer_stack_size(void)
+{
+	return PAGE_SIZE;
+}
+#define shstk_restorer_stack_size shstk_restorer_stack_size
+static always_inline void shstk_set_restorer_stack(struct rst_shstk_info *info, void *ptr)
+{
+	info->tmp_shstk = (unsigned long)ptr;
+}
+#define shstk_set_restorer_stack shstk_set_restorer_stack
+
+static always_inline long shstk_min_mmap_addr(struct rst_shstk_info *info, unsigned long __maybe_unused def)
+{
+	return !(info->cet & ARCH_SHSTK_SHSTK) ? def : (4UL << 30);
+}
+#define shstk_min_mmap_addr shstk_min_mmap_addr
+
 #ifdef CR_NOGLIBC
 
 #include <compel/plugins/std/syscall.h>
@@ -147,31 +164,51 @@ static inline int shstk_finalize(void)
 }
 
 /*
+ * Create shadow stack vma and restore its content from premmapped anonymous (non-shstk) vma
+ */
+static always_inline int shstk_vma_restore(VmaEntry *vma_entry)
+{
+	long shstk, i;
+	unsigned long *shstk_data = (void *)vma_premmaped_start(vma_entry);
+	unsigned long vma_size = vma_entry_len(vma_entry);
+	long ret;
+
+	shstk = sys_map_shadow_stack(0, vma_size, SHADOW_STACK_SET_TOKEN);
+	if (shstk < 0) {
+		pr_err("Failed to map shadow stack: %ld\n", shstk);
+		return -1;
+	}
+
+	/* restore shadow stack contents */
+	for (i = 0; i < vma_size / 8; i++)
+		wrssq(shstk + i * 8, shstk_data[i]);
+
+	ret = sys_munmap(shstk_data, vma_size);
+	if (ret < 0) {
+		pr_err("Failed to unmap premmaped shadow stack\n");
+		return ret;
+	}
+
+	/*
+	 * From that point premapped vma is (shstk) and we need
+	 * to mremap() it to the final location. Originally premapped
+	 * (shstk_data) has been unmapped already.
+	 */
+	vma_premmaped_start(vma_entry) = shstk;
+
+	return 0;
+}
+#define shstk_vma_restore shstk_vma_restore
+
+/*
  * Restore contents of the shadow stack and set shadow stack pointer
  */
 static always_inline int shstk_restore(struct rst_shstk_info *cet)
 {
-	unsigned long *shstk_data = (unsigned long *)cet->premmaped_addr;
-	unsigned long ssp = cet->vma_start + cet->vma_size - 8;
-	unsigned long shstk_top = cet->vma_size / 8 - 1;
-	unsigned long val;
-	long ret;
+	unsigned long ssp, val;
 
 	if (!(cet->cet & ARCH_SHSTK_SHSTK))
 		return 0;
-
-	if (shstk_map(cet->vma_start, cet->vma_size))
-		return -1;
-
-	/*
-	 * Switch shadow stack from temporary location to the actual task's
-	 * shadow stack VMA
-	 */
-	shstk_switch_ssp(ssp);
-
-	/* restore shadow stack contents */
-	for (; ssp >= cet->ssp; ssp -= 8, shstk_top--)
-		wrssq(ssp, shstk_data[shstk_top]);
 
 	/*
 	 * Add tokens for sigreturn frame and for switch of the shadow stack.
@@ -182,6 +219,7 @@ static always_inline int shstk_restore(struct rst_shstk_info *cet)
 	 */
 
 	/* token for sigreturn frame */
+	ssp = cet->ssp - 8;
 	val = ALIGN_DOWN(cet->ssp, 8) | SHSTK_DATA_BIT;
 	wrssq(ssp, val);
 
@@ -192,12 +230,6 @@ static always_inline int shstk_restore(struct rst_shstk_info *cet)
 
 	/* reset shadow stack pointer to the proper location */
 	shstk_switch_ssp(ssp);
-
-	ret = sys_munmap(shstk_data, cet->vma_size + PAGE_SIZE);
-	if (ret < 0) {
-		pr_err("Failed to unmap premmaped shadow stack\n");
-		return ret;
-	}
 
 	return shstk_finalize();
 }

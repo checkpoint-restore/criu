@@ -15,8 +15,7 @@ dnf install -y \
 	python-unversioned-command \
 	redhat-rpm-config \
 	sudo \
-	tar \
-	which
+	tar
 
 # /tmp is no longer 755 in the rawhide container image and breaks CI - fix it
 chmod 1777 /tmp

@@ -8,6 +8,7 @@ import struct
 
 import pycriu.rpc_pb2 as rpc
 
+CR_DEFAULT_SERVICE_ADDRESS = "./criu_service.socket"
 
 class _criu_comm:
     """
@@ -45,7 +46,14 @@ class _criu_comm_sk(_criu_comm):
 
     def connect(self, daemon):
         self.sk = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-        self.sk.connect(self.comm)
+        try:
+            self.sk.connect(self.comm)
+            
+        except FileNotFoundError:
+            raise FileNotFoundError("Socket file not found.")
+        
+        except ConnectionRefusedError:
+            raise ConnectionRefusedError("Service not running.")
 
         return self.sk
 
@@ -103,7 +111,7 @@ class _criu_comm_bin(_criu_comm):
                 os.close(2)
 
                 css[0].send(struct.pack('i', os.getpid()))
-                os.execv(self.comm,
+                os.execvp(self.comm,
                          [self.comm, 'swrk',
                           "%d" % css[0].fileno()])
                 os._exit(1)
@@ -181,15 +189,14 @@ class CRIUExceptionExternal(CRIUException):
         if self.errno == errno.EBADRQC:
             s += "Bad options"
 
-        if self.typ == rpc.DUMP:
-            if self.errno == errno.ESRCH:
-                s += "No process with such pid"
+        elif self.typ == rpc.DUMP and self.errno == errno.ESRCH:
+            s += "No process with such pid"
 
-        if self.typ == rpc.RESTORE:
-            if self.errno == errno.EEXIST:
-                s += "Process with requested pid already exists"
+        elif self.typ == rpc.RESTORE and self.errno == errno.EEXIST:
+            s += "Process with requested pid already exists"
 
-        s += "Unknown"
+        else:
+            s += "Unknown"
 
         return s
 
@@ -204,10 +211,11 @@ class criu:
 
     def __init__(self):
         self.use_binary('criu')
-        self.opts = rpc.criu_opts()
+        # images_dir_fd is required field with default value of -1
+        self.opts = rpc.criu_opts(images_dir_fd=-1)
         self.sk = None
 
-    def use_sk(self, sk_name):
+    def use_sk(self, sk_name=CR_DEFAULT_SERVICE_ADDRESS):
         """
         Access criu using unix socket which that belongs to criu service daemon.
         """
@@ -266,6 +274,7 @@ class criu:
         """
         req = rpc.criu_req()
         req.type = rpc.CHECK
+        req.opts.MergeFrom(self.opts)
 
         resp = self._send_req_and_recv_resp(req)
 

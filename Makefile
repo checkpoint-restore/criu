@@ -451,6 +451,10 @@ ruff:
 		test/zdtm.py \
 		test/inhfd/*.py \
 		test/others/rpc/config_file.py \
+		test/others/action-script/check_actions.py \
+		test/others/pycriu/*.py \
+		lib/pycriu/criu.py \
+		lib/pycriu/__init__.py \
 		lib/pycriu/images/pb2dict.py \
 		lib/pycriu/images/images.py \
 		scripts/criu-ns \
@@ -488,7 +492,7 @@ lint: ruff shellcheck codespell
 	! git --no-pager grep -E '\s+$$' \*.c \*.h
 .PHONY: lint ruff shellcheck codespell
 
-codecov: SHELL := $(shell which bash)
+codecov: SHELL := $(shell command -v bash)
 codecov:
 	curl -Os https://uploader.codecov.io/latest/linux/codecov
 	chmod +x codecov

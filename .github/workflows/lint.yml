@@ -14,7 +14,7 @@ jobs:
       image: registry.fedoraproject.org/fedora:latest
     steps:
     - name: Install tools
-      run: sudo dnf -y install git make ruff xz clang-tools-extra which codespell git-clang-format ShellCheck
+      run: sudo dnf -y install git make ruff xz clang-tools-extra codespell git-clang-format ShellCheck
 
     - uses: actions/checkout@v4
 

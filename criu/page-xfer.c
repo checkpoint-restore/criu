@@ -1139,13 +1139,17 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 {
 	struct pstree_item *item;
 	struct page_pipe *pp;
-	unsigned long len;
+	unsigned long len, nr_pages;
 	int ret;
 
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
 
-	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr, &pi->nr_pages, PPB_LAZY);
+	/* page_pipe_read() uses 'unsigned long *' but pi->nr_pages is u64.
+	 * Use a temporary variable to fix the incompatible pointer type
+	 * on 32-bit platforms (e.g. armv7). */
+	nr_pages = pi->nr_pages;
+	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr, &nr_pages, PPB_LAZY);
 	if (ret)
 		return ret;
 
@@ -1154,6 +1158,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	 * .dst_id all remain intact.
 	 */
 
+	pi->nr_pages = nr_pages;
 	if (pi->nr_pages == 0) {
 		pr_debug("no iovs found, zero pages\n");
 		return -1;

@@ -3,6 +3,7 @@
 dnf install -y \
 	asciidoc \
 	binutils \
+	elfutils-libelf-devel \
 	gcc \
 	git \
 	glibc-devel \
@@ -18,6 +19,8 @@ dnf install -y \
 	libnet-devel \
 	libnl3-devel \
 	libselinux-devel \
+	libtraceevent-devel \
+	libtracefs-devel \
 	libuuid-devel \
 	make \
 	nftables \
@@ -31,5 +34,7 @@ dnf install -y \
 	python3-importlib-metadata \
 	python3-protobuf \
 	python3-pyyaml \
+	python3-setuptools \
+	python3-wheel \
 	rubygem-asciidoctor \
 	xmlto

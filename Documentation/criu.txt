@@ -465,6 +465,30 @@ The 'mode' may be one of the following:
     *skip*::: Don't lock the network. If *--tcp-close* is not used, the network
     must be locked externally to allow CRIU to dump TCP connections.
 
+*--allow-uprobes*::
+    Allow dumping when uprobes vma is present. When used on dump, this option is
+    required on restore as well.
+
+    A uprobes vma is automatically created by the kernel once a uprobe is
+    triggered. This mapping is not removed even once the uprobe is deleted. So,
+    even if a process once had uprobes attached to it, and they're removed by
+    the time the process is dumped, this option is still required because criu
+    has no way of knowing whether there are active uprobes or not.
+
+    When using this option on restore, make sure the uprobes (if any) active on
+    the dumped processes are still active. Otherwise, when execution reaches
+    a uprobe'd location in any of the restored processes, that process will be
+    sent a SIGTRAP.
+
+    As an example, say a uprobe is set at function foo in the executable of the
+    process p_bar. Whenever execution in p_bar reaches function foo, the uprobe
+    is triggered. If the uprobe has been triggered at least once, then the kernel
+    will have created the uprobes vma. To dump p_bar, this option is
+    necessary. After dumping, say the uprobe is deleted. Now, on restoring with
+    this option, once execution reaches function foo, SIGTRAP will be sent to
+    the restored p_bar. Unless it has a signal handler installed for SIGTRAP,
+    it will be terminated and core dumped.
+
 *restore*
 ~~~~~~~~~
 Restores previously checkpointed processes.
@@ -691,6 +715,10 @@ The 'mode' may be one of the following:
 
 *--skip-file-rwx-check*::
     Skip checking file permissions (r/w/x for u/g/o) on restore.
+
+*--allow-uprobes*::
+    Required when dumped with this option. Refer to this option in the section
+    on dumping for more details.
 
 *check*
 ~~~~~~~

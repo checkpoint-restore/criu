@@ -13,6 +13,9 @@ from setup_swrk import setup_swrk
 log_file = 'config_file_test.log'
 does_not_exist = 'does-not.exist'
 
+script_path = os.path.dirname(os.path.abspath(__file__))
+action_script_file = os.path.join(script_path, 'action-script.sh')
+
 
 def setup_config_file(content):
     # Creating a temporary file which will be used as configuration file.
@@ -89,29 +92,37 @@ def test_broken_configuration_file():
         sys.exit(-1)
 
 
-def search_in_log_file(log, message):
-    with open(os.path.join(args['dir'], log)) as f:
+def search_in_log_file(log_path, message):
+    with open(log_path) as f:
         if message not in f.read():
-            print(
-                'FAIL: Missing the expected error message (%s) in the log file'
-                % message)
+            print('FAIL: Missing the expected error message (%s) in the log file' % message)
             sys.exit(-1)
+
+
+def print_log_file(log_path):
+    print("\n--- Begin log file: %s ---" % log_path)
+    with open(log_path, 'r') as f:
+        print(f.read())
+    print("--- End log file ---\n")
 
 
 def check_results(resp, log):
     # Check if the specified log file exists
-    if not os.path.isfile(os.path.join(args['dir'], log)):
+    log_path = os.path.join(args['dir'], log)
+    if not os.path.isfile(log_path):
         print('FAIL: Expected log file %s does not exist' % log)
         sys.exit(-1)
     # Dump should have failed with: 'The criu itself is within dumped tree'
     if resp.type != rpc.DUMP:
         print('FAIL: Unexpected msg type %r' % resp.type)
+        print_log_file(log_path)
         sys.exit(-1)
     if 'The criu itself is within dumped tree' not in resp.cr_errmsg:
         print('FAIL: Missing the expected error message in RPC response')
+        print_log_file(log_path)
         sys.exit(-1)
     # Look into the log file for the same message
-    search_in_log_file(log, 'The criu itself is within dumped tree')
+    search_in_log_file(log_path, 'The criu itself is within dumped tree')
 
 
 def test_rpc_without_configuration_file():
@@ -156,6 +167,7 @@ def test_rpc_with_configuration_file_overwriting_rpc():
     # file settings in the default configuration.
     log = does_not_exist
     content = 'log-file ' + log + '\n'
+    content += 'action-script ' + action_script_file + '\n'
     content += 'no-tcp-established\nno-shell-job'
     path = setup_config_file(content)
     # Only set the configuration file via RPC;
@@ -180,11 +192,18 @@ args = vars(parser.parse_args())
 
 cleanup_output(args['dir'])
 
+print("*** Test broken config file ***")
 test_broken_configuration_file()
 cleanup_output(args['dir'])
+
+print("*** Test RPC without config file ***")
 test_rpc_without_configuration_file()
 cleanup_output(args['dir'])
+
+print("*** Test RPC with config file ***")
 test_rpc_with_configuration_file()
 cleanup_output(args['dir'])
+
+print("*** Test configuration file overwriting RPC ***")
 test_rpc_with_configuration_file_overwriting_rpc()
 cleanup_output(args['dir'])

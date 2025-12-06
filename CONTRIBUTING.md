@@ -8,8 +8,8 @@ Here are some useful hints to get involved.
 * We have both -- [very simple](https://github.com/checkpoint-restore/criu/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement) and [more sophisticated](https://github.com/checkpoint-restore/criu/issues?q=is%3Aissue+is%3Aopen+label%3A%22new+feature%22) coding tasks;
 * CRIU does need [extensive testing](https://github.com/checkpoint-restore/criu/issues?q=is%3Aissue+is%3Aopen+label%3Atesting);
 * Documentation is always hard, we have [some information](https://criu.org/Category:Empty_articles) that is to be extracted from people's heads into wiki pages as well as [some texts](https://criu.org/Category:Editor_help_needed) that all need to be converted into useful articles;
-* Feedback is expected on the GitHub issues page and on the [mailing list](https://lists.openvz.org/mailman/listinfo/criu);
-* We accept GitHub pull requests and this is the preferred way to contribute to CRIU. If you prefer to send patches by email, you are welcome to send them to [CRIU development mailing list](https://lists.openvz.org/mailman/listinfo/criu).
+* Feedback is expected on the GitHub issues page and on the [mailing list](https://lore.kernel.org/criu);
+* We accept GitHub pull requests and this is the preferred way to contribute to CRIU. If you prefer to send patches by email, you are welcome to send them to [CRIU development mailing list](https://lore.kernel.org/criu).
 Below we describe in more detail recommend practices for CRIU development.
 * Spread the word about CRIU in [social networks](http://criu.org/Contacts);
 * If you're giving a talk about CRIU -- let us know, we'll mention it on the [wiki main page](https://criu.org/News/events);
@@ -366,7 +366,7 @@ We recommend to post patches using `git send-email`
 
 ```
 git send-email --cover-letter --no-chain-reply-to --annotate \
-               --confirm=always --to=criu@openvz.org criu-dev
+               --confirm=always --to=criu@lists.linux.dev criu-dev
 ```
 
 Note that the `git send-email` subcommand may not be in
@@ -381,11 +381,11 @@ configure it to point it to your SMTP server with something like:
 git config --global sendemail.smtpServer stmp.example.net
 ```
 
-If you get tired of typing `--to=criu@openvz.org` all the time,
+If you get tired of typing `--to=criu@lists.linux.dev` all the time,
 you can configure that to be automatically handled as well:
 
 ```
-git config sendemail.to criu@openvz.org
+git config sendemail.to criu@lists.linux.dev
 ```
 
 If a developer is sending another version of the patch (e.g. to address
@@ -398,7 +398,7 @@ version if needed though).
 
 ### Mail patches
 
-The patches should be sent to CRIU development mailing list, `criu AT openvz.org`. Note that you need to be subscribed first in order to post. The list web interface is available at https://openvz.org/mailman/listinfo/criu; you can also use standard mailman aliases to work with it.
+The patches should be sent to CRIU development mailing list, `criu AT lists.linux.dev`. Note that you need to be subscribed first in order to post. The list web interface is available at https://lore.kernel.org/criu; you can also use standard mailman aliases to work with it.
 
 Please make sure the email client you're using doesn't screw your patch (line wrapping and so on).
 
