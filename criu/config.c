@@ -706,6 +706,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		BOOL_OPT("ghost-fiemap", &opts.ghost_fiemap),
 		{ "posix-sem-migration", no_argument, 0, 1101 },
 		BOOL_OPT(OPT_ALLOW_UPROBES, &opts.allow_uprobes),
+		{ "sk-inet-redirect", optional_argument, 0, 1102 },
 		{},
 	};
 
@@ -1048,6 +1049,10 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			break;
 		case 1101:
 			opts.posix_sem_migration = true;
+			break;
+		case 1102:
+			if (optarg)
+				SET_CHAR_OPTS(sk_inet_redirect, optarg);
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);

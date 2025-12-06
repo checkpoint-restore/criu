@@ -197,6 +197,7 @@ struct cr_options {
 	int network_lock_method;
 	int skip_file_rwx_check;
 	int allow_uprobes;
+	char *sk_inet_redirect;
 
 	/*
 	 * When we scheduler for removal some functionality we first

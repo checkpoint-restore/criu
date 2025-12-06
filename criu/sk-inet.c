@@ -1034,8 +1034,43 @@ int inet_bind(int sk, struct inet_sk_info *ii)
 
 	addr_size = restore_sockaddr(&addr, ii->ie->family, ii->ie->src_port, ii->ie->src_addr, ifindex);
 
+	/* Check if we need to redirect the bind address */
+	if (opts.sk_inet_redirect && ii->ie->family == AF_INET) {
+		char old_ip[INET_ADDRSTRLEN], new_ip[INET_ADDRSTRLEN];
+		char *colon;
+		u32 old_addr, new_addr;
+
+		colon = strchr(opts.sk_inet_redirect, ':');
+		if (!colon) {
+			pr_err("Invalid --sk-inet-redirect format, expected OLD_IP:NEW_IP\n");
+			return -1;
+		}
+
+		strncpy(old_ip, opts.sk_inet_redirect, colon - opts.sk_inet_redirect);
+		old_ip[colon - opts.sk_inet_redirect] = '\0';
+		strncpy(new_ip, colon + 1, INET_ADDRSTRLEN - 1);
+		new_ip[INET_ADDRSTRLEN - 1] = '\0';
+
+		if (inet_pton(AF_INET, old_ip, &old_addr) != 1) {
+			pr_err("Invalid old IP address in --sk-inet-redirect: %s\n", old_ip);
+			return -1;
+		}
+		if (inet_pton(AF_INET, new_ip, &new_addr) != 1) {
+			pr_err("Invalid new IP address in --sk-inet-redirect: %s\n", new_ip);
+			return -1;
+		}
+
+		if (addr.v4.sin_addr.s_addr == old_addr) {
+			char src_str[INET_ADDRSTRLEN];
+			inet_ntop(AF_INET, &addr.v4.sin_addr, src_str, sizeof(src_str));
+			pr_info("Redirecting socket bind from %s to %s (port %d)\n",
+				src_str, new_ip, ntohs(addr.v4.sin_port));
+			addr.v4.sin_addr.s_addr = new_addr;
+		}
+	}
+
 	/*
-	 * ipv6 addresses go through a “tentative” phase and
+	 * ipv6 addresses go through a "tentative" phase and
 	 * sockets could not be bound to them in this moment
 	 * without setting IP_FREEBIND.
 	 */
