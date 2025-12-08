@@ -702,9 +702,9 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		struct timeval t_now, t_delta;
 		gettimeofday(&t_now, NULL);
 		timersub(&t_now, &t_checkpoint, &t_delta);
-		pr_info("TIMING: generate_vma_iovs loop took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+		pr_err("TIMING: generate_vma_iovs loop took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
 	}
-	pr_info("generate_vma_iovs ended\n");
+	pr_err("generate_vma_iovs ended\n");
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
 
@@ -714,7 +714,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * actual optimization which reduces time for which process was frozen
 	 * during pre-dump.
 	 */
-	pr_info("pargs_iovs ended\n");
+	pr_err(pargs_iovs ended\n");
 
 	gettimeofday(&t_checkpoint, NULL);
 	
@@ -724,10 +724,15 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * from the process memory on-demand, eliminating the need to
 	 * pre-fill the pipe with vmsplice.
 	 */
-	/*if (opts.cow_dump) {
+	#if 0
+	if (opts.cow_dump) {
 		pr_err("Skipping drain_pages - using process_vm_readv for on-demand page reads\n");
 		ret = 0;
-	} else*/ if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
+	} else 
+	 #endif
+	 
+	
+	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
 		ret = 0;
 	} else {
 		ret = drain_pages(pp, ctl, args);
@@ -737,9 +742,9 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		struct timeval t_now, t_delta;
 		gettimeofday(&t_now, NULL);
 		timersub(&t_now, &t_checkpoint, &t_delta);
-		pr_info("TIMING: drain_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+		pr_err("TIMING: drain_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
 	}
-	pr_info("drain_pages ended ret = %d\n", ret);
+	pr_err("drain_pages ended ret = %d\n", ret);
 	
 	gettimeofday(&t_checkpoint, NULL);
 	if (!ret && !mdc->pre_dump)
