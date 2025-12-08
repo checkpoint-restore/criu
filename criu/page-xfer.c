@@ -1566,18 +1566,6 @@ static int send_page_request_response(struct page_request_entry *req, struct pag
 
 	tcp_nodelay(req->sk, true);
 	return 0;
-
-err_free_all:
-	xfree(buffer);
-err_free_cow:
-	for (i = 0; i < nr_pages; i++) {
-		if (cow_pages[i]) {
-			xfree(cow_pages[i]->data);
-			xfree(cow_pages[i]);
-		}
-	}
-	xfree(cow_pages);
-	return -1;
 }
 
 /* Helper to send a page request using lazy-evaluated location info */
