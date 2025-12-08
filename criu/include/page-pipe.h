@@ -131,6 +131,7 @@ struct page_pipe {
 	struct iovec *holes;	/* holes */
 	unsigned int *hole_flags;
 	unsigned int flags; /* PP_FOO flags below */
+	int source_pid;		   /* PID of source process for process_vm_readv (0 if unavailable) */
 };
 
 #define PP_CHUNK_MODE 0x1 /* Restrict the maximum buffer size of pipes and dump memory for a few iterations */
@@ -152,7 +153,7 @@ struct pipe_read_dest {
 };
 
 extern int pipe_read_dest_init(struct pipe_read_dest *prd);
-extern int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned long addr, unsigned long *nr_pages,
-			  unsigned int ppb_flags);
+extern int page_pipe_read(struct page_pipe *pp, unsigned long addr, unsigned long *nr_pages,
+			  unsigned int ppb_flags, void **out_buffer, size_t *out_len);
 
 #endif /* __CR_PAGE_PIPE_H__ */

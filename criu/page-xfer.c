@@ -1374,34 +1374,31 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 			return -1;
 		}
 	} else {
-		/* Non-COW path: read from pipe and send */
-		
-		ret = page_pipe_read(pp, &pipe_read_dest, vaddr, &actual_nr_pages, PPB_LAZY);
+		/* Non-COW path: read from process memory and send */
+		void *buffer = NULL;
+		size_t buffer_len = 0;
+
+		ret = page_pipe_read(pp, vaddr, &actual_nr_pages, PPB_LAZY, &buffer, &buffer_len);
 
 		if (ret) {
-			pr_err("Failed to read page from pipe at %lx\n", vaddr);
+			pr_err("Failed to read page at %lx\n", vaddr);
 			pthread_spin_unlock(lock);
 			return -1;
 		}
 
-		/* Send via splice or TLS */
+		/* Send directly via socket */
 		if (opts.tls) {
-			ret = tls_send_data_from_fd(pipe_read_dest.p[0], PAGE_SIZE);
-			if (ret) {
-				pr_err("Failed to send page via TLS\n");
-				pthread_spin_unlock(lock);
-				return -1;
-			}
+			ret = __send(sk, buffer, buffer_len, 0);
 		} else {
-				pr_debug("file = %s, line = %d\n", __FILE__, __LINE__);
+			ret = send(sk, buffer, buffer_len, 0);
+		}
 
-			ret = splice(pipe_read_dest.p[0], NULL, sk, NULL,
-				     PAGE_SIZE, SPLICE_F_MOVE);
-			if (ret != PAGE_SIZE) {
-				pr_perror("Failed to splice page to socket");
-				pthread_spin_unlock(lock);
-				return -1;
-			}
+		xfree(buffer);
+
+		if (ret != buffer_len) {
+			pr_perror("Failed to send page");
+			pthread_spin_unlock(lock);
+			return -1;
 		}
 
 		/* Unprotect non-COW page only */
@@ -1489,25 +1486,24 @@ static int send_page_request_response(struct page_request_entry *req, struct pag
 		return -1;
 	}
 
-	/* Read pages from pipe */
+	/* Read pages using new buffer-return approach */
 	nr_pages = req->nr_pages;
-	ret = page_pipe_read(pp, &pipe_read_dest, req->vaddr, &nr_pages, PPB_LAZY);
+	ret = page_pipe_read(pp, req->vaddr, &nr_pages, PPB_LAZY, &buffer, &len);
 	if (ret) {
-		pr_err("Failed to read pages from pipe\n");
+		pr_err("Failed to read pages\n");
 		return -1;
 	}
 
-	if (nr_pages == 0) {
+	if (nr_pages == 0 || !buffer) {
 		pr_err("No pages found\n");
 		return -1;
 	}
-
-	len = nr_pages * PAGE_SIZE;
 
 	/* Check for COW pages */
 	cow_pages = xzalloc(nr_pages * sizeof(struct cow_page *));
 	if (!cow_pages) {
 		pr_err("Failed to allocate COW pages array\n");
+		xfree(buffer);
 		return -1;
 	}
 
@@ -1524,46 +1520,14 @@ static int send_page_request_response(struct page_request_entry *req, struct pag
 	pi.vaddr = req->vaddr;
 	pi.dst_id = req->dst_id;
 
-
 	if (send_psi(req->sk, &pi)) {
+		xfree(buffer);
 		xfree(cow_pages);
 		return -1;
 	}
 
-	/* Send page data */
-	if (cow_count == 0) {
-		/* Fast path: splice from pipe */
-		if (opts.tls) {
-			ret = tls_send_data_from_fd(pipe_read_dest.p[0], len);
-			if (ret) {
-				xfree(cow_pages);
-				return -1;
-			}
-		} else {
-			ssize_t spliced = 0;
-			while (spliced < len) {
-				ret = splice(pipe_read_dest.p[0], NULL, req->sk, NULL,
-					     len - spliced, SPLICE_F_MOVE);
-				if (ret <= 0) {
-					xfree(cow_pages);
-					return -1;
-				}
-				spliced += ret;
-			}
-		}
-	} else {
-		/* Slow path: buffer and overlay COW pages */
-		buffer = xmalloc(len);
-		if (!buffer) {
-			goto err_free_cow;
-		}
-
-		ret = read(pipe_read_dest.p[0], buffer, len);
-		if (ret != len) {
-			goto err_free_all;
-		}
-
-		/* Overlay COW pages */
+	/* Overlay COW pages if any exist */
+	if (cow_count > 0) {
 		for (i = 0; i < nr_pages; i++) {
 			if (cow_pages[i]) {
 				memcpy(buffer + (i * PAGE_SIZE), cow_pages[i]->data, PAGE_SIZE);
@@ -1571,22 +1535,22 @@ static int send_page_request_response(struct page_request_entry *req, struct pag
 				xfree(cow_pages[i]);
 			}
 		}
-
-		/* Send buffered data */
-		if (opts.tls) {
-			if (__send(req->sk, buffer, len, 0) != len) {
-				goto err_free_all;
-			}
-		} else {
-			if (send(req->sk, buffer, len, 0) != len) {
-				goto err_free_all;
-			}
-		}
-
-		xfree(buffer);
 	}
 
+	/* Send buffered data directly */
+	if (opts.tls) {
+		ret = __send(req->sk, buffer, len, 0);
+	} else {
+		ret = send(req->sk, buffer, len, 0);
+	}
+
+	xfree(buffer);
 	xfree(cow_pages);
+
+	if (ret != len) {
+		pr_perror("Failed to send page data");
+		return -1;
+	}
 
 	/* Unprotect pages */
 	uffd = cow_get_uffd();
