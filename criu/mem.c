@@ -717,10 +717,21 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pr_info("pargs_iovs ended\n");
 
 	gettimeofday(&t_checkpoint, NULL);
-	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ)
+	
+	/*
+	 * Skip drain_pages when process_vm_readv is available.
+	 * With pp->source_pid set, the page server can read pages directly
+	 * from the process memory on-demand, eliminating the need to
+	 * pre-fill the pipe with vmsplice.
+	 */
+	if (pp->source_pid > 0) {
+		pr_info("Skipping drain_pages - using process_vm_readv for on-demand page reads\n");
 		ret = 0;
-	else
+	} else if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
+		ret = 0;
+	} else {
 		ret = drain_pages(pp, ctl, args);
+	}
 	
 	{
 		struct timeval t_now, t_delta;
