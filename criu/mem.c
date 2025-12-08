@@ -724,8 +724,8 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * from the process memory on-demand, eliminating the need to
 	 * pre-fill the pipe with vmsplice.
 	 */
-	if (pp->source_pid > 0) {
-		pr_info("Skipping drain_pages - using process_vm_readv for on-demand page reads\n");
+	if (opts.cow_dump) {
+		pr_err("Skipping drain_pages - using process_vm_readv for on-demand page reads\n");
 		ret = 0;
 	} else if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
 		ret = 0;
