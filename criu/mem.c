@@ -228,7 +228,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	int ret = 0;
 	unsigned long vma_start = *pvaddr;
 	unsigned long pages_skipped = 0;
-	struct timeval loop_start, loop_checkpoint, loop_delta;
+	struct timeval loop_start, loop_checkpoint;
 	unsigned long should_dump_time_us = 0;
 	unsigned long pipe_add_time_us = 0;
 	unsigned long pages_processed_since_report = 0;
