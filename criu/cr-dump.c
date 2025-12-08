@@ -122,16 +122,24 @@ void free_mappings(struct vm_area_list *vma_area_list)
 int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t dump_file)
 {
 	int ret = -1;
+	struct timeval t_start, t_checkpoint, t_now, t_delta;
 
-	pr_info("\n");
-	pr_info("Collecting mappings (pid: %d)\n", pid);
-	pr_info("----------------------------------------\n");
+	gettimeofday(&t_start, NULL);
+	t_checkpoint = t_start;
+
+	pr_err("\n");
+	pr_err("Collecting mappings (pid: %d)\n", pid);
+	pr_err("----------------------------------------\n");
 
 	ret = parse_smaps(pid, vma_area_list, dump_file);
+	gettimeofday(&t_now, NULL);
+	timersub(&t_now, &t_checkpoint, &t_delta);
+	pr_err("TIMING: parse_smaps took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	t_checkpoint = t_now;
 	if (ret < 0)
 		goto err;
 
-	pr_info("parse_smaps ended (pid: %d)\n", pid);	
+	pr_err("parse_smaps ended (pid: %d)\n", pid);	
 	/*
 	 * In addition to real process VMAs we should keep an info about
 	 * madvise(MADV_GUARD_INSTALL) pages. While these are not represented
@@ -143,16 +151,28 @@ int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap
 	 */
 	if (dump_file) {
 		ret = collect_madv_guards(pid, vma_area_list);
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_err("TIMING: collect_madv_guards took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+		t_checkpoint = t_now;
 		if (ret < 0) {
 			pr_err("Collect MADV_GUARD_INSTALL pages (pid: %d) failed with %d\n", pid, ret);
 			goto err;
 		}
 	}
 
-	pr_info("Collected, longest area occupies %lu pages\n", vma_area_list->nr_priv_pages_longest);
+	pr_err("Collected, longest area occupies %lu pages\n", vma_area_list->nr_priv_pages_longest);
 	pr_info_vma_list(&vma_area_list->h);
+	gettimeofday(&t_now, NULL);
+	timersub(&t_now, &t_checkpoint, &t_delta);
+	pr_err("TIMING: pr_info_vma_list took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	t_checkpoint = t_now;
 
-	pr_info("----------------------------------------\n");
+	gettimeofday(&t_now, NULL);
+	timersub(&t_now, &t_start, &t_delta);
+	pr_err("TIMING: collect_mappings TOTAL took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+
+	pr_err("----------------------------------------\n");
 err:
 	return ret;
 }
