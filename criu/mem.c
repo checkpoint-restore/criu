@@ -725,10 +725,10 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * pre-fill the pipe with vmsplice.
 	 */
 	
-	if (opts.cow_dump) {
+	/*if (opts.cow_dump) {
 		pr_err("Skipping drain_pages - using process_vm_readv for on-demand page reads\n");
 		ret = 0;
-	} else if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
+	} else*/ if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
 		ret = 0;
 	} else {
 		ret = drain_pages(pp, ctl, args);
@@ -743,7 +743,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pr_err("drain_pages ended ret = %d\n", ret);
 	
 	gettimeofday(&t_checkpoint, NULL);
-	if (!ret && !mdc->pre_dump && !opts.cow_dump)
+	if (!ret && !mdc->pre_dump/* && !opts.cow_dump*/)
 		ret = xfer_pages(pp, &xfer);
 	
 	{
