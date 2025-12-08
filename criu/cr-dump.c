@@ -1712,20 +1712,10 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	mdc.stat = &pps_buf;
 	mdc.parent_ie = parent_ie;
 
-	/* With COW dump, pages are captured on-demand by monitor thread */
-	if (opts.cow_dump) {
-		pr_info("Skipping initial page dump - COW mode will capture pages on-demand\n");
-		/* Verify mem_pp was initialized by cow_dump_init */
-		if (!dmpi(item)->mem_pp) {
-			pr_err("mem_pp not initialized for COW dump\n");
-			ret = -1;
-			goto err_cure;
-		}
-	} else {
-		ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
-		if (ret)
-			goto err_cure;
-	}
+
+	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
+	if (ret)
+		goto err_cure;
 
 	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
