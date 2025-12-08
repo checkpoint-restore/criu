@@ -714,7 +714,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * actual optimization which reduces time for which process was frozen
 	 * during pre-dump.
 	 */
-	pr_err(pargs_iovs ended\n");
+	pr_err("pargs_iovs ended\n");
 
 	gettimeofday(&t_checkpoint, NULL);
 	
