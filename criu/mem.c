@@ -545,11 +545,13 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	int possible_pid_reuse = 0;
 	bool has_parent;
 	int parent_predump_mode = -1;
+	struct timeval t_start, t_checkpoint;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid->real);
 	pr_info("----------------------------------------\n");
 
+	gettimeofday(&t_start, NULL);
 	timing_start(TIME_MEMDUMP);
 
 	pr_debug("   Private vmas %lu/%lu pages\n", vma_area_list->nr_priv_pages_longest, vma_area_list->nr_priv_pages);
@@ -569,9 +571,18 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		 * use, i.e. on non-lazy non-predump.
 		 */
 		cpp_flags |= PP_CHUNK_MODE;
+	
+	gettimeofday(&t_checkpoint, NULL);
 	pp = create_page_pipe(vma_area_list->nr_priv_pages, mdc->lazy ? NULL : pargs_iovs(args), cpp_flags);
 	if (!pp)
 		goto out;
+	
+	{
+		struct timeval t_now, t_delta;
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_info("TIMING: create_page_pipe took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	}
 
 	if (!mdc->pre_dump) {
 		/*
@@ -607,6 +618,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	if (mdc->parent_ie)
 		parent_predump_mode = mdc->parent_ie->pre_dump_mode;
 
+	gettimeofday(&t_checkpoint, NULL);
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 		if (vma_area_is(vma_area, VMA_AREA_GUARD))
 			continue;
@@ -617,6 +629,12 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 			goto out_xfer;
 	}
 
+	{
+		struct timeval t_now, t_delta;
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_info("TIMING: generate_vma_iovs loop took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	}
 	pr_info("generate_vma_iovs ended\n");
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
@@ -629,13 +647,30 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 */
 	pr_info("pargs_iovs ended\n");
 
+	gettimeofday(&t_checkpoint, NULL);
 	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ)
 		ret = 0;
 	else
 		ret = drain_pages(pp, ctl, args);
+	
+	{
+		struct timeval t_now, t_delta;
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_info("TIMING: drain_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	}
 	pr_info("drain_pages ended\n");
+	
+	gettimeofday(&t_checkpoint, NULL);
 	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
+	
+	{
+		struct timeval t_now, t_delta;
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_info("TIMING: xfer_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	}
 	if (ret)
 		goto out_xfer;
 	pr_info("xfer_pages ended\n");
