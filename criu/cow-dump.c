@@ -16,6 +16,7 @@
 #include "cr_options.h"
 #include "pstree.h"
 #include "cow-dump.h"
+#include "mman.h"
 #include "uffd.h"
 #include "page-xfer.h"
 #include "page-pipe.h"
