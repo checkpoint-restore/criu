@@ -490,6 +490,7 @@ static int maybe_read_page_remote_bulk(struct page_read *pr, unsigned long vaddr
 	 */
 	int ret = 0;
 	if (flags & PR_ASAP) {
+		pr_warn("pr%lu-%u Read %lx %lu maybe_read_page_remote_bulk\n", pr->img_id, pr->id, vaddr, nr);
 		ret = request_remote_pages(pr->img_id, vaddr, nr);
 	}
 

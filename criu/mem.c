@@ -275,9 +275,15 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			ppb = list_entry(pp->bufs.prev, struct page_pipe_buf, l);
 			last_iov = &ppb->iov[ppb->nr_segs - 1];
 			
+			pr_warn("COW mode: Created ppb=%p with iov[%u].base=%p len=%lu (before extend)\n",
+			        ppb, ppb->nr_segs - 1, last_iov->iov_base, last_iov->iov_len);
+			
 			/* Extend length to cover entire VMA */
 			last_iov->iov_len = vma_len;
 			/* DON'T increment ppb->pages_in - no pipe usage in COW mode */
+			
+			pr_warn("COW mode: Extended iov to len=%lu, ppb->pages_in=%lu ppb->nr_segs=%u\n",
+			        last_iov->iov_len, ppb->pages_in, ppb->nr_segs);
 		}
 		
 		*pvaddr = vma->e->end;

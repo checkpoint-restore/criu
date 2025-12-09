@@ -21,7 +21,7 @@ Traditional CRIU lazy-pages mode keeps the source process halted during memory t
 ## Requirements
 
 - **Kernel**: Linux 5.7+ (for `UFFD_FEATURE_PAGEFAULT_FLAG_WP`)
-- **Privileges**: CAP_SYS_PTRACE or `sysctl vm.unprivileged_userfaultfd=1`
+- **Privileges**: CAP_SYS_PTRACE or `sudo sysctl vm.unprivileged_userfaultfd=1`
 
 ## Usage
 At the source create a custom valkey.conf at /etc/valkey/valkey.conf 
