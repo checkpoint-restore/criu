@@ -203,12 +203,27 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		goto err_free;
 
 	/* Prepare parasite arguments - count writable VMAs */
+	/* IMPORTANT: Apply same filters as generate_vma_iovs() to avoid mismatches */
 	nr_vmas = 0;
 	list_for_each_entry(vma, &vma_area_list->h, list) {
 		if (vma_area_is(vma, VMA_AREA_GUARD))
 			continue;
-		if (vma->e->prot & PROT_WRITE)
-			nr_vmas++;
+		
+		/* Must be writable */
+		if (!(vma->e->prot & PROT_WRITE))
+			continue;
+		
+		/* Match generate_vma_iovs() filters */
+		if (!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED))
+			continue;
+		
+		if (vma_entry_is(vma->e, VMA_AREA_VVAR))
+			continue;
+		
+		if (vma->e->flags & MAP_DROPPABLE)
+			continue;
+		
+		nr_vmas++;
 	}
 
 	/* Allocate parasite args - includes space for VMAs and failed indices */
@@ -226,13 +241,24 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	args->nr_failed_vmas = 0;
 	args->ret = -1;
 
-	/* Fill VMA entries */
+	/* Fill VMA entries - must match the filters used above */
 	p_vma = cow_dump_vmas(args);
 	nr_vmas = 0;
 	list_for_each_entry(vma, &vma_area_list->h, list) {
 		if (vma_area_is(vma, VMA_AREA_GUARD))
 			continue;
+		
 		if (!(vma->e->prot & PROT_WRITE))
+			continue;
+		
+		/* Match generate_vma_iovs() filters */
+		if (!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED))
+			continue;
+		
+		if (vma_entry_is(vma->e, VMA_AREA_VVAR))
+			continue;
+		
+		if (vma->e->flags & MAP_DROPPABLE)
 			continue;
 
 		p_vma[nr_vmas].start = vma->e->start;
