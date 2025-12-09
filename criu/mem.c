@@ -244,6 +244,9 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	 * COW-dump optimization: Skip expensive per-page pagemap scanning.
 	 * Create one iov for entire VMA and detect holes lazily on-demand
 	 * when trying to read pages via process_vm_readv.
+	 * 
+	 * Note: We don't use pipes in COW mode - pages are read directly
+	 * via process_vm_readv on-demand, so ppb->pages_in stays 0.
 	 */
 	if (opts.cow_dump) {
 		unsigned int ppb_flags = 0;
@@ -253,18 +256,18 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		if (vma_entry_can_be_lazy(vma->e))
 			ppb_flags |= PPB_LAZY;
 		
-		pr_warn("COW mode: Adding entire VMA as single iov: 0x%llx-0x%llx (%lu pages)\n",
+		pr_info("COW mode: Adding entire VMA as single iov: 0x%llx-0x%llx (%lu pages)\n",
 			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages);
 		
 		/* Add first page to create the iov */
 		ret = page_pipe_add_page(pp, vma->e->start, ppb_flags);
 		if (ret) {
-			pr_err("Pagemap full\n");
+			pr_debug("Pagemap full\n");
 			*pvaddr = vma->e->start;
 			return ret;
 		}
 		
-		/* Extend the iov to cover entire VMA */
+		/* Extend the iov to cover entire VMA, but don't increment pages_in */
 		if (nr_pages > 1) {
 			struct page_pipe_buf *ppb;
 			struct iovec *last_iov;
@@ -274,13 +277,13 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			
 			/* Extend length to cover entire VMA */
 			last_iov->iov_len = vma_len;
-			ppb->pages_in += nr_pages - 1;
+			/* DON'T increment ppb->pages_in - no pipe usage in COW mode */
 		}
 		
 		*pvaddr = vma->e->end;
 		cnt_add(CNT_PAGES_WRITTEN, nr_pages);
 		
-		pr_warn("COW mode: VMA complete, added %lu pages\n", nr_pages);
+		pr_info("COW mode: VMA complete, iov covers %lu pages\n", nr_pages);
 		return 0;
 	}
 
@@ -769,10 +772,10 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * pre-fill the pipe with vmsplice.
 	 */
 	
-	/*if (opts.cow_dump) {
-		pr_err("Skipping drain_pages - using process_vm_readv for on-demand page reads\n");
+	if (opts.cow_dump) {
+		pr_info("COW mode: Skipping drain_pages - using process_vm_readv for on-demand page reads\n");
 		ret = 0;
-	} else*/ if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
+	} else if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
 		ret = 0;
 	} else {
 		ret = drain_pages(pp, ctl, args);
