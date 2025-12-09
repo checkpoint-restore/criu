@@ -790,7 +790,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pr_err("drain_pages ended ret = %d\n", ret);
 	
 	gettimeofday(&t_checkpoint, NULL);
-	if (!ret && !mdc->pre_dump)
+	if (!ret && !mdc->pre_dump && !opts.cow_dump)
 		ret = xfer_pages(pp, &xfer);
 	
 	{
