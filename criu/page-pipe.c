@@ -437,11 +437,21 @@ int page_pipe_read(struct page_pipe *pp, unsigned long addr, unsigned long int *
 			if (ret >= 0) {
 				pr_err("Short read from process_vm_readv: %zd/%lu (pid=%d, addr=%lx)\n",
 				       ret, len, pp->source_pid, addr);
+				xfree(temp_buf);
+				return -1;
+			} else if (errno == EFAULT) {
+				/* This is a hole (unmapped page) - return special error code */
+				pr_err("process_vm_readv: hole detected at addr=%lx (pid=%d)\n", addr, pp->source_pid);
+				xfree(temp_buf);
+				*nr_pages = 0;
+				*out_buffer = NULL;
+				*out_len = 0;
+				return -EFAULT;  /* Signal: hole detected, not a fatal error */
 			} else {
 				pr_perror("process_vm_readv failed (pid=%d, addr=%lx)", pp->source_pid, addr);
+				xfree(temp_buf);
+				return -1;
 			}
-			xfree(temp_buf);
-			return -1;
 		}
 
 		/* Return buffer to caller - they will free it */

@@ -240,6 +240,50 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		(unsigned long long)vma_start, dump_all_pages, has_parent,
 		vma_entry_can_be_lazy(vma->e));
 
+	/*
+	 * COW-dump optimization: Skip expensive per-page pagemap scanning.
+	 * Create one iov for entire VMA and detect holes lazily on-demand
+	 * when trying to read pages via process_vm_readv.
+	 */
+	if (opts.cow_dump) {
+		unsigned int ppb_flags = 0;
+		unsigned long vma_len = vma->e->end - vma->e->start;
+		unsigned long nr_pages = vma_len / PAGE_SIZE;
+		
+		if (vma_entry_can_be_lazy(vma->e))
+			ppb_flags |= PPB_LAZY;
+		
+		pr_warn("COW mode: Adding entire VMA as single iov: 0x%llx-0x%llx (%lu pages)\n",
+			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages);
+		
+		/* Add first page to create the iov */
+		ret = page_pipe_add_page(pp, vma->e->start, ppb_flags);
+		if (ret) {
+			pr_err("Pagemap full\n");
+			*pvaddr = vma->e->start;
+			return ret;
+		}
+		
+		/* Extend the iov to cover entire VMA */
+		if (nr_pages > 1) {
+			struct page_pipe_buf *ppb;
+			struct iovec *last_iov;
+			
+			ppb = list_entry(pp->bufs.prev, struct page_pipe_buf, l);
+			last_iov = &ppb->iov[ppb->nr_segs - 1];
+			
+			/* Extend length to cover entire VMA */
+			last_iov->iov_len = vma_len;
+			ppb->pages_in += nr_pages - 1;
+		}
+		
+		*pvaddr = vma->e->end;
+		cnt_add(CNT_PAGES_WRITTEN, nr_pages);
+		
+		pr_warn("COW mode: VMA complete, added %lu pages\n", nr_pages);
+		return 0;
+	}
+
 	gettimeofday(&loop_start, NULL);
 	loop_checkpoint = loop_start;
 	
@@ -743,7 +787,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pr_err("drain_pages ended ret = %d\n", ret);
 	
 	gettimeofday(&t_checkpoint, NULL);
-	if (!ret && !mdc->pre_dump/* && !opts.cow_dump*/)
+	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
 	
 	{

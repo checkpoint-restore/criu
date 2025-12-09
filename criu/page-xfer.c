@@ -1380,6 +1380,13 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 
 		ret = page_pipe_read(pp, vaddr, &actual_nr_pages, PPB_LAZY, &buffer, &buffer_len);
 
+		if (ret == -EFAULT) {
+			/* This is a hole (unmapped page) - skip it gracefully */
+			pr_err("Skipping hole (unmapped page) at %lx\n", vaddr);
+			pthread_spin_unlock(lock);
+			return 0;  /* Success - hole was skipped, not an error */
+		}
+
 		if (ret) {
 			pr_err("Failed to read page at %lx\n", vaddr);
 			pthread_spin_unlock(lock);
