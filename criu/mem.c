@@ -256,7 +256,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		if (vma_entry_can_be_lazy(vma->e))
 			ppb_flags |= PPB_LAZY;
 		
-		pr_info("COW mode: Adding entire VMA as single iov: 0x%llx-0x%llx (%lu pages)\n",
+		pr_warn("COW mode: Adding entire VMA as single iov: 0x%llx-0x%llx (%lu pages)\n",
 			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages);
 		
 		/* Add first page to create the iov */
