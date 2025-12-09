@@ -455,11 +455,11 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	/* Find which buffer and segment contains this page */
 	pp = dmpi(cdi->item)->mem_pp;
 	
-	pr_warn("COW: Searching for page 0x%lx in page_pipe %p\n", page_addr, pp);
+	pr_info("COW: Searching for page 0x%lx in page_pipe %p\n", page_addr, pp);
 	
 	
 	list_for_each_entry(ppb, &pp->bufs, l) {
-		pr_warn("COW:   Buffer %d: ppb=%p pages_in=%lu nr_segs=%u\n", 
+		pr_info("COW:   Buffer %d: ppb=%p pages_in=%lu nr_segs=%u\n", 
 		        buf_count, ppb, ppb->pages_in, ppb->nr_segs);
 		
 		for (seg_idx = 0; seg_idx < ppb->nr_segs; seg_idx++) {
@@ -467,13 +467,11 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 			unsigned long vaddr = (unsigned long)iov->iov_base;
 			unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
 			
-			pr_warn("COW:     Seg %u: vaddr=0x%lx-0x%lx (%lu pages)\n",
-			        seg_idx, vaddr, vaddr + (nr_pages * PAGE_SIZE), nr_pages);
 			
 			if (page_addr >= vaddr && page_addr < vaddr + (nr_pages * PAGE_SIZE)) {
 				page_idx_in_seg = (page_addr - vaddr) / PAGE_SIZE;
 				found = true;
-				pr_warn("COW:     FOUND at seg %u, page_idx=%lu\n", 
+				pr_info("COW:     FOUND at seg %u, page_idx=%lu\n", 
 				        seg_idx, page_idx_in_seg);
 				goto found_location;
 			}
