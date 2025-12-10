@@ -247,8 +247,12 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	 * 
 	 * Note: We don't use pipes in COW mode - pages are read directly
 	 * via process_vm_readv on-demand, so ppb->pages_in stays 0.
+	 *
+	 * IMPORTANT: VMAs marked with dump_all_pages (VDSO, AIORING) must use
+	 * traditional dump because they're read-only and won't generate write
+	 * faults for COW tracking. Their content must be captured immediately.
 	 */
-	if (opts.cow_dump) {
+	if (opts.cow_dump && !dump_all_pages) {
 		unsigned int ppb_flags = 0;
 		unsigned long vma_len = vma->e->end - vma->e->start;
 		unsigned long nr_pages = vma_len / PAGE_SIZE;
@@ -722,6 +726,8 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	gettimeofday(&t_checkpoint, NULL);
 	{
 		int vma_count = 0;
+		bool has_traditional_vmas = false;
+		
 		list_for_each_entry(vma_area, &vma_area_list->h, list) {
 			struct timeval vma_start, vma_end, vma_delta;
 			
@@ -730,6 +736,10 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 
 			vma_count++;
 			gettimeofday(&vma_start, NULL);
+			
+			/* Track if we have any traditional (dump_all_pages) VMAs */
+			if (opts.cow_dump && should_dump_entire_vma(vma_area->e))
+				has_traditional_vmas = true;
 			
 			ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl, &pmc, has_parent, mdc->pre_dump,
 						parent_predump_mode);
@@ -749,6 +759,9 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 			if (ret < 0)
 				goto out_xfer;
 		}
+		
+		/* Store flag for use in drain/xfer decision below */
+		pp->has_traditional_vmas = has_traditional_vmas;
 	}
 
 	{
@@ -772,16 +785,17 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	gettimeofday(&t_checkpoint, NULL);
 	
 	/*
-	 * Skip drain_pages when process_vm_readv is available.
-	 * With pp->source_pid set, the page server can read pages directly
-	 * from the process memory on-demand, eliminating the need to
-	 * pre-fill the pipe with vmsplice.
+	 * Drain pages into pipes (only for traditional VMAs):
+	 * - Traditional mode: drain all pages
+	 * - COW mode with traditional VMAs: drain only traditional (dump_all_pages) VMAs
+	 * - COW mode without traditional VMAs: skip draining entirely
+	 * - Pre-dump READ mode: skip draining (handled after unfreeze)
 	 */
 	
-	if (opts.cow_dump) {
-		pr_info("COW mode: Skipping drain_pages - using process_vm_readv for on-demand page reads\n");
+	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
 		ret = 0;
-	} else if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
+	} else if (opts.cow_dump && !pp->has_traditional_vmas) {
+		pr_err("COW mode: No traditional VMAs, skipping drain_pages\n");
 		ret = 0;
 	} else {
 		ret = drain_pages(pp, ctl, args);
@@ -796,8 +810,20 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pr_err("drain_pages ended ret = %d\n", ret);
 	
 	gettimeofday(&t_checkpoint, NULL);
-	if (!ret && !mdc->pre_dump && !opts.cow_dump)
-		ret = xfer_pages(pp, &xfer);
+	/*
+	 * Transfer pages to destination:
+	 * - Traditional mode: transfer all pages from pipe
+	 * - COW mode with traditional VMAs: transfer only traditional (dump_all_pages) VMAs
+	 * - COW mode without traditional VMAs: skip transfer entirely (no pages in pipes)
+	 */
+	if (!ret && !mdc->pre_dump) {
+		if (opts.cow_dump && !pp->has_traditional_vmas) {
+			pr_info("COW mode: No traditional VMAs, skipping xfer_pages\n");
+			ret = 0;
+		} else {
+			ret = xfer_pages(pp, &xfer);
+		}
+	}
 	
 	{
 		struct timeval t_now, t_delta;

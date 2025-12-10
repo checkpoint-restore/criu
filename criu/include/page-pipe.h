@@ -132,6 +132,7 @@ struct page_pipe {
 	unsigned int *hole_flags;
 	unsigned int flags; /* PP_FOO flags below */
 	int source_pid;		   /* PID of source process for process_vm_readv (0 if unavailable) */
+	bool has_traditional_vmas; /* COW mode: true if page_pipe contains traditional (dump_all_pages) VMAs */
 };
 
 #define PP_CHUNK_MODE 0x1 /* Restrict the maximum buffer size of pipes and dump memory for a few iterations */
