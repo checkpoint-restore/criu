@@ -450,6 +450,19 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		args->nr_segs = ppb->nr_segs;
 		args->nr_pages = ppb->pages_in;
+		
+		/*
+		 * Skip COW buffers: In COW mode, COW-tracked VMAs have
+		 * ppb->pages_in == 0 because they don't use pipes.
+		 * Only drain traditional VMAs (dump_all_pages) that have
+		 * pages_in > 0.
+		 */
+		if (args->nr_pages == 0) {
+			pr_debug("Skipping COW buffer with 0 pages\n");
+			args->off += args->nr_segs;
+			continue;
+		}
+		
 		pr_debug("PPB: %ld pages %d segs %u pipe %d off\n", args->nr_pages, args->nr_segs, ppb->pipe_size,
 			 args->off);
 
