@@ -1354,13 +1354,14 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 
 	if (send_psi(sk, &pi)) {
 		pthread_spin_unlock(lock);
+		pr_err("Failed to send_psi\n");
 		return -1;
 	}
 
 	/* 3. Send page data */
 	if (cow_pg) {
 		/* COW path: send COW data directly */
-		pr_info("Sending COW page at %lx\n", vaddr);
+		pr_err("Sending COW page at %lx\n", vaddr);
 		
 		if (opts.tls) {
 			ret = __send(sk, cow_pg->data, PAGE_SIZE, 0);
@@ -1369,7 +1370,7 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 		}
 
 		if (ret != PAGE_SIZE) {
-			pr_perror("Failed to send COW page");
+			pr_perror("Failed to send COW page ret != PAGE_SIZE ret=%d\n", ret);
 			pthread_spin_unlock(lock);
 			return -1;
 		}
@@ -1458,7 +1459,7 @@ static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image
 	}
 	
 	/* Send COW page */
-	pr_info("Sending COW page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu, seg_addr=%p)\n",
+	pr_err("Sending COW page at %lx (ppb=%p, seg=%u, idx=%lu, bitmap_idx=%lu, seg_addr=%p)\n",
 		 entry->vaddr, entry->ppb, entry->seg_idx, entry->page_idx_in_seg, local_page_idx,
 		 entry->ppb->iov[entry->seg_idx].iov_base);
 	ret = send_one_chunk(img->main_sk, pp, entry->vaddr, 1, img->dst_id);
@@ -1703,7 +1704,6 @@ static int add_active_image(u64 dst_id, int sk)
 	/* Count ONLY pages that have actual pipe data
 	 * This excludes write-protected pages which are holes/parent refs */
 	pr_info("=== Scanning page_pipe buffers for dst_id=%lu ===\n", dst_id);
-	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		pr_info("[BUF %u] pages_in=%lu flags=0x%x nr_segs=%u\n",
@@ -1734,7 +1734,6 @@ static int add_active_image(u64 dst_id, int sk)
 		pr_warn("Image dst_id=%lu has no pages with pipe data\n", dst_id);
 		return 0;  /* Nothing to send */
 	}
-	pr_warn("DEBUG file =%s, line = %d\n", __FILE__, __LINE__);
 	/* Allocate per-buffer sent bitmaps for PPB_LAZY buffers */
 	buf_idx = 0;
 	list_for_each_entry(ppb, &pp->bufs, l) {
