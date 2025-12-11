@@ -288,7 +288,7 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 		unsigned long offset = 0;
 		unsigned long remaining = len;
 		
-		pr_debug("COW mode: Using process_vm_readv for vaddr=%lx len=%lu\n", vaddr, len);
+		pr_err("COW mode: Using process_vm_readv for vaddr=%lx len=%lu\n", vaddr, len);
 
 		/* Allocate temp buffer */
 		buffer = xmalloc(len);
