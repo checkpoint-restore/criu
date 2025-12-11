@@ -909,6 +909,11 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 		addr = vma->start;
 		len = vma->len;
 
+		if (!vma_entry_can_be_lazy(vma->e))
+		{
+			continue;
+		}
+
 		pr_err("Registering VMA %d: %lx-%lx prot=%x len=%lu\n",
 			i, addr, addr + len, vma->prot, len);
 

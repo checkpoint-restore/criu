@@ -252,12 +252,12 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	 * traditional dump because they're read-only and won't generate write
 	 * faults for COW tracking. Their content must be captured immediately.
 	 */
-	if (opts.cow_dump && !dump_all_pages) {
+	if (opts.cow_dump) {
 		unsigned int ppb_flags = 0;
 		unsigned long vma_len = vma->e->end - vma->e->start;
 		unsigned long nr_pages = vma_len / PAGE_SIZE;
 		
-		if (vma_entry_can_be_lazy(vma->e))
+		if (vma_entry_can_be_lazy(vma->e)) // TODO we can skip stack pages as lazy  && !is_stack(item, vaddr)
 			ppb_flags |= PPB_LAZY;
 		
 		pr_warn("COW mode: Adding entire VMA as single iov: 0x%llx-0x%llx (%lu pages)\n",
