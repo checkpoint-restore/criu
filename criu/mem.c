@@ -451,17 +451,6 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 		args->nr_segs = ppb->nr_segs;
 		args->nr_pages = ppb->pages_in;
 		
-		/*
-		 * Skip COW buffers: In COW mode, COW-tracked VMAs have
-		 * ppb->pages_in == 0 because they don't use pipes.
-		 * Only drain traditional VMAs (dump_all_pages) that have
-		 * pages_in > 0.
-		 */
-		if (args->nr_pages == 0) {
-			pr_debug("Skipping COW buffer with 0 pages\n");
-			args->off += args->nr_segs;
-			continue;
-		}
 		
 		pr_debug("PPB: %ld pages %d segs %u pipe %d off\n", args->nr_pages, args->nr_segs, ppb->pipe_size,
 			 args->off);
@@ -490,7 +479,12 @@ static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
 	/*
 	 * Step 3 -- write pages into image (or delay writing for
 	 *           pre-dump action (see pre_dump_one_task)
+	 * 
+	 * Store page_pipe in xfer so write_pages can access source_pid
+	 * for process_vm_readv in COW mode.
 	 */
+	xfer->pp = pp;
+	
 	timing_start(TIME_MEMWRITE);
 	ret = page_xfer_dump_pages(xfer, pp);
 	timing_stop(TIME_MEMWRITE);
@@ -798,17 +792,16 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	gettimeofday(&t_checkpoint, NULL);
 	
 	/*
-	 * Drain pages into pipes (only for traditional VMAs):
-	 * - Traditional mode: drain all pages
-	 * - COW mode with traditional VMAs: drain only traditional (dump_all_pages) VMAs
-	 * - COW mode without traditional VMAs: skip draining entirely
+	 * Drain pages into pipes:
+	 * - Traditional mode: drain all pages via vmsplice
+	 * - COW mode: skip draining - pages read via process_vm_readv in write_pages_loc
 	 * - Pre-dump READ mode: skip draining (handled after unfreeze)
 	 */
 	
 	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
 		ret = 0;
-	} else if (opts.cow_dump && !pp->has_traditional_vmas) {
-		pr_err("COW mode: No traditional VMAs, skipping drain_pages\n");
+	} else if (opts.cow_dump) {
+		pr_info("COW mode: Skipping drain_pages, using process_vm_readv in write_pages_loc\n");
 		ret = 0;
 	} else {
 		ret = drain_pages(pp, ctl, args);
@@ -824,18 +817,12 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	
 	gettimeofday(&t_checkpoint, NULL);
 	/*
-	 * Transfer pages to destination:
+	 * Transfer pages to destination (always call - writes pagemap for all VMAs):
 	 * - Traditional mode: transfer all pages from pipe
-	 * - COW mode with traditional VMAs: transfer only traditional (dump_all_pages) VMAs
-	 * - COW mode without traditional VMAs: skip transfer entirely (no pages in pipes)
+	 * - COW mode: writes pagemap for all VMAs; page data read via process_vm_readv
 	 */
 	if (!ret && !mdc->pre_dump) {
-		if (opts.cow_dump && !pp->has_traditional_vmas) {
-			pr_info("COW mode: No traditional VMAs, skipping xfer_pages\n");
-			ret = 0;
-		} else {
-			ret = xfer_pages(pp, &xfer);
-		}
+		ret = xfer_pages(pp, &xfer);
 	}
 	
 	{

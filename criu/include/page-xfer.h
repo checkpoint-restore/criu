@@ -46,6 +46,8 @@ struct page_xfer {
 	};
 
 	struct page_read *parent;
+	struct page_pipe *pp;     /* For process_vm_readv access in COW mode */
+	unsigned long curr_vaddr; /* Current virtual address being written */
 };
 
 extern int open_page_xfer(struct page_xfer *xfer, int fd_type, unsigned long id);

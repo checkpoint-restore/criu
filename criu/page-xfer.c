@@ -269,10 +269,66 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 	ssize_t ret;
 	ssize_t curr = 0;
 
+	/*
+	 * COW mode: Use process_vm_readv instead of splice when:
+	 * - COW dump is enabled
+	 * - page_pipe is available (xfer->pp != NULL)
+	 * - source process is available (source_pid > 0)
+	 * 
+	 * This handles traditional VMAs (VDSO/AIORING) that need
+	 * immediate dump but have no pipe data because drain_pages
+	 * was skipped in COW mode.
+	 */
+	if (opts.cow_dump && xfer->pp && xfer->pp->source_pid > 0) {
+		void *buffer = NULL;
+		unsigned long nr_pages = len / PAGE_SIZE;
+		unsigned long vaddr = xfer->curr_vaddr;
+		struct iovec local_iov, remote_iov;
+		
+		pr_debug("COW mode: Using process_vm_readv for vaddr=%lx len=%lu\n", vaddr, len);
+		
+		/* Allocate temp buffer */
+		buffer = xmalloc(len);
+		if (!buffer) {
+			pr_perror("Failed to allocate buffer for process_vm_readv");
+			return -1;
+		}
+		
+		/* Read from process memory */
+		local_iov.iov_base = buffer;
+		local_iov.iov_len = len;
+		remote_iov.iov_base = (void *)vaddr;
+		remote_iov.iov_len = len;
+		
+		ret = process_vm_readv(xfer->pp->source_pid, &local_iov, 1, &remote_iov, 1, 0);
+		if (ret != len) {
+			if (ret >= 0) {
+				pr_err("Short read from process_vm_readv: %zd/%lu\n", ret, len);
+			} else {
+				pr_perror("process_vm_readv failed for vaddr=%lx", vaddr);
+			}
+			xfree(buffer);
+			return -1;
+		}
+		
+		/* Write to image file */
+		ret = write(img_raw_fd(xfer->pi), buffer, len);
+		xfree(buffer);
+		
+		if (ret != len) {
+			pr_perror("Failed to write pages to image");
+			return -1;
+		}
+		
+		pr_debug("COW mode: Successfully wrote %lu pages via process_vm_readv\n", nr_pages);
+		return 0;
+	}
+
+	/* Traditional mode: Use splice from pipe */
 	while (1) {
 		ret = splice(p, NULL, img_raw_fd(xfer->pi), NULL, len - curr, SPLICE_F_MOVE);
 		if (ret == -1) {
-			pr_perror("Unable to spice data");
+			pr_perror("Unable to splice data");
 			return -1;
 		}
 		if (ret == 0) {
@@ -911,6 +967,10 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 				return ret;
 
 			BUG_ON(iov.iov_base < (void *)xfer->offset);
+			
+			/* Store original vaddr before adjusting for offset */
+			xfer->curr_vaddr = (unsigned long)iov.iov_base;
+			
 			iov.iov_base -= xfer->offset;
 			pr_debug("\tp %p - %p\n", iov.iov_base, iov.iov_base + iov.iov_len);
 
