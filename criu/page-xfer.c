@@ -281,14 +281,14 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 	 */
 				pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
-	if (opts.cow_dump) {
+	if (opts.cow_dump && xfer->pp && xfer->pp->source_pid > 0) {
 		void *buffer = NULL;
 		unsigned long nr_pages = len / PAGE_SIZE;
 		unsigned long vaddr = xfer->curr_vaddr;
-		struct iovec local_iov, remote_iov;
+		unsigned long offset = 0;
+		unsigned long remaining = len;
 		
 		pr_debug("COW mode: Using process_vm_readv for vaddr=%lx len=%lu\n", vaddr, len);
-					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		/* Allocate temp buffer */
 		buffer = xmalloc(len);
@@ -296,38 +296,50 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 			pr_perror("Failed to allocate buffer for process_vm_readv");
 			return -1;
 		}
-					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
-		/* Read from process memory */
-		local_iov.iov_base = buffer;
-		local_iov.iov_len = len;
-		remote_iov.iov_base = (void *)vaddr;
-		remote_iov.iov_len = len;
-					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+		/* Read from process memory - handle partial reads */
+		while (remaining > 0) {
+			struct iovec local_iov, remote_iov;
+			
+			local_iov.iov_base = buffer + offset;
+			local_iov.iov_len = remaining;
+			remote_iov.iov_base = (void *)(vaddr + offset);
+			remote_iov.iov_len = remaining;
 
-		ret = process_vm_readv(xfer->pp->source_pid, &local_iov, 1, &remote_iov, 1, 0);
-		if (ret != len) {
-			if (ret >= 0) {
-				pr_err("Short read from process_vm_readv: %zd/%lu\n", ret, len);
-			} else {
-				pr_perror("process_vm_readv failed for vaddr=%lx", vaddr);
+			ret = process_vm_readv(xfer->pp->source_pid, &local_iov, 1, &remote_iov, 1, 0);
+			
+			if (ret < 0) {
+				if (errno == EFAULT) {
+					/* Unmapped page - skip it and continue */
+					pr_err("Skipping unmapped page at %lx\n", vaddr + offset);
+					memset(buffer + offset, 0, PAGE_SIZE);
+					offset += PAGE_SIZE;
+					remaining -= PAGE_SIZE;
+					continue;
+				}
+				pr_perror("process_vm_readv failed for vaddr=%lx", vaddr + offset);
+				xfree(buffer);
+				return -1;
 			}
-			xfree(buffer);
-			return -1;
+			
+			if (ret == 0) {
+				pr_err("process_vm_readv returned 0 bytes\n");
+				xfree(buffer);
+				return -1;
+			}
+			
+			offset += ret;
+			remaining -= ret;
 		}
-					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		/* Write to image file */
 		ret = write(img_raw_fd(xfer->pi), buffer, len);
-					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
-
 		xfree(buffer);
 		
 		if (ret != len) {
 			pr_perror("Failed to write pages to image");
 			return -1;
 		}
-					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		pr_debug("COW mode: Successfully wrote %lu pages via process_vm_readv\n", nr_pages);
 		return 0;
