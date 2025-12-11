@@ -279,6 +279,8 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 	 * immediate dump but have no pipe data because drain_pages
 	 * was skipped in COW mode.
 	 */
+				pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
 	if (opts.cow_dump && xfer->pp && xfer->pp->source_pid > 0) {
 		void *buffer = NULL;
 		unsigned long nr_pages = len / PAGE_SIZE;
@@ -286,20 +288,23 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 		struct iovec local_iov, remote_iov;
 		
 		pr_debug("COW mode: Using process_vm_readv for vaddr=%lx len=%lu\n", vaddr, len);
-		
+					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		/* Allocate temp buffer */
 		buffer = xmalloc(len);
 		if (!buffer) {
 			pr_perror("Failed to allocate buffer for process_vm_readv");
 			return -1;
 		}
-		
+					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		/* Read from process memory */
 		local_iov.iov_base = buffer;
 		local_iov.iov_len = len;
 		remote_iov.iov_base = (void *)vaddr;
 		remote_iov.iov_len = len;
-		
+					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		ret = process_vm_readv(xfer->pp->source_pid, &local_iov, 1, &remote_iov, 1, 0);
 		if (ret != len) {
 			if (ret >= 0) {
@@ -310,19 +315,24 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 			xfree(buffer);
 			return -1;
 		}
-		
+					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		/* Write to image file */
 		ret = write(img_raw_fd(xfer->pi), buffer, len);
+					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		xfree(buffer);
 		
 		if (ret != len) {
 			pr_perror("Failed to write pages to image");
 			return -1;
 		}
-		
+					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		pr_debug("COW mode: Successfully wrote %lu pages via process_vm_readv\n", nr_pages);
 		return 0;
 	}
+				pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	/* Traditional mode: Use splice from pipe */
 	while (1) {
@@ -990,6 +1000,8 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 				return -1;
 			if ((flags & PE_PRESENT) && xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
 				return -1;
+			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		}
 	}
 	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
