@@ -281,7 +281,7 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 	 */
 				pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
-	if (opts.cow_dump && xfer->pp && xfer->pp->source_pid > 0) {
+	if (opts.cow_dump) {
 		void *buffer = NULL;
 		unsigned long nr_pages = len / PAGE_SIZE;
 		unsigned long vaddr = xfer->curr_vaddr;
