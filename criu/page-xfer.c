@@ -539,11 +539,14 @@ static int dump_holes(struct page_xfer *xfer, struct page_pipe *pp, unsigned int
 	for (; *cur_hole < pp->free_hole; (*cur_hole)++) {
 		struct iovec hole = pp->holes[*cur_hole];
 		u32 hole_flags;
+		pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		if (limit && hole.iov_base >= limit)
 			break;
 
 		hole_flags = get_hole_flags(pp, *cur_hole);
+		pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
 		ret = page_xfer_dump_hole(xfer, &hole, hole_flags);
 		if (ret)
 			return ret;
@@ -952,15 +955,17 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 	int ret;
 
 	pr_debug("Transferring pages:\n");
+	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		unsigned int i;
-
+		pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 		pr_debug("\tbuf %lx/%d\n", ppb->pages_in, ppb->nr_segs);
 
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec iov = ppb->iov[i];
 			u32 flags;
+			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 			ret = dump_holes(xfer, pp, &cur_hole, iov.iov_base);
 			if (ret)
@@ -973,8 +978,10 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 			
 			iov.iov_base -= xfer->offset;
 			pr_debug("\tp %p - %p\n", iov.iov_base, iov.iov_base + iov.iov_len);
+			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 			flags = ppb_xfer_flags(xfer, ppb);
+			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 			if (xfer->write_pagemap(xfer, &iov, flags))
 				return -1;
