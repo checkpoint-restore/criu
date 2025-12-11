@@ -814,7 +814,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		pr_err("TIMING: drain_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
 	}
 	pr_err("drain_pages ended ret = %d\n", ret);
-	
+	pp->source_pid = item->pid->real;
 	gettimeofday(&t_checkpoint, NULL);
 	/*
 	 * Transfer pages to destination (always call - writes pagemap for all VMAs):
