@@ -396,6 +396,7 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 	pe.has_flags = true;
 	pe.flags = flags;
 	pe.has_nr_pages = true;
+	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (flags & PE_PRESENT) {
 		if (opts.auto_dedup && xfer->parent != NULL) {
@@ -415,9 +416,11 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 			}
 		}
 	}
+	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	if (pb_write_one(xfer->pmi, &pe, PB_PAGEMAP) < 0)
 		return -1;
+	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	return 0;
 }
@@ -989,6 +992,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 				return -1;
 		}
 	}
+	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	return dump_holes(xfer, pp, &cur_hole, NULL);
 }
