@@ -592,8 +592,37 @@ static int process_async_reads(struct page_read *pr)
 		}
 
 		if (ret < 0) {
+			int i;
 			pr_err("Can't read async pr bytes (%zd / %ju read, %ju off, %d iovs)\n", ret,
 			       piov->end - piov->from, piov->from, piov->nr);
+			
+			/* Print all target addresses that failed */
+			pr_err("Failed to read for virtual addresses:\n");
+			for (i = 0; i < piov->nr; i++) {
+				unsigned long vaddr = (unsigned long)piov->to[i].iov_base;
+				size_t len = piov->to[i].iov_len;
+				off_t file_off = piov->from;
+				
+				/* Calculate file offset for this specific iovec */
+				if (i > 0) {
+					int j;
+					for (j = 0; j < i; j++)
+						file_off += piov->to[j].iov_len;
+				}
+				
+				pr_err("  [%d] vaddr=0x%lx len=%zu (file_off=%ju)\n",
+				       i, vaddr, len, (uintmax_t)file_off);
+			}
+			
+			/* If we have pagemap context, print it */
+			if (pr->pe) {
+				pr_err("Current pagemap entry: vaddr=0x%lx nr_pages=%lu flags=0x%x (PE_PRESENT=%d PE_LAZY=%d)\n",
+				       (unsigned long)pr->pe->vaddr, (unsigned long)pr->pe->nr_pages,
+				       pr->pe->flags,
+				       !!(pr->pe->flags & PE_PRESENT),
+				       !!(pr->pe->flags & PE_LAZY));
+			}
+			
 			return -1;
 		}
 
