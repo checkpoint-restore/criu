@@ -881,9 +881,30 @@ static int __dump_external_socket(struct unix_sk_desc *sk, struct unix_sk_desc *
 	}
 
 	if (peer->type != SOCK_DGRAM) {
-		show_one_unix("Ext stream not supported", peer);
-		pr_err("Can't dump half of stream unix connection. name: %s; peer name: %s\n",
-		       sk->name, peer->name);
+		/*
+		 * For external stream sockets, we allow dumping them but
+		 * won't try to reconnect on restore. The application will
+		 * see a disconnected socket and can handle it appropriately.
+		 */
+		if (peer->type == SOCK_STREAM || peer->type == SOCK_SEQPACKET) {
+			pr_info("Dumping external stream socket %d (peer: %d). "
+				"Will not reconnect on restore.\n",
+				sk->sd.ino, peer->sd.ino);
+			/*
+			 * Preserve the actual socket type from the kernel.
+			 * We set state to TCP_CLOSE and clear peer since we
+			 * won't reconnect on restore - the application will
+			 * see a disconnected socket.
+			 */
+			sk->ue->type = sk->type;
+			sk->ue->state = TCP_CLOSE;
+			sk->ue->peer = 0;
+			return 0;
+		}
+
+		show_one_unix("Ext socket type not supported", peer);
+		pr_err("Can't dump external unix socket of type %d. name: %s; peer name: %s\n",
+		       peer->type, sk->name, peer->name);
 		return -1;
 	}
 
