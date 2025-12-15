@@ -207,6 +207,11 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	/* IMPORTANT: Apply same filters as generate_vma_iovs() to avoid mismatches */
 	nr_vmas = 0;
 	list_for_each_entry(vma, &vma_area_list->h, list) {
+		if (!vma_entry_can_be_lazy(vma->e))
+		{
+			pr_err("Skipping VMEs that cannot be lazy VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
+			continue;
+		}
 		if (vma_area_is(vma, VMA_AREA_GUARD))
 			continue;
 		
@@ -246,6 +251,11 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	p_vma = cow_dump_vmas(args);
 	nr_vmas = 0;
 	list_for_each_entry(vma, &vma_area_list->h, list) {
+		if (!vma_entry_can_be_lazy(vma->e))
+		{
+			pr_err("Skipping VMEs that cannot be lazy VMA: %lx-%lx len=%lu\n", addr, addr + len, len);
+			continue;
+		}
 		if (vma_area_is(vma, VMA_AREA_GUARD))
 			continue;
 		
