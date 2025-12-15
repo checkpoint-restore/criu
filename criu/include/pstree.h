@@ -57,7 +57,13 @@ struct thread_lsm {
 };
 
 struct ns_id;
-struct lazy_vma_list;
+struct lazy_vma_list {
+	struct list_head h;
+	unsigned int nr_vmas;
+	unsigned long total_pages;
+	pid_t source_pid;             /* PID for process_vm_readv */
+};
+
 struct dmp_info {
 	struct ns_id *netns;
 	struct page_pipe *mem_pp;
