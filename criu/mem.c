@@ -714,7 +714,6 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	gettimeofday(&t_checkpoint, NULL);
 	{
 		int vma_count = 0;
-		
 		list_for_each_entry(vma_area, &vma_area_list->h, list) {
 			struct timeval vma_start, vma_end, vma_delta;
 			
@@ -723,7 +722,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 
 			vma_count++;
 			gettimeofday(&vma_start, NULL);
-					
+			
 			ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl, &pmc, has_parent, mdc->pre_dump,
 						parent_predump_mode);
 			
@@ -742,7 +741,6 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 			if (ret < 0)
 				goto out_xfer;
 		}
-
 	}
 
 	{

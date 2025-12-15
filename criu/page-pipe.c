@@ -264,27 +264,13 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
 	if (ppb->flags != flags)
 		return 1;
-	
-	/*
-	 * COW mode optimization: one iov per VMA, no pipes, no incremental growth.
-	 * Skip resize and growth checks, force new buffer after first iov created.
-	 */
-	if (opts.cow_dump) {
-		if (ppb->nr_segs > 0)
-			return 1;  /* Force new buffer for next VMA */
-		/* Skip resize and grow - jump directly to iov creation */
-		goto create_iov;
-	}
-	
-	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
 	if (ppb_resize_pipe(ppb) == 1)
 		return 1;
 	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
 	if (ppb->nr_segs && iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
 		goto out;
 
-create_iov:
-	pr_warn("Add iov to page pipe (%u iovs, %u/%u total)\n", ppb->nr_segs, pp->free_iov, pp->nr_iovs);
+	pr_debug("Add iov to page pipe (%u iovs, %u/%u total)\n", ppb->nr_segs, pp->free_iov, pp->nr_iovs);
 	iov_init(&ppb->iov[ppb->nr_segs++], addr);
 	pp->free_iov++;
 	BUG_ON(pp->free_iov > pp->nr_iovs);
@@ -455,21 +441,11 @@ int page_pipe_read(struct page_pipe *pp, unsigned long addr, unsigned long int *
 			if (ret >= 0) {
 				pr_err("Short read from process_vm_readv: %zd/%lu (pid=%d, addr=%lx)\n",
 				       ret, len, pp->source_pid, addr);
-				xfree(temp_buf);
-				return -1;
-			} else if (errno == EFAULT) {
-				/* This is a hole (unmapped page) - return special error code */
-				pr_err("process_vm_readv: hole detected at addr=%lx (pid=%d)\n", addr, pp->source_pid);
-				xfree(temp_buf);
-				*nr_pages = 0;
-				*out_buffer = NULL;
-				*out_len = 0;
-				return -EFAULT;  /* Signal: hole detected, not a fatal error */
 			} else {
 				pr_perror("process_vm_readv failed (pid=%d, addr=%lx)", pp->source_pid, addr);
-				xfree(temp_buf);
-				return -1;
 			}
+			xfree(temp_buf);
+			return -1;
 		}
 
 		/* Return buffer to caller - they will free it */
