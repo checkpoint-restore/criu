@@ -15,6 +15,20 @@ struct page_pipe;
 struct pstree_item;
 struct vma_area;
 
+struct lazy_vma_entry {
+	struct vma_area *vma;
+	unsigned char *sent_bitmap;   /* Track which pages have been sent */
+	unsigned long total_pages;    /* Total pages in this VMA */
+	struct list_head list;
+};
+
+struct lazy_vma_list {
+	struct list_head h;
+	unsigned int nr_vmas;
+	unsigned long total_pages;
+	pid_t source_pid;             /* PID for process_vm_readv */
+};
+
 struct mem_dump_ctl {
 	bool pre_dump;
 	bool lazy;

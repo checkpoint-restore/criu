@@ -269,88 +269,10 @@ static int write_pages_loc(struct page_xfer *xfer, int p, unsigned long len)
 	ssize_t ret;
 	ssize_t curr = 0;
 
-	/*
-	 * COW mode: Use process_vm_readv instead of splice when:
-	 * - COW dump is enabled
-	 * - page_pipe is available (xfer->pp != NULL)
-	 * - source process is available (source_pid > 0)
-	 * 
-	 * This handles traditional VMAs (VDSO/AIORING) that need
-	 * immediate dump but have no pipe data because drain_pages
-	 * was skipped in COW mode.
-	 */
-				pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
-
-	if (opts.cow_dump && xfer->pp && xfer->pp->source_pid > 0) {
-		void *buffer = NULL;
-		unsigned long nr_pages = len / PAGE_SIZE;
-		unsigned long vaddr = xfer->curr_vaddr;
-		unsigned long offset = 0;
-		unsigned long remaining = len;
-		
-		pr_err("COW mode: Using process_vm_readv for vaddr=%lx len=%lu\n", vaddr, len);
-
-		/* Allocate temp buffer */
-		buffer = xmalloc(len);
-		if (!buffer) {
-			pr_perror("Failed to allocate buffer for process_vm_readv");
-			return -1;
-		}
-
-		/* Read from process memory - handle partial reads */
-		while (remaining > 0) {
-			struct iovec local_iov, remote_iov;
-			
-			local_iov.iov_base = buffer + offset;
-			local_iov.iov_len = remaining;
-			remote_iov.iov_base = (void *)(vaddr + offset);
-			remote_iov.iov_len = remaining;
-
-			ret = process_vm_readv(xfer->pp->source_pid, &local_iov, 1, &remote_iov, 1, 0);
-			
-			if (ret < 0) {
-				if (errno == EFAULT) {
-					/* Unmapped page - skip it and continue */
-					pr_err("Skipping unmapped page at %lx\n", vaddr + offset);
-					memset(buffer + offset, 0, PAGE_SIZE);
-					offset += PAGE_SIZE;
-					remaining -= PAGE_SIZE;
-					continue;
-				}
-				pr_perror("process_vm_readv failed for vaddr=%lx", vaddr + offset);
-				xfree(buffer);
-				return -1;
-			}
-			
-			if (ret == 0) {
-				pr_err("process_vm_readv returned 0 bytes\n");
-				xfree(buffer);
-				return -1;
-			}
-			
-			offset += ret;
-			remaining -= ret;
-		}
-
-		/* Write to image file */
-		ret = write(img_raw_fd(xfer->pi), buffer, len);
-		xfree(buffer);
-		
-		if (ret != len) {
-			pr_perror("Failed to write pages to image");
-			return -1;
-		}
-
-		pr_debug("COW mode: Successfully wrote %lu pages via process_vm_readv\n", nr_pages);
-		return 0;
-	}
-				pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
-
-	/* Traditional mode: Use splice from pipe */
 	while (1) {
 		ret = splice(p, NULL, img_raw_fd(xfer->pi), NULL, len - curr, SPLICE_F_MOVE);
 		if (ret == -1) {
-			pr_perror("Unable to splice data");
+			pr_perror("Unable to spice data");
 			return -1;
 		}
 		if (ret == 0) {
@@ -997,10 +919,6 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 				return ret;
 
 			BUG_ON(iov.iov_base < (void *)xfer->offset);
-			
-			/* Store original vaddr before adjusting for offset */
-			xfer->curr_vaddr = (unsigned long)iov.iov_base;
-			
 			iov.iov_base -= xfer->offset;
 			pr_debug("\tp %p - %p\n", iov.iov_base, iov.iov_base + iov.iov_len);
 			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
@@ -1475,13 +1393,6 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 		size_t buffer_len = 0;
 
 		ret = page_pipe_read(pp, vaddr, &actual_nr_pages, PPB_LAZY, &buffer, &buffer_len);
-
-		if (ret == -EFAULT) {
-			/* This is a hole (unmapped page) - skip it gracefully */
-			pr_err("Skipping hole (unmapped page) at %lx\n", vaddr);
-			pthread_spin_unlock(lock);
-			return 0;  /* Success - hole was skipped, not an error */
-		}
 
 		if (ret) {
 			pr_err("Failed to read page at %lx\n", vaddr);

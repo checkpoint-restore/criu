@@ -204,7 +204,6 @@ struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, uns
 	INIT_LIST_HEAD(&pp->bufs);
 	pp->nr_iovs = nr_segs;
 	pp->flags = flags;
-	pp->has_traditional_vmas = false;
 
 	if (!iovs) {
 		iovs = xmalloc(sizeof(*iovs) * nr_segs);

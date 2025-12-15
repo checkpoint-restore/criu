@@ -57,6 +57,7 @@ struct thread_lsm {
 };
 
 struct ns_id;
+struct lazy_vma_list;
 struct dmp_info {
 	struct ns_id *netns;
 	struct page_pipe *mem_pp;
@@ -71,6 +72,8 @@ struct dmp_info {
 	 * entry means there was no LSM profile for this thread.
 	 */
 	struct thread_lsm **thread_lsms;
+	
+	struct lazy_vma_list lazy_vmas;  /* Lazy VMAs for COW dump */
 };
 
 static inline struct dmp_info *dmpi(const struct pstree_item *i)

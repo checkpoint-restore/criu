@@ -252,48 +252,35 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	 * traditional dump because they're read-only and won't generate write
 	 * faults for COW tracking. Their content must be captured immediately.
 	 */
-	if (opts.cow_dump) {
-		unsigned int ppb_flags = 0;
-		unsigned long vma_len = vma->e->end - vma->e->start;
-		unsigned long nr_pages = vma_len / PAGE_SIZE;
+	if (opts.cow_dump && vma_entry_can_be_lazy(vma->e)) {
+		struct lazy_vma_entry *lve = xmalloc(sizeof(*lve));
+		unsigned long nr_pages, bitmap_size;
 		
-		if (vma_entry_can_be_lazy(vma->e)) // TODO we can skip stack pages as lazy  && !is_stack(item, vaddr)
-			ppb_flags |= PPB_LAZY;
+		if (!lve)
+			return -1;
 		
-		pr_warn("COW mode: Adding entire VMA as single iov: 0x%llx-0x%llx (%lu pages)\n",
-			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages);
+		lve->vma = vma;
+		nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
+		lve->total_pages = nr_pages;
 		
-		/* Add first page to create the iov */
-		ret = page_pipe_add_page(pp, vma->e->start, ppb_flags);
-		if (ret) {
-			pr_debug("Pagemap full\n");
-			*pvaddr = vma->e->start;
-			return ret;
+		/* Allocate sent bitmap for this VMA */
+		bitmap_size = (nr_pages + 7) / 8;
+		lve->sent_bitmap = xzalloc(bitmap_size);
+		if (!lve->sent_bitmap) {
+			xfree(lve);
+			return -1;
 		}
 		
-		/* Extend the iov to cover entire VMA, but don't increment pages_in */
-		if (nr_pages > 1) {
-			struct page_pipe_buf *ppb;
-			struct iovec *last_iov;
-			
-			ppb = list_entry(pp->bufs.prev, struct page_pipe_buf, l);
-			last_iov = &ppb->iov[ppb->nr_segs - 1];
-			
-			pr_warn("COW mode: Created ppb=%p with iov[%u].base=%p len=%lu (before extend)\n",
-			        ppb, ppb->nr_segs - 1, last_iov->iov_base, last_iov->iov_len);
-			
-			/* Extend length to cover entire VMA */
-			last_iov->iov_len = vma_len;
-			/* DON'T increment ppb->pages_in - no pipe usage in COW mode */
-			
-			pr_warn("COW mode: Extended iov to len=%lu, ppb->pages_in=%lu ppb->nr_segs=%u\n",
-			        last_iov->iov_len, ppb->pages_in, ppb->nr_segs);
-		}
+		list_add_tail(&lve->list, &dmpi(item)->lazy_vmas.h);
+		dmpi(item)->lazy_vmas.nr_vmas++;
+		dmpi(item)->lazy_vmas.total_pages += nr_pages;
 		
-		*pvaddr = vma->e->end;
-		cnt_add(CNT_PAGES_WRITTEN, nr_pages);
+		/* Store source PID for process_vm_readv */
+		if (!dmpi(item)->lazy_vmas.source_pid)
+			dmpi(item)->lazy_vmas.source_pid = item->pid->real;
 		
-		pr_info("COW mode: VMA complete, iov covers %lu pages\n", nr_pages);
+		pr_info("Added lazy VMA 0x%llx-0x%llx to deferred list (%lu pages, %lu byte bitmap)\n",
+			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages, bitmap_size);
 		return 0;
 	}
 
@@ -450,8 +437,6 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		args->nr_segs = ppb->nr_segs;
 		args->nr_pages = ppb->pages_in;
-		
-		
 		pr_debug("PPB: %ld pages %d segs %u pipe %d off\n", args->nr_pages, args->nr_segs, ppb->pipe_size,
 			 args->off);
 
@@ -479,11 +464,7 @@ static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
 	/*
 	 * Step 3 -- write pages into image (or delay writing for
 	 *           pre-dump action (see pre_dump_one_task)
-	 * 
-	 * Store page_pipe in xfer so write_pages can access source_pid
-	 * for process_vm_readv in COW mode.
 	 */
-	xfer->pp = pp;
 	
 	timing_start(TIME_MEMWRITE);
 	ret = page_xfer_dump_pages(xfer, pp);
@@ -733,7 +714,6 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	gettimeofday(&t_checkpoint, NULL);
 	{
 		int vma_count = 0;
-		bool has_traditional_vmas = false;
 		
 		list_for_each_entry(vma_area, &vma_area_list->h, list) {
 			struct timeval vma_start, vma_end, vma_delta;
@@ -743,11 +723,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 
 			vma_count++;
 			gettimeofday(&vma_start, NULL);
-			
-			/* Track if we have any traditional (dump_all_pages) VMAs */
-			if (opts.cow_dump && should_dump_entire_vma(vma_area->e))
-				has_traditional_vmas = true;
-			
+					
 			ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl, &pmc, has_parent, mdc->pre_dump,
 						parent_predump_mode);
 			
@@ -766,9 +742,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 			if (ret < 0)
 				goto out_xfer;
 		}
-		
-		/* Store flag for use in drain/xfer decision below */
-		pp->has_traditional_vmas = has_traditional_vmas;
+
 	}
 
 	{
@@ -777,7 +751,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		timersub(&t_now, &t_checkpoint, &t_delta);
 		pr_err("TIMING: generate_vma_iovs loop took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
 	}
-	pr_err("generate_vma_iovs ended\n");
+	pr_info("generate_vma_iovs ended\n");
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
 
@@ -790,50 +764,32 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pr_err("pargs_iovs ended\n");
 
 	gettimeofday(&t_checkpoint, NULL);
-	
-	/*
-	 * Drain pages into pipes:
-	 * - Traditional mode: drain all pages via vmsplice
-	 * - COW mode: skip draining - pages read via process_vm_readv in write_pages_loc
-	 * - Pre-dump READ mode: skip draining (handled after unfreeze)
-	 */
-	
-	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ) {
+	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ)
 		ret = 0;
-	} else if (opts.cow_dump) {
-		pr_info("COW mode: Skipping drain_pages, using process_vm_readv in write_pages_loc\n");
-		ret = 0;
-	} else {
+	else
 		ret = drain_pages(pp, ctl, args);
-	}
 	
 	{
 		struct timeval t_now, t_delta;
 		gettimeofday(&t_now, NULL);
 		timersub(&t_now, &t_checkpoint, &t_delta);
-		pr_err("TIMING: drain_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+		pr_info("TIMING: drain_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
 	}
-	pr_err("drain_pages ended ret = %d\n", ret);
-	pp->source_pid = item->pid->real;
+	pr_info("drain_pages ended\n");
+	
 	gettimeofday(&t_checkpoint, NULL);
-	/*
-	 * Transfer pages to destination (always call - writes pagemap for all VMAs):
-	 * - Traditional mode: transfer all pages from pipe
-	 * - COW mode: writes pagemap for all VMAs; page data read via process_vm_readv
-	 */
-	if (!ret && !mdc->pre_dump) {
+	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
-	}
 	
 	{
 		struct timeval t_now, t_delta;
 		gettimeofday(&t_now, NULL);
 		timersub(&t_now, &t_checkpoint, &t_delta);
-		pr_err("TIMING: xfer_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+		pr_info("TIMING: xfer_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
 	}
 	if (ret)
 		goto out_xfer;
-	pr_err("xfer_pages ended\n");
+	pr_info("xfer_pages ended\n");
 
 	timing_stop(TIME_MEMDUMP);
 
