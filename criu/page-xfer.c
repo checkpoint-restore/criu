@@ -1818,6 +1818,205 @@ static void remove_active_image(struct active_image *img)
 
 #endif
 
+/* Helper to send a lazy VMA page using process_vm_readv */
+static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t source_pid)
+{
+	struct page_server_iov pi;
+	struct cow_page *cow_pg;
+	pthread_spinlock_t *lock;
+	void *buffer;
+	int ret;
+	int uffd;
+	struct iovec local_iov, remote_iov;
+	
+	/* Get hash bucket lock */
+	lock = cow_get_hash_lock(vaddr);
+	if (!lock) {
+		pr_err("Failed to get COW hash lock\n");
+		return -1;
+	}
+	
+	pthread_spin_lock(lock);
+	
+	/* Check for COW page */
+	cow_pg = cow_lookup_page(vaddr);
+	
+	/* Send header */
+	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	pi.nr_pages = 1;
+	pi.vaddr = vaddr;
+	pi.dst_id = dst_id;
+	
+	if (send_psi(sk, &pi)) {
+		pthread_spin_unlock(lock);
+		return -1;
+	}
+	
+	/* Send data */
+	if (cow_pg) {
+		/* Send COW data */
+		ret = opts.tls ? __send(sk, cow_pg->data, PAGE_SIZE, 0) : send(sk, cow_pg->data, PAGE_SIZE, 0);
+		if (ret != PAGE_SIZE) {
+			pr_perror("Failed to send COW page");
+			pthread_spin_unlock(lock);
+			return -1;
+		}
+	} else {
+		/* Read from process memory */
+		buffer = xmalloc(PAGE_SIZE);
+		if (!buffer) {
+			pthread_spin_unlock(lock);
+			return -1;
+		}
+		
+		local_iov.iov_base = buffer;
+		local_iov.iov_len = PAGE_SIZE;
+		remote_iov.iov_base = (void *)vaddr;
+		remote_iov.iov_len = PAGE_SIZE;
+		
+		ret = process_vm_readv(source_pid, &local_iov, 1, &remote_iov, 1, 0);
+		if (ret != PAGE_SIZE) {
+			pr_perror("Failed to read page at %lx from pid %d", vaddr, source_pid);
+			xfree(buffer);
+			pthread_spin_unlock(lock);
+			return -1;
+		}
+		
+		/* Send buffer */
+		ret = opts.tls ? __send(sk, buffer, PAGE_SIZE, 0) : send(sk, buffer, PAGE_SIZE, 0);
+		xfree(buffer);
+		
+		if (ret != PAGE_SIZE) {
+			pr_perror("Failed to send page");
+			pthread_spin_unlock(lock);
+			return -1;
+		}
+		
+		/* Unprotect non-COW page */
+		uffd = cow_get_uffd();
+		if (uffd >= 0) {
+			struct uffdio_writeprotect wp;
+			wp.range.start = vaddr;
+			wp.range.len = PAGE_SIZE;
+			wp.mode = 0;
+			if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
+				pr_perror("Failed to unprotect page at 0x%lx", vaddr);
+				pthread_spin_unlock(lock);
+				return -1;
+			}
+		}
+	}
+	
+	/* Remove COW page if it exists */
+	if (cow_pg)
+		cow_remove_page(vaddr);
+	
+	pthread_spin_unlock(lock);
+	return 0;
+}
+
+/* Helper to find lazy VMA entry for a given vaddr */
+static struct lazy_vma_entry *find_lazy_vma_for_addr(struct pstree_item *item, unsigned long vaddr)
+{
+	struct lazy_vma_entry *lve;
+	
+	list_for_each_entry(lve, &dmpi(item)->lazy_vmas.h, list) {
+		if (vaddr >= lve->vma->e->start && vaddr < lve->vma->e->end)
+			return lve;
+	}
+	return NULL;
+}
+
+/* Helper to send a COW page from lazy VMA */
+static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_image *img, pid_t source_pid)
+{
+	struct pstree_item *item;
+	struct lazy_vma_entry *lve;
+	unsigned long page_idx;
+	int ret;
+	
+	item = pstree_item_by_virt(img->dst_id);
+	if (!item) {
+		pr_err("Invalid dst_id\n");
+		return -1;
+	}
+	
+	/* Find which lazy VMA contains this page */
+	lve = find_lazy_vma_for_addr(item, entry->vaddr);
+	if (!lve) {
+		pr_err("COW page 0x%lx not in any lazy VMA\n", entry->vaddr);
+		return -1;
+	}
+	
+	/* Calculate page index within VMA */
+	page_idx = (entry->vaddr - lve->vma->e->start) / PAGE_SIZE;
+	
+	/* Check if already sent */
+	if (lve->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
+		pr_debug("COW page 0x%lx already sent\n", entry->vaddr);
+		return 0;
+	}
+	
+	/* Send the page */
+	ret = send_lazy_vma_page(img->main_sk, entry->vaddr, img->dst_id, source_pid);
+	if (ret < 0)
+		return -1;
+	
+	/* Mark as sent */
+	lve->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+	
+	return 1;  /* Successfully sent */
+}
+
+/* Helper to send a page request from lazy VMA */
+static int send_request_page_lazy(struct page_request_entry *req, struct active_image *img, pid_t source_pid)
+{
+	struct pstree_item *item;
+	unsigned long i;
+	int ret;
+	int sent_count = 0;
+	
+	item = pstree_item_by_virt(img->dst_id);
+	if (!item) {
+		pr_err("Invalid dst_id\n");
+		return -1;
+	}
+	
+	/* Send multiple pages if requested */
+	for (i = 0; i < req->nr_pages; i++) {
+		unsigned long page_vaddr = req->vaddr + (i * PAGE_SIZE);
+		struct lazy_vma_entry *lve;
+		unsigned long page_idx;
+		
+		/* Find which lazy VMA contains this page */
+		lve = find_lazy_vma_for_addr(item, page_vaddr);
+		if (!lve) {
+			pr_err("Request page 0x%lx not in any lazy VMA\n", page_vaddr);
+			return -1;
+		}
+		
+		/* Calculate page index within VMA */
+		page_idx = (page_vaddr - lve->vma->e->start) / PAGE_SIZE;
+		
+		/* Check if already sent */
+		if (lve->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
+			pr_debug("Request page 0x%lx already sent, skipping\n", page_vaddr);
+			continue;
+		}
+		
+		/* Send the page */
+		ret = send_lazy_vma_page(req->sk, page_vaddr, req->dst_id, source_pid);
+		if (ret < 0)
+			return -1;
+		
+		/* Mark as sent */
+		lve->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+		sent_count++;
+	}
+	
+	return sent_count;  /* Return number of pages actually sent */
+}
+
 /* Unified background thread serving all images */
 static void *unified_page_server_thread(void *arg)
 {
@@ -1843,97 +2042,68 @@ static void *unified_page_server_thread(void *arg)
 		}
 		if (done_count == 30) {
 			pr_perror("EXIT TODO REMOVE2\n");
-
 			exit(0);
 		}
-		
-		/* Check if we should print stats */
-	
 		
 		pthread_spin_lock(&active_images_lock);
 		
 		/* Service each active image */
 		list_for_each_entry_safe(img, tmp, &active_images_queue, list) {
 			struct pstree_item *item;
-			struct page_pipe *pp;
-			struct page_pipe_buf *ppb;
-			unsigned int i;
+			struct lazy_vma_entry *lve;
 			int ret;
-			unsigned long page_idx;
-			unsigned long j;
 			
 			pthread_spin_unlock(&active_images_lock);
-			pr_warn("Start loop Image dst_id=%lu total_pages: %lu img->remaining_pages: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
-					img->dst_id, img->total_pages, img->remaining_pages, img->total_cow_pages, img->total_req_pages,
-					img->total_pages - img->total_cow_pages - img->total_req_pages);
+			pr_warn("Start loop Image dst_id=%lu remaining: %lu (%lu COW + %lu req)\n",
+					img->dst_id, img->remaining_pages, img->total_cow_pages, img->total_req_pages);
 			
 			item = pstree_item_by_virt(img->dst_id);
-			if (!item || !dmpi(item)->mem_pp) {
-				pr_err("Invalid dst_id=%lu or no page pipe\n", img->dst_id);
+			if (!item) {
+				pr_err("Invalid dst_id=%lu\n", img->dst_id);
 				pthread_spin_lock(&active_images_lock);
-		//		remove_active_image(img);
 				continue;
 			}
 			DONE = false;
 			done_count = 0;
 
-			pp = dmpi(item)->mem_pp;
-			
-			/* Unified loop: iterate through all pages, checking priorities at each position */
-			list_for_each_entry(ppb, &pp->bufs, l) {
-			/* Skip buffers with no actual pipe data */
-			if (ppb->pages_in == 0 || ppb->flags != PPB_LAZY)
-				continue;
-			
-			/* Skip if no bitmap allocated */
-			if (!ppb->sent_bitmap)
-				continue;
-			
-			page_idx = 0;
-			
-			/* Iterate through all segments */
-			for (i = 0; i < ppb->nr_segs; i++) {
+			current_time = time(NULL);
+			if (current_time - last_stats_time >= 1) {
+				unsigned long cow_queue = cow_get_queue_size();
+				unsigned long req_queue = get_page_request_queue_size();
 				
-				struct iovec *iov = &ppb->iov[i];
-				unsigned long vaddr = (unsigned long)iov->iov_base;
-				unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
+				pr_warn("[UNIFIED_THREAD_STATS] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu\n",
+					priority1_pages, priority2_pages, priority3_pages, priority3_skips,
+					cow_queue, req_queue);
 				
-				/* Check each page in segment */
-				for (j = 0; j < nr_pages; j++) {
-					unsigned long page_vaddr = vaddr + (j * PAGE_SIZE);
-					unsigned long local_page_idx = page_idx + j;
+				/* Reset counters */
+				priority1_pages = 0;
+				priority2_pages = 0;
+				priority3_pages = 0;
+				priority3_skips = 0;
+				last_stats_time = current_time;
+			}
+			
+			/* Iterate through lazy VMAs */
+			list_for_each_entry(lve, &dmpi(item)->lazy_vmas.h, list) {
+				unsigned long vma_start = lve->vma->e->start;
+				unsigned long vma_end = lve->vma->e->end;
+				unsigned long vaddr;
+				unsigned long page_idx = 0;
+				
+				/* Iterate pages in this VMA */
+				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
 					int max_cow_pages_per_iter = 100;
-
-					current_time = time(NULL);
-					if (current_time - last_stats_time >= 1) {
-						unsigned long cow_queue = cow_get_queue_size();
-						unsigned long req_queue = get_page_request_queue_size();
-						
-						
-						pr_warn("[UNIFIED_THREAD_STATS] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu\n",
-							priority1_pages, priority2_pages, priority3_pages, priority3_skips,
-							cow_queue, req_queue);
-						
-						/* Reset counters */
-						priority1_pages = 0;
-						priority2_pages = 0;
-						priority3_pages = 0;
-						priority3_skips = 0;
-						last_stats_time = current_time;
-					}
 					
-					/* === PRIORITY 1: Drain ALL COW pages (from any image) === */
+					/* === PRIORITY 1: Drain COW pages === */
 					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
 						struct cow_page_queue_entry *entry = cow_get_next_page();
 						max_cow_pages_per_iter--;
 						if (!entry)
 							break;
 						
-						/* Send using stored location info */
-						ret = send_cow_page(entry, img, pp);
+						ret = send_cow_page_lazy(entry, img, dmpi(item)->lazy_vmas.source_pid);
 						
 						if (ret > 0) {
-							/* Successfully sent */
 							img->total_cow_pages++;
 							priority1_pages++;
 						}
@@ -1946,18 +2116,16 @@ static void *unified_page_server_thread(void *arg)
 						}
 					}
 					
-					/* === PRIORITY 2: Drain ALL page requests (from any image) === */
+					/* === PRIORITY 2: Drain page requests === */
 					while (has_page_requests() && img->remaining_pages > 0) {
 						struct page_request_entry *req = get_next_page_request();
 						
 						if (!req)
 							break;
 						
-						/* Send using lazy-evaluated location info */
-						ret = send_request_page(req, img, pp);
+						ret = send_request_page_lazy(req, img, dmpi(item)->lazy_vmas.source_pid);
 						
 						if (ret > 0) {
-							/* Successfully sent */
 							img->total_req_pages += req->nr_pages;
 							priority2_pages += req->nr_pages;
 						}
@@ -1970,46 +2138,36 @@ static void *unified_page_server_thread(void *arg)
 						}
 					}
 					
-					/* === PRIORITY 3: Send regular page if not already sent === */
-					if (ppb->sent_bitmap[local_page_idx / 8] & (1 << (local_page_idx % 8))) {
-						pr_debug("Priority 3: priority3_skips regular page at %lx\n", page_vaddr);
+					/* === PRIORITY 3: Send regular lazy VMA page === */
+					if (lve->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
 						priority3_skips++;
-						continue;  /* Already sent, skip to next page */
+						continue;
 					}
 					
-					/* Send this page */
-					pr_debug("Priority 3: Sending regular page at %lx\n", page_vaddr);
-					ret = send_one_chunk(img->main_sk, pp, page_vaddr, 1, img->dst_id);
+					ret = send_lazy_vma_page(img->main_sk, vaddr, img->dst_id, dmpi(item)->lazy_vmas.source_pid);
 					if (ret < 0) {
-						pr_err("Failed to send regular page at %lx\n", page_vaddr);
-						continue;  /* Exit inner loop on error */
+						pr_err("Failed to send lazy VMA page at %lx\n", vaddr);
+						continue;
 					}
 					
-					/* Mark as sent */
-					ppb->sent_bitmap[local_page_idx / 8] |= (1 << (local_page_idx % 8));
+					lve->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
 					img->remaining_pages--;
 					priority3_pages++;
-					
-					/* Continue to next page naturally */
 				}
-				
-				page_idx += nr_pages;
 			}
-		}
 			
 			pthread_spin_lock(&active_images_lock);
 			
-			/* Check if this image is complete */
+			/* Check if complete */
 			if (img->remaining_pages == 0) {
 				struct page_server_iov end_marker;
 				
 				pthread_spin_unlock(&active_images_lock);
 				
-				pr_warn("Image dst_id=%lu complete: %lu total pages (%lu COW + %lu requested + %lu regular)\n",
-					img->dst_id, img->total_pages, img->total_cow_pages, img->total_req_pages,
-					img->total_pages - img->total_cow_pages - img->total_req_pages);
+				pr_warn("Image dst_id=%lu complete: %lu total pages\n",
+					img->dst_id, img->total_pages);
 				DONE = true;
-				/* Send end marker */
+				
 				end_marker.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
 				end_marker.nr_pages = 0;
 				end_marker.vaddr = 0;
@@ -2019,13 +2177,10 @@ static void *unified_page_server_thread(void *arg)
 				tcp_nodelay(img->main_sk, true);
 				
 				pthread_spin_lock(&active_images_lock);
-				//remove_active_image(img);
-				}
+			}
 		}
-		pr_err("Out of outer loop!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 		pthread_spin_unlock(&active_images_lock);
 		g_unified_thread_stop = true;
-		
 	}
 	
 	pr_info("Unified page server background thread stopped\n");
