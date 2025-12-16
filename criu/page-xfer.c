@@ -1686,11 +1686,11 @@ static int add_active_image(u64 dst_id, int sk)
 {
 	struct active_image *img;
 	struct pstree_item *item;
-	struct page_pipe *pp;
-	struct page_pipe_buf *ppb;
+	struct lazy_vma_entry *lve;
 	unsigned long total_pages = 0;
 	unsigned long bitmap_size;
-	unsigned int buf_idx = 0;
+	unsigned int vma_idx = 0;
+	
 	pthread_spin_lock(&active_images_lock);
 	
 	/* Check if already active */
@@ -1702,73 +1702,59 @@ static int add_active_image(u64 dst_id, int sk)
 	
 	pthread_spin_unlock(&active_images_lock);
 	
-	/* Count total pages for this image */
+	/* Get item and verify lazy VMAs exist */
 	item = pstree_item_by_virt(dst_id);
-	if (!item || !dmpi(item)->mem_pp) {
-		pr_err("Invalid dst_id or no page pipe\n");
+	if (!item) {
+		pr_err("Invalid dst_id=%lu\n", dst_id);
 		return -1;
 	}
 	
-	pp = dmpi(item)->mem_pp;
+	/* Count total pages in lazy VMAs */
+	pr_info("=== Scanning lazy VMAs for dst_id=%lu ===\n", dst_id);
 	
-	/* Count ONLY pages that have actual pipe data
-	 * This excludes write-protected pages which are holes/parent refs */
-	pr_info("=== Scanning page_pipe buffers for dst_id=%lu ===\n", dst_id);
-	
-	list_for_each_entry(ppb, &pp->bufs, l) {
-		pr_info("[BUF %u] pages_in=%lu flags=0x%x nr_segs=%u\n",
-			buf_idx, ppb->pages_in, ppb->flags, ppb->nr_segs);
+	list_for_each_entry(lve, &dmpi(item)->lazy_vmas.h, list) {
+		unsigned long vma_pages = vma_entry_len(lve->vma->e) / PAGE_SIZE;
 		
-		/* Show each segment in this buffer */
-		for (unsigned int seg_idx = 0; seg_idx < ppb->nr_segs; seg_idx++) {
-			struct iovec *iov = &ppb->iov[seg_idx];
-			unsigned long start = (unsigned long)iov->iov_base;
-			unsigned long end = start + iov->iov_len;
-			unsigned long seg_pages = iov->iov_len / PAGE_SIZE;
-			
-			pr_info("  [SEG %u] addr=0x%lx-0x%lx len=%lu (%lu pages)%s\n",
-				seg_idx, start, end, iov->iov_len, seg_pages,
-				(ppb->pages_in == 0) ? " [SKIPPED - no pipe data]" : "");
-		}
+		pr_info("[VMA %u] addr=0x%lx-0x%lx pages=%lu\n",
+			vma_idx, lve->vma->e->start, lve->vma->e->end, vma_pages);
 		
-		/* Only count pages actually in the pipe */
-		if (ppb->flags == PPB_LAZY) {
-			total_pages += ppb->pages_in;
-		}
-		buf_idx++;
+		total_pages += vma_pages;
+		vma_idx++;
 	}
 	
-	pr_info("=== Total pages with pipe data: %lu ===\n", total_pages);
+	pr_info("=== Total lazy VMA pages: %lu ===\n", total_pages);
 	
 	if (total_pages == 0) {
-		pr_warn("Image dst_id=%lu has no pages with pipe data\n", dst_id);
+		pr_warn("Image dst_id=%lu has no lazy VMA pages\n", dst_id);
 		return 0;  /* Nothing to send */
 	}
-	/* Allocate per-buffer sent bitmaps for PPB_LAZY buffers */
-	buf_idx = 0;
-	list_for_each_entry(ppb, &pp->bufs, l) {
-		if (ppb->flags == PPB_LAZY && ppb->pages_in > 0) {
-			bitmap_size = (ppb->pages_in + 7) / 8;
-			ppb->sent_bitmap = xzalloc(bitmap_size);
-			if (!ppb->sent_bitmap) {
-				struct page_pipe_buf *tmp_ppb;
-				pr_err("Failed to allocate sent_bitmap for buffer %u\n", buf_idx);
-				/* Clean up previously allocated bitmaps */
-				
-				list_for_each_entry(tmp_ppb, &pp->bufs, l) {
-					if (tmp_ppb == ppb)
-						break;
-					if (tmp_ppb->sent_bitmap) {
-						xfree(tmp_ppb->sent_bitmap);
-						tmp_ppb->sent_bitmap = NULL;
-					}
+	
+	/* Allocate sent bitmaps for each lazy VMA */
+	vma_idx = 0;
+	list_for_each_entry(lve, &dmpi(item)->lazy_vmas.h, list) {
+		unsigned long vma_pages = vma_entry_len(lve->vma->e) / PAGE_SIZE;
+		bitmap_size = (vma_pages + 7) / 8;
+		
+		lve->sent_bitmap = xzalloc(bitmap_size);
+		if (!lve->sent_bitmap) {
+			struct lazy_vma_entry *tmp_lve;
+			pr_err("Failed to allocate sent_bitmap for VMA %u\n", vma_idx);
+			
+			/* Clean up previously allocated bitmaps */
+			list_for_each_entry(tmp_lve, &dmpi(item)->lazy_vmas.h, list) {
+				if (tmp_lve == lve)
+					break;
+				if (tmp_lve->sent_bitmap) {
+					xfree(tmp_lve->sent_bitmap);
+					tmp_lve->sent_bitmap = NULL;
 				}
-				return -1;
 			}
-			pr_debug("Allocated %lu-byte bitmap for buffer %u (%lu pages)\n",
-				 bitmap_size, buf_idx, ppb->pages_in);
+			return -1;
 		}
-		buf_idx++;
+		
+		pr_debug("Allocated %lu-byte bitmap for VMA %u (%lu pages)\n",
+			 bitmap_size, vma_idx, vma_pages);
+		vma_idx++;
 	}
 	
 	/* Create active image entry */
@@ -1791,7 +1777,7 @@ static int add_active_image(u64 dst_id, int sk)
 	list_add_tail(&img->list, &active_images_queue);
 	pthread_spin_unlock(&active_images_lock);
 	
-	pr_info("Added active image dst_id=%lu with %lu pages (pages with pipe data only)\n", 
+	pr_info("Added active image dst_id=%lu with %lu lazy VMA pages\n", 
 		dst_id, total_pages);
 	return 0;
 }
