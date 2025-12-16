@@ -1331,7 +1331,7 @@ static volatile bool g_unified_thread_running = false;
 static volatile bool g_unified_thread_stop = false;
 
 
-
+#if 0
 static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, unsigned long nr_pages, u64 dst_id)
 {
 	struct page_server_iov pi;
@@ -1445,6 +1445,7 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 
 	return 0;
 }
+	#endif
 #if 0
 /* Helper to send a COW page using stored location info */
 static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image *img, struct page_pipe *pp)
