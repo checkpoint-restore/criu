@@ -2725,7 +2725,7 @@ static int page_server_async_read_bulk(struct epoll_rfd *f)
 	return 0;
 }
 
-static int page_server_start_async_read_bulk(void *buf, unsigned long nr_pages, 
+int page_server_start_async_read_bulk(void *buf, unsigned long nr_pages, 
 					      ps_async_read_complete complete, void *priv)
 {
 	struct ps_async_read *ar;

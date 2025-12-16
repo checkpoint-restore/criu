@@ -464,7 +464,7 @@ static int read_page_complete(unsigned long img_id, unsigned long vaddr, unsigne
 }
 
 /* Bulk mode callback: simpler, no img_id validation needed */
-static int bulk_page_complete(unsigned long img_id, unsigned long vaddr, unsigned long int nr_pages, void *priv)
+int bulk_page_complete(unsigned long img_id, unsigned long vaddr, unsigned long int nr_pages, void *priv)
 {
 	struct page_read *pr = priv;
 	
