@@ -2891,6 +2891,8 @@ static int page_server_start_sync_read(void *buf, unsigned long nr, ps_async_rea
 int page_server_start_read(void *buf, unsigned long nr, ps_async_read_complete complete, void *priv, unsigned flags)
 {
 	/* In bulk mode, use continuous stream reader */
+	pr_err("page_server_start_read\n");
+
 	if (opts.cow_dump) {
 		if (flags & PR_ASYNC)
 			return page_server_start_async_read_bulk(buf, nr, complete, priv);
