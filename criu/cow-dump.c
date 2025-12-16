@@ -35,7 +35,6 @@
 struct cow_dump_info {
 	struct pstree_item *item;
 	int uffd;				/* userfaultfd for write tracking */
-	int proc_mem_fd;			/* /proc/pid/mem for reading pages */
 	unsigned long total_pages;		/* Total pages being tracked */
 	unsigned long dirty_pages;		/* Pages modified in current iteration */
 	unsigned long dirty_pages_dumped;	/* Pages already written to disk */
@@ -147,21 +146,6 @@ bool cow_check_kernel_support(void)
 	return true;
 }
 
-static int open_proc_mem(pid_t pid)
-{
-	char path[64];
-	int fd;
-
-	snprintf(path, sizeof(path), "/proc/%d/mem", pid);
-	fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Failed to open %s", path);
-		return -1;
-	}
-
-	return fd;
-}
-
 int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl)
 {
 	struct cow_dump_info *cdi;
@@ -197,11 +181,6 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	/* Initialize COW page queue */
 	INIT_LIST_HEAD(&cdi->cow_page_queue);
 	pthread_spin_init(&cdi->queue_lock, PTHREAD_PROCESS_PRIVATE);
-
-	/* Open /proc/pid/mem for reading pages */
-	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
-	if (cdi->proc_mem_fd < 0)
-		goto err_free;
 
 	/* Prepare parasite arguments - count writable VMAs */
 	/* IMPORTANT: Apply same filters as generate_vma_iovs() to avoid mismatches */
@@ -312,7 +291,8 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	return 0;
 
 err_close_mem:
-	close(cdi->proc_mem_fd);
+	if (cdi->uffd >= 0)
+		close(cdi->uffd);
 err_free:
 	xfree(cdi);
 	return -1;
@@ -365,9 +345,6 @@ void cow_dump_fini(void)
 		xfree(dr);
 	}
 	
-	if (g_cow_info->proc_mem_fd >= 0)
-		close(g_cow_info->proc_mem_fd);
-	
 	if (g_cow_info->uffd >= 0)
 		close(g_cow_info->uffd);
 
@@ -414,10 +391,17 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	cp->vaddr = page_addr;
 	INIT_HLIST_NODE(&cp->hash);
 
-	/* Read original page content from /proc/pid/mem */
-	ret = pread(cdi->proc_mem_fd, cp->data, PAGE_SIZE, page_addr);
+	/* Read original page content using process_vm_readv */
+	struct iovec local_iov, remote_iov;
+	local_iov.iov_base = cp->data;
+	local_iov.iov_len = PAGE_SIZE;
+	remote_iov.iov_base = (void *)page_addr;
+	remote_iov.iov_len = PAGE_SIZE;
+	
+	ret = process_vm_readv(cdi->item->pid->real, &local_iov, 1, &remote_iov, 1, 0);
 	if (ret != PAGE_SIZE) {
-		pr_perror("Failed to read page at 0x%lx (read %zd bytes)", page_addr, ret);
+		pr_perror("Failed to read page at 0x%lx from pid %d (read %zd bytes)", 
+			  page_addr, cdi->item->pid->real, ret);
 		xfree(cp->data);
 		xfree(cp);
 		cow_stats.read_failures++;
