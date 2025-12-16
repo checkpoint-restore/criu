@@ -361,12 +361,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	ssize_t ret;
 	unsigned int hash;
 	struct cow_page_queue_entry *entry;
-	struct page_pipe *pp = NULL;
-	struct page_pipe_buf *ppb;
-	unsigned int seg_idx;
-	unsigned long page_idx_in_seg;
-	bool found = false;
-	int buf_count = 0;
+	
 	pr_info("Write fault at 0x%lx\n", page_addr);
 
 	cow_stats.write_faults++;
@@ -444,52 +439,23 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	cow_stats.pages_woken++;
 	cdi->total_pages--;
 
-	/* Find which buffer and segment contains this page */
-	pp = dmpi(cdi->item)->mem_pp;
-	
-	pr_info("COW: Searching for page 0x%lx in page_pipe %p\n", page_addr, pp);
-	
-	
-	list_for_each_entry(ppb, &pp->bufs, l) {
-		pr_info("COW:   Buffer %d: ppb=%p pages_in=%lu nr_segs=%u\n", 
-		        buf_count, ppb, ppb->pages_in, ppb->nr_segs);
-		
-		for (seg_idx = 0; seg_idx < ppb->nr_segs; seg_idx++) {
-			struct iovec *iov = &ppb->iov[seg_idx];
-			unsigned long vaddr = (unsigned long)iov->iov_base;
-			unsigned long nr_pages = iov->iov_len / PAGE_SIZE;
-			
-			
-			if (page_addr >= vaddr && page_addr < vaddr + (nr_pages * PAGE_SIZE)) {
-				page_idx_in_seg = (page_addr - vaddr) / PAGE_SIZE;
-				found = true;
-				pr_info("COW:     FOUND at seg %u, page_idx=%lu\n", 
-				        seg_idx, page_idx_in_seg);
-				goto found_location;
-			}
-		}
-		buf_count++;
-	}
-	
-found_location:
-	if (!found) {
-		pr_err("COW page 0x%lx not found in any buffer\n", page_addr);
-		return -1;
-	}
-	
-	/* Add page to queue for page server with location info */
+	/*
+	 * COW faults only happen on lazy VMAs, which are NOT in page pipes.
+	 * Lazy VMAs are read directly via process_vm_readv(), so we don't
+	 * need to store location info (ppb, seg_idx, page_idx_in_seg).
+	 * Just store the vaddr in the queue for the page server.
+	 */
 	entry = xmalloc(sizeof(*entry));
 	if (entry) {
 		entry->vaddr = page_addr;
-		entry->ppb = ppb;
-		entry->seg_idx = seg_idx;
-		entry->page_idx_in_seg = page_idx_in_seg;
+		entry->ppb = NULL;  /* Indicates lazy VMA - no location info needed */
+		entry->seg_idx = 0;
+		entry->page_idx_in_seg = 0;
 		INIT_LIST_HEAD(&entry->list);
 		pthread_spin_lock(&cdi->queue_lock);
 		list_add_tail(&entry->list, &cdi->cow_page_queue);
 		pthread_spin_unlock(&cdi->queue_lock);
-		pr_debug("Added page 0x%lx to COW queue (buf=%p, seg=%u, idx=%lu)\n",
-			 page_addr, ppb, seg_idx, page_idx_in_seg);
+		pr_debug("Added lazy VMA COW page 0x%lx to queue\n", page_addr);
 	} else {
 		pr_warn("Failed to allocate queue entry for page 0x%lx\n", page_addr);
 	}
