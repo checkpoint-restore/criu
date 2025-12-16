@@ -293,7 +293,6 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 err_close_mem:
 	if (cdi->uffd >= 0)
 		close(cdi->uffd);
-err_free:
 	xfree(cdi);
 	return -1;
 }
@@ -361,6 +360,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	ssize_t ret;
 	unsigned int hash;
 	struct cow_page_queue_entry *entry;
+	struct iovec local_iov, remote_iov;
 	
 	pr_info("Write fault at 0x%lx\n", page_addr);
 
@@ -387,7 +387,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	INIT_HLIST_NODE(&cp->hash);
 
 	/* Read original page content using process_vm_readv */
-	struct iovec local_iov, remote_iov;
+	
 	local_iov.iov_base = cp->data;
 	local_iov.iov_len = PAGE_SIZE;
 	remote_iov.iov_base = (void *)page_addr;
