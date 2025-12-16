@@ -1445,7 +1445,7 @@ static int send_one_chunk(int sk, struct page_pipe *pp, unsigned long vaddr, uns
 
 	return 0;
 }
-
+#if 0
 /* Helper to send a COW page using stored location info */
 static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image *img, struct page_pipe *pp)
 {
@@ -1479,7 +1479,7 @@ static int send_cow_page(struct cow_page_queue_entry *entry, struct active_image
 	
 	return 1;  /* Sent successfully */
 }
-
+#endif
 /* Helper to send a page request response */
 static int send_page_request_response(struct page_request_entry *req, struct page_pipe *pp)
 {
@@ -1582,7 +1582,7 @@ static int send_page_request_response(struct page_request_entry *req, struct pag
 	tcp_nodelay(req->sk, true);
 	return 0;
 }
-
+#if 0
 /* Helper to send a page request using lazy-evaluated location info */
 static int send_request_page(struct page_request_entry *req, struct active_image *img, struct page_pipe *pp)
 {
@@ -1655,7 +1655,7 @@ found_request_location:
 	return 1;  /* Sent successfully */
 }
 
-
+#endif
 /* Active image tracking for unified background thread */
 
 
