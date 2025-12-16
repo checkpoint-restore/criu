@@ -1688,7 +1688,6 @@ static int add_active_image(u64 dst_id, int sk)
 	struct pstree_item *item;
 	struct lazy_vma_entry *lve;
 	unsigned long total_pages = 0;
-	unsigned long bitmap_size;
 	unsigned int vma_idx = 0;
 	
 	pthread_spin_lock(&active_images_lock);
