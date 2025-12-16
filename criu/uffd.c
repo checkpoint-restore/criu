@@ -2097,7 +2097,7 @@ int cr_lazy_pages(bool daemon)
 					xfree(events);
 					return -1;
 				}
-				page_server_start_async_read_bulk(buf, nr, bulk_page_complete, lpi->pr);				
+				page_server_start_async_read_bulk(buf, nr, bulk_page_complete, &lpi->pr);				
 			}
 		}
 	}
