@@ -1729,34 +1729,6 @@ static int add_active_image(u64 dst_id, int sk)
 		return 0;  /* Nothing to send */
 	}
 	
-	/* Allocate sent bitmaps for each lazy VMA */
-	vma_idx = 0;
-	list_for_each_entry(lve, &dmpi(item)->lazy_vmas.h, list) {
-		unsigned long vma_pages = vma_entry_len(lve->vma->e) / PAGE_SIZE;
-		bitmap_size = (vma_pages + 7) / 8;
-		
-		lve->sent_bitmap = xzalloc(bitmap_size);
-		if (!lve->sent_bitmap) {
-			struct lazy_vma_entry *tmp_lve;
-			pr_err("Failed to allocate sent_bitmap for VMA %u\n", vma_idx);
-			
-			/* Clean up previously allocated bitmaps */
-			list_for_each_entry(tmp_lve, &dmpi(item)->lazy_vmas.h, list) {
-				if (tmp_lve == lve)
-					break;
-				if (tmp_lve->sent_bitmap) {
-					xfree(tmp_lve->sent_bitmap);
-					tmp_lve->sent_bitmap = NULL;
-				}
-			}
-			return -1;
-		}
-		
-		pr_debug("Allocated %lu-byte bitmap for VMA %u (%lu pages)\n",
-			 bitmap_size, vma_idx, vma_pages);
-		vma_idx++;
-	}
-	
 	/* Create active image entry */
 	img = xzalloc(sizeof(*img));
 	if (!img) {
