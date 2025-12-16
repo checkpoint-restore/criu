@@ -1363,13 +1363,19 @@ __visible void __export_unmap(void)
 	sys_munmap(bootstrap_start, bootstrap_len - vdso_rt_size);
 }
 
-static void unregister_libc_rseq(struct rst_rseq_param *rseq)
+static int unregister_libc_rseq(struct rst_rseq_param *rseq)
 {
-	if (!rseq->rseq_abi_pointer)
-		return;
+	long ret;
 
-	/* can't fail if rseq is registered */
-	sys_rseq(decode_pointer(rseq->rseq_abi_pointer), rseq->rseq_abi_size, 1, rseq->signature);
+	if (!rseq->rseq_abi_pointer)
+		return 0;
+
+	ret = sys_rseq(decode_pointer(rseq->rseq_abi_pointer), rseq->rseq_abi_size, 1, rseq->signature);
+	if (ret) {
+		pr_err("Failed to unregister libc rseq %ld\n", ret);
+		return -1;
+	}
+	return 0;
 }
 
 /*
@@ -1803,7 +1809,8 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	 * for instance once the kernel will want to update (struct rseq).cpu_id field:
 	 * https://github.com/torvalds/linux/blob/ce522ba9ef7e/kernel/rseq.c#L89
 	 */
-	unregister_libc_rseq(&args->libc_rseq);
+	if (unregister_libc_rseq(&args->libc_rseq))
+		goto core_restore_end;
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len, bootstrap_start, bootstrap_len,
 			   args->task_size))
