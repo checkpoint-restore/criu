@@ -2021,6 +2021,8 @@ close_uffd:
 	return -1;
 }
 extern int bulk_page_complete(unsigned long img_id, unsigned long vaddr, unsigned long int nr_pages, void *priv);
+extern int page_server_start_async_read_bulk(void *buf, unsigned long nr_pages, 
+					      ps_async_read_complete complete, void *priv);
 int cr_lazy_pages(bool daemon)
 {
 	struct epoll_event *events = NULL;
