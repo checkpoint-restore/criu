@@ -36,6 +36,42 @@
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 
+/* Global lazy VMA list for COW dump */
+static LIST_HEAD(global_lazy_vmas);
+static pthread_spinlock_t lazy_vmas_lock;
+static bool lazy_vmas_lock_initialized = false;
+
+static void init_global_lazy_vmas(void)
+{
+	if (!lazy_vmas_lock_initialized) {
+		pthread_spin_init(&lazy_vmas_lock, PTHREAD_PROCESS_PRIVATE);
+		lazy_vmas_lock_initialized = true;
+	}
+}
+
+/* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
+struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
+{
+	struct lazy_vma_entry *lve;
+	
+	if (!lazy_vmas_lock_initialized)
+		return NULL;
+	
+	pthread_spin_lock(&lazy_vmas_lock);
+	list_for_each_entry(lve, &global_lazy_vmas, list) {
+		if (vaddr >= lve->vma->e->start && 
+		    vaddr < lve->vma->e->end && 
+		    lve->dst_id == dst_id) {
+			pthread_spin_unlock(&lazy_vmas_lock);
+			return lve;
+		}
+	}
+	pthread_spin_unlock(&lazy_vmas_lock);
+	
+	pr_err("Lazy VMA not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
+	return NULL;
+}
+
 static int task_reset_dirty_track(int pid)
 {
 	int ret;
@@ -219,7 +255,7 @@ static bool is_stack(struct pstree_item *item, unsigned long vaddr)
  */
 
 static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct page_pipe *pp, pmc_t *pmc, u64 *pvaddr,
-			 bool has_parent)
+			 bool has_parent, struct page_xfer *xfer)
 {
 	unsigned long nr_scanned;
 	unsigned long pages[3] = {};
@@ -259,9 +295,16 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		if (!lve)
 			return -1;
 		
+		/* Initialize global list on first use */
+		init_global_lazy_vmas();
+		
 		lve->vma = vma;
 		nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 		lve->total_pages = nr_pages;
+		
+		/* Store dst_id and source_pid for this lazy VMA */
+		lve->dst_id = xfer ? xfer->dst_id : 0;
+		lve->source_pid = item->pid->real;
 		
 		/* Allocate sent bitmap for this VMA */
 		bitmap_size = (nr_pages + 7) / 8;
@@ -271,16 +314,14 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			return -1;
 		}
 		
-		list_add_tail(&lve->list, &dmpi(item)->lazy_vmas.h);
-		dmpi(item)->lazy_vmas.nr_vmas++;
-		dmpi(item)->lazy_vmas.total_pages += nr_pages;
+		/* Add to global list (thread-safe) */
+		pthread_spin_lock(&lazy_vmas_lock);
+		list_add_tail(&lve->list, &global_lazy_vmas);
+		pthread_spin_unlock(&lazy_vmas_lock);
 		
-		/* Store source PID for process_vm_readv */
-		if (!dmpi(item)->lazy_vmas.source_pid)
-			dmpi(item)->lazy_vmas.source_pid = item->pid->real;
-		
-		pr_info("Added lazy VMA 0x%llx-0x%llx to deferred list (%lu pages, %lu byte bitmap)\n",
-			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages, bitmap_size);
+		pr_info("Added lazy VMA 0x%llx-0x%llx to global list (%lu pages, %lu byte bitmap, dst_id=%lu, pid=%d)\n",
+			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages, bitmap_size,
+			(unsigned long)lve->dst_id, lve->source_pid);
 		return 0;
 	}
 
@@ -608,7 +649,7 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma, str
 		return add_shmem_area(item->pid->real, vma->e, pmc);
 	vaddr = vma->e->start;
 again:
-	ret = generate_iovs(item, vma, pp, pmc, &vaddr, has_parent);
+	ret = generate_iovs(item, vma, pp, pmc, &vaddr, has_parent, xfer);
 	if (ret == -EAGAIN) {
 		BUG_ON(!(pp->flags & PP_CHUNK_MODE));
 

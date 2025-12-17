@@ -1876,39 +1876,20 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	return 0;
 }
 
-/* Helper to find lazy VMA entry for a given vaddr */
-static struct lazy_vma_entry *find_lazy_vma_for_addr(struct pstree_item *item, unsigned long vaddr)
-{
-	struct lazy_vma_entry *lve;
-	
-	list_for_each_entry(lve, &dmpi(item)->lazy_vmas.h, list) {
-		if (vaddr >= lve->vma->e->start && vaddr < lve->vma->e->end)
-			return lve;
-	}
-	return NULL;
-}
 
 /* Helper to send a COW page from lazy VMA */
 static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_image *img, pid_t source_pid)
 {
-	struct pstree_item *item;
 	struct lazy_vma_entry *lve;
 	unsigned long page_idx;
 	int ret;
 	
-	item = pstree_item_by_virt(img->dst_id);
-	if (!item) {
-		pr_err("Invalid dst_id\n");
-		return -1;
-	}
-	
-	/* Find which lazy VMA contains this page */
-	lve = find_lazy_vma_for_addr(item, entry->vaddr);
-	if (!lve) {
+	/* Find which lazy VMA contains this page (uses global list) */
+	lve = find_lazy_vma_for_addr(entry->vaddr, img->dst_id);
+	if (!lve){
 		pr_err("COW page 0x%lx not in any lazy VMA\n", entry->vaddr);
 		return -1;
 	}
-	
 	/* Calculate page index within VMA */
 	page_idx = (entry->vaddr - lve->vma->e->start) / PAGE_SIZE;
 	
@@ -1932,16 +1913,9 @@ static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_
 /* Helper to send a page request from lazy VMA */
 static int send_request_page_lazy(struct page_request_entry *req, struct active_image *img, pid_t source_pid)
 {
-	struct pstree_item *item;
 	unsigned long i;
 	int ret;
 	int sent_count = 0;
-	
-	item = pstree_item_by_virt(img->dst_id);
-	if (!item) {
-		pr_err("Invalid dst_id\n");
-		return -1;
-	}
 	
 	/* Send multiple pages if requested */
 	for (i = 0; i < req->nr_pages; i++) {
@@ -1949,8 +1923,8 @@ static int send_request_page_lazy(struct page_request_entry *req, struct active_
 		struct lazy_vma_entry *lve;
 		unsigned long page_idx;
 		
-		/* Find which lazy VMA contains this page */
-		lve = find_lazy_vma_for_addr(item, page_vaddr);
+		/* Find which lazy VMA contains this page (uses global list) */
+		lve = find_lazy_vma_for_addr(page_vaddr, req->dst_id);
 		if (!lve) {
 			pr_err("Request page 0x%lx not in any lazy VMA\n", page_vaddr);
 			return -1;

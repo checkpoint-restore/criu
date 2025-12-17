@@ -19,6 +19,8 @@ struct lazy_vma_entry {
 	struct vma_area *vma;
 	unsigned char *sent_bitmap;   /* Track which pages have been sent */
 	unsigned long total_pages;    /* Total pages in this VMA */
+	u64 dst_id;                   /* Process identifier for this VMA */
+	pid_t source_pid;             /* PID for process_vm_readv */
 	struct list_head list;
 };
 
@@ -65,5 +67,8 @@ struct page_info {
 };
 
 int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *page_info);
+
+/* Global lazy VMA lookup for COW dump */
+extern struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id);
 
 #endif /* __CR_MEM_H__ */
