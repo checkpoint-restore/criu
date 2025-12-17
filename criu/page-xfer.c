@@ -1974,7 +1974,7 @@ static void *unified_page_server_thread(void *arg)
 			
 			DONE = false;
 			done_count = 0;
-
+			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 			current_time = time(NULL);
 			if (current_time - last_stats_time >= 1) {
 				unsigned long cow_queue = cow_get_queue_size();
@@ -1993,14 +1993,14 @@ static void *unified_page_server_thread(void *arg)
 			}
 			
 						
-			
+			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 			/* Now iterate through all lazy VMAs for this dst_id */
 			list_for_each_entry(lve, get_global_lazy_vmas(), list) {
 				unsigned long vma_start, vma_end, vaddr;
 				unsigned long page_idx = 0;
 				/* Get source_pid from first lazy VMA for this dst_id */
 				source_pid = lve->source_pid;
-				
+				pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 				
 				vma_start = lve->vma->e->start;
 				vma_end = lve->vma->e->end;
@@ -2008,7 +2008,7 @@ static void *unified_page_server_thread(void *arg)
 				/* Iterate pages in this VMA */
 				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
 					int max_cow_pages_per_iter = 100;
-					
+					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 					/* === PRIORITY 1: Drain COW pages === */
 					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
 						struct cow_page_queue_entry *entry = cow_get_next_page();
