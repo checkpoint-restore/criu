@@ -463,7 +463,7 @@ static int page_xfer_dump_hole(struct page_xfer *xfer, struct iovec *hole, u32 f
 	pr_debug("\th %p [%u]\n", hole->iov_base, (unsigned int)(hole->iov_len / PAGE_SIZE));
 
 		pr_info("  Writing hole pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
-						hole->iov_base, (unsigned long)(hole->iov_base+hole->iov_len)
+						hole->iov_base, (unsigned long)(hole->iov_base+hole->iov_len));
 	if (xfer->write_pagemap(xfer, hole, flags))
 		return -1;
 
