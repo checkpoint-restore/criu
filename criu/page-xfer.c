@@ -904,8 +904,8 @@ static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_v
 	struct lazy_vma_entry *lve = *cur_lve;
 	
 	/* Start from beginning if not set */
-	if (!lve)
-		lve = list_first_entry_or_null(global_list, struct lazy_vma_entry, list);
+	if (!lve && !list_empty(global_list))
+		lve = list_first_entry(global_list, struct lazy_vma_entry, list);
 	
 	/* Write all lazy VMAs that start before before_vaddr */
 	while (lve && &lve->list != global_list) {
