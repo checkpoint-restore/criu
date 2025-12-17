@@ -61,7 +61,7 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 	pthread_spin_lock(&lazy_vmas_lock);
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
 		if (vaddr >= lve->vma->e->start && 
-		    vaddr < lve->vma->e->end) // && 		    lve->dst_id == dst_id) {
+		    vaddr < lve->vma->e->end) { // && 		    lve->dst_id == dst_id) {
 			pthread_spin_unlock(&lazy_vmas_lock);
 			return lve;
 		}
