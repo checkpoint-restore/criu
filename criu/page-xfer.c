@@ -1931,7 +1931,7 @@ static int send_request_page_lazy(struct page_request_entry *req, struct active_
 	
 	return sent_count;  /* Return number of pages actually sent */
 }
-extern struct list_head global_lazy_vmas;
+
 /* Unified background thread serving all images */
 static void *unified_page_server_thread(void *arg)
 {
@@ -1995,7 +1995,7 @@ static void *unified_page_server_thread(void *arg)
 						
 			
 			/* Now iterate through all lazy VMAs for this dst_id */
-			list_for_each_entry(lve, &global_lazy_vmas, list) {
+			list_for_each_entry(lve, &get_global_lazy_vmas(), list) {
 				unsigned long vma_start, vma_end, vaddr;
 				unsigned long page_idx = 0;
 				/* Get source_pid from first lazy VMA for this dst_id */
