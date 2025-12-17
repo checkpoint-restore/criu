@@ -1770,6 +1770,9 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	int uffd;
 	struct iovec local_iov, remote_iov;
 	
+	pr_debug("[SEND_PAGE] Entering send_lazy_vma_page: vaddr=0x%lx dst_id=%lu pid=%d\n", 
+		 vaddr, (unsigned long)dst_id, source_pid);
+	
 	/* Get hash bucket lock */
 	lock = cow_get_hash_lock(vaddr);
 	if (!lock) {
@@ -1796,14 +1799,19 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	/* Send data */
 	if (cow_pg) {
 		/* Send COW data */
+		pr_debug("[SEND_PAGE] Sending COW page at vaddr=0x%lx\n", vaddr);
+		
 		ret = opts.tls ? __send(sk, cow_pg->data, PAGE_SIZE, 0) : send(sk, cow_pg->data, PAGE_SIZE, 0);
 		if (ret != PAGE_SIZE) {
 			pr_perror("Failed to send COW page");
 			pthread_spin_unlock(lock);
 			return -1;
 		}
+		pr_debug("[SEND_PAGE] Successfully sent COW page at vaddr=0x%lx\n", vaddr);
 	} else {
 		/* Read from process memory */
+		pr_debug("[SEND_PAGE] Reading regular page from process memory at vaddr=0x%lx pid=%d\n", vaddr, source_pid);
+		
 		buffer = xmalloc(PAGE_SIZE);
 		if (!buffer) {
 			pthread_spin_unlock(lock);
@@ -1823,6 +1831,8 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 			return -1;
 		}
 		
+		pr_debug("[SEND_PAGE] Read successful, sending page at vaddr=0x%lx\n", vaddr);
+		
 		/* Send buffer */
 		ret = opts.tls ? __send(sk, buffer, PAGE_SIZE, 0) : send(sk, buffer, PAGE_SIZE, 0);
 		xfree(buffer);
@@ -1832,6 +1842,8 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 			pthread_spin_unlock(lock);
 			return -1;
 		}
+		
+		pr_debug("[SEND_PAGE] Successfully sent regular page at vaddr=0x%lx\n", vaddr);
 		
 		/* Unprotect non-COW page */
 		uffd = cow_get_uffd();
