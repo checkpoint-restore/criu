@@ -896,14 +896,69 @@ err:
 	return -1;
 }
 
+/* Helper to write lazy VMA pagemap entries that come before a given vaddr */
+static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_vaddr, 
+				   struct lazy_vma_entry **cur_lve)
+{
+	struct list_head *global_list = get_global_lazy_vmas();
+	struct lazy_vma_entry *lve = *cur_lve;
+	
+	/* Start from beginning if not set */
+	if (!lve)
+		lve = list_first_entry_or_null(global_list, struct lazy_vma_entry, list);
+	
+	/* Write all lazy VMAs that start before before_vaddr */
+	while (lve && &lve->list != global_list) {
+		unsigned long vma_start = lve->vma->e->start;
+		
+		/* Stop if this VMA starts at or after our limit */
+		if (vma_start >= before_vaddr)
+			break;
+		
+		/* Write this lazy VMA's pagemap entry */
+		struct iovec iov;
+		u32 flags = PE_LAZY;
+		
+		iov.iov_base = (void *)vma_start;
+		iov.iov_len = lve->vma->e->end - vma_start;
+		
+		/* Apply offset */
+		BUG_ON(iov.iov_base < (void *)xfer->offset);
+		iov.iov_base -= xfer->offset;
+		
+		pr_info("  Writing lazy VMA pagemap: 0x%lx-0x%lx (%lu pages)\n",
+			vma_start, (unsigned long)lve->vma->e->end,
+			(unsigned long)(iov.iov_len / PAGE_SIZE));
+		
+		if (xfer->write_pagemap(xfer, &iov, flags)) {
+			pr_err("Failed to write pagemap for lazy VMA\n");
+			return -1;
+		}
+		
+		/* Move to next lazy VMA */
+		lve = list_next_entry(lve, list);
+	}
+	
+	/* Update caller's position */
+	*cur_lve = lve;
+	return 0;
+}
+
 int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb;
 	unsigned int cur_hole = 0;
+	struct lazy_vma_entry *cur_lve = NULL;
 	int ret;
 
 	pr_debug("Transferring pages:\n");
 	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
+	/* In COW dump mode, we need to interleave lazy VMA entries with pipe entries */
+	if (opts.cow_dump) {
+		pr_info("Writing pagemap entries (interleaved mode) for dst_id=%lu\n", 
+			(unsigned long)xfer->dst_id);
+	}
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		unsigned int i;
@@ -913,11 +968,19 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec iov = ppb->iov[i];
 			u32 flags;
+			unsigned long seg_vaddr = (unsigned long)iov.iov_base + xfer->offset;
 			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 			ret = dump_holes(xfer, pp, &cur_hole, iov.iov_base);
 			if (ret)
 				return ret;
+
+			/* Write any lazy VMAs that should come before this segment */
+			if (opts.cow_dump) {
+				ret = write_lazy_vmas_before(xfer, seg_vaddr, &cur_lve);
+				if (ret)
+					return ret;
+			}
 
 			BUG_ON(iov.iov_base < (void *)xfer->offset);
 			iov.iov_base -= xfer->offset;
@@ -941,43 +1004,11 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 	if (ret)
 		return ret;
 
-	/* Write pagemap entries for lazy VMAs in COW dump mode */
+	/* Write any remaining lazy VMAs after all pipe entries */
 	if (opts.cow_dump) {
-		struct lazy_vma_entry *lve;
-		struct list_head *global_list = get_global_lazy_vmas();
-		
-		pr_info("Writing pagemap entries for lazy VMAs (dst_id=%lu)\n", 
-			(unsigned long)xfer->dst_id);
-		
-		list_for_each_entry(lve, global_list, list) {
-			struct iovec iov;
-			u32 flags;
-			
-			///* Only process VMAs for this dst_id */
-			//if (lve->dst_id != xfer->dst_id)
-			//	continue;
-			
-			/* Create iovec for entire VMA */
-			iov.iov_base = (void *)lve->vma->e->start;
-			iov.iov_len = lve->vma->e->end - lve->vma->e->start;
-			
-			/* Apply offset */
-			BUG_ON(iov.iov_base < (void *)xfer->offset);
-			iov.iov_base -= xfer->offset;
-			
-			/* Mark as lazy (restore side will handle via userfaultfd) */
-			flags = PE_LAZY;
-			
-			pr_info("  Writing lazy VMA pagemap: 0x%lx-0x%lx (%lu pages)\n",
-				(unsigned long)lve->vma->e->start,
-				(unsigned long)lve->vma->e->end,
-				(unsigned long)(iov.iov_len / PAGE_SIZE));
-			
-			if (xfer->write_pagemap(xfer, &iov, flags)) {
-				pr_err("Failed to write pagemap for lazy VMA\n");
-				return -1;
-			}
-		}
+		ret = write_lazy_vmas_before(xfer, ULONG_MAX, &cur_lve);
+		if (ret)
+			return ret;
 	}
 
 	return 0;
