@@ -462,6 +462,8 @@ static int page_xfer_dump_hole(struct page_xfer *xfer, struct iovec *hole, u32 f
 	hole->iov_base -= xfer->offset;
 	pr_debug("\th %p [%u]\n", hole->iov_base, (unsigned int)(hole->iov_len / PAGE_SIZE));
 
+		pr_info("  Writing hole pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
+						hole->iov_base, (unsigned long)(hole->iov_base+hole->iov_len)
 	if (xfer->write_pagemap(xfer, hole, flags))
 		return -1;
 
@@ -928,7 +930,7 @@ static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_v
 		BUG_ON(iov.iov_base < (void *)xfer->offset);
 		iov.iov_base -= xfer->offset;
 		
-		pr_info("  Writing lazy VMA pagemap: 0x%lx-0x%lx (%lu pages)\n",
+		pr_info("  Writing lazy VMA pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
 			vma_start, (unsigned long)lve->vma->e->end,
 			(unsigned long)(iov.iov_len / PAGE_SIZE));
 		
@@ -991,6 +993,10 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 
 			flags = ppb_xfer_flags(xfer, ppb);
 			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+
+			pr_info("  Writing non lazy PPE pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
+						iov.iov_base, (unsigned long)(iov.iov_base+iov.iov_len)
+			(unsigned long)(iov.iov_len / PAGE_SIZE));
 
 			if (xfer->write_pagemap(xfer, &iov, flags))
 				return -1;
