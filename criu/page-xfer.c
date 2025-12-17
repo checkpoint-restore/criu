@@ -938,7 +938,7 @@ static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_v
 		}
 		
 		/* Move to next lazy VMA */
-		lve = list_next_entry(lve, list);
+		lve = list_entry(lve->list.next, struct lazy_vma_entry, list);
 	}
 	
 	/* Update caller's position */
