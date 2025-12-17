@@ -50,7 +50,7 @@ static void init_global_lazy_vmas(void)
 	}
 }
 
-struct list_head* get_global_lazy_vmas() {
+struct list_head* get_global_lazy_vmas(void) {
 	return &global_lazy_vmas;
 }
 
