@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/prctl.h>
+#include <pthread.h>
 
 #include "types.h"
 #include "cr_options.h"
