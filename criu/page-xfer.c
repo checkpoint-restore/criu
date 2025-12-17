@@ -1685,10 +1685,7 @@ static struct active_image *find_active_image(u64 dst_id)
 static int add_active_image(u64 dst_id, int sk)
 {
 	struct active_image *img;
-	struct pstree_item *item;
-	struct lazy_vma_entry *lve;
-	unsigned long total_pages = 0;
-	unsigned int vma_idx = 0;
+	unsigned long total_pages;
 	
 	pthread_spin_lock(&active_images_lock);
 	
@@ -1701,26 +1698,9 @@ static int add_active_image(u64 dst_id, int sk)
 	
 	pthread_spin_unlock(&active_images_lock);
 	
-	/* Get item and verify lazy VMAs exist */
-	item = pstree_item_by_virt(dst_id);
-	if (!item) {
-		pr_err("Invalid dst_id=%lu\n", dst_id);
-		return -1;
-	}
-	
-	/* Count total pages in lazy VMAs */
+	/* Count total pages in lazy VMAs for this dst_id (uses global list) */
 	pr_info("=== Scanning lazy VMAs for dst_id=%lu ===\n", dst_id);
-	
-	list_for_each_entry(lve, &dmpi(item)->lazy_vmas.h, list) {
-		unsigned long vma_pages = vma_entry_len(lve->vma->e) / PAGE_SIZE;
-		
-		pr_info("[VMA %u] addr=0x%lx-0x%lx pages=%lu\n",
-			vma_idx, lve->vma->e->start, lve->vma->e->end, vma_pages);
-		
-		total_pages += vma_pages;
-		vma_idx++;
-	}
-	
+	total_pages = count_lazy_vma_pages(dst_id);
 	pr_info("=== Total lazy VMA pages: %lu ===\n", total_pages);
 	
 	if (total_pages == 0) {

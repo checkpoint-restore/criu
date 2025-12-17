@@ -73,6 +73,27 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 	return NULL;
 }
 
+/* Count total pages in lazy VMAs for a given dst_id (exported for page-xfer.c) */
+unsigned long count_lazy_vma_pages(u64 dst_id)
+{
+	struct lazy_vma_entry *lve;
+	unsigned long total_pages = 0;
+	
+	if (!lazy_vmas_lock_initialized)
+		return 0;
+	
+	pthread_spin_lock(&lazy_vmas_lock);
+	list_for_each_entry(lve, &global_lazy_vmas, list) {
+		if (lve->dst_id == dst_id) {
+			unsigned long vma_pages = vma_entry_len(lve->vma->e) / PAGE_SIZE;
+			total_pages += vma_pages;
+		}
+	}
+	pthread_spin_unlock(&lazy_vmas_lock);
+	
+	return total_pages;
+}
+
 static int task_reset_dirty_track(int pid)
 {
 	int ret;
