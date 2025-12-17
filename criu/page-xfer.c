@@ -910,6 +910,7 @@ static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_v
 	/* Write all lazy VMAs that start before before_vaddr */
 	while (lve && &lve->list != global_list) {
 		struct iovec iov;
+		u32 flags = PE_LAZY;
 		unsigned long vma_start = lve->vma->e->start;
 		
 		/* Stop if this VMA starts at or after our limit */
@@ -918,7 +919,7 @@ static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_v
 		
 		/* Write this lazy VMA's pagemap entry */
 		
-		u32 flags = PE_LAZY;
+		
 		
 		iov.iov_base = (void *)vma_start;
 		iov.iov_len = lve->vma->e->end - vma_start;
