@@ -61,8 +61,7 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 	pthread_spin_lock(&lazy_vmas_lock);
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
 		if (vaddr >= lve->vma->e->start && 
-		    vaddr < lve->vma->e->end && 
-		    lve->dst_id == dst_id) {
+		    vaddr < lve->vma->e->end) // && 		    lve->dst_id == dst_id) {
 			pthread_spin_unlock(&lazy_vmas_lock);
 			return lve;
 		}
@@ -84,10 +83,10 @@ unsigned long count_lazy_vma_pages(u64 dst_id)
 	
 	pthread_spin_lock(&lazy_vmas_lock);
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
-		if (lve->dst_id == dst_id) {
+		//if (lve->dst_id == dst_id) {
 			unsigned long vma_pages = vma_entry_len(lve->vma->e) / PAGE_SIZE;
 			total_pages += vma_pages;
-		}
+		//}
 	}
 	pthread_spin_unlock(&lazy_vmas_lock);
 	
