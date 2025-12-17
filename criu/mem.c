@@ -50,8 +50,8 @@ static void init_global_lazy_vmas(void)
 	}
 }
 
-struct list_head get_global_lazy_vmas() {
-	return global_lazy_vmas;
+struct list_head* get_global_lazy_vmas() {
+	return &global_lazy_vmas;
 }
 
 /* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
