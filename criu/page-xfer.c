@@ -1931,7 +1931,7 @@ static int send_request_page_lazy(struct page_request_entry *req, struct active_
 	
 	return sent_count;  /* Return number of pages actually sent */
 }
-extern static LIST_HEAD(global_lazy_vmas);
+extern static struct list_head global_lazy_vmas;
 /* Unified background thread serving all images */
 static void *unified_page_server_thread(void *arg)
 {
