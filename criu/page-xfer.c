@@ -937,7 +937,50 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 	}
 	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
-	return dump_holes(xfer, pp, &cur_hole, NULL);
+	ret = dump_holes(xfer, pp, &cur_hole, NULL);
+	if (ret)
+		return ret;
+
+	/* Write pagemap entries for lazy VMAs in COW dump mode */
+	if (opts.cow_dump) {
+		struct lazy_vma_entry *lve;
+		struct list_head *global_list = get_global_lazy_vmas();
+		
+		pr_info("Writing pagemap entries for lazy VMAs (dst_id=%lu)\n", 
+			(unsigned long)xfer->dst_id);
+		
+		list_for_each_entry(lve, global_list, list) {
+			struct iovec iov;
+			u32 flags;
+			
+			///* Only process VMAs for this dst_id */
+			//if (lve->dst_id != xfer->dst_id)
+			//	continue;
+			
+			/* Create iovec for entire VMA */
+			iov.iov_base = (void *)lve->vma->e->start;
+			iov.iov_len = lve->vma->e->end - lve->vma->e->start;
+			
+			/* Apply offset */
+			BUG_ON(iov.iov_base < (void *)xfer->offset);
+			iov.iov_base -= xfer->offset;
+			
+			/* Mark as lazy (restore side will handle via userfaultfd) */
+			flags = PE_LAZY;
+			
+			pr_info("  Writing lazy VMA pagemap: 0x%lx-0x%lx (%lu pages)\n",
+				(unsigned long)lve->vma->e->start,
+				(unsigned long)lve->vma->e->end,
+				(unsigned long)(iov.iov_len / PAGE_SIZE));
+			
+			if (xfer->write_pagemap(xfer, &iov, flags)) {
+				pr_err("Failed to write pagemap for lazy VMA\n");
+				return -1;
+			}
+		}
+	}
+
+	return 0;
 }
 
 /*
