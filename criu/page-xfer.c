@@ -1964,20 +1964,14 @@ static void *unified_page_server_thread(void *arg)
 		
 		/* Service each active image */
 		list_for_each_entry_safe(img, tmp, &active_images_queue, list) {
-			struct pstree_item *item;
 			struct lazy_vma_entry *lve;
 			int ret;
+			pid_t source_pid = 0;
 			
 			pthread_spin_unlock(&active_images_lock);
 			pr_warn("Start loop Image dst_id=%lu remaining: %lu (%lu COW + %lu req)\n",
 					img->dst_id, img->remaining_pages, img->total_cow_pages, img->total_req_pages);
 			
-			item = pstree_item_by_virt(img->dst_id);
-			if (!item) {
-				pr_err("Invalid dst_id=%lu\n", img->dst_id);
-				pthread_spin_lock(&active_images_lock);
-				continue;
-			}
 			DONE = false;
 			done_count = 0;
 
@@ -1998,12 +1992,18 @@ static void *unified_page_server_thread(void *arg)
 				last_stats_time = current_time;
 			}
 			
-			/* Iterate through lazy VMAs */
-			list_for_each_entry(lve, &dmpi(item)->lazy_vmas.h, list) {
-				unsigned long vma_start = lve->vma->e->start;
-				unsigned long vma_end = lve->vma->e->end;
-				unsigned long vaddr;
+						
+			
+			/* Now iterate through all lazy VMAs for this dst_id */
+			list_for_each_entry(lve, &global_lazy_vmas, list) {
+				unsigned long vma_start, vma_end, vaddr;
 				unsigned long page_idx = 0;
+				/* Get source_pid from first lazy VMA for this dst_id */
+				source_pid = lve->source_pid;
+				
+				
+				vma_start = lve->vma->e->start;
+				vma_end = lve->vma->e->end;
 				
 				/* Iterate pages in this VMA */
 				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
@@ -2016,7 +2016,7 @@ static void *unified_page_server_thread(void *arg)
 						if (!entry)
 							break;
 						
-						ret = send_cow_page_lazy(entry, img, dmpi(item)->lazy_vmas.source_pid);
+						ret = send_cow_page_lazy(entry, img, source_pid);
 						
 						if (ret > 0) {
 							img->total_cow_pages++;
@@ -2038,7 +2038,7 @@ static void *unified_page_server_thread(void *arg)
 						if (!req)
 							break;
 						
-						ret = send_request_page_lazy(req, img, dmpi(item)->lazy_vmas.source_pid);
+						ret = send_request_page_lazy(req, img, source_pid);
 						
 						if (ret > 0) {
 							img->total_req_pages += req->nr_pages;
@@ -2059,7 +2059,7 @@ static void *unified_page_server_thread(void *arg)
 						continue;
 					}
 					
-					ret = send_lazy_vma_page(img->main_sk, vaddr, img->dst_id, dmpi(item)->lazy_vmas.source_pid);
+					ret = send_lazy_vma_page(img->main_sk, vaddr, img->dst_id, source_pid);
 					if (ret < 0) {
 						pr_err("Failed to send lazy VMA page at %lx\n", vaddr);
 						continue;

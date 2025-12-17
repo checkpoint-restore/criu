@@ -1767,24 +1767,22 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 	return prepare_vma_ios(t, ta);
 }
 
-/* Cleanup function for lazy VMA list */
-void free_lazy_vma_list(struct pstree_item *item)
+/* Cleanup function for global lazy VMA list */
+void free_global_lazy_vmas(void)
 {
 	struct lazy_vma_entry *lve, *tmp;
 	
-	if (!item)
+	if (!lazy_vmas_lock_initialized)
 		return;
 	
-	list_for_each_entry_safe(lve, tmp, &dmpi(item)->lazy_vmas.h, list) {
+	pthread_spin_lock(&lazy_vmas_lock);
+	list_for_each_entry_safe(lve, tmp, &global_lazy_vmas, list) {
 		list_del(&lve->list);
 		if (lve->sent_bitmap)
 			xfree(lve->sent_bitmap);
 		xfree(lve);
 	}
-	
-	dmpi(item)->lazy_vmas.nr_vmas = 0;
-	dmpi(item)->lazy_vmas.total_pages = 0;
-	dmpi(item)->lazy_vmas.source_pid = 0;
+	pthread_spin_unlock(&lazy_vmas_lock);
 }
 
 int collect_madv_guards(pid_t pid, struct vm_area_list *vma_area_list)

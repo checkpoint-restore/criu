@@ -208,11 +208,7 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 			return NULL;
 		item->pid = (void *)item + sizeof(*item) + sizeof(struct dmp_info);
 		
-		/* Initialize lazy VMA list for COW dump */
-		INIT_LIST_HEAD(&dmpi(item)->lazy_vmas.h);
-		dmpi(item)->lazy_vmas.nr_vmas = 0;
-		dmpi(item)->lazy_vmas.total_pages = 0;
-		dmpi(item)->lazy_vmas.source_pid = 0;
+
 	} else {
 		sz = sizeof(*item) + sizeof(struct rst_info) + sizeof(struct pid);
 		item = shmalloc(sz);
