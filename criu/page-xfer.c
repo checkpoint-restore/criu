@@ -995,8 +995,8 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 			pr_info("  Writing non lazy PPE pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
-						iov.iov_base, (unsigned long)(iov.iov_base+iov.iov_len));
-			(unsigned long)(iov.iov_len / PAGE_SIZE));
+						iov.iov_base, (unsigned long)(iov.iov_base+iov.iov_len),
+						(unsigned long)(iov.iov_len / PAGE_SIZE));
 
 			if (xfer->write_pagemap(xfer, &iov, flags))
 				return -1;
