@@ -123,12 +123,28 @@ int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 
 static int advance(struct page_read *pr)
 {
+	pr_debug("[ADVANCE] pr%lu-%u: Before advance curr_pme=%d nr_pmes=%d\n",
+		 pr->img_id, pr->id, pr->curr_pme, pr->nr_pmes);
+	
 	pr->curr_pme++;
-	if (pr->curr_pme >= pr->nr_pmes)
+	
+	if (pr->curr_pme >= pr->nr_pmes) {
+		pr_debug("[ADVANCE] pr%lu-%u: Reached end (curr_pme=%d >= nr_pmes=%d)\n",
+			 pr->img_id, pr->id, pr->curr_pme, pr->nr_pmes);
 		return 0;
+	}
 
 	pr->pe = pr->pmes[pr->curr_pme];
 	pr->cvaddr = pr->pe->vaddr;
+
+	pr_debug("[ADVANCE] pr%lu-%u: Advanced to entry %d: vaddr=0x%lx nr_pages=%lu flags=0x%x (PE_PRESENT=%d PE_LAZY=%d PE_PARENT=%d)\n",
+		 pr->img_id, pr->id, pr->curr_pme,
+		 (unsigned long)pr->pe->vaddr,
+		 (unsigned long)pr->pe->nr_pages,
+		 pr->pe->flags,
+		 !!(pr->pe->flags & PE_PRESENT),
+		 !!(pr->pe->flags & PE_LAZY),
+		 !!(pr->pe->flags & PE_PARENT));
 
 	return 1;
 }
