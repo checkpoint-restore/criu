@@ -67,8 +67,6 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 	
 	pthread_spin_lock(&lazy_vmas_lock);
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
-		pr_err("VMA start=0x%lx end=%lx \n", lve->vma->e->start, lve->vma->e->end);
-
 		if (vaddr >= lve->vma->e->start && 
 		    vaddr < lve->vma->e->end) { // && 		    lve->dst_id == dst_id) {
 			pthread_spin_unlock(&lazy_vmas_lock);
@@ -77,6 +75,11 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 			return lve;
 		}
 	}
+
+	list_for_each_entry(lve, &global_lazy_vmas, list) {
+		pr_err("VMA start=0x%lx end=%lx \n", lve->vma->e->start, lve->vma->e->end);
+	}
+
 	pthread_spin_unlock(&lazy_vmas_lock);
 	
 	pr_err("Lazy VMA not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
