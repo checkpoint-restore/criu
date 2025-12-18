@@ -296,10 +296,10 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 
 	dump_all_pages = should_dump_entire_vma(vma->e);
 
-	pr_warn("generate_iovs: VMA 0x%llx-0x%llx (start=0x%llx) dump_all=%d has_parent=%d lazy_capable=%d flags=0x%x\n",
+	pr_warn("generate_iovs: VMA 0x%llx-0x%llx (start=0x%llx) dump_all=%d has_parent=%d lazy_capable=%d flags=0x%x prot=0x%x\n",
 		(unsigned long long)vma->e->start, (unsigned long long)vma->e->end,
 		(unsigned long long)vma_start, dump_all_pages, has_parent,
-		vma_entry_can_be_lazy(vma->e), vma->e->flags);
+		vma_entry_can_be_lazy(vma->e), vma->e->flags, vma->e->prot);
 
 	/*
 	 * COW-dump optimization: Skip expensive per-page pagemap scanning.
@@ -314,7 +314,11 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	 * faults for COW tracking. Their content must be captured immediately.
 	 */
 
-	if (opts.cow_dump && vma_entry_can_be_lazy(vma->e)) {
+	 		/* Must be writable */
+		if (!)
+			continue;
+
+	if (opts.cow_dump && vma_entry_can_be_lazy(vma->e) && (vma->e->prot & PROT_WRITE) && (vma->e->prot & PROT_READ)) {
 		struct lazy_vma_entry *lve = xmalloc(sizeof(*lve));
 		unsigned long nr_pages, bitmap_size;
 		
