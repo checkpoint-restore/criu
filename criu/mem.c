@@ -314,10 +314,6 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	 * faults for COW tracking. Their content must be captured immediately.
 	 */
 
-	 		/* Must be writable */
-		if (!)
-			continue;
-
 	if (opts.cow_dump && vma_entry_can_be_lazy(vma->e) && (vma->e->prot & PROT_WRITE) && (vma->e->prot & PROT_READ)) {
 		struct lazy_vma_entry *lve = xmalloc(sizeof(*lve));
 		unsigned long nr_pages, bitmap_size;
