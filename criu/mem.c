@@ -67,6 +67,8 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 		if (vaddr >= lve->vma->e->start && 
 		    vaddr < lve->vma->e->end) { // && 		    lve->dst_id == dst_id) {
 			pthread_spin_unlock(&lazy_vmas_lock);
+			pr_err("Lazy VMA was found for vaddr=0x%lx dst_id=%lu lve=0x%p\n", vaddr, dst_id, lve);
+
 			return lve;
 		}
 	}
