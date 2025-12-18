@@ -60,7 +60,7 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 	struct lazy_vma_entry *lve;
 	
 	if (!lazy_vmas_lock_initialized){
-		pr_err("Lazy VMA lock was not initialized  and not found for vaddr=0x%lx dst_id=%lu lve=0x%p\n", vaddr, dst_id, lve);
+		pr_err("Lazy VMA lock was not initialized  and not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
 
 		return NULL;
 	}
