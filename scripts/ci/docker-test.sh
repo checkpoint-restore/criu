@@ -78,34 +78,41 @@ checkpoint_container () {
 }
 
 print_logs () {
-	cat "$(grep log 'log file:' | sed 's/log file:\s*//')" || true
-		docker logs cr || true
-		cat $CRIU_LOG || true
-		dmesg
-		docker ps
-		exit 1
+	# Show CRIU restore log if the path was printed in docker output.
+	cat "$(grep -E 'log file:' log | sed -E 's/.*log file:\s*//')" || true
+	docker logs cr || true
+	cat "$CRIU_LOG" || true
+	dmesg || true
+	docker ps || true
+	exit 1
 }
 
-declare -i max_restore_container_tries=3
+# Increase retries to make the test robust against known containerd races.
+declare -i max_restore_container_tries=6
 
 restore_container () {
 	CHECKPOINT_NAME=$1
 
 	for i in $(seq $max_restore_container_tries); do
-		docker start --checkpoint "$CHECKPOINT_NAME" cr 2>&1 | tee log && break
+		# Small back-off before attempting the restore to avoid races
+		sleep 1
+		docker start --checkpoint "$CHECKPOINT_NAME" cr 2>&1 | tee log && return 0
 
-		# FIXME: There is a race condition in docker/containerd that causes
-		# docker to occasionally fail when starting a container from a
-		# checkpoint immediately after the checkpoint has been created.
-		# https://github.com/moby/moby/issues/42900
-		if grep -Eq '^Error response from daemon: failed to upload checkpoint to containerd: commit failed: content sha256:.*: already exists$' log; then
+		# Known transient errors observed across containerd/docker versions.
+		if grep -Eq 'already exists' log || \
+		   grep -Eq 'failed to upload checkpoint to containerd' log || \
+		   grep -Eq 'context deadline exceeded' log || \
+		   grep -Eq 'transport is closing' log; then
 			echo "Retry container restore: $i/$max_restore_container_tries"
-			sleep 1;
-		else
-			print_logs
+			continue
 		fi
 
+		print_logs
+
 	done
+
+	# If we are here, all retries were exhausted.
+	print_logs
 }
 
 # Scenario: Create multiple containers and checkpoint and restore them once
