@@ -16,12 +16,12 @@ struct pstree_item;
 struct vma_area;
 
 struct lazy_vma_entry {
+	struct list_head list;
 	struct vma_area *vma;
 	unsigned char *sent_bitmap;   /* Track which pages have been sent */
 	unsigned long total_pages;    /* Total pages in this VMA */
 	u64 dst_id;                   /* Process identifier for this VMA */
-	pid_t source_pid;             /* PID for process_vm_readv */
-	struct list_head list;
+	pid_t source_pid;             /* PID for process_vm_readv */	
 };
 
 
