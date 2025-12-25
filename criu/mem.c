@@ -60,7 +60,7 @@ void verify_vmas(char* file, int line)
 	struct lazy_vma_entry *lve;
 	
 	if (!lazy_vmas_lock_initialized){
-		pr_err("Lazy VMA lock was not initialized  and not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
+		pr_err("Lazy VMA lock was not initilized\n");
 
 		return;
 	}
