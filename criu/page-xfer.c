@@ -2128,9 +2128,9 @@ static void *unified_page_server_thread(void *arg)
 					
 					/* === PRIORITY 2: Drain page requests === */
 					while (has_page_requests() && img->remaining_pages > 0) {
-						verify_vmas(__FILE__, __LINE__);
 						struct page_request_entry *req = get_next_page_request();
-						
+						verify_vmas(__FILE__, __LINE__);
+
 						if (!req)
 							break;
 						
