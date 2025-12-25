@@ -72,7 +72,7 @@ int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *pa
 
 /* Global lazy VMA lookup for COW dump */
 extern struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id);
-extern void verify_vmas(char* file, char* line);
+extern void verify_vmas(char* file, int line);
 extern unsigned long count_lazy_vma_pages(u64 dst_id);
 struct list_head* get_global_lazy_vmas(void);
 

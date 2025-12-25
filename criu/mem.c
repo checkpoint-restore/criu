@@ -55,7 +55,7 @@ struct list_head* get_global_lazy_vmas(void) {
 }
 
 /* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
-void verify_vmas(char* file, char* line)
+void verify_vmas(char* file, int line)
 {
 	struct lazy_vma_entry *lve;
 	
