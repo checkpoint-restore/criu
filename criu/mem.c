@@ -342,7 +342,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		(vma->e->prot & PROT_WRITE) &&
 		!(!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED)) &&
 		!(vma->e->flags & MAP_DROPPABLE) &&
-		(vma->e->prot & PROT_READ) !is_stack(item, vma_start);
+		(vma->e->prot & PROT_READ) && !is_stack(item, vma_start);
 
 
 	dump_all_pages = should_dump_entire_vma(vma->e);
