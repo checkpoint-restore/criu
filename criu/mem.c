@@ -70,12 +70,12 @@ void verify_vmas(char* file, int line)
 	list_for_each_entry(lve, &global_lazy_vmas, list) {		
 		if (lve->magic != 0xdeadbeaf || lve->magic_end != 0x12345678){
 				struct lazy_vma_entry *lve1;
-	
+				pr_err("lve->magic=0x%x lve->end_magic=%x \n", lve->magic, lve->magic_end);
 				list_for_each_entry(lve1, &global_lazy_vmas, list) {
 					pr_err("VMA start=0x%lx end=%lx \n", lve1->vma->e->start, lve1->vma->e->end);
 				}
 				pthread_spin_unlock(&lazy_vmas_lock);
-				return;
+				exit(0);
 
 		}
 	}
