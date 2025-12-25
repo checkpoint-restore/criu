@@ -55,15 +55,16 @@ struct list_head* get_global_lazy_vmas(void) {
 }
 
 /* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
-void verify_vmas(void)
+void verify_vmas(char* file, char* line)
 {
 	struct lazy_vma_entry *lve;
 	
 	if (!lazy_vmas_lock_initialized){
 		pr_err("Lazy VMA lock was not initialized  and not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
 
-		return NULL;
+		return;
 	}
+	pr_err({"verify_vmas file = %s, line = %d\n", file, line);
 	pthread_spin_lock(&lazy_vmas_lock);
 
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
