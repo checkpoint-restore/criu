@@ -68,7 +68,7 @@ void verify_vmas(char* file, int line)
 	pthread_spin_lock(&lazy_vmas_lock);
 
 	list_for_each_entry(lve, &global_lazy_vmas, list) {		
-		if (lve->magic != 0xdeadbead || lve->magic_end != 0x12345678){
+		if (lve->magic != 0xdeadbeaf || lve->magic_end != 0x12345678){
 				struct lazy_vma_entry *lve1;
 	
 				list_for_each_entry(lve1, &global_lazy_vmas, list) {
