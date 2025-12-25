@@ -342,7 +342,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		(vma->e->prot & PROT_WRITE) &&
 		!(!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED)) &&
 		!(vma->e->flags & MAP_DROPPABLE) &&
-		(vma->e->prot & PROT_READ);
+		(vma->e->prot & PROT_READ) !is_stack(item, vma_start);
 
 
 	dump_all_pages = should_dump_entire_vma(vma->e);
@@ -400,6 +400,13 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		pr_info("Added lazy VMA 0x%llx-0x%llx to global list (%lu pages, %lu byte bitmap, dst_id=%lu, pid=%d)\n",
 			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages, bitmap_size,
 			(unsigned long)lve->dst_id, lve->source_pid);
+		
+		for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {
+			if (is_stack(item, vaddr)) {
+				pr_err("stack oh no exit\n");
+				exit(0);
+			}
+
 		return 0;
 	}
 
