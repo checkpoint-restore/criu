@@ -2088,15 +2088,12 @@ int cr_lazy_pages(bool daemon)
 		/* Now that socket is connected, request all pages for bulk mode */
 		if (opts.cow_dump) {
 			list_for_each_entry(lpi, &lpis, l) {
-				void* buf = xmalloc(PAGE_SIZE*1024);
-				unsigned long nr = 1024;		
 				pr_info("Requesting all remote pages for pid=%d\n", lpi->pid);
 				if (request_all_remote_pages(lpi->pr.img_id) < 0) {
 					pr_err("Failed to request all remote pages for pid=%d\n", lpi->pid);
 					xfree(events);
 					return -1;
 				}
-				page_server_start_async_read_bulk(buf, nr, bulk_page_complete, &lpi->pr);				
 			}
 		}
 	}
