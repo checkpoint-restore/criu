@@ -55,6 +55,31 @@ struct list_head* get_global_lazy_vmas(void) {
 }
 
 /* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
+void verify_vmas(void)
+{
+	struct lazy_vma_entry *lve;
+	
+	if (!lazy_vmas_lock_initialized){
+		pr_err("Lazy VMA lock was not initialized  and not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
+
+		return NULL;
+	}
+	pthread_spin_lock(&lazy_vmas_lock);
+
+	list_for_each_entry(lve, &global_lazy_vmas, list) {
+		if (lve->magic != 0xdeadbead || lve->magic_end != 0x12345678){
+				list_for_each_entry(lve, &global_lazy_vmas, list) {
+					pr_err("VMA start=0x%lx end=%lx \n", lve->vma->e->start, lve->vma->e->end);
+				}
+				pthread_spin_unlock(&lazy_vmas_lock);
+				return;
+
+		}
+	}
+	pthread_spin_unlock(&lazy_vmas_lock);
+}
+
+/* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
 struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 {
 	struct lazy_vma_entry *lve;
@@ -346,7 +371,8 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		
 		/* Initialize global list on first use */
 		init_global_lazy_vmas();
-		
+		lve->magic = 0xdeadbeaf;
+		lve->magic_end = 0x12345678;
 		lve->vma = vma;
 		nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 		lve->total_pages = nr_pages;
