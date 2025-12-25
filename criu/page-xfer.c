@@ -2068,7 +2068,7 @@ static void *unified_page_server_thread(void *arg)
 			
 			DONE = false;
 			done_count = 0;
-			verify_vmas(__FILE__, ___LINE__);
+			verify_vmas(__FILE__, __LINE__);
 			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 			current_time = time(NULL);
 			if (current_time - last_stats_time >= 1) {
@@ -2087,7 +2087,7 @@ static void *unified_page_server_thread(void *arg)
 				last_stats_time = current_time;
 			}
 			
-			verify_vmas(__FILE__, ___LINE__);
+			verify_vmas(__FILE__, __LINE__);
 			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 			/* Now iterate through all lazy VMAs for this dst_id */
 			list_for_each_entry(lve, get_global_lazy_vmas(), list) {
@@ -2099,7 +2099,7 @@ static void *unified_page_server_thread(void *arg)
 				
 				vma_start = lve->vma->e->start;
 				vma_end = lve->vma->e->end;
-				verify_vmas(__FILE__, ___LINE__);
+				verify_vmas(__FILE__, __LINE__);
 				/* Iterate pages in this VMA */
 				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
 					int max_cow_pages_per_iter = 100;
@@ -2128,7 +2128,7 @@ static void *unified_page_server_thread(void *arg)
 					
 					/* === PRIORITY 2: Drain page requests === */
 					while (has_page_requests() && img->remaining_pages > 0) {
-						verify_vmas(__FILE__, ___LINE__);
+						verify_vmas(__FILE__, __LINE__);
 						struct page_request_entry *req = get_next_page_request();
 						
 						if (!req)
@@ -2148,19 +2148,19 @@ static void *unified_page_server_thread(void *arg)
 							break;
 						}
 					}
-					verify_vmas(__FILE__, ___LINE__);
+					verify_vmas(__FILE__, __LINE__);
 					/* === PRIORITY 3: Send regular lazy VMA page === */
 					if (lve->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
 						priority3_skips++;
 						continue;
 					}
-					verify_vmas(__FILE__, ___LINE__);
+					verify_vmas(__FILE__, __LINE__);
 					ret = send_lazy_vma_page(img->main_sk, vaddr, img->dst_id, source_pid);
 					if (ret < 0) {
 						pr_err("Failed to send lazy VMA page at %lx\n", vaddr);
 						continue;
 					}
-					verify_vmas(__FILE__, ___LINE__);
+					verify_vmas(__FILE__, __LINE__);
 					lve->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
 					img->remaining_pages--;
 					priority3_pages++;
