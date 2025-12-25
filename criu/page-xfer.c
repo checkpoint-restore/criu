@@ -2041,6 +2041,8 @@ static void *unified_page_server_thread(void *arg)
 	
 	pr_info("Unified page server background thread started\n");
 	sleep(120);
+	pr_info("Unified page server background thread started post sleep\n");
+
 	while (!g_unified_thread_stop) {
 		struct active_image *img, *tmp;
 		time_t current_time;
