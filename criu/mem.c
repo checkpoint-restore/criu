@@ -64,13 +64,15 @@ void verify_vmas(char* file, char* line)
 
 		return;
 	}
-	pr_err({"verify_vmas file = %s, line = %d\n", file, line);
+	pr_err("verify_vmas file = %s, line = %d\n", file, line);
 	pthread_spin_lock(&lazy_vmas_lock);
 
-	list_for_each_entry(lve, &global_lazy_vmas, list) {
+	list_for_each_entry(lve, &global_lazy_vmas, list) {		
 		if (lve->magic != 0xdeadbead || lve->magic_end != 0x12345678){
-				list_for_each_entry(lve, &global_lazy_vmas, list) {
-					pr_err("VMA start=0x%lx end=%lx \n", lve->vma->e->start, lve->vma->e->end);
+				struct lazy_vma_entry *lve1;
+	
+				list_for_each_entry(lve1, &global_lazy_vmas, list) {
+					pr_err("VMA start=0x%lx end=%lx \n", lve1->vma->e->start, lve1->vma->e->end);
 				}
 				pthread_spin_unlock(&lazy_vmas_lock);
 				return;
