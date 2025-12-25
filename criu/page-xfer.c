@@ -2040,7 +2040,7 @@ static void *unified_page_server_thread(void *arg)
 	unsigned long priority3_skips = 0;  /* Skipped pages in P3 */
 	
 	pr_info("Unified page server background thread started\n");
-	sleep(120);
+	sleep(5);
 	pr_info("Unified page server background thread started post sleep\n");
 
 	while (!g_unified_thread_stop) {
