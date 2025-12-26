@@ -222,10 +222,9 @@ int close_safe(int *fd)
 
 	if (*fd > -1) {
 		ret = close(*fd);
-		if (!ret)
-			*fd = -1;
-		else
-			pr_perror("Unable to close fd %d", *fd);
+		if (ret)
+			pr_perror("Failed closing fd %d", *fd);
+		*fd = -1;
 	}
 
 	return ret;
