@@ -55,9 +55,7 @@ static void sbuf_log_init(struct simple_buf *b)
 	 */
 	b->bp = b->buf;
 
-	spin_lock(&log_lock);
 	local_start = start;
-	spin_unlock(&log_lock);
 
 	if (local_start.tv_sec != 0) {
 		struct timeval now;
@@ -103,13 +101,13 @@ static void sbuf_log_flush(struct simple_buf *b)
 	if (b->bp == b->buf + b->prefix_len)
 		return;
 
-	spin_lock(&log_lock);
+	
 	local_logfd = logfd;
 	
 
 	sys_write(local_logfd, b->buf, b->bp - b->buf);
 	b->bp = b->buf + b->prefix_len;
-	spin_unlock(&log_lock);
+	
 }
 
 static void sbuf_putc(struct simple_buf *b, char c)
@@ -386,7 +384,7 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 
 	if (loglevel > cur_loglevel)
 		return;
-
+	spin_lock(&log_lock);
 	sbuf_log_init(&b);
 
 	va_start(args, format);
@@ -394,6 +392,7 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 	va_end(args);
 
 	sbuf_log_flush(&b);
+	spin_unlock(&log_lock);
 }
 
 void std_sprintf(char output[STD_LOG_SIMPLE_CHUNK], const char *format, ...)
