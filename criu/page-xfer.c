@@ -13,6 +13,7 @@
 #include <time.h>
 #include <string.h>
 #include <pthread.h>
+#include <lz4.h>
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-xfer: "
@@ -63,6 +64,7 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_IOV_GET    7
 #define PS_IOV_GET_ALL 8
 #define PS_IOV_ADD_F_PF 9
+#define PS_IOV_ADD_F_COMPRESS 10
 
 #define PS_IOV_CLOSE	   0x1023
 #define PS_IOV_FORCE_CLOSE 0x1024
@@ -169,6 +171,56 @@ static inline int send_psi_flags(int sk, struct page_server_iov *pi, int flags)
 static inline int send_psi(int sk, struct page_server_iov *pi)
 {
 	return send_psi_flags(sk, pi, 0);
+}
+
+/*
+ * Send a page with LZ4 compression.
+ * Protocol: header (PS_IOV_ADD_F_COMPRESS) + compressed_size (4 bytes) + compressed_data
+ */
+static int send_page_compressed(int sk, const void *data, u64 dst_id, unsigned long vaddr)
+{
+	char compressed[LZ4_compressBound(PAGE_SIZE)];
+	int compressed_size;
+	struct page_server_iov pi;
+	int ret;
+
+	/* Compress the page data */
+	compressed_size = LZ4_compress_default(data, compressed, PAGE_SIZE, sizeof(compressed));
+	if (compressed_size <= 0) {
+		pr_err("LZ4 compression failed for page at %lx\n", vaddr);
+		return -1;
+	}
+
+	pr_debug("Compressed page at %lx: %d -> %d bytes (%.1f%%)\n", 
+		 vaddr, PAGE_SIZE, compressed_size, 
+		 (float)compressed_size * 100 / PAGE_SIZE);
+
+	/* Send header with PS_IOV_ADD_F_COMPRESS */
+	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F_COMPRESS, PE_PRESENT);
+	pi.nr_pages = 1;
+	pi.vaddr = vaddr;
+	pi.dst_id = dst_id;
+
+	if (send_psi(sk, &pi)) {
+		pr_err("Failed to send compressed page header\n");
+		return -1;
+	}
+
+	/* Send compressed size (4 bytes) */
+	ret = __send(sk, &compressed_size, sizeof(compressed_size), 0);
+	if (ret != sizeof(compressed_size)) {
+		pr_perror("Failed to send compressed size");
+		return -1;
+	}
+
+	/* Send compressed data */
+	ret = __send(sk, compressed, compressed_size, 0);
+	if (ret != compressed_size) {
+		pr_perror("Failed to send compressed data");
+		return -1;
+	}
+
+	return 0;
 }
 
 static void tcp_cork(int sk, bool on)
@@ -1220,14 +1272,14 @@ static void check_and_print_stats(void)
 	}
 }
 
-static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
+static int page_server_add(int sk, struct page_server_iov *pi, u32 flags, bool compressed)
 {
 	size_t len;
 	struct page_xfer *lxfer = &cxfer.loc_xfer;
 	struct iovec iov;
 
-	pr_debug("Adding %" PRIx64 " - %" PRIx64 "\n",
-		 pi->vaddr, pi->vaddr + pi->nr_pages * PAGE_SIZE);
+	pr_debug("Adding %" PRIx64 " - %" PRIx64 " (compressed=%d)\n",
+		 pi->vaddr, pi->vaddr + pi->nr_pages * PAGE_SIZE, compressed);
 
 	if (prep_loc_xfer(pi))
 		return -1;
@@ -1239,6 +1291,57 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 	if (!(flags & PE_PRESENT))
 		return 0;
 
+	/* Handle compressed data - receive, decompress, write page by page */
+	if (compressed) {
+		unsigned long pages_left = pi->nr_pages;
+		
+		while (pages_left > 0) {
+			int compressed_size;
+			char compressed_buf[LZ4_compressBound(PAGE_SIZE)];
+			char decompressed[PAGE_SIZE];
+			int decomp_ret;
+
+			/* Receive compressed size */
+			if (__recv(sk, &compressed_size, sizeof(compressed_size), MSG_WAITALL) != sizeof(compressed_size)) {
+				pr_perror("Failed to receive compressed size");
+				return -1;
+			}
+
+			if (compressed_size <= 0 || compressed_size > LZ4_compressBound(PAGE_SIZE)) {
+				pr_err("Invalid compressed size: %d\n", compressed_size);
+				return -1;
+			}
+
+			/* Receive compressed data */
+			if (__recv(sk, compressed_buf, compressed_size, MSG_WAITALL) != compressed_size) {
+				pr_perror("Failed to receive compressed data");
+				return -1;
+			}
+
+			/* Decompress */
+			decomp_ret = LZ4_decompress_safe(compressed_buf, decompressed, compressed_size, PAGE_SIZE);
+			if (decomp_ret != PAGE_SIZE) {
+				pr_err("LZ4 decompression failed: expected %d, got %d\n", PAGE_SIZE, decomp_ret);
+				return -1;
+			}
+
+			pr_debug("Decompressed page: %d -> %d bytes\n", compressed_size, PAGE_SIZE);
+
+			/* Write decompressed page data to pipe and then to image */
+			if (write(cxfer.p[1], decompressed, PAGE_SIZE) != PAGE_SIZE) {
+				pr_perror("Failed to write decompressed page to pipe");
+				return -1;
+			}
+
+			if (lxfer->write_pages(lxfer, cxfer.p[0], PAGE_SIZE))
+				return -1;
+
+			pages_left--;
+		}
+		return 0;
+	}
+
+	/* Handle uncompressed data - original splice-based path */
 	len = iov.iov_len;
 	while (len > 0) {
 		ssize_t chunk;
@@ -1837,10 +1940,9 @@ static void remove_active_image(struct active_image *img)
 
 #endif
 
-/* Helper to send a lazy VMA page using process_vm_readv */
+/* Helper to send a lazy VMA page using process_vm_readv with LZ4 compression */
 static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t source_pid)
 {
-	struct page_server_iov pi;
 	struct cow_page *cow_pg;
 	pthread_spinlock_t *lock;
 	void *buffer;
@@ -1863,29 +1965,18 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	/* Check for COW page */
 	cow_pg = cow_lookup_page(vaddr);
 	
-	/* Send header */
-	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
-	pi.nr_pages = 1;
-	pi.vaddr = vaddr;
-	pi.dst_id = dst_id;
-	
-	if (send_psi(sk, &pi)) {
-		pthread_spin_unlock(lock);
-		return -1;
-	}
-	
-	/* Send data */
+	/* Send data with compression */
 	if (cow_pg) {
-		/* Send COW data */
-		pr_debug("[SEND_PAGE] Sending COW page at vaddr=0x%lx\n", vaddr);
+		/* Send COW data with compression */
+		pr_debug("[SEND_PAGE] Sending compressed COW page at vaddr=0x%lx\n", vaddr);
 		
-		ret = opts.tls ? __send(sk, cow_pg->data, PAGE_SIZE, 0) : send(sk, cow_pg->data, PAGE_SIZE, 0);
-		if (ret != PAGE_SIZE) {
-			pr_perror("Failed to send COW page");
+		ret = send_page_compressed(sk, cow_pg->data, dst_id, vaddr);
+		if (ret != 0) {
+			pr_perror("Failed to send compressed COW page");
 			pthread_spin_unlock(lock);
 			return -1;
 		}
-		pr_debug("[SEND_PAGE] Successfully sent COW page at vaddr=0x%lx\n", vaddr);
+		pr_debug("[SEND_PAGE] Successfully sent compressed COW page at vaddr=0x%lx\n", vaddr);
 	} else {
 		/* Read from process memory */
 		pr_debug("[SEND_PAGE] Reading regular page from process memory at vaddr=0x%lx pid=%d\n", vaddr, source_pid);
@@ -1909,19 +2000,19 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 			return -1;
 		}
 		
-		pr_debug("[SEND_PAGE] Read successful, sending page at vaddr=0x%lx\n", vaddr);
+		pr_debug("[SEND_PAGE] Read successful, sending compressed page at vaddr=0x%lx\n", vaddr);
 		
-		/* Send buffer */
-		ret = opts.tls ? __send(sk, buffer, PAGE_SIZE, 0) : send(sk, buffer, PAGE_SIZE, 0);
+		/* Send buffer with compression */
+		ret = send_page_compressed(sk, buffer, dst_id, vaddr);
 		xfree(buffer);
 		
-		if (ret != PAGE_SIZE) {
-			pr_perror("Failed to send page");
+		if (ret != 0) {
+			pr_perror("Failed to send compressed page");
 			pthread_spin_unlock(lock);
 			return -1;
 		}
 		
-		pr_debug("[SEND_PAGE] Successfully sent regular page at vaddr=0x%lx\n", vaddr);
+		pr_debug("[SEND_PAGE] Successfully sent compressed regular page at vaddr=0x%lx\n", vaddr);
 		
 		/* Unprotect non-COW page */
 		uffd = cow_get_uffd();
@@ -2309,6 +2400,7 @@ static int page_server_serve(int sk)
 			ps_stats.serve_parent++;
 			ret = page_server_check_parent(sk, &pi);
 			break;
+		case PS_IOV_ADD_F_COMPRESS:
 		case PS_IOV_ADD_F:
 		case PS_IOV_ADD_F_PF:
 		case PS_IOV_ADD:
@@ -2320,7 +2412,7 @@ static int page_server_serve(int sk)
 				pr_err("PS_IOV_ADD_F_PF %" PRIx64 " - %" PRIx64 "\n",
 		 				pi.vaddr, pi.vaddr + pi.nr_pages * PAGE_SIZE);				
 			}
-			if (likely(cmd == PS_IOV_ADD_F)) {
+			if (likely(cmd == PS_IOV_ADD_F || cmd == PS_IOV_ADD_F_COMPRESS)) {
 				flags = decode_ps_flags(pi.cmd);
 				ps_stats.serve_add_f++;
 			}
@@ -2334,7 +2426,7 @@ static int page_server_serve(int sk)
 				ps_stats.serve_hole++;
 			}
 
-			ret = page_server_add(sk, &pi, flags);
+			ret = page_server_add(sk, &pi, flags, cmd == PS_IOV_ADD_F_COMPRESS);
 			break;
 			}
 		case PS_IOV_CLOSE:
