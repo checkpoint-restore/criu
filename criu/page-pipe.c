@@ -20,10 +20,8 @@ static inline bool iov_grow_page(struct iovec *iov, unsigned long addr)
 {
 	if ((unsigned long)iov->iov_base + iov->iov_len == addr) {
 		iov->iov_len += PAGE_SIZE;
-		pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
 		return true;
 	}
-	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
 	return false;
 }
 
@@ -54,20 +52,20 @@ static inline int ppb_resize_pipe(struct page_pipe_buf *ppb)
 {
 	unsigned long new_size = ppb->pipe_size << 1;
 	int ret;
-	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
+	
 
 	if (ppb->pages_in + ppb->pipe_off < ppb->pipe_size)
 		return 0;
-	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
+	
 	if (new_size > PIPE_MAX_SIZE) {
 		if (ppb->pipe_size < PIPE_MAX_SIZE)
 			new_size = PIPE_MAX_SIZE;
 		else
 			return 1;
 	}
-	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
+	
 	ret = __ppb_resize_pipe(ppb, new_size);
-	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
+	
 	if (ret < 0)
 		return 1; /* need to add another buf */
 
@@ -261,12 +259,12 @@ void page_pipe_reinit(struct page_pipe *pp)
 static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *ppb, unsigned long addr,
 				  unsigned int flags)
 {
-	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
+	
 	if (ppb->flags != flags)
 		return 1;
 	if (ppb_resize_pipe(ppb) == 1)
 		return 1;
-	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
+	
 	if (ppb->nr_segs && iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
 		goto out;
 
@@ -282,7 +280,7 @@ out:
 static inline int try_add_page(struct page_pipe *pp, unsigned long addr, unsigned int flags)
 {
 	BUG_ON(list_empty(&pp->bufs));
-	pr_warn("File = %s, line = %d\n", __FILE__, __LINE__);
+	
 	return try_add_page_to(pp, list_entry(pp->bufs.prev, struct page_pipe_buf, l), addr, flags);
 }
 

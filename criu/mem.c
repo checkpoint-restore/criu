@@ -92,7 +92,7 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 
 		return NULL;
 	}
-	verify_vmas(__FILE__, __LINE__);
+//	verify_vmas(__FILE__, __LINE__);
 	pthread_spin_lock(&lazy_vmas_lock);
 
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
@@ -500,7 +500,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		gettimeofday(&loop_end, NULL);
 		timersub(&loop_end, &loop_start, &total_loop_time);
 		
-		pr_warn("generate_iovs complete: VMA 0x%llx-0x%llx: %lu pages (%lu lazy) %lu holes, %lu skipped, total_loop_time: %ld.%06ld s (should_dump_total: %lu us, pipe_add_total: %lu us)\n",
+		pr_debug("generate_iovs complete: VMA 0x%llx-0x%llx: %lu pages (%lu lazy) %lu holes, %lu skipped, total_loop_time: %ld.%06ld s (should_dump_total: %lu us, pipe_add_total: %lu us)\n",
 			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end,
 			pages[2] + pages[1], pages[1], pages[0], pages_skipped,
 			total_loop_time.tv_sec, total_loop_time.tv_usec,
