@@ -341,8 +341,7 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 	pe.has_flags = true;
 	pe.flags = flags;
 	pe.has_nr_pages = true;
-	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
-
+	
 	if (flags & PE_PRESENT) {
 		if (opts.auto_dedup && xfer->parent != NULL) {
 			ret = dedup_one_iovec(xfer->parent, pe.vaddr, pagemap_len(&pe));
@@ -361,11 +360,8 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 			}
 		}
 	}
-	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
-
 	if (pb_write_one(xfer->pmi, &pe, PB_PAGEMAP) < 0)
 		return -1;
-	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	return 0;
 }
@@ -489,13 +485,13 @@ static int dump_holes(struct page_xfer *xfer, struct page_pipe *pp, unsigned int
 	for (; *cur_hole < pp->free_hole; (*cur_hole)++) {
 		struct iovec hole = pp->holes[*cur_hole];
 		u32 hole_flags;
-		pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+		
 
 		if (limit && hole.iov_base >= limit)
 			break;
 
 		hole_flags = get_hole_flags(pp, *cur_hole);
-		pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+		
 
 		ret = page_xfer_dump_hole(xfer, &hole, hole_flags);
 		if (ret)
@@ -956,7 +952,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 	int ret;
 
 	pr_debug("Transferring pages:\n");
-	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+	
 
 	/* In COW dump mode, we need to interleave lazy VMA entries with pipe entries */
 	if (opts.cow_dump) {
@@ -966,14 +962,14 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		unsigned int i;
-		pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+		
 		pr_debug("\tbuf %lx/%d\n", ppb->pages_in, ppb->nr_segs);
 
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec iov = ppb->iov[i];
 			u32 flags;
 			unsigned long seg_vaddr = (unsigned long)iov.iov_base + xfer->offset;
-			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+			
 
 			ret = dump_holes(xfer, pp, &cur_hole, iov.iov_base);
 			if (ret)
@@ -989,10 +985,10 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 			BUG_ON(iov.iov_base < (void *)xfer->offset);
 			iov.iov_base -= xfer->offset;
 			pr_debug("\tp %p - %p\n", iov.iov_base, iov.iov_base + iov.iov_len);
-			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+			
 
 			flags = ppb_xfer_flags(xfer, ppb);
-			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+			
 
 			pr_info("  Writing non lazy PPE pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
 						(unsigned long)iov.iov_base, (unsigned long)(iov.iov_base+iov.iov_len),
@@ -1002,11 +998,11 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 				return -1;
 			if ((flags & PE_PRESENT) && xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
 				return -1;
-			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+			
 
 		}
 	}
-	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+	
 
 	ret = dump_holes(xfer, pp, &cur_hole, NULL);
 	if (ret)
@@ -2071,7 +2067,7 @@ static void *unified_page_server_thread(void *arg)
 			DONE = false;
 			done_count = 0;
 		//	verify_vmas(__FILE__, __LINE__);
-			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+			
 			current_time = time(NULL);
 			if (current_time - last_stats_time >= 1) {
 				unsigned long cow_queue = cow_get_queue_size();
@@ -2090,14 +2086,14 @@ static void *unified_page_server_thread(void *arg)
 			}
 			
 		//	verify_vmas(__FILE__, __LINE__);
-			pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+			
 			/* Now iterate through all lazy VMAs for this dst_id */
 			list_for_each_entry(lve, get_global_lazy_vmas(), list) {
 				unsigned long vma_start, vma_end, vaddr;
 				unsigned long page_idx = 0;
 				/* Get source_pid from first lazy VMA for this dst_id */
 				source_pid = lve->source_pid;
-				pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+				
 				
 				vma_start = lve->vma->e->start;
 				vma_end = lve->vma->e->end;
@@ -2105,7 +2101,7 @@ static void *unified_page_server_thread(void *arg)
 				/* Iterate pages in this VMA */
 				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
 					int max_cow_pages_per_iter = 100;
-					pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
+					
 					/* === PRIORITY 1: Drain COW pages === */
 					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
 						struct cow_page_queue_entry *entry = cow_get_next_page();
