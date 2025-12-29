@@ -2283,7 +2283,7 @@ void *parallel_restore_bo_contents(void *_thread_data)
 			continue;
 
 		entry = &restore_cmd->entries[i];
-		fseeko64(bo_contents_fp, entry->read_offset + offset, SEEK_SET);
+		fseeko(bo_contents_fp, entry->read_offset + offset, SEEK_SET);
 		ret = sdma_copy_bo(restore_cmd->fds_write[entry->write_id], entry->size, bo_contents_fp,
 				   buffer, buffer_size, h_dev,
 				   max_copy_size, SDMA_OP_VRAM_WRITE, false);
