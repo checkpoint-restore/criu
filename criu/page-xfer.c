@@ -2022,6 +2022,7 @@ static int send_request_page_lazy(struct page_request_entry *req, struct active_
 	return sent_count;  /* Return number of pages actually sent */
 }
 
+
 /* Unified background thread serving all images */
 static void *unified_page_server_thread(void *arg)
 {
@@ -2068,22 +2069,7 @@ static void *unified_page_server_thread(void *arg)
 			done_count = 0;
 		//	verify_vmas(__FILE__, __LINE__);
 			
-			current_time = time(NULL);
-			if (current_time - last_stats_time >= 1) {
-				unsigned long cow_queue = cow_get_queue_size();
-				unsigned long req_queue = get_page_request_queue_size();
-				
-				pr_warn("[UNIFIED_THREAD_STATS] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu\n",
-					priority1_pages, priority2_pages, priority3_pages, priority3_skips,
-					cow_queue, req_queue);
-				
-				/* Reset counters */
-				priority1_pages = 0;
-				priority2_pages = 0;
-				priority3_pages = 0;
-				priority3_skips = 0;
-				last_stats_time = current_time;
-			}
+			
 			
 		//	verify_vmas(__FILE__, __LINE__);
 			
@@ -2101,6 +2087,23 @@ static void *unified_page_server_thread(void *arg)
 				/* Iterate pages in this VMA */
 				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
 					int max_cow_pages_per_iter = 100;
+
+					current_time = time(NULL);
+					if (current_time - last_stats_time >= 1) {
+						unsigned long cow_queue = cow_get_queue_size();
+						unsigned long req_queue = get_page_request_queue_size();
+						
+						pr_warn("[UNIFIED_THREAD_STATS] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu\n",
+							priority1_pages, priority2_pages, priority3_pages, priority3_skips,
+							cow_queue, req_queue);
+						
+						/* Reset counters */
+						priority1_pages = 0;
+						priority2_pages = 0;
+						priority3_pages = 0;
+						priority3_skips = 0;
+						last_stats_time = current_time;
+					}
 					
 					/* === PRIORITY 1: Drain COW pages === */
 					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
