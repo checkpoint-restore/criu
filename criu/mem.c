@@ -107,6 +107,7 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 	}
 
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
+		pr_err("lve->magic=0x%x lve->end_magic=%x \n", lve->magic, lve->magic_end);
 		pr_err("VMA start=0x%lx end=%lx \n", lve->vma->e->start, lve->vma->e->end);
 	}
 
