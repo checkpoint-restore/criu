@@ -1333,7 +1333,7 @@ static void add_page_request(unsigned long vaddr, unsigned long nr_pages, int sk
 	entry->sk = sk;
 	entry->dst_id = dst_id;
 	
-	pr_err("Requesting page at %lx (nr_pages=%lu, dst_id=%lu)\n", vaddr, nr_pages, dst_id);
+	pr_debug("Requesting page at %lx (nr_pages=%lu, dst_id=%lu)\n", vaddr, nr_pages, dst_id);
 	
 	/* Location will be looked up on first access */
 	entry->ppb = NULL;
