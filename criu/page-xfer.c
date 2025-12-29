@@ -1996,7 +1996,7 @@ static int send_request_page_lazy(struct page_request_entry *req, struct active_
 		unsigned long page_vaddr = req->vaddr + (i * PAGE_SIZE);
 		struct lazy_vma_entry *lve;
 		unsigned long page_idx;
-		
+		verify_vmas(__FILE__, __LINE__);
 		/* Find which lazy VMA contains this page (uses global list) */
 		lve = find_lazy_vma_for_addr(page_vaddr, req->dst_id);
 		if (!lve) {
@@ -2112,7 +2112,7 @@ static void *unified_page_server_thread(void *arg)
 						max_cow_pages_per_iter--;
 						if (!entry)
 							break;
-						
+						verify_vmas(__FILE__, __LINE__);
 						ret = send_cow_page_lazy(entry, img, source_pid);
 						
 						if (ret > 0) {

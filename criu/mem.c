@@ -92,13 +92,10 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 
 		return NULL;
 	}
-	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
-
+	verify_vmas(__FILE__, __LINE__);
 	pthread_spin_lock(&lazy_vmas_lock);
-	pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
-		pr_err("file = %s, line = %d\n", __FILE__, __LINE__);
 
 		if (vaddr >= lve->vma->e->start && 
 		    vaddr < lve->vma->e->end) { // && 		    lve->dst_id == dst_id) {
