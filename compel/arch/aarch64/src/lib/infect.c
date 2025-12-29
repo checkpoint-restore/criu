@@ -41,7 +41,7 @@ bool __compel_host_supports_gcs(void)
 	return (hwcap & HWCAP_GCS) != 0;
 }
 
-static bool __compel_gcs_enabled(struct user_gcs *gcs)
+static bool __compel_gcs_enabled(struct cr_user_gcs *gcs)
 {
 	if (!compel_host_supports_gcs())
 		return false;
@@ -136,7 +136,7 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 {
 	struct iovec iov;
 
-	struct user_gcs gcs;
+	struct cr_user_gcs gcs;
 	struct iovec gcs_iov = { .iov_base = &gcs, .iov_len = sizeof(gcs) };
 
 	pr_info("Restoring GP/FPU registers for %d\n", pid);
@@ -363,7 +363,7 @@ int ptrace_flush_breakpoints(pid_t pid)
 	return 0;
 }
 
-int inject_gcs_cap_token(struct parasite_ctl *ctl, pid_t pid, struct user_gcs *gcs)
+int inject_gcs_cap_token(struct parasite_ctl *ctl, pid_t pid, struct cr_user_gcs *gcs)
 {
 	struct iovec gcs_iov = { .iov_base = gcs, .iov_len = sizeof(*gcs) };
 
@@ -403,7 +403,7 @@ int inject_gcs_cap_token(struct parasite_ctl *ctl, pid_t pid, struct user_gcs *g
 
 int parasite_setup_shstk(struct parasite_ctl *ctl, user_fpregs_struct_t *ext_regs)
 {
-	struct user_gcs gcs;
+	struct cr_user_gcs gcs;
 	struct iovec gcs_iov = { .iov_base = &gcs, .iov_len = sizeof(gcs) };
 	pid_t pid = ctl->rpid;
 

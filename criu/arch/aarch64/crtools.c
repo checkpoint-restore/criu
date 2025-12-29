@@ -148,7 +148,7 @@ static int save_pac_keys(int pid, CoreEntry *core)
 int save_task_regs(pid_t pid, void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd)
 {
 	int i;
-	struct user_gcs gcs_live;
+	struct cr_user_gcs gcs_live;
 	struct iovec gcs_iov = {
 		.iov_base = &gcs_live,
 		.iov_len = sizeof(gcs_live),
