@@ -191,7 +191,7 @@ static int send_page_compressed(int sk, const void *data, u64 dst_id, unsigned l
 		return -1;
 	}
 
-	pr_debug("Compressed page at %lx: %d -> %d bytes (%.1f%%)\n", 
+	pr_debug("Compressed page at %lx: %lu -> %d bytes (%.1f%%)\n", 
 		 vaddr, PAGE_SIZE, compressed_size, 
 		 (float)compressed_size * 100 / PAGE_SIZE);
 
@@ -1325,7 +1325,7 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags, bool c
 				return -1;
 			}
 
-			pr_debug("Decompressed page: %d -> %d bytes\n", compressed_size, PAGE_SIZE);
+			pr_debug("Decompressed page: %d -> %lu bytes\n", compressed_size, PAGE_SIZE);
 
 			/* Write decompressed page data to pipe and then to image */
 			if (write(cxfer.p[1], decompressed, PAGE_SIZE) != PAGE_SIZE) {
