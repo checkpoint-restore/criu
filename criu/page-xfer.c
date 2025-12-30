@@ -1321,7 +1321,7 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags, bool c
 			/* Decompress */
 			decomp_ret = LZ4_decompress_safe(compressed_buf, decompressed, compressed_size, PAGE_SIZE);
 			if (decomp_ret != PAGE_SIZE) {
-				pr_err("LZ4 decompression failed: expected %d, got %d\n", PAGE_SIZE, decomp_ret);
+				pr_err("LZ4 decompression failed: expected %lu, got %d\n", PAGE_SIZE, decomp_ret);
 				return -1;
 			}
 
