@@ -2209,6 +2209,9 @@ static void *unified_page_server_thread(void *arg)
 								priority1_pages, priority2_pages, priority3_pages, priority3_skips,
 								cow_queue, req_queue,
 								g_compress_uncompressed_bytes, g_compress_compressed_bytes, compress_ratio);
+							g_compress_uncompressed_bytes = 0;
+							g_compress_compressed_bytes = 0;
+
 						}
 						
 						/* Reset counters */
