@@ -188,51 +188,45 @@ static inline int send_psi(int sk, struct page_server_iov *pi)
 /*
  * Send a page with LZ4 compression.
  * Protocol: header (PS_IOV_ADD_F_COMPRESS) + compressed_size (4 bytes) + compressed_data
+ * Optimized: single buffer, single send() syscall
  */
 static int send_page_compressed(int sk, const void *data, u64 dst_id, unsigned long vaddr)
 {
-	char compressed[LZ4_compressBound(PAGE_SIZE)];
-	int compressed_size;
-	struct page_server_iov pi;
+	/* Buffer layout: [header][compressed_size][compressed_data] */
+	char send_buf[sizeof(struct page_server_iov) + sizeof(int) + LZ4_compressBound(PAGE_SIZE)];
+	struct page_server_iov *pi = (struct page_server_iov *)send_buf;
+	int *compressed_size = (int *)(send_buf + sizeof(*pi));
+	char *compressed_data = send_buf + sizeof(*pi) + sizeof(int);
+	int total_len;
 	int ret;
 
-	/* Compress the page data */
-	compressed_size = LZ4_compress_default(data, compressed, PAGE_SIZE, sizeof(compressed));
-	if (compressed_size <= 0) {
+	/* 1. Compress directly into send buffer (no memcpy!) */
+	*compressed_size = LZ4_compress_default(data, compressed_data, PAGE_SIZE, 
+						LZ4_compressBound(PAGE_SIZE));
+	if (*compressed_size <= 0) {
 		pr_err("LZ4 compression failed for page at %lx\n", vaddr);
 		return -1;
 	}
 
 	/* Track compression statistics */
 	g_compress_uncompressed_bytes += PAGE_SIZE;
-	g_compress_compressed_bytes += compressed_size;
+	g_compress_compressed_bytes += *compressed_size;
 
 	pr_debug("Compressed page at %lx: %lu -> %d bytes (%.1f%%)\n", 
-		 vaddr, PAGE_SIZE, compressed_size, 
-		 (float)compressed_size * 100 / PAGE_SIZE);
+		 vaddr, PAGE_SIZE, *compressed_size, 
+		 (float)(*compressed_size) * 100 / PAGE_SIZE);
 
-	/* Send header with PS_IOV_ADD_F_COMPRESS */
-	pi.cmd = encode_ps_cmd(PS_IOV_ADD_F_COMPRESS, PE_PRESENT);
-	pi.nr_pages = 1;
-	pi.vaddr = vaddr;
-	pi.dst_id = dst_id;
+	/* 2. Fill in header (after compression so we know it succeeded) */
+	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F_COMPRESS, PE_PRESENT);
+	pi->nr_pages = 1;
+	pi->vaddr = vaddr;
+	pi->dst_id = dst_id;
 
-	if (send_psi(sk, &pi)) {
-		pr_err("Failed to send compressed page header\n");
-		return -1;
-	}
-
-	/* Send compressed size (4 bytes) */
-	ret = __send(sk, &compressed_size, sizeof(compressed_size), 0);
-	if (ret != sizeof(compressed_size)) {
-		pr_perror("Failed to send compressed size");
-		return -1;
-	}
-
-	/* Send compressed data */
-	ret = __send(sk, compressed, compressed_size, 0);
-	if (ret != compressed_size) {
-		pr_perror("Failed to send compressed data");
+	/* 3. Single send: header + size + compressed data */
+	total_len = sizeof(*pi) + sizeof(int) + *compressed_size;
+	ret = __send(sk, send_buf, total_len, 0);
+	if (ret != total_len) {
+		pr_perror("Failed to send compressed page (sent %d/%d)", ret, total_len);
 		return -1;
 	}
 
