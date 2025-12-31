@@ -67,6 +67,14 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_IOV_ADD_F_COMPRESS 10
 
 #define PS_IOV_CLOSE	   0x1023
+
+/* Compression state machine states for bulk stream reader */
+enum compress_read_state {
+	COMPRESS_STATE_READING_HEADER = 0,    /* Reading page_server_iov header */
+	COMPRESS_STATE_READING_SIZE,          /* Reading compressed_size (4 bytes) */
+	COMPRESS_STATE_READING_COMPRESSED,    /* Reading compressed data */
+	COMPRESS_STATE_READING_UNCOMPRESSED,  /* Reading uncompressed page data */
+};
 #define PS_IOV_FORCE_CLOSE 0x1024
 
 #define PS_CMD_BITS 16
@@ -2745,6 +2753,12 @@ struct ps_async_read {
 	void *priv;
 
 	struct list_head l;
+
+	/* Compression support */
+	int compressed_size;     /* Size of compressed data (0 = uncompressed) */
+	int compressed_rb;       /* Bytes read of compressed data */
+	char *compressed_buf;    /* Buffer for compressed data */
+	int compress_state;      /* 0=reading header, 1=reading size, 2=reading data */
 };
 
 static LIST_HEAD(async_reads);
@@ -2782,65 +2796,163 @@ static int page_server_start_async_read(void *buf, unsigned long nr_pages, ps_as
  * Bulk mode continuous stream reader.
  * Processes headers and pages as they arrive without correlation to requests.
  * The server's background thread sends pages continuously.
+ * Supports compressed pages (PS_IOV_ADD_F_COMPRESS).
  */
 static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 {
 	int ret, need;
 	void *buf;
+	u32 cmd;
 
-	if (ar->rb < sizeof(ar->pi)) {
-		/* Reading header */
-		buf = ((void *)&ar->pi) + ar->rb;
-		need = sizeof(ar->pi) - ar->rb;
-	} else {
-		/* Reading page data */
-		buf = ar->pages + (ar->rb - sizeof(ar->pi));
-		need = ar->goal - ar->rb;
-	}
+	/* Reading header */
+	if (ar->compress_state == COMPRESS_STATE_READING_HEADER) {
+		if (ar->rb < sizeof(ar->pi)) {
+			buf = ((void *)&ar->pi) + ar->rb;
+			need = sizeof(ar->pi) - ar->rb;
 
-	ret = __recv(page_server_sk, buf, need, flags);
-
-
-	if (ret < 0) {
-
-		if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
-			return 0; /* Would block */
+			ret = __recv(page_server_sk, buf, need, flags);
+			if (ret < 0) {
+				if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR))
+					return 0;
+				pr_perror("Error reading header from page server");
+				return -1;
+			}
+			ar->rb += ret;
 		}
-		pr_perror("Error reading bulk stream from page server");
-		return -1;
-	}
 
-	ar->rb += ret;
+		/* Check if header complete */
+		if (ar->rb == sizeof(ar->pi)) {
+			/* Check for end marker */
+			if (ar->pi.nr_pages == 0) {
+				pr_info("Received end-of-transfer marker\n");
+				return -1; /* Signal completion */
+			}
 
-	/* Check if we completed reading header */
-	if (ar->rb == sizeof(ar->pi) && ar->goal == 0) {
-		/* Header complete - check for end marker */
-		if (ar->pi.nr_pages == 0) {
-			pr_info("Received end-of-transfer marker\n");
-			return -1; /* Signal completion */
+			cmd = decode_ps_cmd(ar->pi.cmd);
+			if (cmd == PS_IOV_ADD_F_COMPRESS) {
+				/* Compressed: next read compressed_size */
+				ar->compress_state = COMPRESS_STATE_READING_SIZE;
+				ar->compressed_size = 0;
+				ar->compressed_rb = 0;
+			} else {
+				/* Uncompressed: read raw page data */
+				ar->compress_state = COMPRESS_STATE_READING_UNCOMPRESSED;
+				ar->goal = sizeof(ar->pi) + ar->pi.nr_pages * PAGE_SIZE;
+			}
 		}
-				
-
-		/* Set goal for page data */
-		ar->goal = sizeof(ar->pi) + ar->pi.nr_pages * PAGE_SIZE;
 		return 1; /* Need more data */
 	}
 
-	/* Check if we completed reading page(s) */
-	if (ar->rb == ar->goal && ar->goal > sizeof(ar->pi)) {
-		/* Complete page(s) received - notify caller */
-		ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, 
-				   (int)ar->pi.nr_pages, ar->priv);
-		
-		/* Reset for next header */
-		ar->rb = 0;
-		ar->goal = 0;
-		
-		return ret;
+	/* Reading compressed_size (4 bytes) */
+	if (ar->compress_state == COMPRESS_STATE_READING_SIZE) {
+		need = sizeof(ar->compressed_size) - ar->compressed_rb;
+		buf = ((char *)&ar->compressed_size) + ar->compressed_rb;
+
+		ret = __recv(page_server_sk, buf, need, flags);
+		if (ret < 0) {
+			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR))
+				return 0;
+			pr_perror("Error reading compressed size");
+			return -1;
+		}
+		ar->compressed_rb += ret;
+
+		if (ar->compressed_rb == sizeof(ar->compressed_size)) {
+			if (ar->compressed_size <= 0 || ar->compressed_size > LZ4_compressBound(PAGE_SIZE)) {
+				pr_err("Invalid compressed size: %d\n", ar->compressed_size);
+				return -1;
+			}
+			/* Allocate buffer for compressed data */
+			ar->compressed_buf = xmalloc(ar->compressed_size);
+			if (!ar->compressed_buf) {
+				pr_err("Failed to allocate compressed buffer\n");
+				return -1;
+			}
+			ar->compressed_rb = 0;
+			ar->compress_state = COMPRESS_STATE_READING_COMPRESSED;
+		}
+		return 1;
 	}
 
-	/* Need more data */
-	return 1;
+	/* Reading compressed data */
+	if (ar->compress_state == COMPRESS_STATE_READING_COMPRESSED) {
+		need = ar->compressed_size - ar->compressed_rb;
+		buf = ar->compressed_buf + ar->compressed_rb;
+
+		ret = __recv(page_server_sk, buf, need, flags);
+		if (ret < 0) {
+			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR))
+				return 0;
+			pr_perror("Error reading compressed data");
+			xfree(ar->compressed_buf);
+			ar->compressed_buf = NULL;
+			return -1;
+		}
+		ar->compressed_rb += ret;
+
+		if (ar->compressed_rb == ar->compressed_size) {
+			int decomp_ret;
+
+			/* Decompress into ar->pages */
+			decomp_ret = LZ4_decompress_safe(ar->compressed_buf, ar->pages, 
+							 ar->compressed_size, PAGE_SIZE);
+			xfree(ar->compressed_buf);
+			ar->compressed_buf = NULL;
+
+			if (decomp_ret != PAGE_SIZE) {
+				pr_err("LZ4 decompression failed: expected %lu, got %d\n", 
+				       PAGE_SIZE, decomp_ret);
+				return -1;
+			}
+
+			pr_debug("Decompressed page at %lx: %d -> %lu bytes\n",
+				 (unsigned long)ar->pi.vaddr, ar->compressed_size, PAGE_SIZE);
+
+			/* Notify caller */
+			ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, 
+					   (int)ar->pi.nr_pages, ar->priv);
+
+			/* Reset for next header */
+			ar->rb = 0;
+			ar->goal = 0;
+			ar->compress_state = COMPRESS_STATE_READING_HEADER;
+			ar->compressed_size = 0;
+			ar->compressed_rb = 0;
+
+			return ret;
+		}
+		return 1;
+	}
+
+	/* Reading uncompressed page data (original path) */
+	if (ar->compress_state == COMPRESS_STATE_READING_UNCOMPRESSED) {
+		buf = ar->pages + (ar->rb - sizeof(ar->pi));
+		need = ar->goal - ar->rb;
+
+		ret = __recv(page_server_sk, buf, need, flags);
+		if (ret < 0) {
+			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR))
+				return 0;
+			pr_perror("Error reading uncompressed page data");
+			return -1;
+		}
+		ar->rb += ret;
+
+		if (ar->rb == ar->goal) {
+			/* Complete page(s) received - notify caller */
+			ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, 
+					   (int)ar->pi.nr_pages, ar->priv);
+
+			/* Reset for next header */
+			ar->rb = 0;
+			ar->goal = 0;
+			ar->compress_state = COMPRESS_STATE_READING_HEADER;
+
+			return ret;
+		}
+	}
+
+	return 1; /* Need more data */
 }
 
 static int page_server_async_read_bulk(struct epoll_rfd *f)
@@ -2889,6 +3001,12 @@ int page_server_start_async_read_bulk(void *buf, unsigned long nr_pages,
 	ar->nr_pages = nr_pages; /* Max buffer size */
 	ar->complete = complete;
 	ar->priv = priv;
+	
+	/* Initialize compression state */
+	ar->compress_state = COMPRESS_STATE_READING_HEADER;
+	ar->compressed_size = 0;
+	ar->compressed_rb = 0;
+	ar->compressed_buf = NULL;
 	
 	list_add_tail(&ar->l, &async_reads);
 	return 0;
