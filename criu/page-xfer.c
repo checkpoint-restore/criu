@@ -42,6 +42,10 @@
 
 static int page_server_sk = -1;
 
+/* Global compression statistics for stats printing */
+static unsigned long g_compress_uncompressed_bytes = 0;
+static unsigned long g_compress_compressed_bytes = 0;
+
 struct page_server_iov {
 	u32 cmd;
 	u64 nr_pages;
@@ -198,6 +202,10 @@ static int send_page_compressed(int sk, const void *data, u64 dst_id, unsigned l
 		pr_err("LZ4 compression failed for page at %lx\n", vaddr);
 		return -1;
 	}
+
+	/* Track compression statistics */
+	g_compress_uncompressed_bytes += PAGE_SIZE;
+	g_compress_compressed_bytes += compressed_size;
 
 	pr_debug("Compressed page at %lx: %lu -> %d bytes (%.1f%%)\n", 
 		 vaddr, PAGE_SIZE, compressed_size, 
@@ -2192,18 +2200,21 @@ static void *unified_page_server_thread(void *arg)
 						unsigned long cow_queue = cow_get_queue_size();
 						unsigned long req_queue = get_page_request_queue_size();
 						
-						pr_warn("[UNIFIED_THREAD_STATS] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu\n",
-							priority1_pages, priority2_pages, priority3_pages, priority3_skips,
-							cow_queue, req_queue);
+						{
+							float compress_ratio = 0.0;
+							if (g_compress_uncompressed_bytes > 0)
+								compress_ratio = (float)g_compress_compressed_bytes * 100.0 / g_compress_uncompressed_bytes;
+							
+							pr_warn("[UNIFIED_THREAD_STATS] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu | Compress: %lu->%lu (%.1f%%)\n",
+								priority1_pages, priority2_pages, priority3_pages, priority3_skips,
+								cow_queue, req_queue,
+								g_compress_uncompressed_bytes, g_compress_compressed_bytes, compress_ratio);
+						}
 						
 						/* Reset counters */
 						priority1_pages = 0;
 						priority2_pages = 0;
 						priority3_pages = 0;
-						priority3_skips = 0;
-						last_stats_time = current_time;
-					}
-					
 					/* === PRIORITY 1: Drain COW pages === */
 					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
 						struct cow_page_queue_entry *entry = cow_get_next_page();
