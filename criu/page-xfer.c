@@ -2215,6 +2215,10 @@ static void *unified_page_server_thread(void *arg)
 						priority1_pages = 0;
 						priority2_pages = 0;
 						priority3_pages = 0;
+                        priority3_skips = 0;
+						last_stats_time = current_time;
+                    }
+                                       
 					/* === PRIORITY 1: Drain COW pages === */
 					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
 						struct cow_page_queue_entry *entry = cow_get_next_page();
