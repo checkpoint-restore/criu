@@ -199,12 +199,19 @@ static void check_and_print_uffd_stats(void)
 		if (uffd_stats.pipeline_samples > 0)
 			avg_pipeline = uffd_stats.pipeline_depth_sum / uffd_stats.pipeline_samples;
 
-		pr_warn("[UFFD_STATS] reqs=%lu(pf:%lu,bg:%lu) pages=%lu pipe_avg=%lu\n",
-			uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
-			uffd_stats.total_pf_reqs,
-			uffd_stats.total_bg_reqs,
-			uffd_stats.total_pages,
-			avg_pipeline);
+		{
+			struct timespec ts;
+			struct tm *tm;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			tm = localtime(&ts.tv_sec);
+			pr_warn("[UFFD_STATS] [%02d:%02d:%02d.%03ld] reqs=%lu(pf:%lu,bg:%lu) pages=%lu pipe_avg=%lu\n",
+				tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
+				uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
+				uffd_stats.total_pf_reqs,
+				uffd_stats.total_bg_reqs,
+				uffd_stats.total_pages,
+				avg_pipeline);
+		}
 
 		/* Print page fault histogram */
 
