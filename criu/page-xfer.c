@@ -2099,7 +2099,6 @@ static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_
 	unsigned long page_idx;
 	int ret;
 	struct timespec t1, t2;
-	long us;
 	
 	/* Time VMA lookup */
 	clock_gettime(CLOCK_MONOTONIC, &t1);
@@ -2307,7 +2306,6 @@ static void *unified_page_server_thread(void *arg)
 					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
 						struct cow_page_queue_entry *entry;
 						struct timespec tq1, tq2;
-						long queue_us;
 						
 						/* Time queue dequeue */
 						clock_gettime(CLOCK_MONOTONIC, &tq1);
