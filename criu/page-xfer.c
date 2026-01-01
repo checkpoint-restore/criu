@@ -2200,8 +2200,9 @@ static void *unified_page_server_thread(void *arg)
 							
 							{
 								struct timespec ts;
+								struct tm *tm;
 								clock_gettime(CLOCK_REALTIME, &ts);
-								struct tm *tm = localtime(&ts.tv_sec);
+								tm = localtime(&ts.tv_sec);
 								pr_warn("[UNIFIED_THREAD_STATS] [%02d:%02d:%02d.%03ld] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu | Compress: %lu->%lu (%.1f%%)\n",
 									tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
 									priority1_pages, priority2_pages, priority3_pages, priority3_skips,
