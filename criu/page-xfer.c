@@ -2048,15 +2048,36 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 }
 
 
+/* Timing statistics for COW page flow (accumulated, printed once/sec) */
+static struct {
+	unsigned long vma_lookup_total_us;
+	unsigned long vma_lookup_count;
+	unsigned long send_page_total_us;
+	unsigned long send_page_count;
+	unsigned long queue_dequeue_total_us;
+	unsigned long queue_dequeue_count;
+} cow_timing;
+
 /* Helper to send a COW page from lazy VMA */
 static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_image *img, pid_t source_pid)
 {
 	struct lazy_vma_entry *lve;
 	unsigned long page_idx;
 	int ret;
+	struct timespec t1, t2;
+	long us;
+	
+	/* Time VMA lookup */
+	clock_gettime(CLOCK_MONOTONIC, &t1);
 	
 	/* Find which lazy VMA contains this page (uses global list) */
 	lve = find_lazy_vma_for_addr(entry->vaddr, img->dst_id);
+	
+	clock_gettime(CLOCK_MONOTONIC, &t2);
+	us = (t2.tv_sec - t1.tv_sec) * 1000000 + (t2.tv_nsec - t1.tv_nsec) / 1000;
+	cow_timing.vma_lookup_total_us += us;
+	cow_timing.vma_lookup_count++;
+	
 	if (!lve){
 		pr_err("COW page 0x%lx not in any lazy VMA\n", entry->vaddr);
 		return -1;
@@ -2070,8 +2091,17 @@ static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_
 		return 0;
 	}
 	
+	/* Time page send */
+	clock_gettime(CLOCK_MONOTONIC, &t1);
+	
 	/* Send the page */
 	ret = send_lazy_vma_page(img->main_sk, entry->vaddr, img->dst_id, source_pid);
+	
+	clock_gettime(CLOCK_MONOTONIC, &t2);
+	us = (t2.tv_sec - t1.tv_sec) * 1000000 + (t2.tv_nsec - t1.tv_nsec) / 1000;
+	cow_timing.send_page_total_us += us;
+	cow_timing.send_page_count++;
+	
 	if (ret < 0)
 		return -1;
 	
@@ -2212,10 +2242,15 @@ static void *unified_page_server_thread(void *arg)
 									priority1_pages, priority2_pages, priority3_pages, priority3_skips,
 									cow_queue, req_queue,
 									g_compress_uncompressed_bytes, g_compress_compressed_bytes, compress_ratio);
+								/* Print timing totals */
+								pr_warn("[COW_TIMING] Queue: %lu us (%lu ops) | VMA_lookup: %lu us (%lu ops) | Send: %lu us (%lu ops)\n",
+									cow_timing.queue_dequeue_total_us, cow_timing.queue_dequeue_count,
+									cow_timing.vma_lookup_total_us, cow_timing.vma_lookup_count,
+									cow_timing.send_page_total_us, cow_timing.send_page_count);
 							}
 							g_compress_uncompressed_bytes = 0;
 							g_compress_compressed_bytes = 0;
-
+							memset(&cow_timing, 0, sizeof(cow_timing));
 						}
 						
 						/* Reset counters */
@@ -2228,11 +2263,21 @@ static void *unified_page_server_thread(void *arg)
                                        
 					/* === PRIORITY 1: Drain COW pages === */
 					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
-						struct cow_page_queue_entry *entry = cow_get_next_page();
+						struct cow_page_queue_entry *entry;
+						struct timespec tq1, tq2;
+						long queue_us;
+						
+						/* Time queue dequeue */
+						clock_gettime(CLOCK_MONOTONIC, &tq1);
+						entry = cow_get_next_page();
+						clock_gettime(CLOCK_MONOTONIC, &tq2);
+						queue_us = (tq2.tv_sec - tq1.tv_sec) * 1000000 + (tq2.tv_nsec - tq1.tv_nsec) / 1000;
+						cow_timing.queue_dequeue_total_us += queue_us;
+						cow_timing.queue_dequeue_count++;
+						
 						max_cow_pages_per_iter--;
 						if (!entry)
 							break;
-					//	verify_vmas(__FILE__, __LINE__);
 						ret = send_cow_page_lazy(entry, img, source_pid);
 						
 						if (ret > 0) {
