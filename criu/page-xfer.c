@@ -2137,9 +2137,11 @@ static void *unified_page_server_thread(void *arg)
 	unsigned long priority3_pages = 0;  /* Regular pages */
 	unsigned long priority3_skips = 0;  /* Skipped pages in P3 */
 	
-	pr_info("Unified page server background thread started\n");
-	sleep(5);
-	pr_info("Unified page server background thread started post sleep\n");
+	pr_warn("Unified page server background thread started\n");
+	verify_vmas(__FILE__, __LINE__);
+	sleep(15);
+	pr_warn("Unified page server background thread started post sleep\n");
+	verify_vmas(__FILE__, __LINE__);
 
 	while (!g_unified_thread_stop) {
 		struct active_image *img, *tmp;
