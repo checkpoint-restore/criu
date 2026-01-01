@@ -2187,7 +2187,7 @@ static void *unified_page_server_thread(void *arg)
 			//	verify_vmas(__FILE__, __LINE__);
 				/* Iterate pages in this VMA */
 
-				pr_err("Sending VMA %d: %lx-%lx len=%lu\n", vma_index_, vma_start, vma_end, vma->prot, vma_end - vma_start);
+				pr_err("Sending VMA %d: %lx-%lx len=%lu\n", vma_index_, vma_start, vma_end, vma_end - vma_start);
 				vma_index_++;
 				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
 					int max_cow_pages_per_iter = 100;
