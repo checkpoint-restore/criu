@@ -2062,7 +2062,7 @@ static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_
 		return -1;
 	}
 	/* Calculate page index within VMA */
-	page_idx = (entry->vaddr - lve->vma->e->start) / PAGE_SIZE;
+	page_idx = (entry->vaddr - lve->start) / PAGE_SIZE;
 	
 	/* Check if already sent */
 	if (lve->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
@@ -2102,7 +2102,7 @@ static int send_request_page_lazy(struct page_request_entry *req, struct active_
 		}
 		
 		/* Calculate page index within VMA */
-		page_idx = (page_vaddr - lve->vma->e->start) / PAGE_SIZE;
+		page_idx = (page_vaddr - lve->start) / PAGE_SIZE;
 		
 		/* Check if already sent */
 		if (lve->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {

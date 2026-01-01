@@ -17,6 +17,8 @@ struct vma_area;
 
 struct lazy_vma_entry {
 	int magic;
+	uint64_t start;
+  	uint64_t end;
 	struct list_head list;
 	struct vma_area *vma;
 	unsigned char *sent_bitmap;   /* Track which pages have been sent */

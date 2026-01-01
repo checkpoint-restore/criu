@@ -72,7 +72,7 @@ void verify_vmas(char* file, int line)
 				struct lazy_vma_entry *lve1;
 				pr_err("lve->magic=0x%x lve->end_magic=%x \n", lve->magic, lve->magic_end);
 				list_for_each_entry(lve1, &global_lazy_vmas, list) {
-					pr_err("VMA start=0x%lx end=%lx \n", lve1->vma->e->start, lve1->vma->e->end);
+					pr_err("VMA start=0x%lx end=%lx \n", lve1->start, lve1->end);
 				}
 				pthread_spin_unlock(&lazy_vmas_lock);
 				exit(0);
@@ -97,8 +97,8 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
 
-		if (vaddr >= lve->vma->e->start && 
-		    vaddr < lve->vma->e->end) { // && 		    lve->dst_id == dst_id) {
+		if (vaddr >= lve->start && 
+		    vaddr < lve->end) { // && 		    lve->dst_id == dst_id) {
 			pthread_spin_unlock(&lazy_vmas_lock);
 			pr_debug("Lazy VMA was found for vaddr=0x%lx dst_id=%lu lve=0x%p\n", vaddr, dst_id, lve);
 
@@ -108,7 +108,7 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
 		pr_err("lve->magic=0x%x lve->end_magic=%x \n", lve->magic, lve->magic_end);
-		pr_err("VMA start=0x%lx end=%lx \n", lve->vma->e->start, lve->vma->e->end);
+		pr_err("VMA start=0x%lx end=%lx \n", lve->start, lve->end);
 	}
 
 	pthread_spin_unlock(&lazy_vmas_lock);
@@ -389,6 +389,9 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			xfree(lve);
 			return -1;
 		}
+
+		lve->start = vma->e->start;
+		lve->end = vma->e->end;
 		
 		/* Add to global list (thread-safe) */
 		pthread_spin_lock(&lazy_vmas_lock);
