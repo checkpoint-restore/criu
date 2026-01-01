@@ -1959,9 +1959,12 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	int ret;
 	int uffd;
 	struct iovec local_iov, remote_iov;
+	struct timespec t_start, t_lock, t_cow, t_readv, t_compress, t_socket, t_unprot, t_end;
 	
 	pr_debug("[SEND_PAGE] Entering send_lazy_vma_page: vaddr=0x%lx dst_id=%lu pid=%d\n", 
 		 vaddr, (unsigned long)dst_id, source_pid);
+	
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
 	
 	/* Get hash bucket lock */
 	lock = cow_get_hash_lock(vaddr);
@@ -1971,22 +1974,29 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	}
 	
 	pthread_spin_lock(lock);
+	clock_gettime(CLOCK_MONOTONIC, &t_lock);
 	
 	/* Check for COW page */
 	cow_pg = cow_lookup_page(vaddr);
+	clock_gettime(CLOCK_MONOTONIC, &t_cow);
 	
 	/* Send data with compression */
 	if (cow_pg) {
 		/* Send COW data with compression */
 		pr_debug("[SEND_PAGE] Sending compressed COW page at vaddr=0x%lx\n", vaddr);
 		
+		t_readv = t_cow; /* No readv for COW pages */
 		ret = send_page_compressed(sk, cow_pg->data, dst_id, vaddr);
+		clock_gettime(CLOCK_MONOTONIC, &t_socket); /* compress+send combined */
+		t_compress = t_socket; /* Combined timing */
+		
 		if (ret != 0) {
 			pr_perror("Failed to send compressed COW page");
 			pthread_spin_unlock(lock);
 			return -1;
 		}
 		pr_debug("[SEND_PAGE] Successfully sent compressed COW page at vaddr=0x%lx\n", vaddr);
+		t_unprot = t_socket; /* No unprotect for COW */
 	} else {
 		/* Read from process memory */
 		pr_debug("[SEND_PAGE] Reading regular page from process memory at vaddr=0x%lx pid=%d\n", vaddr, source_pid);
@@ -2003,6 +2013,8 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 		remote_iov.iov_len = PAGE_SIZE;
 		
 		ret = process_vm_readv(source_pid, &local_iov, 1, &remote_iov, 1, 0);
+		clock_gettime(CLOCK_MONOTONIC, &t_readv);
+		
 		if (ret != PAGE_SIZE) {
 			pr_perror("Failed to read page at %lx from pid %d", vaddr, source_pid);
 			xfree(buffer);
@@ -2014,6 +2026,8 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 		
 		/* Send buffer with compression */
 		ret = send_page_compressed(sk, buffer, dst_id, vaddr);
+		clock_gettime(CLOCK_MONOTONIC, &t_socket);
+		t_compress = t_socket; /* Combined compress+send */
 		xfree(buffer);
 		
 		if (ret != 0) {
@@ -2037,6 +2051,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 				return -1;
 			}
 		}
+		clock_gettime(CLOCK_MONOTONIC, &t_unprot);
 	}
 	
 	/* Remove COW page if it exists */
@@ -2044,18 +2059,38 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 		cow_remove_page(vaddr);
 	
 	pthread_spin_unlock(lock);
+	clock_gettime(CLOCK_MONOTONIC, &t_end);
+	
+	/* Accumulate sub-timings (nanoseconds) */
+	cow_timing.send_lock_ns += (t_lock.tv_sec - t_start.tv_sec) * 1000000000 + (t_lock.tv_nsec - t_start.tv_nsec);
+	cow_timing.send_cow_lookup_ns += (t_cow.tv_sec - t_lock.tv_sec) * 1000000000 + (t_cow.tv_nsec - t_lock.tv_nsec);
+	cow_timing.send_vm_readv_ns += (t_readv.tv_sec - t_cow.tv_sec) * 1000000000 + (t_readv.tv_nsec - t_cow.tv_nsec);
+	cow_timing.send_compress_ns += (t_socket.tv_sec - t_readv.tv_sec) * 1000000000 + (t_socket.tv_nsec - t_readv.tv_nsec);
+	cow_timing.send_unprotect_ns += (t_unprot.tv_sec - t_socket.tv_sec) * 1000000000 + (t_unprot.tv_nsec - t_socket.tv_nsec);
+	cow_timing.send_unlock_ns += (t_end.tv_sec - t_unprot.tv_sec) * 1000000000 + (t_end.tv_nsec - t_unprot.tv_nsec);
+	cow_timing.send_sub_count++;
+	
 	return 0;
 }
 
 
-/* Timing statistics for COW page flow (accumulated, printed once/sec) */
+/* Timing statistics for COW page flow (accumulated in nanoseconds, printed once/sec) */
 static struct {
-	unsigned long vma_lookup_total_us;
+	unsigned long vma_lookup_total_ns;
 	unsigned long vma_lookup_count;
-	unsigned long send_page_total_us;
+	unsigned long send_page_total_ns;
 	unsigned long send_page_count;
-	unsigned long queue_dequeue_total_us;
+	unsigned long queue_dequeue_total_ns;
 	unsigned long queue_dequeue_count;
+	/* Sub-timing within send_lazy_vma_page (nanoseconds) */
+	unsigned long send_lock_ns;
+	unsigned long send_cow_lookup_ns;
+	unsigned long send_vm_readv_ns;
+	unsigned long send_compress_ns;
+	unsigned long send_socket_ns;
+	unsigned long send_unprotect_ns;
+	unsigned long send_unlock_ns;
+	unsigned long send_sub_count;
 } cow_timing;
 
 /* Helper to send a COW page from lazy VMA */
@@ -2074,8 +2109,7 @@ static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_
 	lve = find_lazy_vma_for_addr(entry->vaddr, img->dst_id);
 	
 	clock_gettime(CLOCK_MONOTONIC, &t2);
-	us = (t2.tv_sec - t1.tv_sec) * 1000000 + (t2.tv_nsec - t1.tv_nsec) / 1000;
-	cow_timing.vma_lookup_total_us += us;
+	cow_timing.vma_lookup_total_ns += (t2.tv_sec - t1.tv_sec) * 1000000000 + (t2.tv_nsec - t1.tv_nsec);
 	cow_timing.vma_lookup_count++;
 	
 	if (!lve){
@@ -2098,8 +2132,7 @@ static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_
 	ret = send_lazy_vma_page(img->main_sk, entry->vaddr, img->dst_id, source_pid);
 	
 	clock_gettime(CLOCK_MONOTONIC, &t2);
-	us = (t2.tv_sec - t1.tv_sec) * 1000000 + (t2.tv_nsec - t1.tv_nsec) / 1000;
-	cow_timing.send_page_total_us += us;
+	cow_timing.send_page_total_ns += (t2.tv_sec - t1.tv_sec) * 1000000000 + (t2.tv_nsec - t1.tv_nsec);
 	cow_timing.send_page_count++;
 	
 	if (ret < 0)
@@ -2242,11 +2275,21 @@ static void *unified_page_server_thread(void *arg)
 									priority1_pages, priority2_pages, priority3_pages, priority3_skips,
 									cow_queue, req_queue,
 									g_compress_uncompressed_bytes, g_compress_compressed_bytes, compress_ratio);
-								/* Print timing totals */
-								pr_warn("[COW_TIMING] Queue: %lu us (%lu ops) | VMA_lookup: %lu us (%lu ops) | Send: %lu us (%lu ops)\n",
-									cow_timing.queue_dequeue_total_us, cow_timing.queue_dequeue_count,
-									cow_timing.vma_lookup_total_us, cow_timing.vma_lookup_count,
-									cow_timing.send_page_total_us, cow_timing.send_page_count);
+								/* Print timing totals in nanoseconds */
+								pr_warn("[COW_TIMING] Queue: %lu ns (%lu ops) | VMA_lookup: %lu ns (%lu ops) | Send: %lu ns (%lu ops)\n",
+									cow_timing.queue_dequeue_total_ns, cow_timing.queue_dequeue_count,
+									cow_timing.vma_lookup_total_ns, cow_timing.vma_lookup_count,
+									cow_timing.send_page_total_ns, cow_timing.send_page_count);
+								/* Print send sub-breakdown */
+								if (cow_timing.send_sub_count > 0) {
+									pr_warn("[SEND_BREAKDOWN] lock=%lu readv=%lu compress+send=%lu unprot=%lu unlock=%lu ns (avg per %lu ops)\n",
+										cow_timing.send_lock_ns / cow_timing.send_sub_count,
+										cow_timing.send_vm_readv_ns / cow_timing.send_sub_count,
+										cow_timing.send_compress_ns / cow_timing.send_sub_count,
+										cow_timing.send_unprotect_ns / cow_timing.send_sub_count,
+										cow_timing.send_unlock_ns / cow_timing.send_sub_count,
+										cow_timing.send_sub_count);
+								}
 							}
 							g_compress_uncompressed_bytes = 0;
 							g_compress_compressed_bytes = 0;
@@ -2271,8 +2314,7 @@ static void *unified_page_server_thread(void *arg)
 						clock_gettime(CLOCK_MONOTONIC, &tq1);
 						entry = cow_get_next_page();
 						clock_gettime(CLOCK_MONOTONIC, &tq2);
-						queue_us = (tq2.tv_sec - tq1.tv_sec) * 1000000 + (tq2.tv_nsec - tq1.tv_nsec) / 1000;
-						cow_timing.queue_dequeue_total_us += queue_us;
+						cow_timing.queue_dequeue_total_ns += (tq2.tv_sec - tq1.tv_sec) * 1000000000 + (tq2.tv_nsec - tq1.tv_nsec);
 						cow_timing.queue_dequeue_count++;
 						
 						max_cow_pages_per_iter--;
