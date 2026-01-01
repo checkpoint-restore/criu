@@ -2143,6 +2143,7 @@ static void *unified_page_server_thread(void *arg)
 	while (!g_unified_thread_stop) {
 		struct active_image *img, *tmp;
 		time_t current_time;
+		int vma_index_ = 0;
 		
 		if (DONE) {
 			done_count++;
@@ -2172,7 +2173,7 @@ static void *unified_page_server_thread(void *arg)
 			
 			
 		//	verify_vmas(__FILE__, __LINE__);
-			
+	
 			/* Now iterate through all lazy VMAs for this dst_id */
 			list_for_each_entry(lve, get_global_lazy_vmas(), list) {
 				unsigned long vma_start, vma_end, vaddr;
@@ -2185,6 +2186,9 @@ static void *unified_page_server_thread(void *arg)
 				vma_end = lve->vma->e->end;
 			//	verify_vmas(__FILE__, __LINE__);
 				/* Iterate pages in this VMA */
+
+				pr_err("Sending VMA %d: %lx-%lx len=%lu\n", vma_index_, vma_start, vma_end, vma->prot, vma_end - vma_start);
+				vma_index_++;
 				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
 					int max_cow_pages_per_iter = 100;
 
