@@ -395,7 +395,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		list_add_tail(&lve->list, &global_lazy_vmas);
 		pthread_spin_unlock(&lazy_vmas_lock);
 		
-		pr_info("Added lazy VMA 0x%llx-0x%llx to global list (%lu pages, %lu byte bitmap, dst_id=%lu, pid=%d)\n",
+		pr_warn("Added lazy VMA 0x%llx-0x%llx to global list (%lu pages, %lu byte bitmap, dst_id=%lu, pid=%d)\n",
 			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages, bitmap_size,
 			(unsigned long)lve->dst_id, lve->source_pid);
 		nr_scanned = 0;

@@ -988,7 +988,7 @@ static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_v
 		BUG_ON(iov.iov_base < (void *)xfer->offset);
 		iov.iov_base -= xfer->offset;
 		
-		pr_info("  Writing lazy VMA pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
+		pr_warn("  Writing lazy VMA pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
 			vma_start, (unsigned long)lve->vma->e->end,
 			(unsigned long)(iov.iov_len / PAGE_SIZE));
 		
