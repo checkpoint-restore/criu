@@ -1977,7 +1977,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	int ret;
 	int uffd;
 	struct iovec local_iov, remote_iov;
-	struct timespec t_start, t_lock, t_cow, t_readv, t_compress, t_socket, t_unprot, t_end;
+	struct timespec t_start, t_lock, t_cow, t_readv, t_socket, t_unprot, t_end;
 	
 	pr_debug("[SEND_PAGE] Entering send_lazy_vma_page: vaddr=0x%lx dst_id=%lu pid=%d\n", 
 		 vaddr, (unsigned long)dst_id, source_pid);
@@ -2005,8 +2005,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 		
 		t_readv = t_cow; /* No readv for COW pages */
 		ret = send_page_compressed(sk, cow_pg->data, dst_id, vaddr);
-		clock_gettime(CLOCK_MONOTONIC, &t_socket); /* compress+send combined */
-		t_compress = t_socket; /* Combined timing */
+		clock_gettime(CLOCK_MONOTONIC, &t_socket); /* compress+send combined */		
 		
 		if (ret != 0) {
 			pr_perror("Failed to send compressed COW page");
@@ -2045,7 +2044,6 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 		/* Send buffer with compression */
 		ret = send_page_compressed(sk, buffer, dst_id, vaddr);
 		clock_gettime(CLOCK_MONOTONIC, &t_socket);
-		t_compress = t_socket; /* Combined compress+send */
 		xfree(buffer);
 		
 		if (ret != 0) {
