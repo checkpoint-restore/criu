@@ -1949,6 +1949,24 @@ static void remove_active_image(struct active_image *img)
 }
 
 #endif
+/* Timing statistics for COW page flow (accumulated in nanoseconds, printed once/sec) */
+static struct {
+	unsigned long vma_lookup_total_ns;
+	unsigned long vma_lookup_count;
+	unsigned long send_page_total_ns;
+	unsigned long send_page_count;
+	unsigned long queue_dequeue_total_ns;
+	unsigned long queue_dequeue_count;
+	/* Sub-timing within send_lazy_vma_page (nanoseconds) */
+	unsigned long send_lock_ns;
+	unsigned long send_cow_lookup_ns;
+	unsigned long send_vm_readv_ns;
+	unsigned long send_compress_ns;
+	unsigned long send_socket_ns;
+	unsigned long send_unprotect_ns;
+	unsigned long send_unlock_ns;
+	unsigned long send_sub_count;
+} cow_timing;
 
 /* Helper to send a lazy VMA page using process_vm_readv with LZ4 compression */
 static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t source_pid)
@@ -2074,24 +2092,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 }
 
 
-/* Timing statistics for COW page flow (accumulated in nanoseconds, printed once/sec) */
-static struct {
-	unsigned long vma_lookup_total_ns;
-	unsigned long vma_lookup_count;
-	unsigned long send_page_total_ns;
-	unsigned long send_page_count;
-	unsigned long queue_dequeue_total_ns;
-	unsigned long queue_dequeue_count;
-	/* Sub-timing within send_lazy_vma_page (nanoseconds) */
-	unsigned long send_lock_ns;
-	unsigned long send_cow_lookup_ns;
-	unsigned long send_vm_readv_ns;
-	unsigned long send_compress_ns;
-	unsigned long send_socket_ns;
-	unsigned long send_unprotect_ns;
-	unsigned long send_unlock_ns;
-	unsigned long send_sub_count;
-} cow_timing;
+
 
 /* Helper to send a COW page from lazy VMA */
 static int send_cow_page_lazy(struct cow_page_queue_entry *entry, struct active_image *img, pid_t source_pid)
