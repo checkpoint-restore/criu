@@ -2182,8 +2182,8 @@ static void *unified_page_server_thread(void *arg)
 				source_pid = lve->source_pid;
 				
 				
-				vma_start = lve->vma->e->start;
-				vma_end = lve->vma->e->end;
+				vma_start = lve->start;
+				vma_end = lve->end;
 			//	verify_vmas(__FILE__, __LINE__);
 				/* Iterate pages in this VMA */
 
