@@ -2116,6 +2116,7 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_timer_cr_ids()) {
 		pr_err("kerndat_has_timer_cr_ids has failed when initializing kerndat.\n");
+		ret = -1;
 	}
 	if (!ret && kerndat_breakpoints()) {
 		pr_err("kerndat_breakpoints has failed when initializing kerndat.\n");
