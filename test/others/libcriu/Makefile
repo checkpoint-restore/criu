@@ -26,7 +26,7 @@ endef
 $(foreach t, $(TESTS), $(eval $(call genb, $(t))))
 
 %.o: %.c
-	gcc -c $^ -iquote ../../../criu/include -I../../../lib/c/ -I../../../images/ -o $@ -Werror
+	gcc -c $^ -iquote../../../criu/include -I../../../include -I../../../lib/c/ -I../../../images/ -o $@ -Werror
 
 clean: libcriu_clean
 	rm -rf $(TESTS) $(TESTS:%=%.o) lib.o
