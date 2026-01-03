@@ -1,4 +1,4 @@
-include ../../../../criu/Makefile.versions
+include ../../../Makefile.versions
 
 TESTS += test_sub
 TESTS += test_self
@@ -20,13 +20,13 @@ run: all
 
 define genb
 $(1): $(1).o lib.o
-	gcc $$^ -L ../../../../criu/lib/c/ -L ../../../../criu/images/ -lcriu -o $$@
+	gcc $$^ -L ../../../lib/c/ -L ../../../images/ -lcriu -o $$@
 endef
 
 $(foreach t, $(TESTS), $(eval $(call genb, $(t))))
 
 %.o: %.c
-	gcc -c $^ -iquote ../../../../criu/criu/include -I../../../../criu/lib/c/ -I../../../../criu/images/ -o $@ -Werror
+	gcc -c $^ -iquote ../../../criu/include -I../../../lib/c/ -I../../../images/ -o $@ -Werror
 
 clean: libcriu_clean
 	rm -rf $(TESTS) $(TESTS:%=%.o) lib.o
@@ -37,5 +37,5 @@ libcriu_clean:
 .PHONY: libcriu_clean
 
 libcriu:
-	ln -s ../../../../criu/lib/c/libcriu.so libcriu.so.${CRIU_SO_VERSION_MAJOR}
+	ln -s ../../../lib/c/libcriu.so libcriu.so.${CRIU_SO_VERSION_MAJOR}
 .PHONY: libcriu
