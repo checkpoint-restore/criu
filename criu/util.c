@@ -1438,7 +1438,12 @@ static void check_and_print_epoll_stats(void)
 	
 	if (now - epoll_stats.last_print_time >= 1) {
 		if (epoll_stats.total_read_calls > 0 || epoll_stats.total_read_success > 0) {
-			pr_warn("[EPOLL_STATS] read_calls=%lu read_success=%lu\n",
+			struct timespec ts;
+			struct tm *tm;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			tm = localtime(&ts.tv_sec);
+			pr_warn("[EPOLL_STATS] [%02d:%02d:%02d.%03ld] read_calls=%lu read_success=%lu\n",
+				tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
 				epoll_stats.total_read_calls,
 				epoll_stats.total_read_success);
 		}
