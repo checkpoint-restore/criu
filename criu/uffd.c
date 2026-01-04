@@ -138,6 +138,14 @@ static struct {
 	unsigned long pipeline_depth_sum;
 	unsigned long pipeline_samples;
 
+	/* Timing statistics (nanoseconds) */
+	unsigned long io_complete_bulk_total_ns;
+	unsigned long io_complete_bulk_count;
+	unsigned long uffd_copy_total_ns;
+	unsigned long uffd_copy_count;
+	unsigned long drop_iovs_total_ns;
+	unsigned long drop_iovs_count;
+
 	time_t last_print_time;
 } uffd_stats;
 
@@ -230,6 +238,17 @@ static void check_and_print_uffd_stats(void)
 				pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
 		}
 		pr_warn("\n");
+
+		/* Print timing stats */
+		if (uffd_stats.io_complete_bulk_count > 0) {
+			pr_warn("  TIMING: io_bulk=%lu ns (%lu ops) copy=%lu ns (%lu ops) drop=%lu ns (%lu ops)\n",
+				uffd_stats.io_complete_bulk_total_ns / uffd_stats.io_complete_bulk_count,
+				uffd_stats.io_complete_bulk_count,
+				uffd_stats.uffd_copy_count > 0 ? uffd_stats.uffd_copy_total_ns / uffd_stats.uffd_copy_count : 0,
+				uffd_stats.uffd_copy_count,
+				uffd_stats.drop_iovs_count > 0 ? uffd_stats.drop_iovs_total_ns / uffd_stats.drop_iovs_count : 0,
+				uffd_stats.drop_iovs_count);
+		}
 
 		/* Reset all counters */
 		memset(&uffd_stats, 0, sizeof(uffd_stats));
@@ -1249,6 +1268,9 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	unsigned long pages = nr;
 	struct lazy_iov *iov;
 	int ret;
+	struct timespec t_start, t_copy, t_drop, t_end;
+
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
 
@@ -1310,6 +1332,10 @@ found_iov:
 
 	/* Copy pages to userspace */
 	ret = uffd_copy(lpi, vaddr, &pages);
+	clock_gettime(CLOCK_MONOTONIC, &t_copy);
+	uffd_stats.uffd_copy_total_ns += (t_copy.tv_sec - t_start.tv_sec) * 1000000000 + (t_copy.tv_nsec - t_start.tv_nsec);
+	uffd_stats.uffd_copy_count++;
+
 	if (ret < 0)
 		return ret;
 
@@ -1319,6 +1345,13 @@ found_iov:
 
 	/* CRITICAL: Remove copied pages from IOV tracking to prevent duplicate faults */
 	ret = drop_iovs(lpi, vaddr, pages * PAGE_SIZE);
+	clock_gettime(CLOCK_MONOTONIC, &t_drop);
+	uffd_stats.drop_iovs_total_ns += (t_drop.tv_sec - t_copy.tv_sec) * 1000000000 + (t_drop.tv_nsec - t_copy.tv_nsec);
+	uffd_stats.drop_iovs_count++;
+
+	clock_gettime(CLOCK_MONOTONIC, &t_end);
+	uffd_stats.io_complete_bulk_total_ns += (t_end.tv_sec - t_start.tv_sec) * 1000000000 + (t_end.tv_nsec - t_start.tv_nsec);
+	uffd_stats.io_complete_bulk_count++;
 
 	return ret;
 }
