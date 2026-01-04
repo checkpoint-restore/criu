@@ -2972,11 +2972,15 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 
 	/* Reading compressed_size (4 bytes) */
 	if (ar->compress_state == COMPRESS_STATE_READING_SIZE) {
+		struct timespec t_recv_start, t_recv_end;
 		need = sizeof(ar->compressed_size) - ar->compressed_rb;
 		buf = ((char *)&ar->compressed_size) + ar->compressed_rb;
 
+		clock_gettime(CLOCK_MONOTONIC, &t_recv_start);
 		bulk_stats.recv_calls++;
 		ret = __recv(page_server_sk, buf, need, flags);
+		clock_gettime(CLOCK_MONOTONIC, &t_recv_end);
+		bulk_stats.recv_wait_time_ns += (t_recv_end.tv_sec - t_recv_start.tv_sec) * 1000000000 + (t_recv_end.tv_nsec - t_recv_start.tv_nsec);
 		if (ret < 0) {
 			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
 				bulk_stats.recv_would_block++;
@@ -3007,11 +3011,15 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 
 	/* Reading compressed data */
 	if (ar->compress_state == COMPRESS_STATE_READING_COMPRESSED) {
+		struct timespec t_recv_start, t_recv_end;
 		need = ar->compressed_size - ar->compressed_rb;
 		buf = ar->compressed_buf + ar->compressed_rb;
 
+		clock_gettime(CLOCK_MONOTONIC, &t_recv_start);
 		bulk_stats.recv_calls++;
 		ret = __recv(page_server_sk, buf, need, flags);
+		clock_gettime(CLOCK_MONOTONIC, &t_recv_end);
+		bulk_stats.recv_wait_time_ns += (t_recv_end.tv_sec - t_recv_start.tv_sec) * 1000000000 + (t_recv_end.tv_nsec - t_recv_start.tv_nsec);
 		if (ret < 0) {
 			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
 				bulk_stats.recv_would_block++;
@@ -3068,11 +3076,15 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 
 	/* Reading uncompressed page data (original path) */
 	if (ar->compress_state == COMPRESS_STATE_READING_UNCOMPRESSED) {
+		struct timespec t_recv_start, t_recv_end;
 		buf = ar->pages + (ar->rb - sizeof(ar->pi));
 		need = ar->goal - ar->rb;
 
+		clock_gettime(CLOCK_MONOTONIC, &t_recv_start);
 		bulk_stats.recv_calls++;
 		ret = __recv(page_server_sk, buf, need, flags);
+		clock_gettime(CLOCK_MONOTONIC, &t_recv_end);
+		bulk_stats.recv_wait_time_ns += (t_recv_end.tv_sec - t_recv_start.tv_sec) * 1000000000 + (t_recv_end.tv_nsec - t_recv_start.tv_nsec);
 		if (ret < 0) {
 			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
 				bulk_stats.recv_would_block++;
