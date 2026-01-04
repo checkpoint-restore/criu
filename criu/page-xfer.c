@@ -2901,6 +2901,7 @@ static struct {
 	unsigned long recv_calls;
 	unsigned long recv_would_block;
 	unsigned long recv_bytes;
+	unsigned long recv_wait_time_ns;
 	unsigned long pages_completed;
 	unsigned long decompress_calls;
 	unsigned long decompress_time_ns;
@@ -2926,8 +2927,13 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 			buf = ((void *)&ar->pi) + ar->rb;
 			need = sizeof(ar->pi) - ar->rb;
 
+		{
+			struct timespec t_recv_start, t_recv_end;
+			clock_gettime(CLOCK_MONOTONIC, &t_recv_start);
 			bulk_stats.recv_calls++;
 			ret = __recv(page_server_sk, buf, need, flags);
+			clock_gettime(CLOCK_MONOTONIC, &t_recv_end);
+			bulk_stats.recv_wait_time_ns += (t_recv_end.tv_sec - t_recv_start.tv_sec) * 1000000000 + (t_recv_end.tv_nsec - t_recv_start.tv_nsec);
 			if (ret < 0) {
 				if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
 					bulk_stats.recv_would_block++;
@@ -2937,6 +2943,7 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 				return -1;
 			}
 			bulk_stats.recv_bytes += ret;
+		}
 			ar->rb += ret;
 		}
 
@@ -3108,11 +3115,12 @@ static void check_and_print_bulk_stats(void)
 		struct tm *tm;
 		clock_gettime(CLOCK_REALTIME, &ts);
 		tm = localtime(&ts.tv_sec);
-		pr_warn("[BULK_RECV_STATS] [%02d:%02d:%02d.%03ld] recv=%lu block=%lu bytes=%lu pages=%lu decomp=%lu time_ns=%lu cb=%lu\n",
+		pr_warn("[BULK_RECV_STATS] [%02d:%02d:%02d.%03ld] recv=%lu block=%lu bytes=%lu recv_wait_ns=%lu pages=%lu decomp=%lu decomp_ns=%lu cb=%lu\n",
 			tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
 			bulk_stats.recv_calls,
 			bulk_stats.recv_would_block,
 			bulk_stats.recv_bytes,
+			bulk_stats.recv_wait_time_ns,
 			bulk_stats.pages_completed,
 			bulk_stats.decompress_calls,
 			bulk_stats.decompress_time_ns,
