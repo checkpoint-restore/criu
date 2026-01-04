@@ -2916,13 +2916,17 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 			buf = ((void *)&ar->pi) + ar->rb;
 			need = sizeof(ar->pi) - ar->rb;
 
+			bulk_stats.recv_calls++;
 			ret = __recv(page_server_sk, buf, need, flags);
 			if (ret < 0) {
-				if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR))
+				if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
+					bulk_stats.recv_would_block++;
 					return 0;
+				}
 				pr_perror("Error reading header from page server");
 				return -1;
 			}
+			bulk_stats.recv_bytes += ret;
 			ar->rb += ret;
 		}
 
@@ -2954,13 +2958,17 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 		need = sizeof(ar->compressed_size) - ar->compressed_rb;
 		buf = ((char *)&ar->compressed_size) + ar->compressed_rb;
 
+		bulk_stats.recv_calls++;
 		ret = __recv(page_server_sk, buf, need, flags);
 		if (ret < 0) {
-			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR))
+			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
+				bulk_stats.recv_would_block++;
 				return 0;
+			}
 			pr_perror("Error reading compressed size");
 			return -1;
 		}
+		bulk_stats.recv_bytes += ret;
 		ar->compressed_rb += ret;
 
 		if (ar->compressed_rb == sizeof(ar->compressed_size)) {
@@ -2985,23 +2993,32 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 		need = ar->compressed_size - ar->compressed_rb;
 		buf = ar->compressed_buf + ar->compressed_rb;
 
+		bulk_stats.recv_calls++;
 		ret = __recv(page_server_sk, buf, need, flags);
 		if (ret < 0) {
-			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR))
+			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
+				bulk_stats.recv_would_block++;
 				return 0;
+			}
 			pr_perror("Error reading compressed data");
 			xfree(ar->compressed_buf);
 			ar->compressed_buf = NULL;
 			return -1;
 		}
+		bulk_stats.recv_bytes += ret;
 		ar->compressed_rb += ret;
 
 		if (ar->compressed_rb == ar->compressed_size) {
 			int decomp_ret;
+			struct timespec t1, t2;
 
 			/* Decompress into ar->pages */
+			clock_gettime(CLOCK_MONOTONIC, &t1);
 			decomp_ret = LZ4_decompress_safe(ar->compressed_buf, ar->pages, 
 							 ar->compressed_size, PAGE_SIZE);
+			clock_gettime(CLOCK_MONOTONIC, &t2);
+			bulk_stats.decompress_calls++;
+			bulk_stats.decompress_time_ns += (t2.tv_sec - t1.tv_sec) * 1000000000 + (t2.tv_nsec - t1.tv_nsec);
 			xfree(ar->compressed_buf);
 			ar->compressed_buf = NULL;
 
@@ -3015,6 +3032,8 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 				 (unsigned long)ar->pi.vaddr, ar->compressed_size, PAGE_SIZE);
 
 			/* Notify caller */
+			bulk_stats.callback_calls++;
+			bulk_stats.pages_completed++;
 			ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, 
 					   (int)ar->pi.nr_pages, ar->priv);
 
@@ -3035,17 +3054,23 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 		buf = ar->pages + (ar->rb - sizeof(ar->pi));
 		need = ar->goal - ar->rb;
 
+		bulk_stats.recv_calls++;
 		ret = __recv(page_server_sk, buf, need, flags);
 		if (ret < 0) {
-			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR))
+			if (flags == MSG_DONTWAIT && (errno == EAGAIN || errno == EINTR)) {
+				bulk_stats.recv_would_block++;
 				return 0;
+			}
 			pr_perror("Error reading uncompressed page data");
 			return -1;
 		}
+		bulk_stats.recv_bytes += ret;
 		ar->rb += ret;
 
 		if (ar->rb == ar->goal) {
 			/* Complete page(s) received - notify caller */
+			bulk_stats.callback_calls++;
+			bulk_stats.pages_completed++;
 			ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr, 
 					   (int)ar->pi.nr_pages, ar->priv);
 
@@ -3061,11 +3086,49 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 	return 1; /* Need more data */
 }
 
+/* Bulk stream statistics */
+static struct {
+	unsigned long recv_calls;
+	unsigned long recv_would_block;
+	unsigned long recv_bytes;
+	unsigned long pages_completed;
+	unsigned long decompress_calls;
+	unsigned long decompress_time_ns;
+	unsigned long callback_calls;
+	time_t last_print_time;
+} bulk_stats;
+
+static void check_and_print_bulk_stats(void)
+{
+	time_t now = time(NULL);
+	
+	if (now - bulk_stats.last_print_time >= 1) {
+		struct timespec ts;
+		struct tm *tm;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		tm = localtime(&ts.tv_sec);
+		pr_warn("[BULK_RECV_STATS] [%02d:%02d:%02d.%03ld] recv=%lu block=%lu bytes=%lu pages=%lu decomp=%lu time_ns=%lu cb=%lu\n",
+			tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
+			bulk_stats.recv_calls,
+			bulk_stats.recv_would_block,
+			bulk_stats.recv_bytes,
+			bulk_stats.pages_completed,
+			bulk_stats.decompress_calls,
+			bulk_stats.decompress_time_ns,
+			bulk_stats.callback_calls);
+		
+		memset(&bulk_stats, 0, sizeof(bulk_stats));
+		bulk_stats.last_print_time = now;
+	}
+}
+
 static int page_server_async_read_bulk(struct epoll_rfd *f)
 {
 	struct ps_async_read *ar;
 	int ret;
 	pr_debug("page_server_async_read_bulk\n");
+	
+	check_and_print_bulk_stats();
 
 	if (list_empty(&async_reads)) {
 		pr_err("Bulk async read with empty queue\n");
