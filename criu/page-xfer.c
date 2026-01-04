@@ -2897,6 +2897,16 @@ static int page_server_start_async_read(void *buf, unsigned long nr_pages, ps_as
 	list_add_tail(&ar->l, &async_reads);
 	return 0;
 }
+static struct {
+	unsigned long recv_calls;
+	unsigned long recv_would_block;
+	unsigned long recv_bytes;
+	unsigned long pages_completed;
+	unsigned long decompress_calls;
+	unsigned long decompress_time_ns;
+	unsigned long callback_calls;
+	time_t last_print_time;
+} bulk_stats;
 
 /*
  * Bulk mode continuous stream reader.
@@ -3087,16 +3097,7 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 }
 
 /* Bulk stream statistics */
-static struct {
-	unsigned long recv_calls;
-	unsigned long recv_would_block;
-	unsigned long recv_bytes;
-	unsigned long pages_completed;
-	unsigned long decompress_calls;
-	unsigned long decompress_time_ns;
-	unsigned long callback_calls;
-	time_t last_print_time;
-} bulk_stats;
+
 
 static void check_and_print_bulk_stats(void)
 {
