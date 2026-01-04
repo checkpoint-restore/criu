@@ -1197,7 +1197,7 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	int ret;
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
-	lp_err(lpi, "uffd_io_complete\n");
+	pr_err("uffd_io_complete\n");
 	/*
 	 * The process may exit while we still have requests in
 	 * flight. We just drop the request and the received data in
@@ -1269,7 +1269,7 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	struct lazy_iov *iov;
 	int ret;
 	struct timespec t_start, t_copy, t_drop, t_end;
-	lp_err(lpi, "uffd_io_complete_bulk\n");
+	pr_err("uffd_io_complete_bulk\n");
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
