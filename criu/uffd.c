@@ -141,6 +141,7 @@ static struct {
 	/* Timing statistics (nanoseconds) */
 	unsigned long io_complete_bulk_total_ns;
 	unsigned long io_complete_bulk_count;
+	unsigned long io_complete_bulk_count_start;
 	unsigned long uffd_copy_total_ns;
 	unsigned long uffd_copy_count;
 	unsigned long drop_iovs_total_ns;
@@ -240,10 +241,11 @@ static void check_and_print_uffd_stats(void)
 		pr_warn("\n");
 
 		/* Print timing stats */
-		if (uffd_stats.io_complete_bulk_count > 0) {
-			pr_warn("  TIMING: io_bulk=%lu ns (%lu ops) copy=%lu ns (%lu ops) drop=%lu ns (%lu ops)\n",
+		if (uffd_stats.io_complete_bulk_count_start > 0) {
+			pr_warn("  TIMING: io_bulk=%lu ns (%lu, %lu ops) copy=%lu ns (%lu ops) drop=%lu ns (%lu ops)\n",
 				uffd_stats.io_complete_bulk_total_ns / uffd_stats.io_complete_bulk_count,
 				uffd_stats.io_complete_bulk_count,
+				uffd_stats.io_complete_bulk_count_start,
 				uffd_stats.uffd_copy_count > 0 ? uffd_stats.uffd_copy_total_ns / uffd_stats.uffd_copy_count : 0,
 				uffd_stats.uffd_copy_count,
 				uffd_stats.drop_iovs_count > 0 ? uffd_stats.drop_iovs_total_ns / uffd_stats.drop_iovs_count : 0,
@@ -1269,7 +1271,8 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	struct lazy_iov *iov;
 	int ret;
 	struct timespec t_start, t_copy, t_drop, t_end;
-	pr_err("uffd_io_complete_bulk\n");
+	uffd_stats.io_complete_bulk_count_start++;
+	
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
