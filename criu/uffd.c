@@ -1892,15 +1892,7 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 			uffd_stats.pipeline_samples++;
 		}
 
-		/* Check and print statistics every second */
-		check_and_print_uffd_stats();
-
-		/* In COW dump mode, process pending EAGAIN requests */
-		if (opts.cow_dump) {
-			ret = process_eagain_requests();
-			if (ret < 0)
-				goto out;
-		}
+	
 
 		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)
