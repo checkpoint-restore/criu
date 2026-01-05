@@ -197,6 +197,67 @@ static const char *get_bucket_label(int bucket)
 	}
 }
 
+static void check_and_print_uffd_stats(void)
+{
+	time_t now = time(NULL);
+	int i;
+	unsigned long avg_pipeline = 0;
+
+	if (now - uffd_stats.last_print_time >= 1) {
+		/* Calculate average pipeline depth */
+		if (uffd_stats.pipeline_samples > 0)
+			avg_pipeline = uffd_stats.pipeline_depth_sum / uffd_stats.pipeline_samples;
+
+		{
+			struct timespec ts;
+			struct tm *tm;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			tm = localtime(&ts.tv_sec);
+			pr_warn("[UFFD_STATS] [%02d:%02d:%02d.%03ld] reqs=%lu(pf:%lu,bg:%lu) pages=%lu pipe_avg=%lu\n",
+				tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
+				uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
+				uffd_stats.total_pf_reqs,
+				uffd_stats.total_bg_reqs,
+				uffd_stats.total_pages,
+				avg_pipeline);
+		}
+
+		/* Print page fault histogram */
+
+		pr_warn("  PF: ");
+		for (i = 0; i < 9; i++) {
+			if (uffd_stats.pf_hist[i] > 0)
+				pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.pf_hist[i]);
+		}
+		pr_warn("\n");
+
+		/* Print background transfer histogram */
+
+		pr_warn("  BG: ");
+		for (i = 0; i < 9; i++) {
+			if (uffd_stats.bg_hist[i] > 0)
+				pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
+		}
+		pr_warn("\n");
+
+		/* Print timing stats */
+		if (uffd_stats.io_complete_bulk_count_start > 0) {
+			pr_warn("  TIMING: io_bulk=%lu ns (%lu, %lu ops) copy=%lu ns (%lu ops) drop=%lu ns (%lu ops)\n",
+				uffd_stats.io_complete_bulk_total_ns / uffd_stats.io_complete_bulk_count,
+				uffd_stats.io_complete_bulk_count,
+				uffd_stats.io_complete_bulk_count_start,
+				uffd_stats.uffd_copy_count > 0 ? uffd_stats.uffd_copy_total_ns / uffd_stats.uffd_copy_count : 0,
+				uffd_stats.uffd_copy_count,
+				uffd_stats.drop_iovs_count > 0 ? uffd_stats.drop_iovs_total_ns / uffd_stats.drop_iovs_count : 0,
+				uffd_stats.drop_iovs_count);
+		}
+
+		/* Reset all counters */
+		memset(&uffd_stats, 0, sizeof(uffd_stats));
+		uffd_stats.last_print_time = now;
+	}
+}
+
 static int handle_uffd_event(struct epoll_rfd *lpfd);
 
 static struct lazy_pages_info *lpi_init(void)
@@ -1759,6 +1820,64 @@ static int retry_uffd_zero(struct uffd_eagain_request *req)
 	return 0;
 }
 
+/*
+ * Process pending EAGAIN requests.
+ * Attempts to retry UFFDIO_COPY or UFFDIO_ZEROPAGE for requests that previously failed with EAGAIN.
+ */
+static int process_eagain_requests(void)
+{
+	struct uffd_eagain_request *req, *n;
+	int processed = 0;
+	int succeeded = 0;
+	int ret;
+
+	list_for_each_entry_safe(req, n, &eagain_requests, l) {
+		/* Skip if process has exited */
+		if (req->lpi->exited) {
+			list_del(&req->l);
+			if (req->buf)
+				xfree(req->buf);
+			xfree(req);
+			continue;
+		}
+
+		processed++;
+
+		/* Call appropriate retry function based on operation type */
+		if (req->buf)
+			ret = retry_uffd_copy(req);
+		else
+			ret = retry_uffd_zero(req);
+
+		if (ret == -EAGAIN) {
+			/* Still blocked - keep in queue for next attempt */
+			continue;
+		} else if (ret < 0) {
+			/* Error - remove from queue */
+			list_del(&req->l);
+			if (req->buf)
+				xfree(req->buf);
+			xfree(req);
+			continue;
+		}
+
+		/* Success! */
+		succeeded++;
+
+		/* Clean up and remove from queue */
+		list_del(&req->l);
+		if (req->buf)
+			xfree(req->buf);
+		xfree(req);
+	}
+
+	if (processed > 0) {
+		pr_debug("Processed %d EAGAIN requests, %d succeeded\n", 
+			 processed, succeeded);
+	}
+
+	return 0;
+}
 
 static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 {
@@ -1773,7 +1892,15 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 			uffd_stats.pipeline_samples++;
 		}
 
-	
+		/* Check and print statistics every second */
+		check_and_print_uffd_stats();
+
+		/* In COW dump mode, process pending EAGAIN requests */
+		if (opts.cow_dump) {
+			ret = process_eagain_requests();
+			if (ret < 0)
+				goto out;
+		}
 
 		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)
