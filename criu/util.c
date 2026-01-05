@@ -1468,6 +1468,16 @@ int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout
 		
 		/* Check and print stats periodically */
 		check_and_print_epoll_stats();
+
+			/* Check and print statistics every second */
+		check_and_print_uffd_stats();
+
+		/* In COW dump mode, process pending EAGAIN requests */
+		if (opts.cow_dump) {
+			ret = process_eagain_requests();
+			if (ret < 0)
+				goto out;
+		}
 		
 		clock_gettime(CLOCK_MONOTONIC, &t_wait_start);
 		ret = epoll_wait(epollfd, evs, nr_fds, timeout);
