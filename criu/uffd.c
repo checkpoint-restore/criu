@@ -147,6 +147,15 @@ static struct {
 	unsigned long drop_iovs_total_ns;
 	unsigned long drop_iovs_count;
 
+	/* EAGAIN retry statistics */
+	unsigned long eagain_processed;
+	unsigned long eagain_succeeded;
+	unsigned long eagain_blocked;
+	unsigned long eagain_errors;
+	unsigned long eagain_skipped;
+	unsigned long eagain_total_ns;
+	unsigned long eagain_calls;
+
 	time_t last_print_time;
 } uffd_stats;
 
@@ -250,6 +259,18 @@ void check_and_print_uffd_stats(void)
 				uffd_stats.uffd_copy_count,
 				uffd_stats.drop_iovs_count > 0 ? uffd_stats.drop_iovs_total_ns / uffd_stats.drop_iovs_count : 0,
 				uffd_stats.drop_iovs_count);
+		}
+
+		/* Print EAGAIN stats */
+		if (uffd_stats.eagain_processed > 0 || uffd_stats.eagain_skipped > 0 || uffd_stats.eagain_calls > 0) {
+			pr_warn("  EAGAIN: processed=%lu succeeded=%lu blocked=%lu errors=%lu skipped=%lu | time=%lu ns (%lu calls)\n",
+				uffd_stats.eagain_processed,
+				uffd_stats.eagain_succeeded,
+				uffd_stats.eagain_blocked,
+				uffd_stats.eagain_errors,
+				uffd_stats.eagain_skipped,
+				uffd_stats.eagain_calls > 0 ? uffd_stats.eagain_total_ns / uffd_stats.eagain_calls : 0,
+				uffd_stats.eagain_calls);
 		}
 
 		/* Reset all counters */
@@ -1827,13 +1848,15 @@ static int retry_uffd_zero(struct uffd_eagain_request *req)
 int process_eagain_requests(void)
 {
 	struct uffd_eagain_request *req, *n;
-	int processed = 0;
-	int succeeded = 0;
 	int ret;
+	struct timespec t_start, t_end;
+
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 	list_for_each_entry_safe(req, n, &eagain_requests, l) {
 		/* Skip if process has exited */
 		if (req->lpi->exited) {
+			uffd_stats.eagain_skipped++;
 			list_del(&req->l);
 			if (req->buf)
 				xfree(req->buf);
@@ -1841,7 +1864,7 @@ int process_eagain_requests(void)
 			continue;
 		}
 
-		processed++;
+		uffd_stats.eagain_processed++;
 
 		/* Call appropriate retry function based on operation type */
 		if (req->buf)
@@ -1851,9 +1874,11 @@ int process_eagain_requests(void)
 
 		if (ret == -EAGAIN) {
 			/* Still blocked - keep in queue for next attempt */
+			uffd_stats.eagain_blocked++;
 			continue;
 		} else if (ret < 0) {
 			/* Error - remove from queue */
+			uffd_stats.eagain_errors++;
 			list_del(&req->l);
 			if (req->buf)
 				xfree(req->buf);
@@ -1862,7 +1887,7 @@ int process_eagain_requests(void)
 		}
 
 		/* Success! */
-		succeeded++;
+		uffd_stats.eagain_succeeded++;
 
 		/* Clean up and remove from queue */
 		list_del(&req->l);
@@ -1871,10 +1896,9 @@ int process_eagain_requests(void)
 		xfree(req);
 	}
 
-	if (processed > 0) {
-		pr_debug("Processed %d EAGAIN requests, %d succeeded\n", 
-			 processed, succeeded);
-	}
+	clock_gettime(CLOCK_MONOTONIC, &t_end);
+	uffd_stats.eagain_total_ns += (t_end.tv_sec - t_start.tv_sec) * 1000000000 + (t_end.tv_nsec - t_start.tv_nsec);
+	uffd_stats.eagain_calls++;
 
 	return 0;
 }
