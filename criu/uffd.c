@@ -197,7 +197,7 @@ static const char *get_bucket_label(int bucket)
 	}
 }
 
-static void check_and_print_uffd_stats(void)
+void check_and_print_uffd_stats(void)
 {
 	time_t now = time(NULL);
 	int i;
@@ -1824,7 +1824,7 @@ static int retry_uffd_zero(struct uffd_eagain_request *req)
  * Process pending EAGAIN requests.
  * Attempts to retry UFFDIO_COPY or UFFDIO_ZEROPAGE for requests that previously failed with EAGAIN.
  */
-static int process_eagain_requests(void)
+int process_eagain_requests(void)
 {
 	struct uffd_eagain_request *req, *n;
 	int processed = 0;
@@ -1892,15 +1892,6 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 			uffd_stats.pipeline_samples++;
 		}
 
-		/* Check and print statistics every second */
-		check_and_print_uffd_stats();
-
-		/* In COW dump mode, process pending EAGAIN requests */
-		if (opts.cow_dump) {
-			ret = process_eagain_requests();
-			if (ret < 0)
-				goto out;
-		}
 
 		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)

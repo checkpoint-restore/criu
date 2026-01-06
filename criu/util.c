@@ -1434,65 +1434,6 @@ static struct {
 	time_t last_print_time;
 } epoll_stats;
 
-/*
- * Process pending EAGAIN requests.
- * Attempts to retry UFFDIO_COPY or UFFDIO_ZEROPAGE for requests that previously failed with EAGAIN.
- */
-static int process_eagain_requests(void)
-{
-	struct uffd_eagain_request *req, *n;
-	int processed = 0;
-	int succeeded = 0;
-	int ret;
-
-	list_for_each_entry_safe(req, n, &eagain_requests, l) {
-		/* Skip if process has exited */
-		if (req->lpi->exited) {
-			list_del(&req->l);
-			if (req->buf)
-				xfree(req->buf);
-			xfree(req);
-			continue;
-		}
-
-		processed++;
-
-		/* Call appropriate retry function based on operation type */
-		if (req->buf)
-			ret = retry_uffd_copy(req);
-		else
-			ret = retry_uffd_zero(req);
-
-		if (ret == -EAGAIN) {
-			/* Still blocked - keep in queue for next attempt */
-			continue;
-		} else if (ret < 0) {
-			/* Error - remove from queue */
-			list_del(&req->l);
-			if (req->buf)
-				xfree(req->buf);
-			xfree(req);
-			continue;
-		}
-
-		/* Success! */
-		succeeded++;
-
-		/* Clean up and remove from queue */
-		list_del(&req->l);
-		if (req->buf)
-			xfree(req->buf);
-		xfree(req);
-	}
-
-	if (processed > 0) {
-		pr_debug("Processed %d EAGAIN requests, %d succeeded\n", 
-			 processed, succeeded);
-	}
-
-	return 0;
-}
-
 static void check_and_print_epoll_stats(void)
 {
 	time_t now = time(NULL);
@@ -1516,6 +1457,9 @@ static void check_and_print_epoll_stats(void)
 		epoll_stats.last_print_time = now;
 	}
 }
+
+extern void check_and_print_uffd_stats(void);
+extern int process_eagain_requests(void);
 
 int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
 {
