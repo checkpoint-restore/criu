@@ -1368,7 +1368,9 @@ found_iov:
 		return 0;
 
 	/* CRITICAL: Remove copied pages from IOV tracking to prevent duplicate faults */
+#if 0 //TODO
 	ret = drop_iovs(lpi, vaddr, pages * PAGE_SIZE);
+#endif
 	clock_gettime(CLOCK_MONOTONIC, &t_drop);
 	uffd_stats.drop_iovs_total_ns += (t_drop.tv_sec - t_copy.tv_sec) * 1000000000 + (t_drop.tv_nsec - t_copy.tv_nsec);
 	uffd_stats.drop_iovs_count++;
