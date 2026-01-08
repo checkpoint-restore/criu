@@ -953,7 +953,10 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 
 	lpi->buf_size = max_iov_len;
 	if (posix_memalign(&lpi->buf, PAGE_SIZE, lpi->buf_size))
+	{
+		lp_err(lpi, "posix_memalign ERROR\n");
 		goto free_iovs;
+	}
 
 	ret = nr_pages;
 	goto free_mm;
