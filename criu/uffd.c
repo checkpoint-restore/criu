@@ -951,7 +951,7 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 		lp_err(lpi, "=== IOV DUMP END: %lu IOVs total ===\n", iov_count);
 	}
 
-	lpi->buf_size = max_iov_len;
+	lpi->buf_size = 4*1024*1024;
 	if (posix_memalign(&lpi->buf, PAGE_SIZE, lpi->buf_size))
 	{
 		lp_err(lpi, "posix_memalign ERROR\n");
