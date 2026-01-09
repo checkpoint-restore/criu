@@ -1588,20 +1588,6 @@ int inherit_fd_parse(char *optarg)
 		return 0;
 	}
 
-	/*
-	 * Check for og_fd[M] in cmd argument
-	 */
-	if (!strncmp(cp, "og_fd[", 8)) {
-		int og_fd = -1;
-
-		n = sscanf(cp, "og_fd[%d]", &og_fd);
-		if (n != 1 || og_fd < 0) {
-			pr_err("Invalid og_fd syntax in inherit fd argument: %s\n", optarg);
-			return -1;
-		}
-		
-	}
-
 	return inherit_fd_add(fd, cp);
 }
 
@@ -1649,7 +1635,7 @@ void inherit_fd_log(void)
 
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
 		
-		if (!strncmp(inh->inh_id, "og_fd[", 8)) {
+		if (!strncmp(inh->inh_id, "og_fd[", 6)) {
 			int og_fd = -1;
 			sscanf(inh->inh_id, "og_fd[%d]", &og_fd);
 			pr_info("Original fd %d will be restored from inherit fd %d\n",
@@ -1686,7 +1672,7 @@ int inherit_fd_lookup_id(char *id)
 	ret = -1;
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
 	
-		if (!strncmp(inh->inh_id, "og_fd[", 8))
+		if (!strncmp(inh->inh_id, "og_fd[", 6))
 			continue;
 		if (!strcmp(inh->inh_id, id)) {
 			ret = fdstore_get(inh->inh_fd_id);
@@ -1699,11 +1685,8 @@ int inherit_fd_lookup_id(char *id)
 
 /*
  * Look up the inherit fd list by original fd number.
- *  --inherit-fd 'fd[N]:og_fd[M]' .
- * Pases  he FD number from the "og_fd[N]" string in inh_id  back to fd[N]
- *
- * This parses and passes the file descipters from memory in  fdinfo-*.img   to fd[N] 
- * during restore , making the file descripter restoration flexible and automatic.
+ * For --inherit-fd 'fd[N]:og_fd[M]', parse the og_fd number from inh_id
+ * and return the inherited fd that will replace it during restore.
  */
 
 static int inherit_fd_lookup_by_og_fd(int og_fd)
@@ -1715,7 +1698,7 @@ static int inherit_fd_lookup_by_og_fd(int og_fd)
 	list_for_each_entry(inher, &opts.inherit_fds, inh_list) {
 		int stored_og_fd;
 
-		if (strncmp(inher->inh_id, "og_fd[", 8) != 0)
+		if (strncmp(inher->inh_id, "og_fd[", 6) != 0)
 			continue;
 
 		
@@ -1734,8 +1717,7 @@ static int inherit_fd_lookup_by_og_fd(int og_fd)
 
 /*
  * Check if any file in file_desc's list matches an og_fd inherit entry.
- * Returns the inherited fd if found,  else -1 .
- * Prevents overwriting  file descripters allocated for preserving  during restore.
+ * Returns the inherited fd if found, else -1.
  */
 static int inherit_fd_check_og_fd(struct file_desc *d)
 {
@@ -1745,7 +1727,7 @@ static int inherit_fd_check_og_fd(struct file_desc *d)
 	list_for_each_entry(file, &d->fd_info_head, desc_list) {
 		i_fd = inherit_fd_lookup_by_og_fd(file->fe->fd);
 		if (i_fd >= 0) {
-			pr_debug("File descipter  id %#x has file with og_fd %d matching inherit\n",
+			pr_debug("File descriptor id %#x has file with og_fd %d matching inherit\n",
 				 d->id, file->fe->fd);
 			return i_fd;
 		}
@@ -1753,9 +1735,9 @@ static int inherit_fd_check_og_fd(struct file_desc *d)
 	return -1;
 }
 
-/* Check for og_fd , by iteratiing though file desciptiers
+/* Check for og_fd by iterating through file descriptors
 * if found goto found else use normal id matching
-* if --inherit-fd 'fd[N]:og_fd[M]' entry. 
+* if --inherit-fd 'fd[N]:og_fd[M]' entry.
 * else fd[N] identifier matching
 */
 bool inherited_fd(struct file_desc *d, int *fd_p)
