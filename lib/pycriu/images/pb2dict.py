@@ -154,8 +154,8 @@ flags_maps = {
 gen_maps = {
     'task_state': {
         1: 'Alive',
-        3: 'Zombie',
-        6: 'Stopped'
+        3: 'Stopped',
+        6: 'Zombie',
     },
 }
 
