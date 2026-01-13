@@ -2395,12 +2395,13 @@ static void *unified_page_server_thread(void *arg)
 				
 				pthread_spin_lock(&active_images_lock);
 			}
+			pr_err("Unified page server background thread ended loop\n");
 		}
 		pthread_spin_unlock(&active_images_lock);
 		g_unified_thread_stop = true;
 	}
 	
-	pr_info("Unified page server background thread stopped\n");
+	pr_err("Unified page server background thread stopped\n");
 	return NULL;
 }
 
