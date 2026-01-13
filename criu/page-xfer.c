@@ -2374,6 +2374,61 @@ static void *unified_page_server_thread(void *arg)
 			}
 			
 			pthread_spin_lock(&active_images_lock);
+
+			while (true) {
+			/* === PRIORITY 1: Drain COW pages === */
+					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
+						struct cow_page_queue_entry *entry;
+						struct timespec tq1, tq2;
+						
+						/* Time queue dequeue */
+						clock_gettime(CLOCK_MONOTONIC, &tq1);
+						entry = cow_get_next_page();
+						clock_gettime(CLOCK_MONOTONIC, &tq2);
+						cow_timing.queue_dequeue_total_ns += (tq2.tv_sec - tq1.tv_sec) * 1000000000 + (tq2.tv_nsec - tq1.tv_nsec);
+						cow_timing.queue_dequeue_count++;
+						
+						max_cow_pages_per_iter--;
+						if (!entry)
+							break;
+						ret = send_cow_page_lazy(entry, img, source_pid);
+						
+						if (ret > 0) {
+							img->total_cow_pages++;
+							priority1_pages++;
+						}
+						
+						xfree(entry);
+						
+						if (ret < 0) {
+							pr_err("Failed to send COW page\n");
+							break;
+						}
+					}
+					
+					/* === PRIORITY 2: Drain page requests === */
+					while (has_page_requests() && img->remaining_pages > 0) {
+						struct page_request_entry *req = get_next_page_request();
+					//	verify_vmas(__FILE__, __LINE__);
+
+						if (!req)
+							break;
+						
+						ret = send_request_page_lazy(req, img, source_pid);
+						
+						if (ret > 0) {
+							img->total_req_pages += req->nr_pages;
+							priority2_pages += req->nr_pages;
+						}
+						
+						xfree(req);
+						
+						if (ret < 0) {
+							pr_err("Failed to send request page\n");
+							break;
+						}
+					}
+				}
 			
 			/* Check if complete */
 			if (img->remaining_pages == 0) {
@@ -2401,8 +2456,7 @@ static void *unified_page_server_thread(void *arg)
 		g_unified_thread_stop = true;
 	}
 	
-	pr_err("Unified page server background thread stopped\n");
-	exit(0);
+	pr_err("Unified page server background thread stopped\n");	
 	return NULL;
 }
 
