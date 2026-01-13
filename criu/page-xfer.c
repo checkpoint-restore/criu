@@ -2190,6 +2190,7 @@ static void *unified_page_server_thread(void *arg)
 {
 	bool DONE = false;
 	int done_count = 0;
+	int max_cow_pages_per_iter = 100;
 	
 	/* Per-second statistics counters */
 	static time_t last_stats_time = 0;
@@ -2251,7 +2252,7 @@ static void *unified_page_server_thread(void *arg)
 				pr_err("Sending VMA %d: %lx-%lx len=%lu\n", vma_index_, vma_start, vma_end, vma_end - vma_start);
 				vma_index_++;
 				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
-					int max_cow_pages_per_iter = 100;
+					max_cow_pages_per_iter = 100;
 
 					current_time = time(NULL);
 					if (current_time - last_stats_time >= 1) {
@@ -2377,6 +2378,7 @@ static void *unified_page_server_thread(void *arg)
 
 			while (true) {
 			/* === PRIORITY 1: Drain COW pages === */
+				max_cow_pages_per_iter = 100;
 					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
 						struct cow_page_queue_entry *entry;
 						struct timespec tq1, tq2;
