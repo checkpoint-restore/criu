@@ -2402,6 +2402,7 @@ static void *unified_page_server_thread(void *arg)
 	}
 	
 	pr_err("Unified page server background thread stopped\n");
+	exit(0);
 	return NULL;
 }
 
