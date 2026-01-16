@@ -1238,7 +1238,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 		pr_debug("PID: real %d virt %d\n", item->pid->real, vpid(item));
 	}
 
-	arch_shstk_unlock(item, ca.core, pid);
+	arch_shstk_unlock(item, ca.core, ret);
 
 err_unlock:
 	if (!(ca.clone_flags & CLONE_NEWPID))
