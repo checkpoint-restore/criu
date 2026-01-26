@@ -19,13 +19,16 @@ continuously synchronize memory pages. Instead, it focuses on streaming
 CRIU checkpoint images during the checkpoint/restore process.
 
 ### Installation
-The CRIU repository provides a helper script to install
-criu-image-streamer:
+
+The CRIU repository provides a helper script that is primarily used in
+tests. The script clones the criu-image-streamer repository and builds
+the project, but it does not install it system-wide:
 
 scripts/install-criu-image-streamer.sh
 
-This script installs the Rust toolchain, clones the
-criu-image-streamer repository, and builds the project.
+For actual installation and usage instructions, refer to the
+criu-image-streamer repository documentation:
+https://github.com/checkpoint-restore/criu-image-streamer#installation
 
 ### References
 - scripts/install-criu-image-streamer.sh
