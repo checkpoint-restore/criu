@@ -352,10 +352,19 @@ free:
 	return exit_code;
 }
 
+static void free_inotify_wd_entries(InotifyFileEntry *ie)
+{
+	int i;
+
+	for (i = 0; i < ie->n_wd; i++)
+		xfree(ie->wd[i]);
+	xfree(ie->wd);
+}
+
 static int pre_dump_one_inotify(int pid, int lfd)
 {
 	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
-	int i;
+	int i, ret = -1;
 
 	if (parse_fdinfo_pid(pid, lfd, FD_TYPES__INOTIFY, &ie))
 		return -1;
@@ -364,12 +373,13 @@ static int pre_dump_one_inotify(int pid, int lfd)
 		InotifyWdEntry *we = ie.wd[i];
 
 		if (irmap_queue_cache(we->s_dev, we->i_ino, we->f_handle))
-			return -1;
-
-		xfree(we);
+			goto out;
 	}
 
-	return 0;
+	ret = 0;
+out:
+	free_inotify_wd_entries(&ie);
+	return ret;
 }
 
 const struct fdtype_ops inotify_dump_ops = {
