@@ -281,7 +281,7 @@ fault:
 	pr_warn("\tHandle 0x%x:0x%lx cannot be opened\n", s_dev, i_ino);
 	irmap_path = irmap_lookup(s_dev, i_ino);
 	if (!irmap_path) {
-		pr_err("\tCan't dump that handle\n");
+		pr_err("\tCan't dump inode handle (dev %#x ino %#lx): no irmap path found\n", s_dev, i_ino);
 		return -1;
 	}
 	path = xstrdup(irmap_path);
@@ -298,16 +298,19 @@ err:
 
 static int check_one_wd(InotifyWdEntry *we)
 {
-	pr_info("wd: wd %#08x s_dev %#08x i_ino %#16" PRIx64 " mask %#08x\n", we->wd, we->s_dev, we->i_ino, we->mask);
+	pr_info("inotify wd %#08x s_dev %#08x i_ino %#16" PRIx64 " mask %#08x\n", we->wd, we->s_dev, we->i_ino, we->mask);
 	pr_info("\t[fhandle] bytes %#08x type %#08x __handle %#016" PRIx64 ":%#016" PRIx64 "\n", we->f_handle->bytes,
 		we->f_handle->type, we->f_handle->handle[0], we->f_handle->handle[1]);
 
 	if (we->mask & KERNEL_FS_EVENT_ON_CHILD)
-		pr_warn_once("\t\tDetected FS_EVENT_ON_CHILD bit "
-			     "in mask (will be ignored on restore)\n");
+		pr_warn_once("\t\tDetected FS_EVENT_ON_CHILD bit in inotify wd %#08x "
+			     "mask %#08x (will be ignored on restore)\n", we->wd, we->mask);
 
-	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle))
+	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle)) {
+		pr_err("Failed to check inotify wd (wd %#08x, dev %#x, ino %#016" PRIx64 ", mask %#x)\n",
+		       we->wd, we->s_dev, we->i_ino, we->mask);
 		return -1;
+	};
 
 	return 0;
 }
@@ -322,7 +325,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	if (ret < 0)
 		return -1;
 	else if (ret > 0)
-		pr_warn("The %#08x inotify events will be dropped\n", id);
+		pr_warn("inotify %#08x events will be dropped\n", id);
 
 	ie.id = id;
 	ie.flags = p->flags;
@@ -339,7 +342,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	fe.id = ie.id;
 	fe.ify = &ie;
 
-	pr_info("id %#08x flags %#08x\n", ie.id, ie.flags);
+	pr_info("inotify id %#08x flags %#08x\n", ie.id, ie.flags);
 	if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE))
 		goto free;
 
@@ -393,14 +396,17 @@ static int check_one_mark(FanotifyMarkEntry *fme)
 	if (fme->type == MARK_TYPE__INODE) {
 		BUG_ON(!fme->ie);
 
-		pr_info("mark: s_dev %#08x i_ino %#016" PRIx64 " mask %#08x\n", fme->s_dev, fme->ie->i_ino, fme->mask);
+		pr_info("fanotify inode mark s_dev %#08x i_ino %#016" PRIx64 " mask %#08x\n", fme->s_dev, fme->ie->i_ino, fme->mask);
 
 		pr_info("\t[fhandle] bytes %#08x type %#08x __handle %#016" PRIx64 ":%#016" PRIx64 "\n",
 			fme->ie->f_handle->bytes, fme->ie->f_handle->type, fme->ie->f_handle->handle[0],
 			fme->ie->f_handle->handle[1]);
 
-		if (check_open_handle(fme->s_dev, fme->ie->i_ino, fme->ie->f_handle))
+		if (check_open_handle(fme->s_dev, fme->ie->i_ino, fme->ie->f_handle)) {
+			pr_err("Failed to check fanotify inode mark (dev %#x, ino %#016" PRIx64 ", mask %#x)\n",
+			       fme->s_dev, fme->ie->i_ino, fme->mask);
 			return -1;
+		}
 	}
 
 	if (fme->type == MARK_TYPE__MOUNT) {
@@ -410,14 +416,15 @@ static int check_one_mark(FanotifyMarkEntry *fme)
 
 		m = lookup_mnt_id(fme->me->mnt_id);
 		if (!m) {
-			pr_err("Can't find mnt_id 0x%x\n", fme->me->mnt_id);
+			pr_err("Can't find mount for fanotify mount mark (mnt_id %#x, path %s)\n",
+			       fme->me->mnt_id, fme->me->path ? fme->me->path : "(null)");
 			return -1;
 		}
 		if (!(root_ns_mask & CLONE_NEWNS))
 			fme->me->path = m->ns_mountpoint + 1;
 		fme->s_dev = m->s_dev;
 
-		pr_info("mark: s_dev %#08x mnt_id  %#08x mask %#08x\n", fme->s_dev, fme->me->mnt_id, fme->mask);
+		pr_info("fanotify mount mark s_dev %#08x mnt_id %#08x mask %#08x\n", fme->s_dev, fme->me->mnt_id, fme->mask);
 	}
 
 	return 0;
@@ -433,7 +440,7 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	if (ret < 0)
 		return -1;
 	else if (ret > 0)
-		pr_warn("The %#08x fanotify events will be dropped\n", id);
+		pr_warn("fanotify %#08x events will be dropped\n", id);
 	ret = -1;
 
 	fe.id = id;
@@ -447,7 +454,7 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 		if (check_one_mark(fe.mark[i]))
 			goto free;
 
-	pr_info("id %#08x flags %#08x\n", fe.id, fe.flags);
+	pr_info("fanotify id %#08x flags %#08x\n", fe.id, fe.flags);
 
 	fle.type = FD_TYPES__FANOTIFY;
 	fle.id = fe.id;
@@ -531,7 +538,7 @@ static char *get_mark_path(const char *who, struct file_remap *remap, FhEntry *f
 		*target = open_handle(s_dev, i_ino, f_handle);
 
 	if (*target < 0) {
-		pr_perror("Unable to open %s", f_handle ? f_handle->path : NULL);
+		pr_perror("Unable to open %s mark (dev %#x ino %#lx)", who, s_dev, i_ino);
 		goto err;
 	}
 
@@ -576,8 +583,8 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 
 	if (kdat.has_inotify_setnextwd) {
 		if (ioctl(inotify_fd, INOTIFY_IOC_SETNEXTWD, iwe->wd)) {
-			pr_perror("Can't set next inotify wd");
-			return -1;
+			pr_perror("Can't set next inotify wd (fd %#x, wd %#08x)", inotify_fd, iwe->wd);
+			goto err;
 		}
 	}
 
@@ -586,13 +593,15 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 
 		wd = inotify_add_watch(inotify_fd, path, mask);
 		if (wd < 0) {
-			pr_perror("Can't add watch for 0x%x with 0x%x", inotify_fd, iwe->wd);
+			pr_perror("Can't add inotify watch (fd %#x, wd %#08x, mask %#x) for path %s",
+				  inotify_fd, iwe->wd, mask, path);
 			goto err;
 		} else if (wd == iwe->wd) {
 			ret = 0;
 			break;
 		} else if (wd > iwe->wd) {
-			pr_err("Unsorted watch 0x%x found for 0x%x with 0x%x\n", wd, inotify_fd, iwe->wd);
+			pr_err("Unsorted inotify watch (got wd %#x) while restoring expected wd %#x on fd %#x for path %s\n",
+			       wd, iwe->wd, inotify_fd, path);
 			goto err;
 		}
 
@@ -623,7 +632,8 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 		if (root_ns_mask & CLONE_NEWNS) {
 			m = lookup_mnt_id(fme->me->mnt_id);
 			if (!m) {
-				pr_err("Can't find mount mnt_id 0x%x\n", fme->me->mnt_id);
+				pr_err("Can't find mount for fanotify mount mark (mnt_id %#x, path %s)\n",
+				       fme->me->mnt_id, fme->me->path ? fme->me->path : "(null)");
 				return -1;
 			}
 			nsid = m->nsid;
@@ -634,7 +644,8 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 
 		target = openat(mntns_root, p, O_PATH);
 		if (target == -1) {
-			pr_perror("Unable to open %s", p);
+			pr_perror("Unable to open mount path for fanotify mount mark (mnt_id %#x, path %s)",
+				  fme->me->mnt_id, p);
 			goto err;
 		}
 
@@ -647,7 +658,8 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 		if (!path)
 			goto err;
 	} else {
-		pr_err("Bad fsnotify mark type 0x%x\n", fme->type);
+		pr_err("Bad fanotify mark type %#x for mark (id %#08x, mask %#x)\n",
+		       fme->type, fme->id, fme->mask);
 		goto err;
 	}
 
@@ -656,7 +668,8 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 	if (mark->fme->mask) {
 		ret = fanotify_mark(fd, flags, fme->mask, AT_FDCWD, path);
 		if (ret) {
-			pr_err("Adding fanotify mask 0x%x on 0x%x/%s failed (%d)\n", fme->mask, fme->id, path, ret);
+			pr_perror("Can't add fanotify mark (id %#08x, mask %#x) on %s", fme->id, fme->mask,
+				  path);
 			goto err;
 		}
 	}
@@ -664,8 +677,8 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 	if (fme->ignored_mask) {
 		ret = fanotify_mark(fd, flags | FAN_MARK_IGNORED_MASK, fme->ignored_mask, AT_FDCWD, path);
 		if (ret) {
-			pr_err("Adding fanotify ignored-mask 0x%x on 0x%x/%s failed (%d)\n", fme->ignored_mask, fme->id,
-			       path, ret);
+			pr_perror("Can't add fanotify ignored-mask (id %#08x, mask %#x) on %s",
+				  fme->id, fme->ignored_mask, path);
 			goto err;
 		}
 	}
@@ -690,12 +703,12 @@ static int open_inotify_fd(struct file_desc *d, int *new_fd)
 	}
 
 	list_for_each_entry(wd_info, &info->marks, list) {
-		pr_info("\tRestore 0x%x wd for %#08x\n", wd_info->iwe->wd, wd_info->iwe->id);
+		pr_info("\tinotify wd %#x for id %#08x\n", wd_info->iwe->wd, wd_info->iwe->id);
 		if (restore_one_inotify(tmp, wd_info)) {
 			close_safe(&tmp);
 			return -1;
 		}
-		pr_info("\t 0x%x wd for %#08x is restored\n", wd_info->iwe->wd, wd_info->iwe->id);
+		pr_info("\tinotify wd %#x for id %#08x done\n", wd_info->iwe->wd, wd_info->iwe->id);
 	}
 
 	if (restore_fown(tmp, info->ife->fown))
