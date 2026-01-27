@@ -527,7 +527,7 @@ static char *get_mark_path(const char *who, struct file_remap *remap, FhEntry *f
 		*target = open_handle(s_dev, i_ino, f_handle);
 
 	if (*target < 0) {
-		pr_perror("Unable to open %s", f_handle->path);
+		pr_perror("Unable to open %s", f_handle ? f_handle->path : NULL);
 		goto err;
 	}
 
