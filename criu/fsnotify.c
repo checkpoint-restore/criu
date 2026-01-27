@@ -461,10 +461,19 @@ free:
 	return ret;
 }
 
+static void free_fanotify_mark_entries(FanotifyFileEntry *fe)
+{
+	int i;
+
+	for (i = 0; i < fe->n_mark; i++)
+		xfree(fe->mark[i]);
+	xfree(fe->mark);
+}
+
 static int pre_dump_one_fanotify(int pid, int lfd)
 {
 	FanotifyFileEntry fe = FANOTIFY_FILE_ENTRY__INIT;
-	int i;
+	int i, ret = -1;
 
 	if (parse_fdinfo_pid(pid, lfd, FD_TYPES__FANOTIFY, &fe))
 		return -1;
@@ -473,12 +482,13 @@ static int pre_dump_one_fanotify(int pid, int lfd)
 		FanotifyMarkEntry *me = fe.mark[i];
 
 		if (me->type == MARK_TYPE__INODE && irmap_queue_cache(me->s_dev, me->ie->i_ino, me->ie->f_handle))
-			return -1;
-
-		xfree(me);
+			goto out;
 	}
-	xfree(fe.mark);
-	return 0;
+
+	ret = 0;
+out:
+	free_fanotify_mark_entries(&fe);
+	return ret;
 }
 
 const struct fdtype_ops fanotify_dump_ops = {
