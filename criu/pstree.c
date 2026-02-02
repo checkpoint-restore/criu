@@ -207,8 +207,6 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 		if (!item)
 			return NULL;
 		item->pid = (void *)item + sizeof(*item) + sizeof(struct dmp_info);
-		
-
 	} else {
 		sz = sizeof(*item) + sizeof(struct rst_info) + sizeof(struct pid);
 		item = shmalloc(sz);

@@ -46,7 +46,6 @@ static void sbuf_log_init(struct simple_buf *b)
 {
 	char pbuf[12], *s;
 	int n;
-	struct timeval local_start;
 
 	/*
 	 * Format:
@@ -55,13 +54,11 @@ static void sbuf_log_init(struct simple_buf *b)
 	 */
 	b->bp = b->buf;
 
-	local_start = start;
-
-	if (local_start.tv_sec != 0) {
+	if (start.tv_sec != 0) {
 		struct timeval now;
 
 		std_gettimeofday(&now, NULL);
-		timediff(&local_start, &now);
+		timediff(&start, &now);
 
 		/* Seconds */
 		n = std_vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_sec, &s);
@@ -96,18 +93,11 @@ static void sbuf_log_init(struct simple_buf *b)
 
 static void sbuf_log_flush(struct simple_buf *b)
 {
-	int local_logfd;
-
 	if (b->bp == b->buf + b->prefix_len)
 		return;
 
-	
-	local_logfd = logfd;
-	
-
-	sys_write(local_logfd, b->buf, b->bp - b->buf);
+	sys_write(logfd, b->buf, b->bp - b->buf);
 	b->bp = b->buf + b->prefix_len;
-	
 }
 
 static void sbuf_putc(struct simple_buf *b, char c)
@@ -144,12 +134,17 @@ void std_log_set_loglevel(enum __compel_log_levels level)
 
 void std_log_set_start(struct timeval *s)
 {
+	spin_lock(&log_lock);
 	start = *s;
+	spin_unlock(&log_lock);
 }
 
 void std_log_set_gettimeofday(gettimeofday_t gtod)
 {
+	spin_lock(&log_lock);
 	__std_gettimeofday = gtod;
+	spin_unlock(&log_lock);
+
 }
 
 int std_gettimeofday(struct timeval *tv, struct timezone *tz)
