@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Configuration
-DEST_IP="10.0.14.165"
+DEST_IP="172.31.15.117"
 PORT=9002
 IMAGES_DIR="/fsx/lazy"
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
@@ -44,9 +44,10 @@ fi
 
 echo "✅ Found valkey-server PID: $PID"
 echo "🚀 Starting CRIU dump with lazy-pages..."
-
+sudo taskset -pc 0 $(pidof valkey-server)
 # Execute CRIU dump command
-sudo criu dump \
+sudo ASAN_OPTIONS=abort_on_error=1:disable_coredump=0:detect_leaks=0 \
+     UBSAN_OPTIONS=halt_on_error=1 criu dump \
   --tree "$PID" \
   --images-dir "$IMAGES_DIR" \
   --cow-dump \

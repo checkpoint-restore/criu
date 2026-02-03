@@ -4,8 +4,8 @@ set -euo pipefail
 # Configuration
 SOURCE_HOST="ec2-54-221-42-237.compute-1.amazonaws.com"
 SOURCE_USER="ubuntu"
-SOURCE_SCRIPT="/home/ubuntu/work/valkey/scripts_criu/dump_replica_lazy.sh"
-DEST_IP="10.0.14.165"
+SOURCE_SCRIPT="/home/ubuntu/work/scripts/dump_replica_lazy.sh"
+DEST_IP="172.31.15.117"
 PORT=9002
 IMAGES_DIR="/fsx/lazy"
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
@@ -23,15 +23,12 @@ echo "================================================================"
 # Step 1: Clean up /fsx/lazy/*
 echo "🧹 Step 1: Cleaning up $IMAGES_DIR/*"
 sudo rm -rf "$IMAGES_DIR"/*
-rm /var/log/valkey/stdout.log
-rm /var/log/valkey/stderr.log
-touch /var/log/valkey/stderr.log
-touch /var/log/valkey/stdout.log
 echo "✅ Cleanup complete"
 
-# Step 2: Kill valkey-server
-echo "🔪 Step 2: Killing valkey-server"
-sudo pkill -9 valkey-server || true
+# Step 2: Kill valkey-server process
+echo "🔪 Step 2: Killing valkey-server process"
+sudo pkill -9 valkey-server 2>/dev/null || true
+sleep 0.5
 echo "✅ valkey-server killed"
 
 # Step 3: Start wait_and_replicate.sh in background
@@ -50,7 +47,7 @@ echo "   Source machine can now start the dump process"
 echo "⏳ Step 5: Waiting for 'PAGE SERVER READY TO SERVE' in $LOG_FILE"
 START_TIME=$(date +%s)
 while true; do
-  if [ -f "$LOG_FILE" ] && grep -q "PAGE SERVER READY TO SERVE" "$LOG_FILE"; then
+  if [ -f "$LOG_FILE" ] && sudo grep -q "PAGE SERVER READY TO SERVE" "$LOG_FILE" 2>/dev/null; then
     echo "✅ Page server ready signal detected"
     break
   fi
@@ -64,22 +61,21 @@ while true; do
   sleep 0.5
 done
 
-# Step 6: Start CRIU lazy-pages page server in background
-echo "🌐 Step 6: Starting CRIU lazy-pages page server"
+# Step 6: Start CRIU lazy-pages daemon in background
+echo "🌐 Step 6: Starting CRIU lazy-pages daemon"
 sudo criu lazy-pages \
   --images-dir "$IMAGES_DIR" \
   --page-server \
   --address "$DEST_IP" \
   --port "$PORT" \
   --tcp-close \
-  --cow-dump \
   -v2 -o "$IMAGES_DIR/lazy-server.log" &
 PAGE_SERVER_PID=$!
-echo "✅ Page server started (PID: $PAGE_SERVER_PID)"
+echo "✅ lazy-pages daemon started (PID: $PAGE_SERVER_PID)"
 
-# Sleep before restore
-echo "⏸️  Sleeping 0.3 seconds..."
-sleep 0.3
+# Sleep before restore to ensure lazy-pages is ready
+echo "⏸️  Sleeping 1 second..."
+sleep 1
 
 # Step 7: Start CRIU restore
 echo "📦 Step 7: Starting CRIU restore"
@@ -87,7 +83,6 @@ sudo criu restore \
   --images-dir "$IMAGES_DIR" \
   --lazy-pages \
   --tcp-close \
-  --cow-dump \
   --skip-file-rwx-check \
   -v2 -o "$IMAGES_DIR/lazy-restore.log"
 
