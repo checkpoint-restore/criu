@@ -35,17 +35,20 @@ valkey-benchmark -t set -d 64000 -r $NUM_KEYS -n $NUM_OPS --threads 10 -q
 MEM=$(valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
 log "  Memory: $MEM"
 
-# Step 4: Clean
+# Step 4: Clean images dir
 log "Step 4: Clean $IMAGES_DIR..."
 sudo rm -rf "$IMAGES_DIR"/*
 
-# Step 5: Start replica restore in background
-log "Step 5: Start replica..."
-$SSH ubuntu@$REPLICA_HOST "sudo $SCRIPT_DIR/restore.sh" &
+# Step 5: Start replica FIRST (it will create ready signal and wait)
+# Use timeout to ensure it doesn't hang forever
+log "Step 5: Start replica (will wait for page server)..."
+# Timeout scales with data size: base 15s + 1s per GB
+TIMEOUT=$((15 + DATA_SIZE_GB))
+timeout $TIMEOUT $SSH ubuntu@$REPLICA_HOST "sudo $SCRIPT_DIR/restore.sh" &
 REPLICA_PID=$!
 
 # Step 5b: Wait for replica ready signal
-log "Step 5b: Wait for replica ready..."
+log "Step 5b: Wait for replica ready signal..."
 READY_FILE="$IMAGES_DIR/ready.log"
 for i in $(seq 1 60); do
   if [ -f "$READY_FILE" ]; then
@@ -55,37 +58,34 @@ for i in $(seq 1 60); do
   sleep 0.5
 done
 
-# Step 6: Dump
+# Step 6: NOW start CRIU dump (replica is waiting for page server)
 log "Step 6: CRIU dump..."
-# Close userfaultfd fds if present - blocks CRIU dump
 sudo gdb -p $PID -batch -ex "call close(12)" -ex "call close(13)" -ex detach -ex quit 2>/dev/null || true
 sudo taskset -pc 0 $PID >/dev/null 2>&1 || true
-# Pre-create log with world-readable permissions
 sudo touch "$IMAGES_DIR/lazy-primary.log"
 sudo chmod 644 "$IMAGES_DIR/lazy-primary.log"
-sudo criu dump \
+# Run dump with timeout - cow-dump keeps running, we'll kill it after restore
+timeout $TIMEOUT sudo criu dump \
     --tree $PID \
     --images-dir "$IMAGES_DIR" \
     --cow-dump \
     --lazy-pages \
-    --address "$REPLICA_IP" \
+    --address "$PRIMARY_IP" \
     --port $CRIU_PORT \
     --tcp-close \
     --ext-unix-sk \
     --leave-running \
     -v2 -o "$IMAGES_DIR/lazy-primary.log" &
-# Wait for dump to be ready
-for i in $(seq 1 120); do
-  if sudo grep -q "PAGE SERVER READY TO SERVE" "$IMAGES_DIR/lazy-primary.log" 2>/dev/null; then
-    log "  Dump ready"
-    break
-  fi
-  sleep 0.5
-done
+DUMP_PID=$!
 
-# Step 7: Wait for replica
+# Step 7: Wait for replica to complete
 log "Step 7: Wait for replica..."
 wait $REPLICA_PID || true
+
+# Step 7b: Kill dump process (cow-dump keeps running forever with --leave-running)
+log "Step 7b: Stop dump process..."
+sudo pkill -9 -f "criu dump" 2>/dev/null || true
+sleep 1
 
 # Step 8: Check
 log "Step 8: Check replica..."

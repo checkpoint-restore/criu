@@ -16,65 +16,57 @@ echo "  Images Dir : $IMAGES_DIR"
 echo "  Timeout    : ${WAIT_TIMEOUT}s"
 echo "================================================================"
 
-# Step 1: Clean up images directory
-echo "Step 1: Cleaning up $IMAGES_DIR/*"
-sudo rm -rf "$IMAGES_DIR"/*
-echo "Cleanup complete"
-
-# Step 2: Kill valkey-server
-echo "Step 2: Killing valkey-server"
+# Step 1: Kill valkey-server
+echo "Step 1: Killing valkey-server"
 sudo systemctl stop valkey-server 2>/dev/null || true
 sudo pkill -9 valkey-server 2>/dev/null || true
 echo "valkey-server killed"
 
-# Step 3: Start wait_and_replicate.sh in background
-echo "Step 3: Starting wait_and_replicate.sh in background"
+# Step 2: Create ready signal for PRIMARY
+echo "Step 2: Creating ready signal"
+echo "READY" | sudo tee "$IMAGES_DIR/ready.log" >/dev/null
+echo "Ready signal created at $IMAGES_DIR/ready.log"
+
+# Step 3: Wait for PAGE SERVER READY TO SERVE
+echo "Step 3: Waiting for page server..."
+START_TIME=$(date +%s)
+while true; do
+  if [ -f "$LOG_FILE" ] && sudo grep -q "PAGE SERVER READY TO SERVE" "$LOG_FILE" 2>/dev/null; then
+    echo "Page server ready!"
+    break
+  fi
+  ELAPSED=$(($(date +%s) - START_TIME))
+  if [ $ELAPSED -ge $WAIT_TIMEOUT ]; then
+    echo "Timeout waiting for page server"
+    exit 1
+  fi
+  sleep 0.5
+done
+
+# Step 4: Start wait_and_replicate.sh in background
+echo "Step 4: Starting wait_and_replicate.sh in background"
 "$SCRIPT_DIR/wait_and_replicate.sh" &
 REPLICATE_PID=$!
 echo "wait_and_replicate.sh started (PID: $REPLICATE_PID)"
 
-# Step 4: Signal source machine that destination is ready
-echo "Step 4: Creating ready signal for source machine"
-echo "READY" | sudo tee "$IMAGES_DIR/ready.log" >/dev/null
-echo "Ready signal created at $IMAGES_DIR/ready.log"
-
-# Step 5: Wait for "PAGE SERVER READY TO SERVE" in log file
-echo "Step 5: Waiting for 'PAGE SERVER READY TO SERVE' in $LOG_FILE"
-START_TIME=$(date +%s)
-while true; do
-  if [ -f "$LOG_FILE" ] && sudo grep -q "PAGE SERVER READY TO SERVE" "$LOG_FILE"; then
-    echo "Page server ready signal detected"
-    break
-  fi
-
-  ELAPSED=$(($(date +%s) - START_TIME))
-  if [ $ELAPSED -ge $WAIT_TIMEOUT ]; then
-    echo "Timeout: Did not find 'PAGE SERVER READY TO SERVE' within ${WAIT_TIMEOUT}s"
-    exit 1
-  fi
-
-  sleep 0.5
-done
-
-# Step 6: Start CRIU lazy-pages page server in background
-echo "Step 6: Starting CRIU lazy-pages page server"
+# Step 5: Start CRIU lazy-pages daemon (connects to PRIMARY's page server)
+echo "Step 5: Starting lazy-pages daemon (connecting to $PRIMARY_IP:$CRIU_PORT)"
 sudo criu lazy-pages \
   --images-dir "$IMAGES_DIR" \
   --page-server \
-  --address "$REPLICA_IP" \
+  --address "$PRIMARY_IP" \
   --port "$CRIU_PORT" \
   --cow-dump \
   --tcp-close \
   -v1 -o "$IMAGES_DIR/lazy-server.log" &
-PAGE_SERVER_PID=$!
-echo "Page server started (PID: $PAGE_SERVER_PID)"
+LAZY_PAGES_PID=$!
+echo "Lazy-pages daemon started (PID: $LAZY_PAGES_PID)"
 
-# Sleep before restore
-echo "Sleeping 0.3 seconds..."
-sleep 0.3
+# Sleep to let lazy-pages connect and be ready
+sleep 1
 
-# Step 7: Start CRIU restore (background - stays running for lazy pages)
-echo "Step 7: Starting CRIU restore"
+# Step 6: Start CRIU restore (connects to local lazy-pages via Unix socket)
+echo "Step 6: Starting CRIU restore"
 sudo criu restore \
   --images-dir "$IMAGES_DIR" \
   --lazy-pages \
@@ -84,8 +76,8 @@ sudo criu restore \
   -v1 -o "$IMAGES_DIR/lazy-restore.log" &
 RESTORE_PID=$!
 
-# Wait for valkey to be responsive (restore completes quickly, but criu stays running)
-echo "Waiting for valkey to be responsive..."
+# Step 7: Wait for valkey to be responsive
+echo "Step 7: Waiting for valkey to be responsive..."
 for i in $(seq 1 60); do
   if valkey-cli ping &>/dev/null; then
     echo "Valkey is up"
