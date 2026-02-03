@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
@@ -30,7 +31,7 @@ void create_magic_pattern(char *buf, const char *name)
 {
 	int i, magic, mask, offset;
 
-	magic = rand() % (MAX_MAGIC + 1);
+	magic = rand() % MAX_MAGIC + 1;
 	mask = (rand() % 2) ? magic : 0;
 	offset = MAX_MAGIC_OFFSET - magic;
 	offset = rand() % (offset + 1);
@@ -52,11 +53,11 @@ void create_extension_pattern(char *buf, const char *name)
 {
 	int i, extension;
 
-	extension = rand() % (MAX_EXTENSION + 1);
+	extension = rand() % MAX_EXTENSION + 1;
 	buf += sprintf(buf, ":%s:E::", name);
 
 	for (i = 0; i < extension; i++) {
-		int c = rand();
+		int c = rand() % 256;
 
 		if (c == '\0' || c == ':' || c == '\n' || c == '/')
 			c = '1';
@@ -101,6 +102,8 @@ int main(int argc, char **argv)
 	char path[PATH_MAX * 2 + 1];
 	char *dump[2];
 	int i, fd, len;
+
+	srand(time(NULL));
 
 	test_init(argc, argv);
 
