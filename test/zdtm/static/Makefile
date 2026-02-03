@@ -480,6 +480,7 @@ TST_DIR_FILE	=				\
 		chroot				\
 		chroot-file			\
 		binfmt_misc			\
+		binfmt_misc_ns			\
 
 TST		=				\
 		$(TST_NOFILE)			\

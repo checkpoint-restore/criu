@@ -239,6 +239,12 @@ LAZY_OPTS=(-p 2 -T "$LAZY_TESTS" "${LAZY_EXCLUDE[@]}" "${ZDTM_OPTS[@]}")
 ./test/zdtm.py run "${LAZY_OPTS[@]}" --remote-lazy-pages
 ./test/zdtm.py run "${LAZY_OPTS[@]}" --remote-lazy-pages --tls
 
+# This test is expected o fail as without uesrns binfmt misc is not c/r-ed
+if ./test/zdtm.py run -t zdtm/static/binfmt_misc_ns; then
+	echo "Unexpected pass of zdtm/static/binfmt_misc_ns"
+	exit 1
+fi
+
 bash -x ./test/jenkins/criu-fault.sh
 if [ "$UNAME_M" == "x86_64" ]; then
 	# This fails on aarch64 (aws-graviton2) with:
