@@ -1,6 +1,6 @@
 #!/bin/bash
 
-[ "$1" == "--clean" ] || exit 0
+[ "$1" == "--clean" ] || [ "$1" == "--pre-restore" ] || exit 0
 
 name=$(basename -s .hook $0).test
 
