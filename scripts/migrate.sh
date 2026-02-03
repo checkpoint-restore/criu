@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Master script - run first
-
-REPLICA_HOST="ec2-44-211-230-117.compute-1.amazonaws.com"
-REPLICA_IP="172.31.15.117"
-SSH_KEY="/home/ubuntu/.ssh/replica.pem"
-SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
-IMAGES_DIR="/fsx/lazy"
-PORT=9002
-DATA_SIZE_GB=${1:-40}
+# Master migration script - run on PRIMARY machine
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/.env"
+
+DATA_SIZE_GB=${1:-$DEFAULT_DATA_SIZE_GB}
+SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
@@ -67,14 +63,13 @@ sudo taskset -pc 0 $PID >/dev/null 2>&1 || true
 # Pre-create log with world-readable permissions
 sudo touch "$IMAGES_DIR/lazy-primary.log"
 sudo chmod 644 "$IMAGES_DIR/lazy-primary.log"
-sudo ASAN_OPTIONS=abort_on_error=1:disable_coredump=0:detect_leaks=0 \
-     UBSAN_OPTIONS=halt_on_error=1 criu dump \
+sudo criu dump \
     --tree $PID \
     --images-dir "$IMAGES_DIR" \
     --cow-dump \
     --lazy-pages \
     --address "$REPLICA_IP" \
-    --port $PORT \
+    --port $CRIU_PORT \
     --tcp-close \
     --ext-unix-sk \
     --leave-running \

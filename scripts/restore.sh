@@ -1,30 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-START_TOTAL=$(date +%s)
+# Restore script - run on REPLICA machine
 
-# Configuration
-DEST_IP="172.31.15.117"
-PORT=9002
-IMAGES_DIR="/fsx/lazy"
-LOG_FILE="$IMAGES_DIR/lazy-primary.log"
-WAIT_TIMEOUT=300  # 5 minutes
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/.env"
 
-echo "Starting Kill & Sync Orchestration"
-echo "  Destination IP : $DEST_IP"
-echo "  Port           : $PORT"
-echo "  Images Dir     : $IMAGES_DIR"
-echo "  Timeout        : ${WAIT_TIMEOUT}s"
+START_TOTAL=$(date +%s)
+LOG_FILE="$IMAGES_DIR/lazy-primary.log"
+
+echo "CRIU Restore - Replica Setup"
+echo "  Listen IP  : $REPLICA_IP"
+echo "  Port       : $CRIU_PORT"
+echo "  Images Dir : $IMAGES_DIR"
+echo "  Timeout    : ${WAIT_TIMEOUT}s"
 echo "================================================================"
 
-# Step 1: Clean up /fsx/lazy/*
+# Step 1: Clean up images directory
 echo "Step 1: Cleaning up $IMAGES_DIR/*"
 sudo rm -rf "$IMAGES_DIR"/*
-sudo rm -f /var/log/valkey/stdout.log 2>/dev/null || true
-sudo rm -f /var/log/valkey/stderr.log 2>/dev/null || true
-sudo touch /var/log/valkey/stderr.log 2>/dev/null || true
-sudo touch /var/log/valkey/stdout.log 2>/dev/null || true
 echo "Cleanup complete"
 
 # Step 2: Kill valkey-server
@@ -67,8 +61,8 @@ echo "Step 6: Starting CRIU lazy-pages page server"
 sudo criu lazy-pages \
   --images-dir "$IMAGES_DIR" \
   --page-server \
-  --address "$DEST_IP" \
-  --port "$PORT" \
+  --address "$REPLICA_IP" \
+  --port "$CRIU_PORT" \
   --cow-dump \
   --tcp-close \
   -v1 -o "$IMAGES_DIR/lazy-server.log" &
