@@ -1588,7 +1588,7 @@ static int add_active_image(u64 dst_id, int sk)
 	list_add_tail(&img->list, &active_images_queue);
 	pthread_spin_unlock(&active_images_lock);
 	
-	pr_info("Added active image dst_id=%lu with %lu lazy VMA pages\n", 
+	pr_err("Added active image dst_id=%lu with %lu lazy VMA pages\n", 
 		dst_id, total_pages);
 	return 0;
 }
