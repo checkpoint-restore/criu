@@ -1,4 +1,5 @@
 .config
+.claude
 *.o
 *.d
 *.a
