@@ -41,6 +41,7 @@
 #include "mem.h"
 
 static int page_server_sk = -1;
+static bool bulk_stream_done = false;
 
 /* Global compression statistics for stats printing */
 static unsigned long g_compress_uncompressed_bytes = 0;
@@ -2707,13 +2708,31 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 
 		/* Check if header complete */
 		if (ar->rb == sizeof(ar->pi)) {
+			cmd = decode_ps_cmd(ar->pi.cmd);
+
 			/* Check for end marker */
 			if (ar->pi.nr_pages == 0) {
-				pr_info("Received end-of-transfer marker\n");
+				pr_info("Received end-of-transfer marker (cmd=%u dst_id=%lu)\n",
+					cmd, (unsigned long)ar->pi.dst_id);
+				bulk_stream_done = true;
+
+				/*
+				 * Bulk mode uses a one-way data stream from the page server.
+				 * The sender still expects a 32-bit status acknowledgment
+				 * after emitting an end marker (PS_IOV_CLOSE with nr_pages=0).
+				 * Without this, the sender blocks forever.
+				 */
+				if (cmd == PS_IOV_CLOSE || cmd == PS_IOV_FORCE_CLOSE) {
+					int32_t status = 0;
+
+					if (__send(page_server_sk, &status, sizeof(status), 0) != sizeof(status)) {
+						pr_perror("Failed to send bulk close acknowledgment");
+						return -1;
+					}
+				}
 				return -1; /* Signal completion */
 			}
 
-			cmd = decode_ps_cmd(ar->pi.cmd);
 			if (cmd == PS_IOV_ADD_F_COMPRESS) {
 				/* Compressed: next read compressed_size */
 				ar->compress_state = COMPRESS_STATE_READING_SIZE;
@@ -2910,6 +2929,8 @@ static int page_server_async_read_bulk(struct epoll_rfd *f)
 	check_and_print_bulk_stats();
 
 	if (list_empty(&async_reads)) {
+		if (opts.cow_dump && bulk_stream_done)
+			return 0;
 		pr_err("Bulk async read with empty queue\n");
 		return -1;
 	}
@@ -3029,6 +3050,10 @@ static int page_server_async_read(struct epoll_rfd *f)
 
 static int page_server_hangup_event(struct epoll_rfd *rfd)
 {
+	if (opts.cow_dump && bulk_stream_done) {
+		pr_info("Page server closed connection after bulk transfer\n");
+		return 0;
+	}
 	pr_err("Remote side closed connection\n");
 	return -1;
 }
@@ -3039,6 +3064,7 @@ int connect_to_page_server_to_recv(int epfd)
 {
 	if (connect_to_page_server())
 		return -1;
+	bulk_stream_done = false;
 
 	ps_rfd.fd = page_server_sk;
 	/* Use bulk stream reader in bulk mode, regular reader in on-demand mode */

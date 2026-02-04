@@ -1908,8 +1908,14 @@ int lazy_pages_finish_restore(void)
 	}
 
 	ret = send(fd, &fin, sizeof(fin), 0);
-	if (ret != sizeof(fin))
+	if (ret != sizeof(fin)) {
+		if (opts.cow_dump && ret < 0 && errno == EPIPE) {
+			pr_warn("Lazy-pages socket closed before finish; assuming bulk transfer complete\n");
+			close(fd);
+			return 0;
+		}
 		pr_perror("Failed sending restore finished indication");
+	}
 
 	close(fd);
 

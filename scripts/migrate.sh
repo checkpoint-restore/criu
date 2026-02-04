@@ -8,6 +8,7 @@ source "$SCRIPT_DIR/.env"
 
 DATA_SIZE_GB=${1:-$DEFAULT_DATA_SIZE_GB}
 SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
+REPLICA_SSH_HOST="${REPLICA_IP:-$REPLICA_HOST}"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
@@ -15,14 +16,24 @@ log() { echo "[$(date '+%H:%M:%S')] $*"; }
 log "Step 1: Kill processes..."
 sudo pkill -9 valkey-server 2>/dev/null || true
 sudo pkill -9 criu 2>/dev/null || true
-$SSH ubuntu@$REPLICA_HOST "sudo systemctl stop valkey-server; sudo pkill -9 criu" 2>/dev/null || true
+$SSH ubuntu@$REPLICA_SSH_HOST "sudo systemctl stop valkey-server; sudo pkill -9 criu" 2>/dev/null || true
 sleep 1
 
 # Step 2: Start valkey on master
 log "Step 2: Start valkey..."
 valkey-server --daemonize yes --protected-mode no --save ""
-sleep 2
-PID=$(pgrep -x valkey-server)
+PID=""
+for i in $(seq 1 20); do
+  PID=$(pgrep -x valkey-server || true)
+  if [ -n "$PID" ]; then
+    break
+  fi
+  sleep 0.5
+done
+if [ -z "$PID" ]; then
+  log "ERROR: valkey-server failed to start"
+  exit 1
+fi
 log "  PID: $PID"
 
 # Step 3: Fill using valkey-benchmark
@@ -44,7 +55,7 @@ sudo rm -rf "$IMAGES_DIR"/*
 log "Step 5: Start replica (will wait for page server)..."
 # Timeout scales with data size: base 15s + 1s per GB
 TIMEOUT=$((15 + DATA_SIZE_GB))
-timeout $TIMEOUT $SSH ubuntu@$REPLICA_HOST "sudo $SCRIPT_DIR/restore.sh" &
+timeout $TIMEOUT $SSH ubuntu@$REPLICA_SSH_HOST "sudo $SCRIPT_DIR/restore.sh" &
 REPLICA_PID=$!
 
 # Step 5b: Wait for replica ready signal
@@ -90,7 +101,7 @@ sleep 1
 # Step 8: Check
 log "Step 8: Check replica..."
 sleep 3
-REPLICA_MEM=$($SSH ubuntu@$REPLICA_HOST "valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r'" 2>/dev/null || echo "?")
+REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r'" 2>/dev/null || echo "?")
 
 # Extract CRIU timing from logs
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
