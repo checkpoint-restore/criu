@@ -98,10 +98,6 @@ struct lazy_pages_info {
 
 	unsigned long buf_size;
 	void *buf;
-
-	/* Pipeline control */
-	unsigned int pipeline_depth;	 /* Current in-flight requests */
-	unsigned int max_pipeline_depth; /* Max allowed concurrent requests */
 };
 
 /* global lazy-pages daemon state */
@@ -133,10 +129,6 @@ static struct {
 	unsigned long total_pf_reqs;
 	unsigned long total_bg_reqs;
 	unsigned long total_pages;
-
-	/* Pipeline statistics */
-	unsigned long pipeline_depth_sum;
-	unsigned long pipeline_samples;
 
 	/* Timing statistics (nanoseconds) */
 	unsigned long io_complete_bulk_total_ns;
@@ -209,26 +201,21 @@ static const char *get_bucket_label(int bucket)
 void check_and_print_uffd_stats(void)
 {
 	time_t now = time(NULL);
-	int i;
-	unsigned long avg_pipeline = 0;
+	int i;	
 
 	if (now - uffd_stats.last_print_time >= 1) {
-		/* Calculate average pipeline depth */
-		if (uffd_stats.pipeline_samples > 0)
-			avg_pipeline = uffd_stats.pipeline_depth_sum / uffd_stats.pipeline_samples;
-
+		
 		{
 			struct timespec ts;
 			struct tm *tm;
 			clock_gettime(CLOCK_REALTIME, &ts);
 			tm = localtime(&ts.tv_sec);
-			pr_warn("[UFFD_STATS] [%02d:%02d:%02d.%03ld] reqs=%lu(pf:%lu,bg:%lu) pages=%lu pipe_avg=%lu\n",
+			pr_warn("[UFFD_STATS] [%02d:%02d:%02d.%03ld] reqs=%lu(pf:%lu,bg:%lu) pages=%lu\n",
 				tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
 				uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
 				uffd_stats.total_pf_reqs,
 				uffd_stats.total_bg_reqs,
-				uffd_stats.total_pages,
-				avg_pipeline);
+				uffd_stats.total_pages);
 		}
 
 		/* Print page fault histogram */
@@ -296,10 +283,6 @@ static struct lazy_pages_info *lpi_init(void)
 	lpi->lpfd.read_event = handle_uffd_event;
 	lpi->xfer_len = DEFAULT_XFER_LEN;
 	lpi->ref_cnt = 1;
-
-	/* Initialize pipeline control - start with aggressive pipelining */
-	lpi->pipeline_depth = 0;
-	lpi->max_pipeline_depth = 256; /* 256 concurrent requests for maximum throughput */
 
 	return lpi;
 }
@@ -1014,17 +997,11 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		goto out;
 	}
 
-	/* 
-	 * Set appropriate io_complete callback based on mode:
-	 * - Bulk mode : simpler callback without pipeline management
-	 * - On-demand mode : full callback with request tracking and pipeline refill
-	 * 
-	 */
 	if (opts.cow_dump) {
 		/* Bulk mode: pages arrive automatically from background thread */
 		lpi->pr.io_complete = uffd_io_complete_bulk;
 	} else {
-		/* On-demand mode: manage pipeline of individual page requests */
+		/* On-demand mode: manage individual page requests */
 		lpi->pr.io_complete = uffd_io_complete;
 	}
 
@@ -1100,23 +1077,7 @@ static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsi
 }
 
 static int xfer_pages(struct lazy_pages_info *lpi);
-/*
- * Aggressively refill pipeline to maximum capacity.
- * Called immediately when a response arrives to keep pipeline saturated.
- */
-static int refill_pipeline(struct lazy_pages_info *lpi)
-{
-	int ret;
-	/* Keep filling until pipeline is full or we run out of data */
-	while (!list_empty(&lpi->iovs) &&
-	       lpi->pipeline_depth < lpi->max_pipeline_depth) {
-		ret = xfer_pages(lpi);
-		if (ret < 0)
-			return ret;
-	}
 
-	return 0;
-}
 
 /*
  * Queue an EAGAIN request for later retry in COW dump mode.
@@ -1269,25 +1230,10 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	iov_list_insert(req, &lpi->iovs);
 	ret = drop_iovs(lpi, addr, nr * PAGE_SIZE);
 
-	/* 
-	 * Decrement pipeline depth now that response is processed.
-	 * IMMEDIATELY refill pipeline to keep it saturated - don't wait for main loop!
-	 * This is the key to aggressive pipelining and reducing source EAGAIN.
-	 */
-	lpi->pipeline_depth--;
-
-	if (!lpi->exited && !list_empty(&lpi->iovs)) {
-		refill_pipeline(lpi);
-	}
-
+	
 	return ret;
 }
 
-/*
- * Bulk mode io_complete: simpler version without pipeline management.
- * In bulk mode, the background thread sends all pages automatically,
- * so we don't need to manage a pipeline of requests from uffd.c.
- */
 static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsigned long nr)
 {
 	struct lazy_pages_info *lpi;
@@ -1522,13 +1468,9 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 
 	update_xfer_len(lpi, false);
 
-	/* Increment pipeline depth BEFORE sending request */
-	lpi->pipeline_depth++;
-
 	err = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (err < 0) {
 		lp_err(lpi, "Error during UFFD copy\n");
-		lpi->pipeline_depth--; /* Rollback on error */
 		return -1;
 	}
 
@@ -1697,13 +1639,9 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	update_xfer_len(lpi, true);
 
-	/* Increment pipeline depth BEFORE sending request (just like background transfers) */
-	lpi->pipeline_depth++;
-
 	ret = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		lp_err(lpi, "Error during regular page copy\n");
-		lpi->pipeline_depth--; /* Rollback on error */
 		return -1;
 	}
 
@@ -1915,12 +1853,6 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 	int ret;
 
 	for (;;) {
-		/* Sample pipeline depth for statistics */
-		list_for_each_entry_safe(lpi, n, &lpis, l) {
-			uffd_stats.pipeline_depth_sum += lpi->pipeline_depth;
-			uffd_stats.pipeline_samples++;
-		}
-
 
 		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)
@@ -1937,27 +1869,22 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 
 		/* make sure we return success if there is nothing to xfer */
 		ret = 0;
-
+		if (!opts.cow_dump) {
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
-			/* 
-			 * Only refill pipeline in on-demand mode.
-			 * In bulk mode, the background thread
-			 * automatically sends all pages, so we must NOT call refill_pipeline()
-			 * which would queue pages and block page fault handling.
-			 */
-			if (!opts.cow_dump && !list_empty(&lpi->iovs)) {
-				ret = refill_pipeline(lpi);
+			if (!list_empty(&lpi->iovs) && list_empty(&lpi->reqs)) {
+				ret = xfer_pages(lpi);
 				if (ret < 0)
 					goto out;
+				break;
 			}
 
-			if (!opts.cow_dump && list_empty(&lpi->reqs)) {
+			if (list_empty(&lpi->reqs)) {
 				lazy_pages_summary(lpi);
 				list_del(&lpi->l);
 				lpi_put(lpi);
 			}
 		}
-
+		}
 		if (!opts.cow_dump && list_empty(&lpis))
 			break;
 	}

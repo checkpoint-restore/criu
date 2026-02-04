@@ -384,14 +384,13 @@ int pipe_read_dest_init(struct pipe_read_dest *prd)
 	return 0;
 }
 
-int page_pipe_read(struct page_pipe *pp, unsigned long addr, unsigned long int *nr_pages,
-		   unsigned int ppb_flags, void **out_buffer, size_t *out_len)
+int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned long addr, unsigned long int *nr_pages,
+		   unsigned int ppb_flags)
 {
 	struct page_pipe_buf *ppb;
 	struct iovec *iov = NULL;
 	unsigned long skip = 0, len;
 	ssize_t ret;
-	void *temp_buf = NULL;
 
 	/*
 	 * Get ppb that contains addr and count length of data between
@@ -413,89 +412,22 @@ int page_pipe_read(struct page_pipe *pp, unsigned long addr, unsigned long int *
 	len = min((unsigned long)iov->iov_base + iov->iov_len - addr, *nr_pages * PAGE_SIZE);
 	*nr_pages = len / PAGE_SIZE;
 
-	/*
-	 * Fast path: Use process_vm_readv if source process is available.
-	 * This provides O(1) random access without pipe skip overhead.
-	 * Returns allocated buffer to caller.
-	 */
-	if (pp->source_pid > 0) {
-		struct iovec local_iov, remote_iov;
-
-		temp_buf = xmalloc(len);
-		if (!temp_buf) {
-			pr_perror("Failed to allocate temp buffer for process_vm_readv");
-			return -1;
-		}
-
-		local_iov.iov_base = temp_buf;
-		local_iov.iov_len = len;
-		remote_iov.iov_base = (void *)addr;
-		remote_iov.iov_len = len;
-
-		ret = process_vm_readv(pp->source_pid, &local_iov, 1, &remote_iov, 1, 0);
-		if (ret != len) {
-			if (ret >= 0) {
-				pr_err("Short read from process_vm_readv: %zd/%lu (pid=%d, addr=%lx)\n",
-				       ret, len, pp->source_pid, addr);
-			} else {
-				pr_perror("process_vm_readv failed (pid=%d, addr=%lx)", pp->source_pid, addr);
-			}
-			xfree(temp_buf);
-			return -1;
-		}
-
-		/* Return buffer to caller - they will free it */
-		*out_buffer = temp_buf;
-		*out_len = len;
-
-		pr_debug("process_vm_readv: read %lu bytes from pid=%d addr=%lx\n", len, pp->source_pid, addr);
-		return 0;
-	}
-	pr_perror("No pid exot\n");
-	exit(0);
-	/*
-	 * Fallback path: Read from pipe (for compatibility when
-	 * source process is not available). Skip unwanted bytes,
-	 * then read actual data into buffer.
-	 */
 	skip += ppb->pipe_off * PAGE_SIZE;
-	
-	/* Skip unwanted bytes at beginning of pipe */
-	if (skip > 0) {
-		char *skip_buf = xmalloc(skip);
-		if (!skip_buf) {
-			pr_perror("Failed to allocate skip buffer");
-			return -1;
-		}
-		
-		ret = read(ppb->p[0], skip_buf, skip);
-		xfree(skip_buf);
-		
-		if (ret != skip) {
-			pr_perror("Failed to skip %lu bytes from pipe", skip);
-			return -1;
-		}
-	}
-	
-	/* Read actual data */
-	temp_buf = xmalloc(len);
-	if (!temp_buf) {
-		pr_perror("Failed to allocate buffer for pipe read");
-		return -1;
-	}
-	
-	ret = read(ppb->p[0], temp_buf, len);
+	/* we should tee() the requested length + the beginning of the pipe */
+	len += skip;
+
+	ret = tee(ppb->p[0], prd->p[1], len, 0);
 	if (ret != len) {
-		pr_perror("Failed to read %lu bytes from pipe", len);
-		xfree(temp_buf);
+		pr_perror("tee: %zd", ret);
 		return -1;
 	}
-	
-	/* Return buffer to caller */
-	*out_buffer = temp_buf;
-	*out_len = len;
-	
-	pr_debug("Pipe read: read %lu bytes (skipped %lu bytes)\n", len, skip);
+
+	ret = splice(prd->p[0], NULL, prd->sink_fd, NULL, skip, 0);
+	if (ret != skip) {
+		pr_perror("splice: %zd", ret);
+		return -1;
+	}
+
 	return 0;
 }
 

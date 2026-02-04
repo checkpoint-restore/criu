@@ -593,7 +593,6 @@ static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
 	 * Step 3 -- write pages into image (or delay writing for
 	 *           pre-dump action (see pre_dump_one_task)
 	 */
-	
 	timing_start(TIME_MEMWRITE);
 	ret = page_xfer_dump_pages(xfer, pp);
 	timing_stop(TIME_MEMWRITE);

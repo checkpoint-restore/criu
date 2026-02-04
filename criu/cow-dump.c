@@ -35,29 +35,19 @@
 struct cow_dump_info {
 	struct pstree_item *item;
 	int uffd;				/* userfaultfd for write tracking */
-	unsigned long total_pages;		/* Total pages being tracked */
-	unsigned long dirty_pages;		/* Pages modified in current iteration */
-	unsigned long dirty_pages_dumped;	/* Pages already written to disk */
-	unsigned long iteration;		/* Current iteration number */
-	struct list_head dirty_list;		/* List of dirty page ranges */
+	unsigned long total_pages;		/* Total pages being tracked */		
+	unsigned long iteration;		/* Current iteration number */	
 	struct hlist_head cow_hash[COW_HASH_SIZE];	/* Hash table for copied pages */
 	pthread_spinlock_t cow_hash_locks[COW_HASH_SIZE];	/* Per-bucket spinlocks */
 	struct list_head cow_page_queue;	/* FIFO queue of COW pages */
 	pthread_spinlock_t queue_lock;		/* Protects the queue */
 };
 
-/* Dirty page range */
-struct dirty_range {
-	unsigned long start;
-	unsigned long len;
-	struct list_head list;
-};
 
 static struct cow_dump_info *g_cow_info = NULL;
 static pthread_t g_monitor_thread;
 static volatile bool g_stop_monitoring = false;
 
-#define COW_MAX_ITERATIONS 10
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
 #define COW_FLUSH_THRESHOLD 1000       /* Flush to disk every 1000 pages */
 
@@ -168,8 +158,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	if (!cdi)
 		return -1;
 
-	cdi->item = item;
-	INIT_LIST_HEAD(&cdi->dirty_list);
+	cdi->item = item;	
 	cdi->uffd = -1; /* Will be received from parasite */
 
 	/* Initialize hash table for COW pages */
@@ -280,8 +269,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		goto err_close_mem;
 	}
 
-	cdi->total_pages = args->total_pages;
-	cdi->dirty_pages_dumped = 0;
+	cdi->total_pages = args->total_pages;	
 		
 	pr_info("COW dump initialized: tracking %lu pages, uffd=%d\n", 
 		cdi->total_pages, cdi->uffd);
@@ -298,8 +286,7 @@ err_close_mem:
 }
 
 void cow_dump_fini(void)
-{
-	struct dirty_range *dr, *tmp;
+{	
 	struct cow_page *cp;
 	struct cow_page_queue_entry *qe, *qe_tmp;
 	struct hlist_node *n;
@@ -339,10 +326,6 @@ void cow_dump_fini(void)
 	if (remaining > 0)
 		pr_warn("Freed %d remaining COW pages\n", remaining);
 
-	list_for_each_entry_safe(dr, tmp, &g_cow_info->dirty_list, list) {
-		list_del(&dr->list);
-		xfree(dr);
-	}
 	
 	if (g_cow_info->uffd >= 0)
 		close(g_cow_info->uffd);
@@ -364,8 +347,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	
 	pr_info("Write fault at 0x%lx\n", page_addr);
 
-	cow_stats.write_faults++;
-	cdi->dirty_pages++;
+	cow_stats.write_faults++;	
 
 	/* Allocate cow_page structure */
 	cp = xmalloc(sizeof(*cp));
