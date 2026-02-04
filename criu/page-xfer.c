@@ -2157,6 +2157,7 @@ static void *unified_page_server_thread(void *arg)
 	}
 
 	pr_err("Unified page server thread stopped\n");
+	exit(0); //TODO COW - exit gracefully
 	return NULL;
 }
 
