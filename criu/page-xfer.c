@@ -2027,13 +2027,13 @@ static int send_image_complete(struct active_image *img)
 		pr_err("Failed to send close command\n");
 		return -1;
 	}
-
+	pr_warn("waiting for recieve\n");
 	/* Wait for acknowledgment from receiver */
 	if (__recv(img->main_sk, &status, sizeof(status), MSG_WAITALL) != sizeof(status)) {
 		pr_perror("Failed to receive close acknowledgment");
 		return -1;
 	}
-
+	pr_warn("waiting for recieve done\n");
 	if (status != 0) {
 		pr_err("Receiver reported error status: %d\n", status);
 		return -1;
@@ -2315,6 +2315,7 @@ static int page_server_serve(int sk)
 			 * An answer must be sent back to inform another side,
 			 * that all data were received
 			 */
+			pr_perror("Got close sending status\n");
 			if (__send(sk, &status, sizeof(status), 0) != sizeof(status)) {
 				pr_perror("Can't send the final package");
 				ret = -1;
