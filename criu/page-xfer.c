@@ -1930,6 +1930,7 @@ static int drain_cow_pages(struct active_image *img, pid_t source_pid,
 
 		if (ret > 0) {
 			img->total_cow_pages++;
+			img->remaining_pages--;
 			stats->priority1_pages++;
 			sent++;
 		}
@@ -1958,9 +1959,10 @@ static int drain_page_requests(struct active_image *img, pid_t source_pid,
 		ret = send_request_page_lazy(req, img, source_pid);
 
 		if (ret > 0) {
-			img->total_req_pages += req->nr_pages;
-			stats->priority2_pages += req->nr_pages;
-			sent += req->nr_pages;
+			img->total_req_pages += ret;
+			img->remaining_pages -= ret;
+			stats->priority2_pages += ret;
+			sent += ret;
 		}
 
 		xfree(req);
