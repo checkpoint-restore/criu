@@ -1560,7 +1560,7 @@ static int add_active_image(u64 dst_id, int sk)
 	
 	/* Count total pages in lazy VMAs for this dst_id (uses global list) */
 	pr_info("=== Scanning lazy VMAs for dst_id=%lu ===\n", dst_id);
-	total_pages = 100000000; //TODOcount_lazy_vma_pages(dst_id);
+	total_pages = count_lazy_vma_pages(dst_id);
 	pr_info("=== Total lazy VMA pages: %lu ===\n", total_pages);
 	
 	if (total_pages == 0) {
@@ -1588,7 +1588,7 @@ static int add_active_image(u64 dst_id, int sk)
 	list_add_tail(&img->list, &active_images_queue);
 	pthread_spin_unlock(&active_images_lock);
 	
-	pr_info("Added active image dst_id=%lu with %lu lazy VMA pages\n", 
+	pr_err("Added active image dst_id=%lu with %lu lazy VMA pages\n", 
 		dst_id, total_pages);
 	return 0;
 }
@@ -1828,280 +1828,336 @@ static int send_request_page_lazy(struct page_request_entry *req, struct active_
 }
 
 
+/* Thread statistics context */
+struct unified_thread_stats {
+	time_t last_print_time;
+	unsigned long priority1_pages;  /* COW pages */
+	unsigned long priority2_pages;  /* Request pages */
+	unsigned long priority3_pages;  /* Regular pages */
+	unsigned long priority3_skips;  /* Skipped pages in P3 */
+};
+
+static void print_thread_stats(struct unified_thread_stats *stats)
+{
+	unsigned long cow_queue = cow_get_queue_size();
+	unsigned long req_queue = get_page_request_queue_size();
+	float compress_ratio = 0.0;
+	struct timespec ts;
+	struct tm *tm;
+
+	if (g_compress_uncompressed_bytes > 0)
+		compress_ratio = (float)g_compress_compressed_bytes * 100.0 /
+				 g_compress_uncompressed_bytes;
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	tm = localtime(&ts.tv_sec);
+
+	pr_warn("[UNIFIED_THREAD_STATS] [%02d:%02d:%02d.%03ld] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu | Compress: %lu->%lu (%.1f%%)\n",
+		tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
+		stats->priority1_pages, stats->priority2_pages,
+		stats->priority3_pages, stats->priority3_skips,
+		cow_queue, req_queue,
+		g_compress_uncompressed_bytes, g_compress_compressed_bytes,
+		compress_ratio);
+
+	pr_warn("[COW_TIMING] Queue: %lu ns (%lu ops) | VMA_lookup: %lu ns (%lu ops) | Send: %lu ns (%lu ops)\n",
+		cow_timing.queue_dequeue_total_ns, cow_timing.queue_dequeue_count,
+		cow_timing.vma_lookup_total_ns, cow_timing.vma_lookup_count,
+		cow_timing.send_page_total_ns, cow_timing.send_page_count);
+
+	if (cow_timing.send_sub_count > 0) {
+		pr_warn("[SEND_BREAKDOWN] lock=%lu readv=%lu compress+send=%lu unprot=%lu unlock=%lu ns (avg per %lu ops)\n",
+			cow_timing.send_lock_ns / cow_timing.send_sub_count,
+			cow_timing.send_vm_readv_ns / cow_timing.send_sub_count,
+			cow_timing.send_compress_ns / cow_timing.send_sub_count,
+			cow_timing.send_unprotect_ns / cow_timing.send_sub_count,
+			cow_timing.send_unlock_ns / cow_timing.send_sub_count,
+			cow_timing.send_sub_count);
+	}
+
+	/* Reset counters */
+	g_compress_uncompressed_bytes = 0;
+	g_compress_compressed_bytes = 0;
+	memset(&cow_timing, 0, sizeof(cow_timing));
+	stats->priority1_pages = 0;
+	stats->priority2_pages = 0;
+	stats->priority3_pages = 0;
+	stats->priority3_skips = 0;
+}
+
+static void maybe_print_stats(struct unified_thread_stats *stats)
+{
+	time_t now = time(NULL);
+
+	if (now - stats->last_print_time >= 1) {
+		print_thread_stats(stats);
+		stats->last_print_time = now;
+	}
+}
+
+/*
+ * Drain pending COW pages (Priority 1)
+ * Returns: number of pages sent, or -1 on error
+ */
+static int drain_cow_pages(struct active_image *img, pid_t source_pid,
+			   int max_pages, struct unified_thread_stats *stats)
+{
+	int sent = 0;
+
+	while (max_pages > 0 && cow_has_pending_pages() && img->remaining_pages > 0) {
+		struct cow_page_queue_entry *entry;
+		struct timespec tq1, tq2;
+		int ret;
+
+		clock_gettime(CLOCK_MONOTONIC, &tq1);
+		entry = cow_get_next_page();
+		clock_gettime(CLOCK_MONOTONIC, &tq2);
+		cow_timing.queue_dequeue_total_ns +=
+			(tq2.tv_sec - tq1.tv_sec) * 1000000000 +
+			(tq2.tv_nsec - tq1.tv_nsec);
+		cow_timing.queue_dequeue_count++;
+
+		if (!entry)
+			break;
+
+		ret = send_cow_page_lazy(entry, img, source_pid);
+		xfree(entry);
+
+		if (ret < 0) {
+			pr_err("Failed to send COW page\n");
+			return -1;
+		}
+
+		if (ret > 0) {
+			img->total_cow_pages++;
+			img->remaining_pages--;
+			stats->priority1_pages++;
+			sent++;
+		}
+		max_pages--;
+	}
+
+	return sent;
+}
+
+/*
+ * Drain pending page requests (Priority 2)
+ * Returns: number of pages sent, or -1 on error
+ */
+static int drain_page_requests(struct active_image *img, pid_t source_pid,
+			       struct unified_thread_stats *stats)
+{
+	int sent = 0;
+
+	while (has_page_requests() && img->remaining_pages > 0) {
+		struct page_request_entry *req = get_next_page_request();
+		int ret;
+
+		if (!req)
+			break;
+
+		ret = send_request_page_lazy(req, img, source_pid);
+
+		if (ret > 0) {
+			img->total_req_pages += ret;
+			img->remaining_pages -= ret;
+			stats->priority2_pages += ret;
+			sent += ret;
+		}
+
+		xfree(req);
+
+		if (ret < 0) {
+			pr_err("Failed to send request page\n");
+			return -1;
+		}
+	}
+
+	return sent;
+}
+
+/*
+ * Send a single lazy VMA page (Priority 3)
+ * Returns: 1 if sent, 0 if skipped, -1 on error
+ */
+static int send_single_lazy_page(struct active_image *img,
+				 struct lazy_vma_entry *lve,
+				 unsigned long vaddr, unsigned long page_idx,
+				 pid_t source_pid,
+				 struct unified_thread_stats *stats)
+{
+	int ret;
+
+	/* Check if already sent */
+	if (lve->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
+		stats->priority3_skips++;
+		return 0;
+	}
+
+	ret = send_lazy_vma_page(img->main_sk, vaddr, img->dst_id, source_pid);
+	if (ret < 0) {
+		pr_err("Failed to send lazy VMA page at %lx\n", vaddr);
+		return -1;
+	}
+
+	lve->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
+	img->remaining_pages--;
+	stats->priority3_pages++;
+
+	return 1;
+}
+
+/* Send completion marker to destination */
+static int send_image_complete(struct active_image *img)
+{
+	struct page_server_iov close_cmd = {
+		.cmd = PS_IOV_CLOSE,
+		.nr_pages = 0,
+		.vaddr = 0,
+		.dst_id = img->dst_id,
+	};
+	int32_t status;
+
+	pr_warn("Image dst_id=%lu complete: %lu total pages (%lu COW, %lu req)\n",
+		img->dst_id, img->total_pages,
+		img->total_cow_pages, img->total_req_pages);
+
+	/* Send close command */
+	if (send_psi(img->main_sk, &close_cmd)) {
+		pr_err("Failed to send close command\n");
+		return -1;
+	}
+	pr_warn("waiting for recieve\n");
+	/* Wait for acknowledgment from receiver */
+	if (__recv(img->main_sk, &status, sizeof(status), MSG_WAITALL) != sizeof(status)) {
+		pr_perror("Failed to receive close acknowledgment");
+		return -1;
+	}
+	pr_warn("waiting for recieve done\n");
+	if (status != 0) {
+		pr_err("Receiver reported error status: %d\n", status);
+		return -1;
+	}
+
+	pr_info("Image dst_id=%lu transfer confirmed by receiver\n", img->dst_id);
+	return 0;
+}
+
+/*
+ * Process all pages for a single VMA
+ * Returns: 0 on success, -1 on error
+ */
+static int process_vma_pages(struct active_image *img,
+			     struct lazy_vma_entry *lve,
+			     pid_t source_pid,
+			     struct unified_thread_stats *stats)
+{
+	unsigned long vaddr;
+	unsigned long page_idx = 0;
+
+	pr_debug("Processing VMA: %lx-%lx len=%lu\n",
+		 lve->start, lve->end, lve->end - lve->start);
+
+	for (vaddr = lve->start; vaddr < lve->end; vaddr += PAGE_SIZE, page_idx++) {
+		maybe_print_stats(stats);
+
+		/* Priority 1: Drain COW pages */
+		if (drain_cow_pages(img, source_pid, 100, stats) < 0)
+			return -1;
+
+		/* Priority 2: Drain page requests */
+		if (drain_page_requests(img, source_pid, stats) < 0)
+			return -1;
+
+		/* Priority 3: Send this lazy VMA page */
+		if (send_single_lazy_page(img, lve, vaddr, page_idx,
+					  source_pid, stats) < 0)
+			continue; /* Log error but continue with next page */
+	}
+
+	return 0;
+}
+
+/*
+ * Final drain of COW and request queues after all VMAs processed
+ * Returns: 0 on success, -1 on error
+ */
+static int final_queue_drain(struct active_image *img, pid_t source_pid,
+			     struct unified_thread_stats *stats)
+{
+	while (img->remaining_pages > 0) {
+		int cow_sent, req_sent;
+
+		cow_sent = drain_cow_pages(img, source_pid, 100, stats);
+		if (cow_sent < 0)
+			return -1;
+
+		req_sent = drain_page_requests(img, source_pid, stats);
+		if (req_sent < 0)
+			return -1;
+
+		/* No more pending work */
+		if (cow_sent == 0 && req_sent == 0)
+			break;
+	}
+
+	return 0;
+}
+
 /* Unified background thread serving all images */
 static void *unified_page_server_thread(void *arg)
 {
-	bool DONE = false;
-	int done_count = 0;
-	int max_cow_pages_per_iter = 100;
-	
-	/* Per-second statistics counters */
-	static time_t last_stats_time = 0;
-	unsigned long priority1_pages = 0;  /* COW pages */
-	unsigned long priority2_pages = 0;  /* Request pages */
-	unsigned long priority3_pages = 0;  /* Regular pages */
-	unsigned long priority3_skips = 0;  /* Skipped pages in P3 */
-	
-	pr_warn("Unified page server background thread started\n");
-	
+	struct unified_thread_stats stats = { 0 };
+
+	pthread_setname_np(pthread_self(), "criu-page-srv");
+	pr_info("Unified page server thread started\n");
 
 	while (!g_unified_thread_stop) {
 		struct active_image *img, *tmp;
-		time_t current_time;
-		int vma_index_ = 0;
-		
-		if (DONE) {
-			done_count++;
-			sleep(0.1);
-		}
-		if (done_count == 30) {
-			pr_perror("EXIT TODO REMOVE2\n");
-			exit(0);
-		}
-		
+
 		pthread_spin_lock(&active_images_lock);
-		
-		/* Service each active image */
+
 		list_for_each_entry_safe(img, tmp, &active_images_queue, list) {
 			struct lazy_vma_entry *lve;
-			int ret;
 			pid_t source_pid = 0;
-			
+
 			pthread_spin_unlock(&active_images_lock);
-			pr_warn("Start loop Image dst_id=%lu remaining: %lu (%lu COW + %lu req)\n",
-					img->dst_id, img->remaining_pages, img->total_cow_pages, img->total_req_pages);
-			
-			DONE = false;
-			done_count = 0;
-		//	verify_vmas(__FILE__, __LINE__);
-			
-			
-			
-		//	verify_vmas(__FILE__, __LINE__);
-	
-			/* Now iterate through all lazy VMAs for this dst_id */
+
+			pr_info("Processing image dst_id=%lu remaining=%lu pages\n",
+				img->dst_id, img->remaining_pages);
+
+			/* Process each lazy VMA */
 			list_for_each_entry(lve, get_global_lazy_vmas(), list) {
-				unsigned long vma_start, vma_end, vaddr;
-				unsigned long page_idx = 0;
-				/* Get source_pid from first lazy VMA for this dst_id */
 				source_pid = lve->source_pid;
-				
-				
-				vma_start = lve->start;
-				vma_end = lve->end;
-			//	verify_vmas(__FILE__, __LINE__);
-				/* Iterate pages in this VMA */
 
-				pr_err("Sending VMA %d: %lx-%lx len=%lu\n", vma_index_, vma_start, vma_end, vma_end - vma_start);
-				vma_index_++;
-				for (vaddr = vma_start; vaddr < vma_end; vaddr += PAGE_SIZE, page_idx++) {
-					max_cow_pages_per_iter = 100;
-
-					current_time = time(NULL);
-					if (current_time - last_stats_time >= 1) {
-						unsigned long cow_queue = cow_get_queue_size();
-						unsigned long req_queue = get_page_request_queue_size();
-						
-						{
-							float compress_ratio = 0.0;
-							if (g_compress_uncompressed_bytes > 0)
-								compress_ratio = (float)g_compress_compressed_bytes * 100.0 / g_compress_uncompressed_bytes;
-							
-							{
-								struct timespec ts;
-								struct tm *tm;
-								clock_gettime(CLOCK_REALTIME, &ts);
-								tm = localtime(&ts.tv_sec);
-								pr_warn("[UNIFIED_THREAD_STATS] [%02d:%02d:%02d.%03ld] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu | Compress: %lu->%lu (%.1f%%)\n",
-									tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
-									priority1_pages, priority2_pages, priority3_pages, priority3_skips,
-									cow_queue, req_queue,
-									g_compress_uncompressed_bytes, g_compress_compressed_bytes, compress_ratio);
-								/* Print timing totals in nanoseconds */
-								pr_warn("[COW_TIMING] Queue: %lu ns (%lu ops) | VMA_lookup: %lu ns (%lu ops) | Send: %lu ns (%lu ops)\n",
-									cow_timing.queue_dequeue_total_ns, cow_timing.queue_dequeue_count,
-									cow_timing.vma_lookup_total_ns, cow_timing.vma_lookup_count,
-									cow_timing.send_page_total_ns, cow_timing.send_page_count);
-								/* Print send sub-breakdown */
-								if (cow_timing.send_sub_count > 0) {
-									pr_warn("[SEND_BREAKDOWN] lock=%lu readv=%lu compress+send=%lu unprot=%lu unlock=%lu ns (avg per %lu ops)\n",
-										cow_timing.send_lock_ns / cow_timing.send_sub_count,
-										cow_timing.send_vm_readv_ns / cow_timing.send_sub_count,
-										cow_timing.send_compress_ns / cow_timing.send_sub_count,
-										cow_timing.send_unprotect_ns / cow_timing.send_sub_count,
-										cow_timing.send_unlock_ns / cow_timing.send_sub_count,
-										cow_timing.send_sub_count);
-								}
-							}
-							g_compress_uncompressed_bytes = 0;
-							g_compress_compressed_bytes = 0;
-							memset(&cow_timing, 0, sizeof(cow_timing));
-						}
-						
-						/* Reset counters */
-						priority1_pages = 0;
-						priority2_pages = 0;
-						priority3_pages = 0;
-                        priority3_skips = 0;
-						last_stats_time = current_time;
-                    }
-                                       
-					/* === PRIORITY 1: Drain COW pages === */
-					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
-						struct cow_page_queue_entry *entry;
-						struct timespec tq1, tq2;
-						
-						/* Time queue dequeue */
-						clock_gettime(CLOCK_MONOTONIC, &tq1);
-						entry = cow_get_next_page();
-						clock_gettime(CLOCK_MONOTONIC, &tq2);
-						cow_timing.queue_dequeue_total_ns += (tq2.tv_sec - tq1.tv_sec) * 1000000000 + (tq2.tv_nsec - tq1.tv_nsec);
-						cow_timing.queue_dequeue_count++;
-						
-						max_cow_pages_per_iter--;
-						if (!entry)
-							break;
-						ret = send_cow_page_lazy(entry, img, source_pid);
-						
-						if (ret > 0) {
-							img->total_cow_pages++;
-							priority1_pages++;
-						}
-						
-						xfree(entry);
-						
-						if (ret < 0) {
-							pr_err("Failed to send COW page\n");
-							break;
-						}
-					}
-					
-					/* === PRIORITY 2: Drain page requests === */
-					while (has_page_requests() && img->remaining_pages > 0) {
-						struct page_request_entry *req = get_next_page_request();
-					//	verify_vmas(__FILE__, __LINE__);
-
-						if (!req)
-							break;
-						
-						ret = send_request_page_lazy(req, img, source_pid);
-						
-						if (ret > 0) {
-							img->total_req_pages += req->nr_pages;
-							priority2_pages += req->nr_pages;
-						}
-						
-						xfree(req);
-						
-						if (ret < 0) {
-							pr_err("Failed to send request page\n");
-							break;
-						}
-					}
-					//verify_vmas(__FILE__, __LINE__);
-					/* === PRIORITY 3: Send regular lazy VMA page === */
-					if (lve->sent_bitmap[page_idx / 8] & (1 << (page_idx % 8))) {
-						priority3_skips++;
-						continue;
-					}
-				//	verify_vmas(__FILE__, __LINE__);
-					ret = send_lazy_vma_page(img->main_sk, vaddr, img->dst_id, source_pid);
-					if (ret < 0) {
-						pr_err("Failed to send lazy VMA page at %lx\n", vaddr);
-						continue;
-					}
-					//verify_vmas(__FILE__, __LINE__);
-					lve->sent_bitmap[page_idx / 8] |= (1 << (page_idx % 8));
-					img->remaining_pages--;
-					priority3_pages++;
-				}
+				if (process_vma_pages(img, lve, source_pid, &stats) < 0)
+					pr_err("Error processing VMA %lx-%lx\n",
+					       lve->start, lve->end);
 			}
-			
+
+			/* Final drain of any remaining queued pages */
 			pthread_spin_lock(&active_images_lock);
+			if (final_queue_drain(img, source_pid, &stats) < 0)
+				pr_err("Error in final queue drain\n");
 
-			while (true) {
-			/* === PRIORITY 1: Drain COW pages === */
-				max_cow_pages_per_iter = 100;
-					while ((max_cow_pages_per_iter != 0) && cow_has_pending_pages() && img->remaining_pages > 0) {
-						struct cow_page_queue_entry *entry;
-						struct timespec tq1, tq2;
-						
-						/* Time queue dequeue */
-						clock_gettime(CLOCK_MONOTONIC, &tq1);
-						entry = cow_get_next_page();
-						clock_gettime(CLOCK_MONOTONIC, &tq2);
-						cow_timing.queue_dequeue_total_ns += (tq2.tv_sec - tq1.tv_sec) * 1000000000 + (tq2.tv_nsec - tq1.tv_nsec);
-						cow_timing.queue_dequeue_count++;
-						
-						max_cow_pages_per_iter--;
-						if (!entry)
-							break;
-						ret = send_cow_page_lazy(entry, img, source_pid);
-						
-						if (ret > 0) {
-							img->total_cow_pages++;
-							priority1_pages++;
-						}
-						
-						xfree(entry);
-						
-						if (ret < 0) {
-							pr_err("Failed to send COW page\n");
-							break;
-						}
-					}
-					
-					/* === PRIORITY 2: Drain page requests === */
-					while (has_page_requests() && img->remaining_pages > 0) {
-						struct page_request_entry *req = get_next_page_request();
-					//	verify_vmas(__FILE__, __LINE__);
-
-						if (!req)
-							break;
-						
-						ret = send_request_page_lazy(req, img, source_pid);
-						
-						if (ret > 0) {
-							img->total_req_pages += req->nr_pages;
-							priority2_pages += req->nr_pages;
-						}
-						
-						xfree(req);
-						
-						if (ret < 0) {
-							pr_err("Failed to send request page\n");
-							break;
-						}
-					}
-				}
-			
 			/* Check if complete */
 			if (img->remaining_pages == 0) {
-				struct page_server_iov end_marker;
-				
 				pthread_spin_unlock(&active_images_lock);
-				
-				pr_warn("Image dst_id=%lu complete: %lu total pages\n",
-					img->dst_id, img->total_pages);
-				DONE = true;
-				
-				end_marker.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
-				end_marker.nr_pages = 0;
-				end_marker.vaddr = 0;
-				end_marker.dst_id = img->dst_id;
-				
-				send_psi(img->main_sk, &end_marker);
-				tcp_nodelay(img->main_sk, true);
-				
+				if (send_image_complete(img) < 0)
+					pr_err("Failed to complete image dst_id=%lu\n",
+					       img->dst_id);
 				pthread_spin_lock(&active_images_lock);
 			}
-			pr_err("Unified page server background thread ended loop\n");
+
+			pr_err("Finished processing image dst_id=%lu img->remaining_pages=%lu\n", img->dst_id, img->remaining_pages);
 		}
+
 		pthread_spin_unlock(&active_images_lock);
 		g_unified_thread_stop = true;
 	}
-	
-	pr_err("Unified page server background thread stopped\n");	
+
+	pr_err("Unified page server thread stopped\n");
+	exit(0); //TODO COW - exit gracefully
 	return NULL;
 }
 
@@ -2259,6 +2315,7 @@ static int page_server_serve(int sk)
 			 * An answer must be sent back to inform another side,
 			 * that all data were received
 			 */
+			pr_perror("Got close sending status\n");
 			if (__send(sk, &status, sizeof(status), 0) != sizeof(status)) {
 				pr_perror("Can't send the final package");
 				ret = -1;
