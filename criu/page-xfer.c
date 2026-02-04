@@ -1560,7 +1560,7 @@ static int add_active_image(u64 dst_id, int sk)
 	
 	/* Count total pages in lazy VMAs for this dst_id (uses global list) */
 	pr_info("=== Scanning lazy VMAs for dst_id=%lu ===\n", dst_id);
-	total_pages = 100000000; //TODOcount_lazy_vma_pages(dst_id);
+	total_pages = count_lazy_vma_pages(dst_id);
 	pr_info("=== Total lazy VMA pages: %lu ===\n", total_pages);
 	
 	if (total_pages == 0) {
