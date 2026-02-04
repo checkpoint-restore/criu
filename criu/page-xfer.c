@@ -1834,14 +1834,15 @@ static void *unified_page_server_thread(void *arg)
 	bool DONE = false;
 	int done_count = 0;
 	int max_cow_pages_per_iter = 100;
-	
+
 	/* Per-second statistics counters */
 	static time_t last_stats_time = 0;
 	unsigned long priority1_pages = 0;  /* COW pages */
 	unsigned long priority2_pages = 0;  /* Request pages */
 	unsigned long priority3_pages = 0;  /* Regular pages */
 	unsigned long priority3_skips = 0;  /* Skipped pages in P3 */
-	
+
+	pthread_setname_np(pthread_self(), "criu-page-srv");
 	pr_warn("Unified page server background thread started\n");
 	
 

@@ -528,9 +528,10 @@ static int cow_process_events(struct cow_dump_info *cdi, bool blocking)
 
 /* Background thread that monitors for write faults */
 static void *cow_monitor_thread(void *arg)
-{	
+{
 	struct cow_dump_info *cdi = (struct cow_dump_info *)arg;
-	
+
+	pthread_setname_np(pthread_self(), "criu-cow-mon");
 	pr_info("COW monitor thread started\n");
 	pr_warn("PAGE SERVER READY TO SERVE\n");
 
