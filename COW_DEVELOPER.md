@@ -148,12 +148,20 @@ valkey-server --version
 valkey-cli --version
 ```
 
-### Disable Valkey Service (We Run Manually)
+### Service Management (Important)
 
-```bash
-sudo systemctl stop valkey-server
-sudo systemctl disable valkey-server
-```
+We rely on **systemd** on the **PRIMARY** to auto-restart Valkey after the
+script kills it at the start of each run. On the **REPLICA**, Valkey must be
+**stopped** before restore; CRIU restore brings it back.
+
+**PRIMARY (master):**
+- Keep `valkey-server` **enabled and running** (systemd restart is required).
+- Do **not** manually stop it before a run; `scripts/migrate.sh` will `pkill`
+  it and systemd will restart it automatically.
+
+**REPLICA (destination):**
+- Ensure Valkey is **not running** before each run.
+- `scripts/restore.sh` starts by killing Valkey.
 
 ---
 
@@ -266,7 +274,7 @@ VALKEY_PORT=6379
 WAIT_TIMEOUT=300  # 5 minutes
 
 # Data fill (for testing)
-DEFAULT_DATA_SIZE_GB=1
+DEFAULT_DATA_SIZE_GB=40
 EOF
 ```
 
@@ -348,7 +356,7 @@ cd /path/to/criu
 
 ```
 [HH:MM:SS] Step 1: Kill processes...
-[HH:MM:SS] Step 2: Start valkey...
+[HH:MM:SS] Step 2: Check valkey...
   PID: 12345
 [HH:MM:SS] Step 3: Fill ~1GB using valkey-benchmark...
   Memory: 1.05G
@@ -372,7 +380,37 @@ Migration complete!
 
 ---
 
-## 11. Troubleshooting
+## 11. Run Order / State Checklist
+
+Use this checklist **every time** to avoid hangs:
+
+**Before the run (PRIMARY + REPLICA):**
+- Same git branch/commit on both machines.
+- `scripts/.env` **identical** on both machines (copy it to replica).
+- **PRIMARY Valkey**: `systemctl enable --now valkey-server` (must be running).
+- **REPLICA Valkey**: **not running** before the run.
+- Shared storage mounted on both (`/fsx/lazy`).
+- Ports open: `9002` (CRIU page server), `6379` (Valkey replication).
+
+**Run (PRIMARY):**
+- `sudo ./scripts/migrate.sh <GB>`
+- Script flow:
+  - Step 1 kills Valkey + CRIU on both.
+  - Step 2 waits for Valkey on PRIMARY to restart (systemd handles it).
+  - Step 5 starts `restore.sh` on REPLICA (kills replica Valkey and waits for page server).
+  - Replica runs `criu lazy-pages` + `criu restore` **with `--cow-dump`**.
+
+**After the run:**
+- Replica Valkey should respond (`valkey-cli ping`).
+- If it hangs:
+  - Check `/fsx/lazy/lazy-restore.log` and `/fsx/lazy/lazy-server.log`.
+  - **Symptom of missing `--cow-dump`:** `lazy-restore.log` empty and `lazy-server.log`
+    ends with `page_server_start_read`. Fix by ensuring `--cow-dump` is present in
+    `scripts/restore.sh` for both `lazy-pages` and `restore`.
+
+---
+
+## 12. Troubleshooting
 
 ### CRIU Check Fails
 
