@@ -933,9 +933,7 @@ out_pp:
 	if (ret || !(mdc->pre_dump || mdc->lazy))
 		destroy_page_pipe(pp);
 	else {
-		dmpi(item)->mem_pp = pp;
-		/* Set source PID for process_vm_readv optimization */
-		pp->source_pid = item->pid->real;
+		dmpi(item)->mem_pp = pp;		
 	}
 out:
 	pmc_fini(&pmc);
