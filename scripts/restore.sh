@@ -18,7 +18,6 @@ echo "================================================================"
 
 # Step 1: Kill valkey-server
 echo "Step 1: Killing valkey-server"
-sudo systemctl stop valkey-server 2>/dev/null || true
 sudo pkill -9 valkey-server 2>/dev/null || true
 echo "valkey-server killed"
 
