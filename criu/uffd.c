@@ -41,7 +41,7 @@
 #include "fdstore.h"
 #include "util.h"
 #include "namespaces.h"
-
+#include "pagemap.h"
 #undef LOG_PREFIX
 #define LOG_PREFIX "uffd: "
 
@@ -98,10 +98,6 @@ struct lazy_pages_info {
 
 	unsigned long buf_size;
 	void *buf;
-	
-	/* Pipeline control */
-	unsigned int pipeline_depth;      /* Current in-flight requests */
-	unsigned int max_pipeline_depth;  /* Max allowed concurrent requests */
 };
 
 /* global lazy-pages daemon state */
@@ -114,102 +110,156 @@ static struct epoll_rfd lazy_sk_rfd;
 /* socket for communication with lazy-pages daemon */
 static int lazy_pages_sk_id = -1;
 
+/* Pending EAGAIN requests (for bulk mode) */
+struct uffd_eagain_request {
+	struct list_head l;
+	struct lazy_pages_info *lpi;
+	__u64 address;
+	unsigned long nr_pages;
+	void *buf;  /* Copy of data that couldn't be written */
+};
+static LIST_HEAD(eagain_requests);
+
 /* Histogram statistics structure */
 static struct {
 	/* Histogram buckets by page count: 1, 16, 32, 64, 128, 256, 512, 1024, >1024 */
-	unsigned long pf_hist[9];      /* Page fault histogram */
-	unsigned long bg_hist[9];      /* Background transfer histogram */
-	
+	unsigned long pf_hist[9]; /* Page fault histogram */
+	unsigned long bg_hist[9]; /* Background transfer histogram */
+
 	unsigned long total_pf_reqs;
 	unsigned long total_bg_reqs;
 	unsigned long total_pages;
-	
-	/* Pipeline statistics */
-	unsigned long pipeline_depth_sum;
-	unsigned long pipeline_samples;
-	
+
+	/* Timing statistics (nanoseconds) */
+	unsigned long io_complete_bulk_total_ns;
+	unsigned long io_complete_bulk_count;
+	unsigned long io_complete_bulk_count_start;
+	unsigned long uffd_copy_total_ns;
+	unsigned long uffd_copy_count;
+	unsigned long drop_iovs_total_ns;
+	unsigned long drop_iovs_count;
+
+	/* EAGAIN retry statistics */
+	unsigned long eagain_processed;
+	unsigned long eagain_succeeded;
+	unsigned long eagain_blocked;
+	unsigned long eagain_errors;
+	unsigned long eagain_skipped;
+	unsigned long eagain_total_ns;
+	unsigned long eagain_calls;
+
 	time_t last_print_time;
 } uffd_stats;
 
 static int get_histogram_bucket(unsigned long nr_pages)
 {
-	if (nr_pages == 1) return 0;           /* 4KB */
-	if (nr_pages <= 16) return 1;          /* 64KB */
-	if (nr_pages <= 32) return 2;          /* 128KB */
-	if (nr_pages <= 64) return 3;          /* 256KB */
-	if (nr_pages <= 128) return 4;         /* 512KB */
-	if (nr_pages <= 256) return 5;         /* 1MB */
-	if (nr_pages <= 512) return 6;         /* 2MB */
-	if (nr_pages <= 1024) return 7;        /* 4MB */
-	return 8;                               /* >4MB */
+	if (nr_pages == 1)
+		return 0; /* 4KB */
+	if (nr_pages <= 16)
+		return 1; /* 64KB */
+	if (nr_pages <= 32)
+		return 2; /* 128KB */
+	if (nr_pages <= 64)
+		return 3; /* 256KB */
+	if (nr_pages <= 128)
+		return 4; /* 512KB */
+	if (nr_pages <= 256)
+		return 5; /* 1MB */
+	if (nr_pages <= 512)
+		return 6; /* 2MB */
+	if (nr_pages <= 1024)
+		return 7; /* 4MB */
+	return 8;	  /* >4MB */
 }
 
 static const char *get_bucket_label(int bucket)
 {
 	switch (bucket) {
-	case 0: return "4K";
-	case 1: return "64K";
-	case 2: return "128K";
-	case 3: return "256K";
-	case 4: return "512K";
-	case 5: return "1M";
-	case 6: return "2M";
-	case 7: return "4M";
-	case 8: return ">4M";
-	default: return "?";
+	case 0:
+		return "4K";
+	case 1:
+		return "64K";
+	case 2:
+		return "128K";
+	case 3:
+		return "256K";
+	case 4:
+		return "512K";
+	case 5:
+		return "1M";
+	case 6:
+		return "2M";
+	case 7:
+		return "4M";
+	case 8:
+		return ">4M";
+	default:
+		return "?";
 	}
 }
 
-static void check_and_print_uffd_stats(void)
+void check_and_print_uffd_stats(void)
 {
 	time_t now = time(NULL);
-	int i;
-	bool has_pf = false, has_bg = false;
-	unsigned long avg_pipeline = 0;
-	
+	int i;	
+
 	if (now - uffd_stats.last_print_time >= 1) {
-		/* Check if we have any data to print */
-		for (i = 0; i < 9; i++) {
-			if (uffd_stats.pf_hist[i] > 0) has_pf = true;
-			if (uffd_stats.bg_hist[i] > 0) has_bg = true;
+		
+		{
+			struct timespec ts;
+			struct tm *tm;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			tm = localtime(&ts.tv_sec);
+			pr_warn("[UFFD_STATS] [%02d:%02d:%02d.%03ld] reqs=%lu(pf:%lu,bg:%lu) pages=%lu\n",
+				tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
+				uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
+				uffd_stats.total_pf_reqs,
+				uffd_stats.total_bg_reqs,
+				uffd_stats.total_pages);
 		}
-		
-		if (!has_pf && !has_bg && uffd_stats.total_pf_reqs == 0 && uffd_stats.total_bg_reqs == 0) {
-			uffd_stats.last_print_time = now;
-			return;
-		}
-		
-		/* Calculate average pipeline depth */
-		if (uffd_stats.pipeline_samples > 0)
-			avg_pipeline = uffd_stats.pipeline_depth_sum / uffd_stats.pipeline_samples;
-		
-		pr_warn("[UFFD_STATS] reqs=%lu(pf:%lu,bg:%lu) pages=%lu pipe_avg=%lu\n",
-			uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
-			uffd_stats.total_pf_reqs,
-			uffd_stats.total_bg_reqs,
-			uffd_stats.total_pages,
-			avg_pipeline);
-		
+
 		/* Print page fault histogram */
-		if (has_pf) {
-			pr_warn("  PF: ");
-			for (i = 0; i < 9; i++) {
-				if (uffd_stats.pf_hist[i] > 0)
-					pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.pf_hist[i]);
-			}
-			pr_warn("\n");
+
+		pr_warn("  PF: ");
+		for (i = 0; i < 9; i++) {
+			if (uffd_stats.pf_hist[i] > 0)
+				pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.pf_hist[i]);
 		}
-		
+		pr_warn("\n");
+
 		/* Print background transfer histogram */
-		if (has_bg) {
-			pr_warn("  BG: ");
-			for (i = 0; i < 9; i++) {
-				if (uffd_stats.bg_hist[i] > 0)
-					pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
-			}
-			pr_warn("\n");
+
+		pr_warn("  BG: ");
+		for (i = 0; i < 9; i++) {
+			if (uffd_stats.bg_hist[i] > 0)
+				pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
 		}
-		
+		pr_warn("\n");
+
+		/* Print timing stats */
+		if (uffd_stats.io_complete_bulk_count_start > 0) {
+			pr_warn("  TIMING: io_bulk=%lu ns (%lu, %lu ops) copy=%lu ns (%lu ops) drop=%lu ns (%lu ops)\n",
+				uffd_stats.io_complete_bulk_total_ns / uffd_stats.io_complete_bulk_count,
+				uffd_stats.io_complete_bulk_count,
+				uffd_stats.io_complete_bulk_count_start,
+				uffd_stats.uffd_copy_count > 0 ? uffd_stats.uffd_copy_total_ns / uffd_stats.uffd_copy_count : 0,
+				uffd_stats.uffd_copy_count,
+				uffd_stats.drop_iovs_count > 0 ? uffd_stats.drop_iovs_total_ns / uffd_stats.drop_iovs_count : 0,
+				uffd_stats.drop_iovs_count);
+		}
+
+		/* Print EAGAIN stats */
+		if (uffd_stats.eagain_processed > 0 || uffd_stats.eagain_skipped > 0 || uffd_stats.eagain_calls > 0) {
+			pr_warn("  EAGAIN: processed=%lu succeeded=%lu blocked=%lu errors=%lu skipped=%lu | time=%lu ns (%lu calls)\n",
+				uffd_stats.eagain_processed,
+				uffd_stats.eagain_succeeded,
+				uffd_stats.eagain_blocked,
+				uffd_stats.eagain_errors,
+				uffd_stats.eagain_skipped,
+				uffd_stats.eagain_calls > 0 ? uffd_stats.eagain_total_ns / uffd_stats.eagain_calls : 0,
+				uffd_stats.eagain_calls);
+		}
+
 		/* Reset all counters */
 		memset(&uffd_stats, 0, sizeof(uffd_stats));
 		uffd_stats.last_print_time = now;
@@ -233,10 +283,6 @@ static struct lazy_pages_info *lpi_init(void)
 	lpi->lpfd.read_event = handle_uffd_event;
 	lpi->xfer_len = DEFAULT_XFER_LEN;
 	lpi->ref_cnt = 1;
-	
-	/* Initialize pipeline control - start with aggressive pipelining */
-	lpi->pipeline_depth = 0;
-	lpi->max_pipeline_depth = 256;  /* 256 concurrent requests for maximum throughput */
 
 	return lpi;
 }
@@ -244,6 +290,7 @@ static struct lazy_pages_info *lpi_init(void)
 static void free_iovs(struct lazy_pages_info *lpi)
 {
 	struct lazy_iov *p, *n;
+	lp_err(lpi, "=== free_iovs ===\n");
 
 	list_for_each_entry_safe(p, n, &lpi->iovs, l) {
 		list_del(&p->l);
@@ -630,17 +677,24 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 {
 	struct lazy_iov *iov, *n;
 
+	pr_info("__drop_iovs: addr=0x%lx len=0x%x\n", addr, len);
+
 	list_for_each_entry_safe(iov, n, iovs, l) {
 		unsigned long start = iov->start;
 		unsigned long end = iov->end;
 
-		if (len <= 0 || addr + len < start)
+		if (len <= 0 || addr + len < start) {
+			pr_debug("    Breaking: len exhausted or before iov\n");
 			break;
+		}
 
-		if (addr >= end)
+		if (addr >= end) {
+			pr_debug("    Skipping: addr >= iov->end\n");
 			continue;
+		}
 
 		if (addr < start) {
+			pr_debug("    Adjusting: addr < start, moving addr to 0x%lx\n", start);
 			len -= (start - addr);
 			addr = start;
 		}
@@ -654,9 +708,13 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 		 */
 		if (addr + len < end) {
 			if (addr == start) {
+				pr_debug("    Partial drop: adjusting IOV start 0x%lx -> 0x%lx\n",
+					 iov->start, iov->start + len);
 				iov->start += len;
 				iov->img_start += len;
 			} else {
+				pr_debug("    Partial drop: splitting at 0x%lx, truncating to 0x%lx\n",
+					 addr + len, addr);
 				if (split_iov(iov, addr + len))
 					return -1;
 				iov->end = addr;
@@ -671,9 +729,11 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 		 * and continue to the next one with the updated range
 		 */
 		if (addr == start) {
+			pr_debug("    Full drop: deleting entire IOV 0x%lx-0x%lx\n", start, end);
 			list_del(&iov->l);
 			xfree(iov);
 		} else {
+			pr_debug("    Partial drop: truncating IOV end 0x%lx -> 0x%lx\n", end, addr);
 			iov->end = addr;
 		}
 
@@ -719,19 +779,27 @@ static int __remap_iovs(struct list_head *iovs, unsigned long from, unsigned lon
 	unsigned long off = to - from;
 	struct lazy_iov *iov, *n;
 
-	list_for_each_entry_safe(iov, n, iovs, l) {
-		if (from >= iov->end)
-			continue;
+	pr_err("__remap_iovs: from=0x%lx to=0x%lx len=0x%lx (off=0x%lx)\n", from, to, len, off);
 
-		if (len <= 0 || from + len <= iov->start)
+	list_for_each_entry_safe(iov, n, iovs, l) {
+		if (from >= iov->end) {
+			pr_debug("    Skipping: from >= iov->end\n");
+			continue;
+		}
+
+		if (len <= 0 || from + len <= iov->start) {
+			pr_debug("    Breaking: len exhausted or past iov\n");
 			break;
+		}
 
 		if (from < iov->start) {
+			pr_debug("    Adjusting: from < iov->start, moving from to 0x%lx\n", iov->start);
 			len -= (iov->start - from);
 			from = iov->start;
 		}
 
 		if (from > iov->start) {
+			pr_debug("    Splitting IOV at from=0x%lx\n", from);
 			if (split_iov(iov, from))
 				return -1;
 			list_safe_reset_next(iov, n, l);
@@ -739,12 +807,15 @@ static int __remap_iovs(struct list_head *iovs, unsigned long from, unsigned lon
 		}
 
 		if (from + len < iov->end) {
+			pr_debug("    Splitting IOV at from+len=0x%lx\n", from + len);
 			if (split_iov(iov, from + len))
 				return -1;
 			list_safe_reset_next(iov, n, l);
 		}
 
 		/* here we have iov->start = from, iov->end <= from + len */
+		pr_debug("    Remapping IOV: 0x%lx-0x%lx -> 0x%lx-0x%lx\n",
+			 iov->start, iov->end, iov->start + off, iov->end + off);
 		from = iov->end;
 		len -= iov->end - iov->start;
 		iov->start += off;
@@ -753,6 +824,7 @@ static int __remap_iovs(struct list_head *iovs, unsigned long from, unsigned lon
 	}
 
 	merge_iov_lists(&remaps, iovs);
+	pr_debug("__remap_iovs: complete\n");
 
 	return 0;
 }
@@ -783,24 +855,42 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 	struct page_read *pr = &lpi->pr;
 	struct lazy_iov *iov;
 	MmEntry *mm;
+	unsigned long total_pagemap_entries = 0;
+	unsigned long lazy_pagemap_entries = 0;
 
 	mm = init_mm_entry(lpi);
 	if (!mm)
 		return -1;
 
-	while (pr->advance(pr)) {
-		if (!pagemap_lazy(pr->pe))
-			continue;
+	lp_err(lpi, "Starting IOV collection for %zd VMAs\n", mm->n_vmas);
 
+	while (pr->advance(pr)) {
+		total_pagemap_entries++;
+
+		if (!pagemap_lazy(pr->pe)) {
+			lp_err(lpi, "Skipping non-lazy pagemap entry at 0x%llx (%lu pages)\n",
+			       (unsigned long long)pr->pe->vaddr, (unsigned long)pr->pe->nr_pages);
+			continue;
+		}
+
+		lazy_pagemap_entries++;
 		start = pr->pe->vaddr;
 		end = start + pr->pe->nr_pages * page_size();
 		nr_pages += pr->pe->nr_pages;
 
-		for (; n_vma < mm->n_vmas; n_vma++) {
+		lp_warn(lpi, "Processing lazy pagemap entry: 0x%llx-0x%llx (%lu pages)\n",
+			(unsigned long long)start, (unsigned long long)end,
+			(unsigned long)pr->pe->nr_pages);
+
+		while (n_vma < mm->n_vmas) {
 			VmaEntry *vma = mm->vmas[n_vma];
 
-			if (start >= vma->end)
+			if (start >= vma->end) {
+				lp_err(lpi, "  Skipping VMA %d: 0x%llx-0x%llx (start >= vma->end)\n",
+				       n_vma, (unsigned long long)vma->start, (unsigned long long)vma->end);
+				n_vma++;
 				continue;
+			}
 
 			iov = xzalloc(sizeof(*iov));
 			if (!iov)
@@ -812,6 +902,9 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 			iov->end = iov->start + len;
 			list_add_tail(&iov->l, &lpi->iovs);
 
+			lp_warn(lpi, "  Created IOV for VMA %d: 0x%lx-0x%lx (len=%lu, %lu pages)\n",
+				n_vma, iov->start, iov->end, len, len / PAGE_SIZE);
+
 			if (len > max_iov_len)
 				max_iov_len = len;
 
@@ -819,12 +912,34 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 				break;
 
 			start = vma->end;
+			n_vma++;
 		}
 	}
 
-	lpi->buf_size = max_iov_len;
+	lp_warn(lpi, "IOV collection complete: %lu total pagemap entries, %lu lazy entries, %lu pages in IOVs\n",
+		total_pagemap_entries, lazy_pagemap_entries, nr_pages);
+
+	/* Dump all collected IOVs for debugging */
+	{
+		struct lazy_iov *iov;
+		unsigned long iov_count = 0;
+
+		lp_err(lpi, "=== IOV DUMP START ===\n");
+		list_for_each_entry(iov, &lpi->iovs, l) {
+			lp_err(lpi, "IOV[%lu]: start=0x%lx end=0x%lx img_start=0x%lx len=%lu pages=%lu\n",
+			       iov_count, iov->start, iov->end, iov->img_start,
+			       iov->end - iov->start, (iov->end - iov->start) / PAGE_SIZE);
+			iov_count++;
+		}
+		lp_err(lpi, "=== IOV DUMP END: %lu IOVs total ===\n", iov_count);
+	}
+
+	lpi->buf_size = 4*1024*1024;
 	if (posix_memalign(&lpi->buf, PAGE_SIZE, lpi->buf_size))
+	{
+		lp_err(lpi, "posix_memalign ERROR\n");
 		goto free_iovs;
+	}
 
 	ret = nr_pages;
 	goto free_mm;
@@ -838,6 +953,7 @@ free_mm:
 }
 
 static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, unsigned long nr);
+static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsigned long nr);
 
 static int ud_open(int client, struct lazy_pages_info **_lpi)
 {
@@ -871,7 +987,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		pr_err("recv_fd error\n");
 		goto out;
 	}
-	pr_debug("Received PID: %d, uffd: %d\n", lpi->pid, lpi->lpfd.fd);
+	pr_err("Received PID: %d, uffd: %d\n", lpi->pid, lpi->lpfd.fd);
 
 	if (opts.use_page_server)
 		pr_flags |= PR_REMOTE;
@@ -881,7 +997,13 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		goto out;
 	}
 
-	lpi->pr.io_complete = uffd_io_complete;
+	if (opts.cow_dump) {
+		/* Bulk mode: pages arrive automatically from background thread */
+		lpi->pr.io_complete = uffd_io_complete_bulk;
+	} else {
+		/* On-demand mode: manage individual page requests */
+		lpi->pr.io_complete = uffd_io_complete;
+	}
 
 	/*
 	 * Find the memory pages belonging to the restored process
@@ -934,16 +1056,17 @@ static bool uffd_recoverable_error(int mcopy_rc)
 static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsigned long *nr_pages, long mcopy_rc)
 {
 	if (errno == ENOSPC || errno == ESRCH) {
+		lp_err(lpi, "uffd_copy1:ERROR errno=%d\n", errno);
 		handle_exit(lpi);
-		return 0;
-	}
-
-	if (!uffd_recoverable_error(mcopy_rc)) {
-		lp_perror(lpi, "%s: mcopy_rc:%ld", op, mcopy_rc);
 		return -1;
 	}
 
-	lp_debug(lpi, "%s: mcopy_rc:%ld, errno:%d\n", op, mcopy_rc, errno);
+	if (!uffd_recoverable_error(mcopy_rc)) {
+		lp_perror(lpi, "%s: mcopy_rc:%ld\n", op, mcopy_rc);
+		return -1;
+	}
+
+	lp_err(lpi, "%s: mcopy_rc:%ld, errno:%d\n", op, mcopy_rc, errno);
 
 	if (mcopy_rc <= 0)
 		*nr_pages = 0;
@@ -954,51 +1077,102 @@ static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsi
 }
 
 static int xfer_pages(struct lazy_pages_info *lpi);
+
+
 /*
- * Aggressively refill pipeline to maximum capacity.
- * Called immediately when a response arrives to keep pipeline saturated.
+ * Queue an EAGAIN request for later retry in COW dump mode.
+ * For copy operations, buf should point to the data to copy.
+ * For zero operations, buf should be NULL.
  */
-static int refill_pipeline(struct lazy_pages_info *lpi)
+static int queue_eagain_request(struct lazy_pages_info *lpi, __u64 address, 
+                                unsigned long nr_pages, void *buf, const char *op_name)
 {
-	int ret;
+	struct uffd_eagain_request *req;
+	void *buf_copy = NULL;
+	unsigned long len = nr_pages * page_size();
 	
-	/* Keep filling until pipeline is full or we run out of data */
-	while (!list_empty(&lpi->iovs) && 
-	       lpi->pipeline_depth < lpi->max_pipeline_depth) {
-		ret = xfer_pages(lpi);
-		if (ret < 0)
-			return ret;
+	lp_err(lpi, "uffd_%s EAGAIN in COW mode: queueing 0x%llx/%ld for later\n", 
+	       op_name, address, len);
+	
+	/* Copy buffer if provided (copy operation) */
+	if (buf) {
+		buf_copy = xmalloc(len);
+		if (!buf_copy) {
+			lp_err(lpi, "Failed to allocate buffer for EAGAIN request\n");
+			return -1;
+		}
+		memcpy(buf_copy, buf, len);
 	}
+	
+	/* Create request entry */
+	req = xmalloc(sizeof(*req));
+	if (!req) {
+		if (buf_copy)
+			xfree(buf_copy);
+		return -1;
+	}
+	
+	req->lpi = lpi;
+	req->address = address;
+	req->nr_pages = nr_pages;
+	req->buf = buf_copy;  /* NULL for zero operations */
+	INIT_LIST_HEAD(&req->l);
+	
+	list_add_tail(&req->l, &eagain_requests);
 	
 	return 0;
 }
-
 
 static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *nr_pages)
 {
 	struct uffdio_copy uffdio_copy;
 	unsigned long len = *nr_pages * page_size();
-
+	
 	uffdio_copy.dst = address;
 	uffdio_copy.src = (unsigned long)lpi->buf;
 	uffdio_copy.len = len;
 	uffdio_copy.mode = 0;
 	uffdio_copy.copy = 0;
 
-	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
-	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy)) {
-		if (errno == EAGAIN) {
-			lp_err(lpi, "uffd_copy EAGAIN: 0x%llx/%ld\n", uffdio_copy.dst, len);
-		}
-		if (  uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy))
-		{
-			lp_err(lpi, "uffd_copy EAGAIN: 0x%llx/%ld uffdio_copy.copy=%lld\n", uffdio_copy.dst, len, uffdio_copy.copy);
+	lp_info(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
+
+	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
+		/* In COW dump mode, queue EAGAIN requests instead of blocking */
+		if (errno == EAGAIN && opts.cow_dump)
+			return queue_eagain_request(lpi, address, *nr_pages, lpi->buf, "copy");
+		
+		/* Non-COW mode or non-EAGAIN: check for other errors */
+		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)) {
+			lp_err(lpi, "UFFDIO_COPY got error\n");
 			return -1;
 		}
+
+		/* If uffd_check_op_error handled it (e.g., ENOSPC/ESRCH), return success */
+		return 0;
+	}
+
+	if (uffdio_copy.copy < 0) {
+		/* Soft userfaultfd error: encoded as -errno in copy */
+		errno = -uffdio_copy.copy;
+
+		/* In COW dump mode, queue EAGAIN requests */
+		if (errno == EAGAIN && opts.cow_dump)
+			return queue_eagain_request(lpi, address, *nr_pages, lpi->buf, "copy");
+
+		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)) {
+			lp_err(lpi, "UFFDIO_COPY err \n");
+			return -1;
+		}
+		return 0;
+	}
+
+	/* Success */
+	if (uffdio_copy.copy == 0) {
+		lp_err(lpi, "UFFDIO_COPY copied 0 bytes at 0x%llx\n", uffdio_copy.dst);
+		*nr_pages = 0;
 	}
 
 	lpi->copied_pages += *nr_pages;
-
 	return 0;
 }
 
@@ -1010,7 +1184,7 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	int ret;
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
-
+	pr_err("uffd_io_complete\n");
 	/*
 	 * The process may exit while we still have requests in
 	 * flight. We just drop the request and the received data in
@@ -1055,18 +1229,105 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	 */
 	iov_list_insert(req, &lpi->iovs);
 	ret = drop_iovs(lpi, addr, nr * PAGE_SIZE);
+
 	
-	/* 
-	 * Decrement pipeline depth now that response is processed.
-	 * IMMEDIATELY refill pipeline to keep it saturated - don't wait for main loop!
-	 * This is the key to aggressive pipelining and reducing source EAGAIN.
-	 */
-	lpi->pipeline_depth--;
+	return ret;
+}
+
+static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsigned long nr)
+{
+	struct lazy_pages_info *lpi;
+	unsigned long pages = nr;
+	struct lazy_iov *iov;
+	int ret;
+	struct timespec t_start, t_copy, t_drop, t_end;
+	uffd_stats.io_complete_bulk_count_start++;
 	
-	if (!lpi->exited && !list_empty(&lpi->iovs)) {
-		refill_pipeline(lpi);
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
+
+	lpi = container_of(pr, struct lazy_pages_info, pr);
+
+	/* Process may exit while pages are in flight */
+	if (lpi->exited) {
+		lp_err(lpi, "Page at 0x%lx no longer needed existed\n", vaddr);
+		return 0;
 	}
-	
+
+	/* Check if this address is still tracked (not removed/unmapped) */
+	/* First check main IOVs list */
+	iov = find_iov(lpi, vaddr);
+
+	/* If not found in main list, check requests list (may have been queued by page fault) */
+	if (!iov) {
+		list_for_each_entry(iov, &lpi->reqs, l) {
+			if (vaddr >= iov->start && vaddr < iov->end) {
+				lp_debug(lpi, "Page at 0x%lx found in requests list\n", vaddr);
+				goto found_iov;
+			}
+		}
+		iov = NULL; /* Reset if not found in reqs either */
+	}
+
+	if (!iov) {
+#if 0
+		struct lazy_iov *tmp_iov;
+		unsigned long iovs_count = 0;
+		unsigned long reqs_count = 0;
+#endif
+
+		lp_err(lpi, "Page at 0x%lx no longer needed (unmapped), dropping\n", vaddr);
+#if 0	
+		/* Dump all IOVs to understand what happened */
+		lp_err(lpi, "=== IOV STATE DUMP (address 0x%lx not found) ===\n", vaddr);
+		
+		lp_err(lpi, "Main IOVs list:\n");
+		list_for_each_entry(tmp_iov, &lpi->iovs, l) {
+			lp_err(lpi, "  IOV[%lu]: 0x%lx-0x%lx (img_start=0x%lx, len=%lu, pages=%lu)\n",
+				iovs_count, tmp_iov->start, tmp_iov->end, tmp_iov->img_start,
+				tmp_iov->end - tmp_iov->start, (tmp_iov->end - tmp_iov->start) / PAGE_SIZE);
+			iovs_count++;
+		}
+		
+		lp_err(lpi, "Requests list:\n");
+		list_for_each_entry(tmp_iov, &lpi->reqs, l) {
+			lp_err(lpi, "  REQ[%lu]: 0x%lx-0x%lx (img_start=0x%lx, len=%lu, pages=%lu)\n",
+				reqs_count, tmp_iov->start, tmp_iov->end, tmp_iov->img_start,
+				tmp_iov->end - tmp_iov->start, (tmp_iov->end - tmp_iov->start) / PAGE_SIZE);
+			reqs_count++;
+		}
+		
+		lp_err(lpi, "=== IOV DUMP END: %lu main IOVs, %lu requests ===\n", iovs_count, reqs_count);
+#endif
+		return 0; /* Silently ignore - region was unmapped */
+	}
+
+found_iov:
+
+	/* Copy pages to userspace */
+	ret = uffd_copy(lpi, vaddr, &pages);
+	clock_gettime(CLOCK_MONOTONIC, &t_copy);
+	uffd_stats.uffd_copy_total_ns += (t_copy.tv_sec - t_start.tv_sec) * 1000000000 + (t_copy.tv_nsec - t_start.tv_nsec);
+	uffd_stats.uffd_copy_count++;
+
+	if (ret < 0)
+		return ret;
+
+	/* Recheck if process exited (may be detected in uffd_copy) */
+	if (lpi->exited)
+		return 0;
+
+	/* CRITICAL: Remove copied pages from IOV tracking to prevent duplicate faults */
+#if 0 //TODO
+	ret = drop_iovs(lpi, vaddr, pages * PAGE_SIZE);
+#endif
+	clock_gettime(CLOCK_MONOTONIC, &t_drop);
+	uffd_stats.drop_iovs_total_ns += (t_drop.tv_sec - t_copy.tv_sec) * 1000000000 + (t_drop.tv_nsec - t_copy.tv_nsec);
+	uffd_stats.drop_iovs_count++;
+
+	clock_gettime(CLOCK_MONOTONIC, &t_end);
+	uffd_stats.io_complete_bulk_total_ns += (t_end.tv_sec - t_start.tv_sec) * 1000000000 + (t_end.tv_nsec - t_start.tv_nsec);
+	uffd_stats.io_complete_bulk_count++;
+
 	return ret;
 }
 
@@ -1078,11 +1339,35 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long n
 	uffdio_zeropage.range.start = address;
 	uffdio_zeropage.range.len = len;
 	uffdio_zeropage.mode = 0;
+	uffdio_zeropage.zeropage = 0;
 
-	lp_debug(lpi, "zero page at 0x%llx\n", address);
-	if (ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage) &&
-	    uffd_check_op_error(lpi, "zero", &nr_pages, uffdio_zeropage.zeropage))
-		return -1;
+	lp_err(lpi, "zero page at 0x%llx\n", address);
+	
+	if (ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage) == -1) {
+		/* In COW dump mode, queue EAGAIN requests instead of blocking */
+		if (errno == EAGAIN && opts.cow_dump)
+			return queue_eagain_request(lpi, address, nr_pages, NULL, "zero");
+		
+		/* Non-COW mode or non-EAGAIN: check for errors */
+		if (uffd_check_op_error(lpi, "zero", &nr_pages, uffdio_zeropage.zeropage))
+			return -1;
+			
+		return 0;
+	}
+	
+	/* Check for soft error */
+	if (uffdio_zeropage.zeropage < 0) {
+		errno = -uffdio_zeropage.zeropage;
+		
+		/* In COW dump mode, queue EAGAIN requests */
+		if (errno == EAGAIN && opts.cow_dump)
+			return queue_eagain_request(lpi, address, nr_pages, NULL, "zero");
+		
+		if (uffd_check_op_error(lpi, "zero", &nr_pages, uffdio_zeropage.zeropage))
+			return -1;
+			
+		return 0;
+	}
 
 	return 0;
 }
@@ -1116,8 +1401,10 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, unsigne
 	int ret;
 
 	ret = uffd_seek_pages(lpi, address, nr);
-	if (ret)
+	if (ret) {
+		lp_warn(lpi, "#PF at 0x%llx uffd_seek_pages failed\n", address);
 		return ret;
+	}
 
 	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, flags);
 	if (ret <= 0) {
@@ -1141,8 +1428,8 @@ static struct lazy_iov *pick_next_range(struct lazy_pages_info *lpi)
  */
 static void update_xfer_len(struct lazy_pages_info *lpi, bool pf)
 {
-	lpi->xfer_len = 8*1024;//MAX_XFER_LEN;
-	return; //TODO remove
+	lpi->xfer_len = 8 * 1024; //MAX_XFER_LEN;
+	return;			  //TODO remove
 	if (pf)
 		lpi->xfer_len = DEFAULT_XFER_LEN;
 	else
@@ -1181,20 +1468,14 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 
 	update_xfer_len(lpi, false);
 
-	/* Increment pipeline depth BEFORE sending request */
-	lpi->pipeline_depth++;
-
 	err = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (err < 0) {
 		lp_err(lpi, "Error during UFFD copy\n");
-		lpi->pipeline_depth--;  /* Rollback on error */
 		return -1;
 	}
 
 	return 0;
 }
-
-
 
 static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
@@ -1203,14 +1484,15 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	unreg.start = msg->arg.remove.start;
 	unreg.len = msg->arg.remove.end - msg->arg.remove.start;
 
-	lp_debug(lpi, "%s: %llx(%llx)\n", msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP", unreg.start, unreg.len);
+	lp_err(lpi, "%s: %llx(%llx)\n", msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP", unreg.start, unreg.len);
 
 	/*
 	 * The REMOVE event does not change the VMA, so we need to
 	 * make sure that we won't handle #PFs in the removed
 	 * range. With UNMAP, there's no VMA to worry about
 	 */
-	if (msg->event == UFFD_EVENT_REMOVE && ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
+
+	 if (msg->event == UFFD_EVENT_REMOVE && ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
 		/*
 		 * The kernel returns -ENOMEM when unregister is
 		 * called after the process has gone
@@ -1225,6 +1507,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	}
 
 	return drop_iovs(lpi, unreg.start, unreg.len);
+
 }
 
 static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
@@ -1233,7 +1516,7 @@ static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	unsigned long to = msg->arg.remap.to;
 	unsigned long len = msg->arg.remap.len;
 
-	lp_debug(lpi, "REMAP: %lx -> %lx (%ld)\n", from, to, len);
+	lp_err(lpi, "REMAP: %lx -> %lx (%ld)\n", from, to, len);
 
 	return remap_iovs(lpi, from, to, len);
 }
@@ -1243,7 +1526,7 @@ static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
 	struct lazy_pages_info *lpi;
 	int uffd = msg->arg.fork.ufd;
 
-	lp_debug(parent_lpi, "FORK: child with ufd=%d\n", uffd);
+	lp_err(parent_lpi, "FORK: child with ufd=%d\n", uffd);
 
 	lpi = lpi_init();
 	if (!lpi)
@@ -1325,23 +1608,29 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	/* Align requested address to the next page boundary */
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
-	lp_debug(lpi, "#PF at 0x%llx\n", address);
+	lp_warn(lpi, "#PF at 0x%llx\n", address);
 
-	if (is_page_queued(lpi, address))
+	if (is_page_queued(lpi, address)) {
+		lp_warn(lpi, "#PF at 0x%llx queued\n", address);
 		return 0;
+	}
 
 	iov = find_iov(lpi, address);
-	if (!iov)
+	if (!iov) {
+		lp_warn(lpi, "#PF at 0x%llx !iov\n", address);
 		return uffd_zero(lpi, address, 1);
+	}
 
 	iov = extract_range(iov, address, address + PAGE_SIZE);
-	if (!iov)
+	if (!iov) {
+		lp_warn(lpi, "#PF at 0x%llx !iov2\n", address);
 		return -1;
+	}
 
 	list_move(&iov->l, &lpi->reqs);
 
 	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
-	
+
 	/* Update statistics */
 	uffd_stats.total_pf_reqs++;
 	uffd_stats.total_pages += nr_pages;
@@ -1350,13 +1639,9 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	update_xfer_len(lpi, true);
 
-	/* Increment pipeline depth BEFORE sending request (just like background transfers) */
-	lpi->pipeline_depth++;
-
 	ret = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		lp_err(lpi, "Error during regular page copy\n");
-		lpi->pipeline_depth--;  /* Rollback on error */
 		return -1;
 	}
 
@@ -1421,6 +1706,146 @@ static void lazy_pages_summary(struct lazy_pages_info *lpi)
 #endif
 }
 
+/*
+ * Retry a copy operation that previously failed with EAGAIN.
+ * Returns: 0 on success, -EAGAIN if still blocked, -1 on error
+ */
+static int retry_uffd_copy(struct uffd_eagain_request *req)
+{
+	struct uffdio_copy uffdio_copy;
+	
+	uffdio_copy.dst = req->address;
+	uffdio_copy.src = (unsigned long)req->buf;
+	uffdio_copy.len = req->nr_pages * page_size();
+	uffdio_copy.mode = 0;
+	uffdio_copy.copy = 0;
+
+	if (ioctl(req->lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
+		if (errno == EAGAIN)
+			return -EAGAIN;
+		
+		lp_err(req->lpi, "EAGAIN copy retry failed for 0x%llx: %d\n", 
+		       req->address, errno);
+		return -1;
+	}
+
+	/* Check for soft error */
+	if (uffdio_copy.copy < 0) {
+		errno = -uffdio_copy.copy;
+		if (errno == EAGAIN)
+			return -EAGAIN;
+		
+		lp_err(req->lpi, "EAGAIN copy retry soft error for 0x%llx: %d\n",
+		       req->address, errno);
+		return -1;
+	}
+
+	/* Success */
+	req->lpi->copied_pages += req->nr_pages;
+	lp_debug(req->lpi, "EAGAIN copy retry succeeded for 0x%llx\n", req->address);
+	return 0;
+}
+
+/*
+ * Retry a zero operation that previously failed with EAGAIN.
+ * Returns: 0 on success, -EAGAIN if still blocked, -1 on error
+ */
+static int retry_uffd_zero(struct uffd_eagain_request *req)
+{
+	struct uffdio_zeropage uffdio_zeropage;
+	
+	uffdio_zeropage.range.start = req->address;
+	uffdio_zeropage.range.len = req->nr_pages * page_size();
+	uffdio_zeropage.mode = 0;
+	uffdio_zeropage.zeropage = 0;
+
+	if (ioctl(req->lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage) == -1) {
+		if (errno == EAGAIN)
+			return -EAGAIN;
+		
+		lp_err(req->lpi, "EAGAIN zero retry failed for 0x%llx: %d\n", 
+		       req->address, errno);
+		return -1;
+	}
+
+	/* Check for soft error */
+	if (uffdio_zeropage.zeropage < 0) {
+		errno = -uffdio_zeropage.zeropage;
+		if (errno == EAGAIN)
+			return -EAGAIN;
+		
+		lp_err(req->lpi, "EAGAIN zero retry soft error for 0x%llx: %d\n",
+		       req->address, errno);
+		return -1;
+	}
+
+	/* Success */
+	lp_debug(req->lpi, "EAGAIN zero retry succeeded for 0x%llx\n", req->address);
+	return 0;
+}
+
+/*
+ * Process pending EAGAIN requests.
+ * Attempts to retry UFFDIO_COPY or UFFDIO_ZEROPAGE for requests that previously failed with EAGAIN.
+ */
+int process_eagain_requests(void)
+{
+	struct uffd_eagain_request *req, *n;
+	int ret;
+	struct timespec t_start, t_end;
+
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
+
+	list_for_each_entry_safe(req, n, &eagain_requests, l) {
+		/* Skip if process has exited */
+		if (req->lpi->exited) {
+			uffd_stats.eagain_skipped++;
+			list_del(&req->l);
+			if (req->buf)
+				xfree(req->buf);
+			xfree(req);
+			continue;
+		}
+
+		uffd_stats.eagain_processed++;
+
+		/* Call appropriate retry function based on operation type */
+		if (req->buf)
+			ret = retry_uffd_copy(req);
+		else
+			ret = retry_uffd_zero(req);
+
+		if (ret == -EAGAIN) {
+			/* Still blocked - keep in queue for next attempt */
+			uffd_stats.eagain_blocked++;
+			continue;
+		} else if (ret < 0) {
+			/* Error - remove from queue */
+			uffd_stats.eagain_errors++;
+			list_del(&req->l);
+			if (req->buf)
+				xfree(req->buf);
+			xfree(req);
+			continue;
+		}
+
+		/* Success! */
+		uffd_stats.eagain_succeeded++;
+
+		/* Clean up and remove from queue */
+		list_del(&req->l);
+		if (req->buf)
+			xfree(req->buf);
+		xfree(req);
+	}
+
+	clock_gettime(CLOCK_MONOTONIC, &t_end);
+	uffd_stats.eagain_total_ns += (t_end.tv_sec - t_start.tv_sec) * 1000000000 + (t_end.tv_nsec - t_start.tv_nsec);
+	uffd_stats.eagain_calls++;
+
+	return 0;
+}
+
 static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
@@ -1428,14 +1853,6 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 	int ret;
 
 	for (;;) {
-		/* Sample pipeline depth for statistics */
-		list_for_each_entry_safe(lpi, n, &lpis, l) {
-			uffd_stats.pipeline_depth_sum += lpi->pipeline_depth;
-			uffd_stats.pipeline_samples++;
-		}
-		
-		/* Check and print statistics every second */
-		check_and_print_uffd_stats();
 
 		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)
@@ -1452,13 +1869,13 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 
 		/* make sure we return success if there is nothing to xfer */
 		ret = 0;
-
+		if (!opts.cow_dump) {
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
-			/* Aggressively refill pipeline to keep it saturated at all times */
-			if (!list_empty(&lpi->iovs)) {
-				ret = refill_pipeline(lpi);
+			if (!list_empty(&lpi->iovs) && list_empty(&lpi->reqs)) {
+				ret = xfer_pages(lpi);
 				if (ret < 0)
 					goto out;
+				break;
 			}
 
 			if (list_empty(&lpi->reqs)) {
@@ -1467,8 +1884,8 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 				lpi_put(lpi);
 			}
 		}
-
-		if (list_empty(&lpis))
+		}
+		if (!opts.cow_dump && list_empty(&lpis))
 			break;
 	}
 
@@ -1593,7 +2010,8 @@ close_uffd:
 	close(listen);
 	return -1;
 }
-
+extern int page_server_start_async_read_bulk(void *buf, unsigned long nr_pages, 
+					      ps_async_read_complete complete, void *priv);
 int cr_lazy_pages(bool daemon)
 {
 	struct epoll_event *events = NULL;
@@ -1650,9 +2068,23 @@ int cr_lazy_pages(bool daemon)
 	}
 
 	if (opts.use_page_server) {
+		struct lazy_pages_info *lpi;
+
 		if (connect_to_page_server_to_recv(epollfd)) {
 			xfree(events);
 			return -1;
+		}
+
+		/* Now that socket is connected, request all pages for bulk mode */
+		if (opts.cow_dump) {
+			list_for_each_entry(lpi, &lpis, l) {
+				pr_info("Requesting all remote pages for pid=%d\n", lpi->pid);
+				if (request_all_remote_pages(lpi->pr.img_id) < 0) {
+					pr_err("Failed to request all remote pages for pid=%d\n", lpi->pid);
+					xfree(events);
+					return -1;
+				}
+			}
 		}
 	}
 

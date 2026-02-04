@@ -175,4 +175,32 @@ static inline void mutex_unlock(mutex_t *m)
 	LOCK_BUG_ON(sys_futex((uint32_t *)&m->raw.counter, FUTEX_WAKE, 1, NULL, NULL, 0) < 0);
 }
 
+typedef struct {
+	atomic_t lock;
+} spinlock_t;
+
+#define SPINLOCK_INIT { .lock = { .counter = 0 } }
+
+static inline void spin_lock_init(spinlock_t *lock)
+{
+	atomic_set(&lock->lock, 0);
+}
+
+static inline void spin_lock(spinlock_t *lock)
+{
+	while (atomic_cmpxchg(&lock->lock, 0, 1) != 0) {
+		/* Busy wait - spin */
+	}
+}
+
+static inline void spin_unlock(spinlock_t *lock)
+{
+	atomic_set(&lock->lock, 0);
+}
+
+static inline bool spin_trylock(spinlock_t *lock)
+{
+	return atomic_cmpxchg(&lock->lock, 0, 1) == 0;
+}
+
 #endif /* __CR_COMMON_LOCK_H__ */

@@ -16,6 +16,7 @@
 #include "cr_options.h"
 #include "pstree.h"
 #include "cow-dump.h"
+#include "mman.h"
 #include "uffd.h"
 #include "page-xfer.h"
 #include "page-pipe.h"
@@ -34,28 +35,19 @@
 struct cow_dump_info {
 	struct pstree_item *item;
 	int uffd;				/* userfaultfd for write tracking */
-	int proc_mem_fd;			/* /proc/pid/mem for reading pages */
-	unsigned long total_pages;		/* Total pages being tracked */
-	unsigned long dirty_pages;		/* Pages modified in current iteration */
-	unsigned long dirty_pages_dumped;	/* Pages already written to disk */
-	unsigned long iteration;		/* Current iteration number */
-	struct list_head dirty_list;		/* List of dirty page ranges */
+	unsigned long total_pages;		/* Total pages being tracked */		
+	unsigned long iteration;		/* Current iteration number */	
 	struct hlist_head cow_hash[COW_HASH_SIZE];	/* Hash table for copied pages */
 	pthread_spinlock_t cow_hash_locks[COW_HASH_SIZE];	/* Per-bucket spinlocks */
+	struct list_head cow_page_queue;	/* FIFO queue of COW pages */
+	pthread_spinlock_t queue_lock;		/* Protects the queue */
 };
 
-/* Dirty page range */
-struct dirty_range {
-	unsigned long start;
-	unsigned long len;
-	struct list_head list;
-};
 
 static struct cow_dump_info *g_cow_info = NULL;
 static pthread_t g_monitor_thread;
 static volatile bool g_stop_monitoring = false;
 
-#define COW_MAX_ITERATIONS 10
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
 #define COW_FLUSH_THRESHOLD 1000       /* Flush to disk every 1000 pages */
 
@@ -144,21 +136,6 @@ bool cow_check_kernel_support(void)
 	return true;
 }
 
-static int open_proc_mem(pid_t pid)
-{
-	char path[64];
-	int fd;
-
-	snprintf(path, sizeof(path), "/proc/%d/mem", pid);
-	fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Failed to open %s", path);
-		return -1;
-	}
-
-	return fd;
-}
-
 int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl)
 {
 	struct cow_dump_info *cdi;
@@ -181,8 +158,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	if (!cdi)
 		return -1;
 
-	cdi->item = item;
-	INIT_LIST_HEAD(&cdi->dirty_list);
+	cdi->item = item;	
 	cdi->uffd = -1; /* Will be received from parasite */
 
 	/* Initialize hash table for COW pages */
@@ -191,18 +167,36 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		pthread_spin_init(&cdi->cow_hash_locks[i], PTHREAD_PROCESS_PRIVATE);
 	}
 
-	/* Open /proc/pid/mem for reading pages */
-	cdi->proc_mem_fd = open_proc_mem(item->pid->real);
-	if (cdi->proc_mem_fd < 0)
-		goto err_free;
+	/* Initialize COW page queue */
+	INIT_LIST_HEAD(&cdi->cow_page_queue);
+	pthread_spin_init(&cdi->queue_lock, PTHREAD_PROCESS_PRIVATE);
 
 	/* Prepare parasite arguments - count writable VMAs */
+	/* IMPORTANT: Apply same filters as generate_vma_iovs() to avoid mismatches */
 	nr_vmas = 0;
 	list_for_each_entry(vma, &vma_area_list->h, list) {
+		if (!vma_entry_can_be_lazy(vma->e))
+		{		
+			continue;
+		}
 		if (vma_area_is(vma, VMA_AREA_GUARD))
 			continue;
-		if (vma->e->prot & PROT_WRITE)
-			nr_vmas++;
+		
+		/* Must be writable */
+		if (!(vma->e->prot & PROT_WRITE))
+			continue;
+		
+		/* Match generate_vma_iovs() filters */
+		if (!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED))
+			continue;
+		
+		if (vma_entry_is(vma->e, VMA_AREA_VVAR))
+			continue;
+		
+		if (vma->e->flags & MAP_DROPPABLE)
+			continue;
+		
+		nr_vmas++;
 	}
 
 	/* Allocate parasite args - includes space for VMAs and failed indices */
@@ -220,13 +214,28 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	args->nr_failed_vmas = 0;
 	args->ret = -1;
 
-	/* Fill VMA entries */
+	/* Fill VMA entries - must match the filters used above */
 	p_vma = cow_dump_vmas(args);
 	nr_vmas = 0;
 	list_for_each_entry(vma, &vma_area_list->h, list) {
+		if (!vma_entry_can_be_lazy(vma->e))
+		{
+			continue;
+		}
 		if (vma_area_is(vma, VMA_AREA_GUARD))
 			continue;
+		
 		if (!(vma->e->prot & PROT_WRITE))
+			continue;
+		
+		/* Match generate_vma_iovs() filters */
+		if (!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED))
+			continue;
+		
+		if (vma_entry_is(vma->e, VMA_AREA_VVAR))
+			continue;
+		
+		if (vma->e->flags & MAP_DROPPABLE)
 			continue;
 
 		p_vma[nr_vmas].start = vma->e->start;
@@ -260,8 +269,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		goto err_close_mem;
 	}
 
-	cdi->total_pages = args->total_pages;
-	cdi->dirty_pages_dumped = 0;
+	cdi->total_pages = args->total_pages;	
 		
 	pr_info("COW dump initialized: tracking %lu pages, uffd=%d\n", 
 		cdi->total_pages, cdi->uffd);
@@ -271,23 +279,36 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	return 0;
 
 err_close_mem:
-	close(cdi->proc_mem_fd);
-err_free:
+	if (cdi->uffd >= 0)
+		close(cdi->uffd);
 	xfree(cdi);
 	return -1;
 }
 
 void cow_dump_fini(void)
-{
-	struct dirty_range *dr, *tmp;
+{	
 	struct cow_page *cp;
+	struct cow_page_queue_entry *qe, *qe_tmp;
 	struct hlist_node *n;
-	int i, remaining = 0;
+	int i, remaining = 0, queue_remaining = 0;
 
 	if (!g_cow_info)
 		return;
 
 	pr_info("Cleaning up COW dump\n");
+
+	/* Clean up any remaining queue entries */
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	list_for_each_entry_safe(qe, qe_tmp, &g_cow_info->cow_page_queue, list) {
+		list_del(&qe->list);
+		xfree(qe);
+		queue_remaining++;
+	}
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+	pthread_spin_destroy(&g_cow_info->queue_lock);
+
+	if (queue_remaining > 0)
+		pr_warn("Freed %d remaining queue entries\n", queue_remaining);
 
 	/* Clean up any remaining COW pages */
 	for (i = 0; i < COW_HASH_SIZE; i++) {
@@ -305,13 +326,6 @@ void cow_dump_fini(void)
 	if (remaining > 0)
 		pr_warn("Freed %d remaining COW pages\n", remaining);
 
-	list_for_each_entry_safe(dr, tmp, &g_cow_info->dirty_list, list) {
-		list_del(&dr->list);
-		xfree(dr);
-	}
-	
-	if (g_cow_info->proc_mem_fd >= 0)
-		close(g_cow_info->proc_mem_fd);
 	
 	if (g_cow_info->uffd >= 0)
 		close(g_cow_info->uffd);
@@ -328,11 +342,12 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	struct uffdio_range range;
 	ssize_t ret;
 	unsigned int hash;
+	struct cow_page_queue_entry *entry;
+	struct iovec local_iov, remote_iov;
 	
 	pr_info("Write fault at 0x%lx\n", page_addr);
 
-	cow_stats.write_faults++;
-	cdi->dirty_pages++;
+	cow_stats.write_faults++;	
 
 	/* Allocate cow_page structure */
 	cp = xmalloc(sizeof(*cp));
@@ -353,10 +368,17 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	cp->vaddr = page_addr;
 	INIT_HLIST_NODE(&cp->hash);
 
-	/* Read original page content from /proc/pid/mem */
-	ret = pread(cdi->proc_mem_fd, cp->data, PAGE_SIZE, page_addr);
+	/* Read original page content using process_vm_readv */
+	
+	local_iov.iov_base = cp->data;
+	local_iov.iov_len = PAGE_SIZE;
+	remote_iov.iov_base = (void *)page_addr;
+	remote_iov.iov_len = PAGE_SIZE;
+	
+	ret = process_vm_readv(cdi->item->pid->real, &local_iov, 1, &remote_iov, 1, 0);
 	if (ret != PAGE_SIZE) {
-		pr_perror("Failed to read page at 0x%lx (read %zd bytes)", page_addr, ret);
+		pr_perror("Failed to read page at 0x%lx from pid %d (read %zd bytes)", 
+			  page_addr, cdi->item->pid->real, ret);
 		xfree(cp->data);
 		xfree(cp);
 		cow_stats.read_failures++;
@@ -398,6 +420,28 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi, unsigned long addr)
 	
 	cow_stats.pages_woken++;
 	cdi->total_pages--;
+
+	/*
+	 * COW faults only happen on lazy VMAs, which are NOT in page pipes.
+	 * Lazy VMAs are read directly via process_vm_readv(), so we don't
+	 * need to store location info (ppb, seg_idx, page_idx_in_seg).
+	 * Just store the vaddr in the queue for the page server.
+	 */
+	entry = xmalloc(sizeof(*entry));
+	if (entry) {
+		entry->vaddr = page_addr;
+		entry->ppb = NULL;  /* Indicates lazy VMA - no location info needed */
+		entry->seg_idx = 0;
+		entry->page_idx_in_seg = 0;
+		INIT_LIST_HEAD(&entry->list);
+		pthread_spin_lock(&cdi->queue_lock);
+		list_add_tail(&entry->list, &cdi->cow_page_queue);
+		pthread_spin_unlock(&cdi->queue_lock);
+		pr_debug("Added lazy VMA COW page 0x%lx to queue\n", page_addr);
+	} else {
+		pr_warn("Failed to allocate queue entry for page 0x%lx\n", page_addr);
+	}
+
 	return 0;
 }
 
@@ -554,6 +598,63 @@ int cow_get_uffd(void)
 	return g_cow_info->uffd;
 }
 
+pthread_spinlock_t *cow_get_hash_lock(unsigned long vaddr)
+{
+	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
+	unsigned int hash;
+
+	if (!g_cow_info)
+		return NULL;
+
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
+	return &g_cow_info->cow_hash_locks[hash];
+}
+
+struct cow_page *cow_lookup_page(unsigned long vaddr)
+{
+	struct cow_page *cp;
+	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
+	unsigned int hash;
+
+	if (!g_cow_info)
+		return NULL;
+
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
+
+	/* NOTE: Caller must hold the lock for this hash bucket */
+	hlist_for_each_entry(cp, &g_cow_info->cow_hash[hash], hash) {
+		if (cp->vaddr == page_addr)
+			return cp;
+	}
+
+	return NULL;
+}
+
+void cow_remove_page(unsigned long vaddr)
+{
+	struct cow_page *cp;
+	struct hlist_node *n;
+	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
+	unsigned int hash;
+
+	if (!g_cow_info)
+		return;
+
+	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
+
+	/* NOTE: Caller must hold the lock for this hash bucket */
+	hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[hash], hash) {
+		if (cp->vaddr == page_addr) {
+			hlist_del(&cp->hash);
+			xfree(cp->data);
+			xfree(cp);
+			pr_debug("Removed COW page at 0x%lx from hash bucket %u\n",
+				 page_addr, hash);
+			return;
+		}
+	}
+}
+
 struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr)
 {
 	struct cow_page *cp;
@@ -580,4 +681,65 @@ struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr)
 	
 	pthread_spin_unlock(&g_cow_info->cow_hash_locks[hash]);
 	return NULL;
+}
+
+struct cow_page_queue_entry *cow_get_next_page(void)
+{
+	struct cow_page_queue_entry *entry = NULL;
+
+	if (!g_cow_info)
+		return NULL;
+
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	if (!list_empty(&g_cow_info->cow_page_queue)) {
+		entry = list_first_entry(&g_cow_info->cow_page_queue,
+					 struct cow_page_queue_entry, list);
+		list_del(&entry->list);
+	}
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+
+	return entry;
+}
+
+bool cow_has_pending_pages(void)
+{
+	bool has_pages;
+
+	if (!g_cow_info)
+		return false;
+
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	has_pages = !list_empty(&g_cow_info->cow_page_queue);
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+
+	return has_pages;
+}
+
+void cow_put_back_page(struct cow_page_queue_entry *entry)
+{
+	if (!g_cow_info || !entry)
+		return;
+
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	list_add(&entry->list, &g_cow_info->cow_page_queue);
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+
+	pr_debug("Re-queued COW page 0x%lx\n", entry->vaddr);
+}
+
+unsigned long cow_get_queue_size(void)
+{
+	unsigned long count = 0;
+	struct cow_page_queue_entry *entry;
+
+	if (!g_cow_info)
+		return 0;
+
+	pthread_spin_lock(&g_cow_info->queue_lock);
+	list_for_each_entry(entry, &g_cow_info->cow_page_queue, list) {
+		count++;
+	}
+	pthread_spin_unlock(&g_cow_info->queue_lock);
+
+	return count;
 }

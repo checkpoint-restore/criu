@@ -1425,13 +1425,69 @@ static int epoll_hangup_event(int epollfd, struct epoll_rfd *rfd)
 	return ret;
 }
 
+/* Epoll statistics tracking */
+static struct {
+	unsigned long total_read_calls;
+	unsigned long total_read_success;
+	unsigned long epoll_wait_time_ns;
+	unsigned long epoll_wait_calls;
+	time_t last_print_time;
+} epoll_stats;
+
+static void check_and_print_epoll_stats(void)
+{
+	time_t now = time(NULL);
+	
+	if (now - epoll_stats.last_print_time >= 1) {
+		if (epoll_stats.total_read_calls > 0 || epoll_stats.total_read_success > 0 || epoll_stats.epoll_wait_calls > 0) {
+			struct timespec ts;
+			struct tm *tm;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			tm = localtime(&ts.tv_sec);
+			pr_warn("[EPOLL_STATS] [%02d:%02d:%02d.%03ld] read_calls=%lu read_success=%lu epoll_wait_calls=%lu epoll_wait_ns=%lu\n",
+				tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
+				epoll_stats.total_read_calls,
+				epoll_stats.total_read_success,
+				epoll_stats.epoll_wait_calls,
+				epoll_stats.epoll_wait_time_ns);
+		}
+		
+		/* Reset counters */
+		memset(&epoll_stats, 0, sizeof(epoll_stats));
+		epoll_stats.last_print_time = now;
+	}
+}
+
+extern void check_and_print_uffd_stats(void);
+extern int process_eagain_requests(void);
+
 int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
 {
 	int ret, i, nr_events;
 	bool have_a_break = false;
 
 	while (1) {
-		ret = epoll_wait(epollfd, evs, nr_fds, timeout);
+		struct timespec t_wait_start, t_wait_end;
+		
+		/* Check and print stats periodically */
+		check_and_print_epoll_stats();
+
+			/* Check and print statistics every second */
+		check_and_print_uffd_stats();
+
+		/* In COW dump mode, process pending EAGAIN requests */
+		if (opts.cow_dump) {
+			ret = process_eagain_requests();
+			if (ret < 0)
+				goto out;
+		}
+		
+		clock_gettime(CLOCK_MONOTONIC, &t_wait_start);
+		ret = epoll_wait(epollfd, evs, nr_fds, 10);
+		clock_gettime(CLOCK_MONOTONIC, &t_wait_end);
+		epoll_stats.epoll_wait_calls++;
+		epoll_stats.epoll_wait_time_ns += (t_wait_end.tv_sec - t_wait_start.tv_sec) * 1000000000 + (t_wait_end.tv_nsec - t_wait_start.tv_nsec);
+		
 		if (ret <= 0) {
 			if (ret < 0)
 				pr_perror("polling failed");
@@ -1447,11 +1503,14 @@ int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout
 			events = evs[i].events;
 
 			if (events & EPOLLIN) {
+				epoll_stats.total_read_calls++;
 				ret = rfd->read_event(rfd);
 				if (ret < 0)
 					goto out;
-				if (ret > 0)
+				if (ret > 0) {
+					epoll_stats.total_read_success++;
 					have_a_break = true;
+				}
 			}
 
 			if (events & (EPOLLHUP | EPOLLRDHUP)) {

@@ -1651,7 +1651,7 @@ static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKf
 {
 	struct thread_data *thread_datas = NULL;
 	int thread_i, ret = 0;
-	int offset = 0;
+	uint64_t offset = 0;
 
 	for (int i = 0; i < e->num_of_bos; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
@@ -2283,7 +2283,7 @@ void *parallel_restore_bo_contents(void *_thread_data)
 			continue;
 
 		entry = &restore_cmd->entries[i];
-		fseek(bo_contents_fp, entry->read_offset + offset, SEEK_SET);
+		fseeko64(bo_contents_fp, entry->read_offset + offset, SEEK_SET);
 		ret = sdma_copy_bo(restore_cmd->fds_write[entry->write_id], entry->size, bo_contents_fp,
 				   buffer, buffer_size, h_dev,
 				   max_copy_size, SDMA_OP_VRAM_WRITE, false);

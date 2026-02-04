@@ -123,12 +123,28 @@ int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 
 static int advance(struct page_read *pr)
 {
+	pr_debug("[ADVANCE] pr%lu-%u: Before advance curr_pme=%d nr_pmes=%d\n",
+		 pr->img_id, pr->id, pr->curr_pme, pr->nr_pmes);
+	
 	pr->curr_pme++;
-	if (pr->curr_pme >= pr->nr_pmes)
+	
+	if (pr->curr_pme >= pr->nr_pmes) {
+		pr_debug("[ADVANCE] pr%lu-%u: Reached end (curr_pme=%d >= nr_pmes=%d)\n",
+			 pr->img_id, pr->id, pr->curr_pme, pr->nr_pmes);
 		return 0;
+	}
 
 	pr->pe = pr->pmes[pr->curr_pme];
 	pr->cvaddr = pr->pe->vaddr;
+
+	pr_debug("[ADVANCE] pr%lu-%u: Advanced to entry %d: vaddr=0x%lx nr_pages=%lu flags=0x%x (PE_PRESENT=%d PE_LAZY=%d PE_PARENT=%d)\n",
+		 pr->img_id, pr->id, pr->curr_pme,
+		 (unsigned long)pr->pe->vaddr,
+		 (unsigned long)pr->pe->nr_pages,
+		 pr->pe->flags,
+		 !!(pr->pe->flags & PE_PRESENT),
+		 !!(pr->pe->flags & PE_LAZY),
+		 !!(pr->pe->flags & PE_PARENT));
 
 	return 1;
 }
@@ -463,6 +479,44 @@ static int read_page_complete(unsigned long img_id, unsigned long vaddr, unsigne
 	return ret;
 }
 
+/* Bulk mode callback: simpler, no img_id validation needed */
+int bulk_page_complete(unsigned long img_id, unsigned long vaddr, unsigned long int nr_pages, void *priv)
+{
+	struct page_read *pr = priv;
+	
+	/* 
+	 * In bulk mode, pages arrive automatically in order from background thread.
+	 * No need for img_id validation - just call uffd_copy() directly via io_complete.
+	 */
+
+	if (pr->io_complete)
+		return pr->io_complete(pr, vaddr, nr_pages);
+	
+	pr_err("Bulk mode without io_complete callback!\n");
+	return -1;
+}
+
+/* Bulk transfer mode: pages arrive automatically from background thread */
+static int maybe_read_page_remote_bulk(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
+{
+	/* 
+	 * In bulk mode, the background thread sends all pages automatically.
+	 * We don't send individual requests - just wait for pages to arrive.
+	 * Use simpler callback that skips img_id validation.
+	 */
+	int ret = 0;
+	if (flags & PR_ASAP) {
+		pr_warn("pr%lu-%u Read %lx %lu maybe_read_page_remote_bulk\n", pr->img_id, pr->id, vaddr, nr);
+		ret = request_remote_pages(pr->img_id, vaddr, nr);
+	}
+
+	if (!ret) {
+		ret = page_server_start_read(buf, nr, bulk_page_complete, pr, flags);
+	}
+	return ret;
+}
+
+/* On-demand transfer mode: request individual pages as needed */
 static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
 {
 	int ret;
@@ -554,8 +608,37 @@ static int process_async_reads(struct page_read *pr)
 		}
 
 		if (ret < 0) {
+			int i;
 			pr_err("Can't read async pr bytes (%zd / %ju read, %ju off, %d iovs)\n", ret,
 			       piov->end - piov->from, piov->from, piov->nr);
+			
+			/* Print all target addresses that failed */
+			pr_err("Failed to read for virtual addresses:\n");
+			for (i = 0; i < piov->nr; i++) {
+				unsigned long vaddr = (unsigned long)piov->to[i].iov_base;
+				size_t len = piov->to[i].iov_len;
+				off_t file_off = piov->from;
+				
+				/* Calculate file offset for this specific iovec */
+				if (i > 0) {
+					int j;
+					for (j = 0; j < i; j++)
+						file_off += piov->to[j].iov_len;
+				}
+				
+				pr_err("  [%d] vaddr=0x%lx len=%zu (file_off=%ju)\n",
+				       i, vaddr, len, (uintmax_t)file_off);
+			}
+			
+			/* If we have pagemap context, print it */
+			if (pr->pe) {
+				pr_err("Current pagemap entry: vaddr=0x%lx nr_pages=%lu flags=0x%x (PE_PRESENT=%d PE_LAZY=%d)\n",
+				       (unsigned long)pr->pe->vaddr, (unsigned long)pr->pe->nr_pages,
+				       pr->pe->flags,
+				       !!(pr->pe->flags & PE_PRESENT),
+				       !!(pr->pe->flags & PE_LAZY));
+			}
+			
 			return -1;
 		}
 
@@ -833,11 +916,19 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->id = ids++;
 	pr->img_id = img_id;
 
-	if (remote)
-		pr->maybe_read_page = maybe_read_page_remote;
-	else if (opts.stream)
+	if (remote) {
+		
+		/* Choose appropriate page read function based on mode */
+		if (opts.cow_dump) {
+			/* Bulk mode: pages arrive automatically from background thread */
+			pr->maybe_read_page = maybe_read_page_remote_bulk;
+		} else {
+			/* On-demand mode: request pages individually as needed */
+			pr->maybe_read_page = maybe_read_page_remote;
+		}
+	} else if (opts.stream) {
 		pr->maybe_read_page = maybe_read_page_img_streamer;
-	else {
+	} else {
 		pr->maybe_read_page = maybe_read_page_local;
 		if (!pr->parent && !opts.lazy_pages)
 			pr->pieok = true;

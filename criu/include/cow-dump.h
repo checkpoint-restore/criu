@@ -17,6 +17,17 @@ struct cow_page {
 	struct hlist_node hash;
 };
 
+/* Forward declaration */
+struct page_pipe_buf;
+
+/* Queue entry for COW pages waiting to be sent */
+struct cow_page_queue_entry {
+	unsigned long vaddr;
+	struct page_pipe_buf *ppb;      /* Buffer containing this page */
+	unsigned int seg_idx;            /* Segment index within buffer */
+	unsigned long page_idx_in_seg;   /* Page index within segment */
+	struct list_head list;
+};
 
 /**
  * cow_dump_init - Initialize COW dump for a process
@@ -79,6 +90,26 @@ extern int cow_stop_monitor_thread(void);
 extern int cow_get_uffd(void);
 
 /**
+ * cow_lookup_page - Look up a COW page without removing it
+ * @vaddr: Virtual address of the page
+ *
+ * Look up a page in the COW hash table without removing it.
+ * IMPORTANT: Caller must hold the hash bucket lock for this page.
+ *
+ * Returns: cow_page structure on success, NULL if not found
+ */
+extern struct cow_page *cow_lookup_page(unsigned long vaddr);
+
+/**
+ * cow_remove_page - Remove and free a COW page
+ * @vaddr: Virtual address of the page
+ *
+ * Remove a page from the COW hash table and free its memory.
+ * IMPORTANT: Caller must hold the hash bucket lock for this page.
+ */
+extern void cow_remove_page(unsigned long vaddr);
+
+/**
  * cow_lookup_and_remove_page - Look up and remove a COW page
  * @vaddr: Virtual address of the page
  *
@@ -89,5 +120,55 @@ extern int cow_get_uffd(void);
  * Returns: cow_page structure on success, NULL if not found
  */
 extern struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr);
+
+/**
+ * cow_get_hash_lock - Get pointer to the spinlock for a page's hash bucket
+ * @vaddr: Virtual address of the page
+ *
+ * Returns the spinlock that protects the hash bucket for the given address.
+ * Used for manual locking around cow_lookup_page/cow_remove_page.
+ *
+ * Returns: Pointer to the spinlock
+ */
+extern pthread_spinlock_t *cow_get_hash_lock(unsigned long vaddr);
+
+struct cow_page_queue_entry;
+
+/**
+ * cow_get_next_page - Get next COW page from the queue
+ *
+ * Thread-safe dequeue of the next COW page that needs to be sent.
+ * The caller is responsible for freeing the returned entry.
+ *
+ * Returns: cow_page_queue_entry on success, NULL if queue is empty
+ */
+extern struct cow_page_queue_entry *cow_get_next_page(void);
+
+/**
+ * cow_has_pending_pages - Check if there are pending COW pages
+ *
+ * Thread-safe check for whether the COW page queue has any entries.
+ *
+ * Returns: true if there are pending pages, false otherwise
+ */
+extern bool cow_has_pending_pages(void);
+
+/**
+ * cow_put_back_page - Put a COW page back in the queue
+ * @entry: Queue entry to re-queue
+ *
+ * Thread-safe re-insertion of a COW page at the head of the queue.
+ * Used when a page doesn't belong to the current image being processed.
+ */
+extern void cow_put_back_page(struct cow_page_queue_entry *entry);
+
+/**
+ * cow_get_queue_size - Get the number of pending COW pages in the queue
+ *
+ * Thread-safe count of COW pages waiting to be sent.
+ *
+ * Returns: Number of entries in the COW page queue
+ */
+extern unsigned long cow_get_queue_size(void);
 
 #endif /* __CR_COW_DUMP_H_ */

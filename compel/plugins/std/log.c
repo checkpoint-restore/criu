@@ -1,6 +1,7 @@
 #include <stdarg.h>
 
 #include "common/bitsperlong.h"
+#include "common/lock.h"
 #include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/string.h>
 #include <compel/plugins/std/log.h>
@@ -17,6 +18,7 @@ static int logfd = -1;
 static int cur_loglevel = COMPEL_DEFAULT_LOGLEVEL;
 static struct timeval start;
 static gettimeofday_t __std_gettimeofday;
+static spinlock_t log_lock = SPINLOCK_INIT;
 
 static void sbuf_log_flush(struct simple_buf *b);
 
@@ -117,23 +119,32 @@ static void sbuf_putc(struct simple_buf *b, char c)
 
 void std_log_set_fd(int fd)
 {
+	spin_lock(&log_lock);
 	sys_close(logfd);
 	logfd = fd;
+	spin_unlock(&log_lock);
 }
 
 void std_log_set_loglevel(enum __compel_log_levels level)
 {
+	spin_lock(&log_lock);
 	cur_loglevel = level;
+	spin_unlock(&log_lock);
 }
 
 void std_log_set_start(struct timeval *s)
 {
+	spin_lock(&log_lock);
 	start = *s;
+	spin_unlock(&log_lock);
 }
 
 void std_log_set_gettimeofday(gettimeofday_t gtod)
 {
+	spin_lock(&log_lock);
 	__std_gettimeofday = gtod;
+	spin_unlock(&log_lock);
+
 }
 
 int std_gettimeofday(struct timeval *tv, struct timezone *tz)
@@ -368,7 +379,7 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 
 	if (loglevel > cur_loglevel)
 		return;
-
+	spin_lock(&log_lock);
 	sbuf_log_init(&b);
 
 	va_start(args, format);
@@ -376,6 +387,7 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 	va_end(args);
 
 	sbuf_log_flush(&b);
+	spin_unlock(&log_lock);
 }
 
 void std_sprintf(char output[STD_LOG_SIMPLE_CHUNK], const char *format, ...)

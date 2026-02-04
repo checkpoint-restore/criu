@@ -15,6 +15,20 @@ struct page_pipe;
 struct pstree_item;
 struct vma_area;
 
+struct lazy_vma_entry {
+	int magic;
+	uint64_t start;
+  	uint64_t end;
+	struct list_head list;
+	struct vma_area *vma;
+	unsigned char *sent_bitmap;   /* Track which pages have been sent */
+	unsigned long total_pages;    /* Total pages in this VMA */
+	u64 dst_id;                   /* Process identifier for this VMA */
+	pid_t source_pid;             /* PID for process_vm_readv */	
+	int magic_end;
+};
+
+
 struct mem_dump_ctl {
 	bool pre_dump;
 	bool lazy;
@@ -57,5 +71,11 @@ struct page_info {
 };
 
 int should_dump_page(pmc_t *pmc, VmaEntry *vmae, u64 vaddr, struct page_info *page_info);
+
+/* Global lazy VMA lookup for COW dump */
+extern struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id);
+extern void verify_vmas(char* file, int line);
+extern unsigned long count_lazy_vma_pages(u64 dst_id);
+struct list_head* get_global_lazy_vmas(void);
 
 #endif /* __CR_MEM_H__ */

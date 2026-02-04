@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/prctl.h>
+#include <pthread.h>
 
 #include "types.h"
 #include "cr_options.h"
@@ -35,6 +36,107 @@
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
+
+/* Global lazy VMA list for COW dump */
+static LIST_HEAD(global_lazy_vmas);
+static pthread_spinlock_t lazy_vmas_lock;
+static bool lazy_vmas_lock_initialized = false;
+
+static void init_global_lazy_vmas(void)
+{
+	if (!lazy_vmas_lock_initialized) {
+		pthread_spin_init(&lazy_vmas_lock, PTHREAD_PROCESS_PRIVATE);
+		lazy_vmas_lock_initialized = true;
+	}
+}
+
+struct list_head* get_global_lazy_vmas(void) {
+	return &global_lazy_vmas;
+}
+
+/* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
+void verify_vmas(char* file, int line)
+{
+	struct lazy_vma_entry *lve;
+	
+	if (!lazy_vmas_lock_initialized){
+		pr_err("Lazy VMA lock was not initilized\n");
+
+		return;
+	}
+	pr_err("verify_vmas file = %s, line = %d\n", file, line);
+	pthread_spin_lock(&lazy_vmas_lock);
+
+	list_for_each_entry(lve, &global_lazy_vmas, list) {		
+		if (lve->magic != 0xdeadbeaf || lve->magic_end != 0x12345678){
+				struct lazy_vma_entry *lve1;
+				pr_err("lve->magic=0x%x lve->end_magic=%x \n", lve->magic, lve->magic_end);
+				list_for_each_entry(lve1, &global_lazy_vmas, list) {
+					pr_err("VMA start=0x%lx end=%lx \n", lve1->start, lve1->end);
+				}
+				pthread_spin_unlock(&lazy_vmas_lock);
+				exit(0);
+
+		}
+	}
+	pthread_spin_unlock(&lazy_vmas_lock);
+}
+
+/* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
+struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
+{
+	struct lazy_vma_entry *lve;
+	
+	if (!lazy_vmas_lock_initialized){
+		pr_err("Lazy VMA lock was not initialized  and not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
+
+		return NULL;
+	}
+//	verify_vmas(__FILE__, __LINE__);
+	pthread_spin_lock(&lazy_vmas_lock);
+
+	list_for_each_entry(lve, &global_lazy_vmas, list) {
+
+		if (vaddr >= lve->start && 
+		    vaddr < lve->end) { // && 		    lve->dst_id == dst_id) {
+			pthread_spin_unlock(&lazy_vmas_lock);
+			pr_debug("Lazy VMA was found for vaddr=0x%lx dst_id=%lu lve=0x%p\n", vaddr, dst_id, lve);
+
+			return lve;
+		}
+	}
+
+	list_for_each_entry(lve, &global_lazy_vmas, list) {
+		pr_err("lve->magic=0x%x lve->end_magic=%x \n", lve->magic, lve->magic_end);
+		pr_err("VMA start=0x%lx end=%lx \n", lve->start, lve->end);
+	}
+
+	pthread_spin_unlock(&lazy_vmas_lock);
+	
+	pr_err("Lazy VMA not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
+	return NULL;
+}
+
+/* Count total pages in lazy VMAs for a given dst_id (exported for page-xfer.c) */
+unsigned long count_lazy_vma_pages(u64 dst_id)
+{
+	struct lazy_vma_entry *lve;
+	unsigned long total_pages = 0;
+	
+	if (!lazy_vmas_lock_initialized)
+		return 0;
+	
+	pthread_spin_lock(&lazy_vmas_lock);
+	list_for_each_entry(lve, &global_lazy_vmas, list) {
+		//if (lve->dst_id == dst_id) {
+			unsigned long vma_pages = vma_entry_len(lve->vma->e) / PAGE_SIZE;
+			total_pages += vma_pages;
+		//}
+	}
+	pthread_spin_unlock(&lazy_vmas_lock);
+	
+	return total_pages;
+}
 
 static int task_reset_dirty_track(int pid)
 {
@@ -219,25 +321,117 @@ static bool is_stack(struct pstree_item *item, unsigned long vaddr)
  */
 
 static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct page_pipe *pp, pmc_t *pmc, u64 *pvaddr,
-			 bool has_parent)
+			 bool has_parent, struct page_xfer *xfer)
 {
 	unsigned long nr_scanned;
 	unsigned long pages[3] = {};
 	unsigned long vaddr;
 	bool dump_all_pages;
 	int ret = 0;
+	unsigned long vma_start = *pvaddr;
+	unsigned long pages_skipped = 0;
+	struct timeval loop_start, loop_checkpoint;
+	unsigned long should_dump_time_us = 0;
+	unsigned long pipe_add_time_us = 0;
+	unsigned long pages_processed_since_report = 0;
+
+	int lazy_capable = vma_entry_can_be_lazy(vma->e) &&
+	    !vma_area_is(vma, VMA_AREA_GUARD) &&
+		(vma->e->prot & PROT_WRITE) &&
+		!(!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED)) &&
+		!(vma->e->flags & MAP_DROPPABLE) &&
+		(vma->e->prot & PROT_READ) && !is_stack(item, vma_start);
+
 
 	dump_all_pages = should_dump_entire_vma(vma->e);
 
+	pr_debug("generate_iovs: VMA 0x%llx-0x%llx (start=0x%llx) dump_all=%d has_parent=%d lazy_capable=%d flags=0x%x prot=0x%x\n",
+		(unsigned long long)vma->e->start, (unsigned long long)vma->e->end,
+		(unsigned long long)vma_start, dump_all_pages, has_parent,
+		lazy_capable, vma->e->flags, vma->e->prot);
+
+	/*
+	 * COW-dump optimization: Skip expensive per-page pagemap scanning.
+	 * Create one iov for entire VMA and detect holes lazily on-demand
+	 * when trying to read pages via process_vm_readv.
+	 * 
+	 * Note: We don't use pipes in COW mode - pages are read directly
+	 * via process_vm_readv on-demand, so ppb->pages_in stays 0.
+	 *
+	 * IMPORTANT: VMAs marked with dump_all_pages (VDSO, AIORING) must use
+	 * traditional dump because they're read-only and won't generate write
+	 * faults for COW tracking. Their content must be captured immediately.
+	 */
+
+	if (opts.cow_dump && lazy_capable) {
+		struct lazy_vma_entry *lve = xmalloc(sizeof(*lve));
+		unsigned long nr_pages, bitmap_size;
+		
+		if (!lve)
+			return -1;
+		
+		/* Initialize global list on first use */
+		init_global_lazy_vmas();
+		lve->magic = 0xdeadbeaf;
+		lve->magic_end = 0x12345678;
+		lve->vma = vma;
+		nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
+		lve->total_pages = nr_pages;
+		
+		/* Store dst_id and source_pid for this lazy VMA */
+		lve->dst_id = xfer ? xfer->dst_id : 0;
+		lve->source_pid = item->pid->real;
+		
+		/* Allocate sent bitmap for this VMA */
+		bitmap_size = (nr_pages + 7) / 8;
+		lve->sent_bitmap = xzalloc(bitmap_size);
+		if (!lve->sent_bitmap) {
+			xfree(lve);
+			return -1;
+		}
+
+		lve->start = vma->e->start;
+		lve->end = vma->e->end;
+		
+		/* Add to global list (thread-safe) */
+		pthread_spin_lock(&lazy_vmas_lock);
+		list_add_tail(&lve->list, &global_lazy_vmas);
+		pthread_spin_unlock(&lazy_vmas_lock);
+		
+		pr_warn("Added lazy VMA 0x%llx-0x%llx to global list (%lu pages, %lu byte bitmap, dst_id=%lu, pid=%d)\n",
+			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages, bitmap_size,
+			(unsigned long)lve->dst_id, lve->source_pid);
+		nr_scanned = 0;
+		for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {
+			if (is_stack(item, vaddr)) {
+				pr_err("stack oh no exit\n");
+				exit(0);
+			}
+		}
+
+		return 0;
+	}
+
+	gettimeofday(&loop_start, NULL);
+	loop_checkpoint = loop_start;
+	
 	nr_scanned = 0;
 	for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {
+		struct timeval t1, t2, t_delta;
 		unsigned int ppb_flags = 0;
 		struct page_info page_info = {};
 		int st;
 
+		/* Timing: should_dump_page */
+		gettimeofday(&t1, NULL);
+		
 		/* If dump_all_pages is true, should_dump_page is called to get pme. */
 		if (should_dump_page(pmc, vma->e, vaddr, &page_info))
 			return -1;
+		
+		gettimeofday(&t2, NULL);
+		timersub(&t2, &t1, &t_delta);
+		should_dump_time_us += t_delta.tv_sec * 1000000 + t_delta.tv_usec;
 
 		if (!dump_all_pages && page_info.next != vaddr) {
 			vaddr = page_info.next - PAGE_SIZE;
@@ -254,6 +448,9 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		 * page. The latter would be checked in page-xfer.
 		 */
 
+		/* Timing: page_pipe_add_* */
+		gettimeofday(&t1, NULL);
+		
 		if (has_parent && page_in_parent(page_info.softdirty)) {
 			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
 			st = 0;
@@ -264,6 +461,10 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 			else
 				st = 2;
 		}
+		
+		gettimeofday(&t2, NULL);
+		timersub(&t2, &t1, &t_delta);
+		pipe_add_time_us += t_delta.tv_sec * 1000000 + t_delta.tv_usec;
 
 		if (ret) {
 			/* Do not do pfn++, just bail out */
@@ -272,6 +473,23 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		}
 
 		pages[st]++;
+		pages_processed_since_report++;
+		
+		/* Report progress every 100K pages */
+		if (pages_processed_since_report >= 100000) {
+			struct timeval now, elapsed;
+			gettimeofday(&now, NULL);
+			timersub(&now, &loop_checkpoint, &elapsed);
+			
+			pr_warn("  Progress: %lu pages scanned, %lu pages written, elapsed: %ld.%06ld s (should_dump: %lu us, pipe_add: %lu us)\n",
+				nr_scanned, pages[2] + pages[1], elapsed.tv_sec, elapsed.tv_usec,
+				should_dump_time_us, pipe_add_time_us);
+			
+			loop_checkpoint = now;
+			pages_processed_since_report = 0;
+			should_dump_time_us = 0;
+			pipe_add_time_us = 0;
+		}
 	}
 
 	*pvaddr = vaddr;
@@ -280,7 +498,18 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	cnt_add(CNT_PAGES_LAZY, pages[1]);
 	cnt_add(CNT_PAGES_WRITTEN, pages[2]);
 
-	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes\n", pages[2] + pages[1], pages[1], pages[0]);
+	{
+		struct timeval loop_end, total_loop_time;
+		gettimeofday(&loop_end, NULL);
+		timersub(&loop_end, &loop_start, &total_loop_time);
+		
+		pr_debug("generate_iovs complete: VMA 0x%llx-0x%llx: %lu pages (%lu lazy) %lu holes, %lu skipped, total_loop_time: %ld.%06ld s (should_dump_total: %lu us, pipe_add_total: %lu us)\n",
+			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end,
+			pages[2] + pages[1], pages[1], pages[0], pages_skipped,
+			total_loop_time.tv_sec, total_loop_time.tv_usec,
+			should_dump_time_us, pipe_add_time_us);
+	}
+	
 	return ret;
 }
 
@@ -506,7 +735,7 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma, str
 		return add_shmem_area(item->pid->real, vma->e, pmc);
 	vaddr = vma->e->start;
 again:
-	ret = generate_iovs(item, vma, pp, pmc, &vaddr, has_parent);
+	ret = generate_iovs(item, vma, pp, pmc, &vaddr, has_parent, xfer);
 	if (ret == -EAGAIN) {
 		BUG_ON(!(pp->flags & PP_CHUNK_MODE));
 
@@ -536,11 +765,13 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	int possible_pid_reuse = 0;
 	bool has_parent;
 	int parent_predump_mode = -1;
+	struct timeval t_start, t_checkpoint;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid->real);
 	pr_info("----------------------------------------\n");
 
+	gettimeofday(&t_start, NULL);
 	timing_start(TIME_MEMDUMP);
 
 	pr_debug("   Private vmas %lu/%lu pages\n", vma_area_list->nr_priv_pages_longest, vma_area_list->nr_priv_pages);
@@ -560,9 +791,18 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		 * use, i.e. on non-lazy non-predump.
 		 */
 		cpp_flags |= PP_CHUNK_MODE;
+	
+	gettimeofday(&t_checkpoint, NULL);
 	pp = create_page_pipe(vma_area_list->nr_priv_pages, mdc->lazy ? NULL : pargs_iovs(args), cpp_flags);
 	if (!pp)
 		goto out;
+	
+	{
+		struct timeval t_now, t_delta;
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_info("TIMING: create_page_pipe took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	}
 
 	if (!mdc->pre_dump) {
 		/*
@@ -598,16 +838,45 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	if (mdc->parent_ie)
 		parent_predump_mode = mdc->parent_ie->pre_dump_mode;
 
-	list_for_each_entry(vma_area, &vma_area_list->h, list) {
-		if (vma_area_is(vma_area, VMA_AREA_GUARD))
-			continue;
+	gettimeofday(&t_checkpoint, NULL);
+	{
+		int vma_count = 0;
+		list_for_each_entry(vma_area, &vma_area_list->h, list) {
+			struct timeval vma_start, vma_end, vma_delta;
+			
+			if (vma_area_is(vma_area, VMA_AREA_GUARD))
+				continue;
 
-		ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl, &pmc, has_parent, mdc->pre_dump,
-					parent_predump_mode);
-		if (ret < 0)
-			goto out_xfer;
+			vma_count++;
+			gettimeofday(&vma_start, NULL);
+			
+			ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl, &pmc, has_parent, mdc->pre_dump,
+						parent_predump_mode);
+			
+			gettimeofday(&vma_end, NULL);
+			timersub(&vma_end, &vma_start, &vma_delta);
+			
+			if (vma_delta.tv_sec > 0 || vma_delta.tv_usec > 100000) {
+				pr_warn("TIMING: VMA #%d [0x%llx-0x%llx] len=%llu pages took %ld.%06ld seconds\n",
+					vma_count, 
+					(unsigned long long)vma_area->e->start,
+					(unsigned long long)vma_area->e->end,
+					(unsigned long long)(vma_area->e->end - vma_area->e->start) / PAGE_SIZE,
+					vma_delta.tv_sec, vma_delta.tv_usec);
+			}
+			
+			if (ret < 0)
+				goto out_xfer;
+		}
 	}
 
+	{
+		struct timeval t_now, t_delta;
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_err("TIMING: generate_vma_iovs loop took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	}
+	pr_info("generate_vma_iovs ended\n");
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
 
@@ -617,15 +886,35 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * actual optimization which reduces time for which process was frozen
 	 * during pre-dump.
 	 */
+	pr_err("pargs_iovs ended\n");
+
+	gettimeofday(&t_checkpoint, NULL);
 	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ)
 		ret = 0;
 	else
 		ret = drain_pages(pp, ctl, args);
-
+	
+	{
+		struct timeval t_now, t_delta;
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_info("TIMING: drain_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	}
+	pr_info("drain_pages ended\n");
+	
+	gettimeofday(&t_checkpoint, NULL);
 	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
+	
+	{
+		struct timeval t_now, t_delta;
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_info("TIMING: xfer_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	}
 	if (ret)
 		goto out_xfer;
+	pr_info("xfer_pages ended\n");
 
 	timing_stop(TIME_MEMDUMP);
 
@@ -643,11 +932,12 @@ out_xfer:
 out_pp:
 	if (ret || !(mdc->pre_dump || mdc->lazy))
 		destroy_page_pipe(pp);
-	else
-		dmpi(item)->mem_pp = pp;
+	else {
+		dmpi(item)->mem_pp = pp;		
+	}
 out:
 	pmc_fini(&pmc);
-	pr_info("----------------------------------------\n");
+	pr_info("Dumping pages done ----------------------------------------\n");
 	return exit_code;
 }
 
@@ -698,8 +988,8 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 	 * 9. syscall fails to copy
 	 *    data from M
 	 */
-	
-	if ((pargs->nr_vmas != 0) &&(!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE)) {
+
+	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
 		pargs->add_prot = PROT_READ;
 		ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
 		if (ret) {
@@ -719,7 +1009,8 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 		/* Parasite will unprotect VMAs after fail in fini() */
 		return ret;
 	}
-	if ((pargs->nr_vmas != 0) &&(!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE)) {	
+
+	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
 		pargs->add_prot = 0;
 		if (compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
 			pr_err("Can't rollback unprotected vmas with parasite\n");
@@ -1537,6 +1828,24 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 	}
 
 	return prepare_vma_ios(t, ta);
+}
+
+/* Cleanup function for global lazy VMA list */
+void free_global_lazy_vmas(void)
+{
+	struct lazy_vma_entry *lve, *tmp;
+	
+	if (!lazy_vmas_lock_initialized)
+		return;
+	
+	pthread_spin_lock(&lazy_vmas_lock);
+	list_for_each_entry_safe(lve, tmp, &global_lazy_vmas, list) {
+		list_del(&lve->list);
+		if (lve->sent_bitmap)
+			xfree(lve->sent_bitmap);
+		xfree(lve);
+	}
+	pthread_spin_unlock(&lazy_vmas_lock);
 }
 
 int collect_madv_guards(pid_t pid, struct vm_area_list *vma_area_list)
