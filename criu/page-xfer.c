@@ -2008,20 +2008,39 @@ static int send_single_lazy_page(struct active_image *img,
 }
 
 /* Send completion marker to destination */
-static void send_image_complete(struct active_image *img)
+static int send_image_complete(struct active_image *img)
 {
-	struct page_server_iov end_marker = {
-		.cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
+	struct page_server_iov close_cmd = {
+		.cmd = PS_IOV_CLOSE,
 		.nr_pages = 0,
 		.vaddr = 0,
 		.dst_id = img->dst_id,
 	};
+	int32_t status;
 
-	pr_warn("Image dst_id=%lu complete: %lu total pages\n",
-		img->dst_id, img->total_pages);
+	pr_warn("Image dst_id=%lu complete: %lu total pages (%lu COW, %lu req)\n",
+		img->dst_id, img->total_pages,
+		img->total_cow_pages, img->total_req_pages);
 
-	send_psi(img->main_sk, &end_marker);
-	tcp_nodelay(img->main_sk, true);
+	/* Send close command */
+	if (send_psi(img->main_sk, &close_cmd)) {
+		pr_err("Failed to send close command\n");
+		return -1;
+	}
+
+	/* Wait for acknowledgment from receiver */
+	if (__recv(img->main_sk, &status, sizeof(status), MSG_WAITALL) != sizeof(status)) {
+		pr_perror("Failed to receive close acknowledgment");
+		return -1;
+	}
+
+	if (status != 0) {
+		pr_err("Receiver reported error status: %d\n", status);
+		return -1;
+	}
+
+	pr_info("Image dst_id=%lu transfer confirmed by receiver\n", img->dst_id);
+	return 0;
 }
 
 /*
@@ -2124,7 +2143,9 @@ static void *unified_page_server_thread(void *arg)
 			/* Check if complete */
 			if (img->remaining_pages == 0) {
 				pthread_spin_unlock(&active_images_lock);
-				send_image_complete(img);
+				if (send_image_complete(img) < 0)
+					pr_err("Failed to complete image dst_id=%lu\n",
+					       img->dst_id);
 				pthread_spin_lock(&active_images_lock);
 			}
 
