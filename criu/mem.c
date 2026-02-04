@@ -128,10 +128,11 @@ unsigned long count_lazy_vma_pages(u64 dst_id)
 	
 	pthread_spin_lock(&lazy_vmas_lock);
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
-		//if (lve->dst_id == dst_id) {
-			unsigned long vma_pages = vma_entry_len(lve->vma->e) / PAGE_SIZE;
-			total_pages += vma_pages;
-		//}
+		/*
+		 * Use pre-stored total_pages instead of lve->vma->e which
+		 * may be a dangling pointer after VMA structures are freed.
+		 */
+		total_pages += lve->total_pages;
 	}
 	pthread_spin_unlock(&lazy_vmas_lock);
 	
