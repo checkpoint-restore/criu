@@ -553,7 +553,7 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 	if (kdat.has_inotify_setnextwd) {
 		if (ioctl(inotify_fd, INOTIFY_IOC_SETNEXTWD, iwe->wd)) {
 			pr_perror("Can't set next inotify wd");
-			return -1;
+			goto err;
 		}
 	}
 
@@ -573,7 +573,7 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 		}
 
 		if (kdat.has_inotify_setnextwd)
-			return -1;
+			goto err;
 
 		inotify_rm_watch(inotify_fd, wd);
 	}
