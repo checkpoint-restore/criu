@@ -41,6 +41,10 @@ for i in $(seq 1 40); do
   fi
   sleep 0.25
 done
+if ! valkey-cli -h 127.0.0.1 -p "$VALKEY_PORT" ping &>/dev/null; then
+  log "ERROR: valkey-server not responding on port $VALKEY_PORT"
+  exit 1
+fi
 
 # Step 3: Fill using valkey-benchmark
 # Empirical: ~25300 keys per GB with 64KB values (includes overhead)

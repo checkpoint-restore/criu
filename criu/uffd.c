@@ -1915,6 +1915,8 @@ int lazy_pages_finish_restore(void)
 			return 0;
 		}
 		pr_perror("Failed sending restore finished indication");
+		close(fd);
+		return -1;
 	}
 
 	close(fd);
