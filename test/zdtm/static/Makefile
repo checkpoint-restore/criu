@@ -39,6 +39,7 @@ TST_NOFILE	:=				\
 		socket_udp_shutdown		\
 		socket_icmp			\
 		socket6_icmp			\
+		socket_udp_multicast		\
 		sk-freebind			\
 		sk-freebind-false		\
 		socket_udplite			\
