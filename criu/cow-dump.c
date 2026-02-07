@@ -61,6 +61,7 @@ static struct cow_dump_info *g_cow_info = NULL;
 static pthread_t g_monitor_thread;
 static volatile bool g_monitor_thread_running = false;
 static volatile bool g_stop_monitoring = false;
+static pthread_mutex_t g_monitor_state_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
 #define COW_FLUSH_THRESHOLD 1000       /* Flush to disk every 1000 pages */
@@ -183,6 +184,14 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	unsigned int i;
 
 	pr_info("Initializing COW dump for pid %d (via parasite)\n", item->pid->real);
+
+	pthread_mutex_lock(&g_monitor_state_lock);
+	if (g_monitor_thread_running) {
+		pthread_mutex_unlock(&g_monitor_state_lock);
+		pr_err("COW monitor thread is already running; refusing late task registration\n");
+		return -1;
+	}
+	pthread_mutex_unlock(&g_monitor_state_lock);
 
 	if (!cdi) {
 		if (!cow_check_kernel_support()) {
@@ -399,7 +408,10 @@ void cow_dump_fini(void)
 	if (!g_cow_info)
 		return;
 
-	cow_stop_monitor_thread();
+	if (cow_stop_monitor_thread()) {
+		pr_err("Failed to stop COW monitor thread, skipping COW cleanup to avoid races\n");
+		return;
+	}
 
 	pr_info("Cleaning up COW dump\n");
 
@@ -718,28 +730,36 @@ int cow_start_monitor_thread(void)
 {
 	int ret;
 	
+	pthread_mutex_lock(&g_monitor_state_lock);
+
 	if (!g_cow_info) {
+		pthread_mutex_unlock(&g_monitor_state_lock);
 		pr_err("COW dump not initialized\n");
 		return -1;
 	}
 
 	if (list_empty(&g_cow_info->tracked_tasks)) {
+		pthread_mutex_unlock(&g_monitor_state_lock);
 		pr_err("COW tracking has no registered tasks\n");
 		return -1;
 	}
 
-	if (g_monitor_thread_running)
+	if (g_monitor_thread_running) {
+		pthread_mutex_unlock(&g_monitor_state_lock);
 		return 0;
+	}
 	
 	g_stop_monitoring = false;
 	
 	ret = pthread_create(&g_monitor_thread, NULL, cow_monitor_thread, g_cow_info);
 	if (ret) {
-		pr_perror("Failed to create COW monitor thread");
+		pthread_mutex_unlock(&g_monitor_state_lock);
+		pr_err("Failed to create COW monitor thread: %s\n", strerror(ret));
 		return -1;
 	}
 
 	g_monitor_thread_running = true;
+	pthread_mutex_unlock(&g_monitor_state_lock);
 	
 	pr_info("COW monitor thread created successfully\n");
 	return 0;
@@ -748,21 +768,32 @@ int cow_start_monitor_thread(void)
 int cow_stop_monitor_thread(void)
 {
 	void *retval;
+	pthread_t monitor_thread;
+	int ret;
 	
-	if (!g_monitor_thread_running)
+	pthread_mutex_lock(&g_monitor_state_lock);
+	if (!g_monitor_thread_running) {
+		g_stop_monitoring = false;
+		pthread_mutex_unlock(&g_monitor_state_lock);
 		return 0;
+	}
 	
 	pr_info("Stopping COW monitor thread\n");
 	g_stop_monitoring = true;
+	monitor_thread = g_monitor_thread;
+	pthread_mutex_unlock(&g_monitor_state_lock);
 	
 	/* Wait for thread to finish */
-	if (pthread_join(g_monitor_thread, &retval)) {
-		pr_perror("Failed to join COW monitor thread");
+	ret = pthread_join(monitor_thread, &retval);
+	if (ret && ret != ESRCH && ret != EINVAL) {
+		pr_err("Failed to join COW monitor thread: %s\n", strerror(ret));
 		return -1;
 	}
 
+	pthread_mutex_lock(&g_monitor_state_lock);
 	g_monitor_thread_running = false;
 	g_stop_monitoring = false;
+	pthread_mutex_unlock(&g_monitor_state_lock);
 	
 	pr_info("COW monitor thread stopped successfully\n");
 	return 0;
