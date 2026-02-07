@@ -13,6 +13,7 @@
 #include <time.h>
 #include <string.h>
 #include <pthread.h>
+#include <poll.h>
 #include <lz4.h>
 
 #undef LOG_PREFIX
@@ -46,6 +47,7 @@ static bool bulk_stream_done = false;
 #define BULK_STREAM_WOULD_BLOCK 0
 #define BULK_STREAM_PROGRESS 1
 #define BULK_STREAM_COMPLETE 2
+#define BULK_CLOSE_ACK_TIMEOUT_MS 5000
 
 /* Global compression statistics for stats printing */
 static unsigned long g_compress_uncompressed_bytes = 0;
@@ -1271,7 +1273,7 @@ static void check_and_print_stats(void)
 	time_t now = time(NULL);
 	
 	if (now - ps_stats.last_print_time >= 1) {
-		pr_warn("[PAGE_SERVER_STATS] get_pages: reqs=%lu with_cow=%lu no_cow=%lu pages=%lu cow=%lu errs=%lu | serve: open2=%lu parent=%lu add_f=%lu get=%lu close=%lu\n",
+		pr_debug("[PAGE_SERVER_STATS] get_pages: reqs=%lu with_cow=%lu no_cow=%lu pages=%lu cow=%lu errs=%lu | serve: open2=%lu parent=%lu add_f=%lu get=%lu close=%lu\n",
 			ps_stats.get_total_requests,
 			ps_stats.get_with_cow,
 			ps_stats.get_no_cow,
@@ -1862,7 +1864,7 @@ static void print_thread_stats(struct unified_thread_stats *stats)
 	clock_gettime(CLOCK_REALTIME, &ts);
 	tm = localtime(&ts.tv_sec);
 
-	pr_warn("[UNIFIED_THREAD_STATS] [%02d:%02d:%02d.%03ld] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu | Compress: %lu->%lu (%.1f%%)\n",
+	pr_debug("[UNIFIED_THREAD_STATS] [%02d:%02d:%02d.%03ld] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu | Compress: %lu->%lu (%.1f%%)\n",
 		tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
 		stats->priority1_pages, stats->priority2_pages,
 		stats->priority3_pages, stats->priority3_skips,
@@ -1870,13 +1872,13 @@ static void print_thread_stats(struct unified_thread_stats *stats)
 		g_compress_uncompressed_bytes, g_compress_compressed_bytes,
 		compress_ratio);
 
-	pr_warn("[COW_TIMING] Queue: %lu ns (%lu ops) | VMA_lookup: %lu ns (%lu ops) | Send: %lu ns (%lu ops)\n",
+	pr_debug("[COW_TIMING] Queue: %lu ns (%lu ops) | VMA_lookup: %lu ns (%lu ops) | Send: %lu ns (%lu ops)\n",
 		cow_timing.queue_dequeue_total_ns, cow_timing.queue_dequeue_count,
 		cow_timing.vma_lookup_total_ns, cow_timing.vma_lookup_count,
 		cow_timing.send_page_total_ns, cow_timing.send_page_count);
 
 	if (cow_timing.send_sub_count > 0) {
-		pr_warn("[SEND_BREAKDOWN] lock=%lu readv=%lu compress+send=%lu unprot=%lu unlock=%lu ns (avg per %lu ops)\n",
+		pr_debug("[SEND_BREAKDOWN] lock=%lu readv=%lu compress+send=%lu unprot=%lu unlock=%lu ns (avg per %lu ops)\n",
 			cow_timing.send_lock_ns / cow_timing.send_sub_count,
 			cow_timing.send_vm_readv_ns / cow_timing.send_sub_count,
 			cow_timing.send_compress_ns / cow_timing.send_sub_count,
@@ -2028,6 +2030,10 @@ static int send_image_complete(struct active_image *img)
 	};
 	int ret;
 	int32_t status;
+	struct pollfd pfd = {
+		.fd = img->main_sk,
+		.events = POLLIN | POLLHUP | POLLERR | POLLNVAL,
+	};
 
 	pr_warn("Image dst_id=%lu complete: %lu total pages (%lu COW, %lu req)\n",
 		img->dst_id, img->total_pages,
@@ -2043,6 +2049,33 @@ static int send_image_complete(struct active_image *img)
 	 * Preferred protocol: receiver replies with a 32-bit status ACK.
 	 * Backward-compatible fallback: older receivers may just close.
 	 */
+	while (1) {
+		ret = poll(&pfd, 1, BULK_CLOSE_ACK_TIMEOUT_MS);
+		if (ret < 0 && errno == EINTR)
+			continue;
+		break;
+	}
+	if (ret == 0) {
+		pr_err("Timed out waiting for close acknowledgment\n");
+		return -1;
+	}
+	if (ret < 0) {
+		pr_perror("Failed while waiting for close acknowledgment");
+		return -1;
+	}
+	if (pfd.revents & POLLNVAL) {
+		pr_err("Invalid socket while waiting for close acknowledgment\n");
+		return -1;
+	}
+	if (pfd.revents & POLLERR) {
+		pr_err("Socket error while waiting for close acknowledgment\n");
+		return -1;
+	}
+	if ((pfd.revents & POLLHUP) && !(pfd.revents & POLLIN)) {
+		pr_info("Receiver closed after close marker, treating as completion\n");
+		return 0;
+	}
+
 	while (1) {
 		ret = __recv(img->main_sk, &status, sizeof(status), MSG_WAITALL);
 		if (ret < 0 && errno == EINTR)
@@ -2355,7 +2388,7 @@ static int page_server_serve(int sk)
 			 * An answer must be sent back to inform another side,
 			 * that all data were received
 			 */
-			pr_perror("Got close sending status\n");
+			pr_info("Got close; sending completion status\n");
 			if (__send(sk, &status, sizeof(status), 0) != sizeof(status)) {
 				pr_perror("Can't send the final package");
 				ret = -1;
@@ -2942,7 +2975,7 @@ static void check_and_print_bulk_stats(void)
 		struct tm *tm;
 		clock_gettime(CLOCK_REALTIME, &ts);
 		tm = localtime(&ts.tv_sec);
-		pr_warn("[BULK_RECV_STATS] [%02d:%02d:%02d.%03ld] recv=%lu block=%lu bytes=%lu recv_wait_ns=%lu pages=%lu decomp=%lu decomp_ns=%lu cb=%lu\n",
+		pr_debug("[BULK_RECV_STATS] [%02d:%02d:%02d.%03ld] recv=%lu block=%lu bytes=%lu recv_wait_ns=%lu pages=%lu decomp=%lu decomp_ns=%lu cb=%lu\n",
 			tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
 			bulk_stats.recv_calls,
 			bulk_stats.recv_would_block,

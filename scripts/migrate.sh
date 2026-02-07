@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.env"
 
 DATA_SIZE_GB=${1:-$DEFAULT_DATA_SIZE_GB}
+CRIU_BIN=${CRIU_BIN:-criu}
 FAST_CUTOVER=${FAST_CUTOVER:-0}
 CUTOVER_PAUSE_MS=${CUTOVER_PAUSE_MS:-50}
 RUN_WORKLOAD_DURING_MIGRATION=${RUN_WORKLOAD_DURING_MIGRATION:-0}
@@ -18,6 +19,7 @@ WORKLOAD_CLIENTS=${WORKLOAD_CLIENTS:-64}
 WORKLOAD_PIPELINE=${WORKLOAD_PIPELINE:-16}
 WORKLOAD_DATA_SIZE=${WORKLOAD_DATA_SIZE:-1024}
 WORKLOAD_LOG_FILE=${WORKLOAD_LOG_FILE:-}
+CRIU_DUMP_STRACE_OUT=${CRIU_DUMP_STRACE_OUT:-}
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
 REPLICA_PING_POLL_INTERVAL_S=${REPLICA_PING_POLL_INTERVAL_S:-0.01}
 VALKEY_CMD_TIMEOUT_S=${VALKEY_CMD_TIMEOUT_S:-2}
@@ -27,6 +29,16 @@ SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 REPLICA_SSH_HOST="${REPLICA_IP:-$REPLICA_HOST}"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
+
+valkey_cmd()
+{
+	timeout "${VALKEY_CMD_TIMEOUT_S}s" valkey-cli -h 127.0.0.1 -p "$VALKEY_PORT" "$@"
+}
+
+valkey_ping_ok()
+{
+	valkey_cmd ping &>/dev/null
+}
 
 mark_cutover_event() {
   local event="$1"
@@ -53,8 +65,12 @@ stop_workload() {
 
 # Step 1: Kill on both
 log "Step 1: Kill processes..."
-if [ "$KEEP_SOURCE_RUNNING" = "1" ]; then
-  log "  Keeping source valkey-server running"
+if [ "$KEEP_SOURCE_RUNNING" = "1" ] || [ "$SKIP_FILL" = "1" ]; then
+  if [ "$SKIP_FILL" = "1" ] && [ "$KEEP_SOURCE_RUNNING" != "1" ]; then
+    log "  SKIP_FILL=1 requires preserving source dataset; keeping source valkey-server running"
+  else
+    log "  Keeping source valkey-server running"
+  fi
 else
   sudo pkill -9 valkey-server 2>/dev/null || true
 fi
@@ -79,12 +95,12 @@ if [ -z "$PID" ]; then
 fi
 log "  PID: $PID"
 for i in $(seq 1 40); do
-  if valkey-cli -h 127.0.0.1 -p "$VALKEY_PORT" ping &>/dev/null; then
+  if valkey_ping_ok; then
     break
   fi
   sleep 0.25
 done
-if ! valkey-cli -h 127.0.0.1 -p "$VALKEY_PORT" ping &>/dev/null; then
+if ! valkey_ping_ok; then
   log "ERROR: valkey-server not responding on port $VALKEY_PORT"
   exit 1
 fi
@@ -100,7 +116,10 @@ else
   log "  Keys: $NUM_KEYS, Ops: $NUM_OPS, Value size: 64KB"
   valkey-benchmark -h 127.0.0.1 -p "$VALKEY_PORT" -t set -d 64000 -r $NUM_KEYS -n $NUM_OPS --threads 10 -q
 fi
-MEM=$(valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
+MEM=$(valkey_cmd info memory 2>/dev/null | grep used_memory_human | cut -d: -f2 | tr -d '\r')
+if [ -z "${MEM:-}" ]; then
+  MEM="unknown"
+fi
 log "  Memory: $MEM"
 
 # Step 4: Clean images dir
@@ -149,7 +168,7 @@ log "Step 6: CRIU dump..."
 PID=""
 for i in $(seq 1 40); do
   PID=$(pgrep -x valkey-server || true)
-  if [ -n "$PID" ] && valkey-cli -h 127.0.0.1 -p "$VALKEY_PORT" ping &>/dev/null; then
+  if [ -n "$PID" ] && valkey_ping_ok; then
     break
   fi
   sleep 0.25
@@ -163,18 +182,41 @@ sudo gdb -p $PID -batch -ex "call close(12)" -ex "call close(13)" -ex detach -ex
 sudo taskset -pc 0 $PID >/dev/null 2>&1 || true
 sudo touch "$IMAGES_DIR/lazy-primary.log"
 sudo chmod 644 "$IMAGES_DIR/lazy-primary.log"
-# Run dump - cow-dump keeps running, we'll kill it after restore
-sudo criu dump \
-    --tree $PID \
-    --images-dir "$IMAGES_DIR" \
-    --cow-dump \
-    --lazy-pages \
-    --address "$PRIMARY_IP" \
-    --port $CRIU_PORT \
-    --tcp-close \
-    --ext-unix-sk \
-    --leave-running \
-    -v2 -o "$IMAGES_DIR/lazy-primary.log" &
+# Run dump - cow-dump keeps running, we'll kill it after restore.
+# Optional syscall profiling can be enabled via CRIU_DUMP_STRACE_OUT.
+CRIU_DUMP_CMD=(
+  sudo "$CRIU_BIN" dump
+  --tree "$PID"
+  --images-dir "$IMAGES_DIR"
+  --cow-dump
+  --lazy-pages
+  --address "$PRIMARY_IP"
+  --port "$CRIU_PORT"
+  --tcp-close
+  --ext-unix-sk
+  --leave-running
+  -v2 -o "$IMAGES_DIR/lazy-primary.log"
+)
+
+if [ -n "$CRIU_DUMP_STRACE_OUT" ]; then
+  log "  Enabling dump strace: $CRIU_DUMP_STRACE_OUT"
+  CRIU_DUMP_CMD=(
+    sudo strace -ff -yy -tt -T -o "$CRIU_DUMP_STRACE_OUT"
+    "$CRIU_BIN" dump
+    --tree "$PID"
+    --images-dir "$IMAGES_DIR"
+    --cow-dump
+    --lazy-pages
+    --address "$PRIMARY_IP"
+    --port "$CRIU_PORT"
+    --tcp-close
+    --ext-unix-sk
+    --leave-running
+    -v2 -o "$IMAGES_DIR/lazy-primary.log"
+  )
+fi
+
+"${CRIU_DUMP_CMD[@]}" &
 DUMP_PID=$!
 
 sleep 2
@@ -241,7 +283,7 @@ REPLICA_UP=0
 mark_cutover_event "CUTOVER_START_MS"
 if [ "$FAST_CUTOVER" = "1" ]; then
   log "Step 8: Fast cutover (pause ${CUTOVER_PAUSE_MS}ms writes, freeze source, resume replica)..."
-  valkey-cli -h 127.0.0.1 -p "$VALKEY_PORT" CLIENT PAUSE "$CUTOVER_PAUSE_MS" WRITE >/dev/null 2>&1 || true
+  valkey_cmd CLIENT PAUSE "$CUTOVER_PAUSE_MS" WRITE >/dev/null 2>&1 || true
   sudo pkill -STOP -x valkey-server 2>/dev/null || true
   $SSH ubuntu@$REPLICA_SSH_HOST "sudo pkill -CONT -x valkey-server" >/dev/null 2>&1 || true
 else
@@ -324,7 +366,7 @@ if kill -0 "$REPLICA_PID" 2>/dev/null; then
   wait "$REPLICA_PID" 2>/dev/null || true
 fi
 
-REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r'" 2>/dev/null || echo "?")
+REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "timeout ${VALKEY_CMD_TIMEOUT_S}s valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r'" 2>/dev/null || echo "?")
 
 # Extract CRIU timing from logs
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"

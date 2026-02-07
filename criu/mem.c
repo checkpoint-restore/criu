@@ -364,7 +364,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		list_add_tail(&lve->list, &global_lazy_vmas);
 		pthread_spin_unlock(&lazy_vmas_lock);
 		
-		pr_warn("Added lazy VMA 0x%llx-0x%llx to global list (%lu pages, %lu byte bitmap, dst_id=%lu, pid=%d)\n",
+		pr_debug("Added lazy VMA 0x%llx-0x%llx to global list (%lu pages, %lu byte bitmap, dst_id=%lu, pid=%d)\n",
 			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages, bitmap_size,
 			(unsigned long)lve->dst_id, lve->source_pid);
 		return 0;
@@ -816,35 +816,14 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		parent_predump_mode = mdc->parent_ie->pre_dump_mode;
 
 	gettimeofday(&t_checkpoint, NULL);
-	{
-		int vma_count = 0;
-		list_for_each_entry(vma_area, &vma_area_list->h, list) {
-			struct timeval vma_start, vma_end, vma_delta;
-			
-			if (vma_area_is(vma_area, VMA_AREA_GUARD))
-				continue;
+	list_for_each_entry(vma_area, &vma_area_list->h, list) {
+		if (vma_area_is(vma_area, VMA_AREA_GUARD))
+			continue;
 
-			vma_count++;
-			gettimeofday(&vma_start, NULL);
-			
-			ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl, &pmc, has_parent, mdc->pre_dump,
-						parent_predump_mode);
-			
-			gettimeofday(&vma_end, NULL);
-			timersub(&vma_end, &vma_start, &vma_delta);
-			
-			if (vma_delta.tv_sec > 0 || vma_delta.tv_usec > 100000) {
-				pr_warn("TIMING: VMA #%d [0x%llx-0x%llx] len=%llu pages took %ld.%06ld seconds\n",
-					vma_count, 
-					(unsigned long long)vma_area->e->start,
-					(unsigned long long)vma_area->e->end,
-					(unsigned long long)(vma_area->e->end - vma_area->e->start) / PAGE_SIZE,
-					vma_delta.tv_sec, vma_delta.tv_usec);
-			}
-			
-			if (ret < 0)
-				goto out_xfer;
-		}
+		ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl, &pmc, has_parent, mdc->pre_dump,
+					parent_predump_mode);
+		if (ret < 0)
+			goto out_xfer;
 	}
 
 	{
@@ -853,7 +832,6 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		timersub(&t_now, &t_checkpoint, &t_delta);
 		pr_err("TIMING: generate_vma_iovs loop took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
 	}
-	pr_info("generate_vma_iovs ended\n");
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
 
@@ -863,8 +841,6 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * actual optimization which reduces time for which process was frozen
 	 * during pre-dump.
 	 */
-	pr_err("pargs_iovs ended\n");
-
 	gettimeofday(&t_checkpoint, NULL);
 	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ)
 		ret = 0;
@@ -877,8 +853,6 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		timersub(&t_now, &t_checkpoint, &t_delta);
 		pr_info("TIMING: drain_pages took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
 	}
-	pr_info("drain_pages ended\n");
-	
 	gettimeofday(&t_checkpoint, NULL);
 	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
@@ -891,7 +865,6 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	}
 	if (ret)
 		goto out_xfer;
-	pr_info("xfer_pages ended\n");
 
 	timing_stop(TIME_MEMDUMP);
 

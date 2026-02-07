@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.env"
 
 FAST_CUTOVER=${FAST_CUTOVER:-0}
+CRIU_BIN=${CRIU_BIN:-criu}
 START_TOTAL=$(date +%s)
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
@@ -15,6 +16,7 @@ RESTORE_MAX_PING_ATTEMPTS=${RESTORE_MAX_PING_ATTEMPTS:-600}
 RESTORE_PING_INTERVAL_S=${RESTORE_PING_INTERVAL_S:-0.05}
 RESTORE_WRITE_GUARD_ATTEMPTS=${RESTORE_WRITE_GUARD_ATTEMPTS:-2000}
 RESTORE_WRITE_GUARD_INTERVAL_S=${RESTORE_WRITE_GUARD_INTERVAL_S:-0.01}
+PAGE_SERVER_READY_PATTERN=${PAGE_SERVER_READY_PATTERN:-PAGE SERVER READY TO SERVE}
 
 mark_phase_event() {
 	local event="$1"
@@ -63,21 +65,21 @@ echo "READY" | sudo tee "$IMAGES_DIR/ready.log" >/dev/null
 echo "Ready signal created at $IMAGES_DIR/ready.log"
 mark_phase_event "REPLICA_READY_SIGNAL_CREATED"
 
-# Step 3: Wait for PAGE SERVER READY TO SERVE
-echo "Step 3: Waiting for page server..."
+# Step 3: Wait for source to announce COW page-server readiness
+echo "Step 3: Waiting for source COW/page-server readiness..."
 START_TIME=$(date +%s)
 while true; do
-  if [ -f "$LOG_FILE" ] && sudo grep -q "PAGE SERVER READY TO SERVE" "$LOG_FILE" 2>/dev/null; then
-    echo "Page server ready!"
-    mark_phase_event "REPLICA_PAGE_SERVER_READY"
-    break
-  fi
-  ELAPSED=$(($(date +%s) - START_TIME))
-  if [ $ELAPSED -ge $WAIT_TIMEOUT ]; then
-    echo "Timeout waiting for page server"
-    exit 1
-  fi
-  sleep 0.5
+	if [ -f "$LOG_FILE" ] && sudo grep -Eq "$PAGE_SERVER_READY_PATTERN" "$LOG_FILE" 2>/dev/null; then
+		echo "Source ready marker observed"
+		mark_phase_event "REPLICA_PAGE_SERVER_READY"
+		break
+	fi
+	ELAPSED=$(($(date +%s) - START_TIME))
+	if [ "$ELAPSED" -ge "$WAIT_TIMEOUT" ]; then
+		echo "Timeout waiting for source COW/page-server readiness"
+		exit 1
+	fi
+	sleep 0.5
 done
 
 # Step 4: Start wait_and_replicate.sh in background
@@ -87,21 +89,20 @@ REPLICATE_PID=$!
 echo "wait_and_replicate.sh started (PID: $REPLICATE_PID)"
 mark_phase_event "REPLICA_REPLICATE_TASK_STARTED"
 
-# Step 5: Start CRIU lazy-pages daemon (connects to PRIMARY's page server)
+# Step 5: Start CRIU lazy-pages daemon
 echo "Step 5: Starting lazy-pages daemon (connecting to $PRIMARY_IP:$CRIU_PORT)"
-sudo criu lazy-pages \
-  --images-dir "$IMAGES_DIR" \
-  --page-server \
-  --address "$PRIMARY_IP" \
-  --port "$CRIU_PORT" \
-  --cow-dump \
-  --tcp-close \
-  -v1 -o "$IMAGES_DIR/lazy-server.log" &
+sudo "$CRIU_BIN" lazy-pages \
+	--images-dir "$IMAGES_DIR" \
+	--page-server \
+	--address "$PRIMARY_IP" \
+	--port "$CRIU_PORT" \
+	--cow-dump \
+	--tcp-close \
+	-v1 -o "$IMAGES_DIR/lazy-server.log" &
 LAZY_PAGES_PID=$!
 echo "Lazy-pages daemon started (PID: $LAZY_PAGES_PID)"
 mark_phase_event "REPLICA_LAZY_PAGES_STARTED"
 
-# Sleep to let lazy-pages connect and be ready
 sleep 1
 
 # Step 6: Start CRIU restore (connects to local lazy-pages via Unix socket)
@@ -116,7 +117,7 @@ RESTORE_ARGS=(
 if [ "$FAST_CUTOVER" = "1" ]; then
   RESTORE_ARGS+=(--leave-stopped)
 fi
-sudo criu restore \
+sudo "$CRIU_BIN" restore \
   "${RESTORE_ARGS[@]}" \
   -v1 -o "$IMAGES_DIR/lazy-restore.log" &
 RESTORE_PID=$!

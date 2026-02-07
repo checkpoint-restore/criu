@@ -64,7 +64,7 @@ ensure_source_valkey_ready() {
 	if timeout 2s valkey-cli -h "$HARNESS_SOURCE_HOST" -p "$HARNESS_SOURCE_PORT" ping >/dev/null 2>&1; then
 		return 0
 	fi
-	return restart_source_valkey
+	restart_source_valkey
 }
 
 HARNESS_PID=""

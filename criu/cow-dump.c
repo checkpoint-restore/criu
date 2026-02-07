@@ -95,7 +95,7 @@ static void check_and_print_cow_stats(void)
 	time_t now = time(NULL);
 	
 	if (now - cow_stats.last_print_time >= 1) {
-		pr_warn("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu eagain_err=%lu\n",
+		pr_debug("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu eagain_err=%lu\n",
 			cow_stats.write_faults,
 			cow_stats.fork_events,
 			cow_stats.remap_events,
@@ -372,6 +372,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	pr_info("COW dump initialized for pid %d: vm_as=%u tracked=%u fallback=%u pages=%lu uffd=%d\n",
 		item->pid->real, args->nr_vmas, tracked_vmas, fallback_vmas,
 		task->total_pages, task->uffd);
+	pr_info("PAGE SERVER READY TO SERVE\n");
 
 	xfree(failed_map);
 	return 0;
@@ -468,8 +469,8 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi,
 	unsigned int hash;
 	struct cow_page_queue_entry *entry;
 	struct iovec local_iov, remote_iov;
-	
-	pr_info("Write fault at 0x%lx\n", page_addr);
+
+	pr_debug("Write fault at 0x%lx\n", page_addr);
 
 	cow_stats.write_faults++;	
 
@@ -694,7 +695,7 @@ static void *cow_monitor_thread(void *arg)
 
 	pthread_setname_np(pthread_self(), "criu-cow-mon");
 	pr_info("COW monitor thread started\n");
-	pr_warn("PAGE SERVER READY TO SERVE\n");
+	pr_info("PAGE SERVER READY TO SERVE\n");
 
 	while (!g_stop_monitoring) {
 		int ret;

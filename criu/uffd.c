@@ -210,7 +210,7 @@ void check_and_print_uffd_stats(void)
 			struct tm *tm;
 			clock_gettime(CLOCK_REALTIME, &ts);
 			tm = localtime(&ts.tv_sec);
-			pr_warn("[UFFD_STATS] [%02d:%02d:%02d.%03ld] reqs=%lu(pf:%lu,bg:%lu) pages=%lu\n",
+			pr_debug("[UFFD_STATS] [%02d:%02d:%02d.%03ld] reqs=%lu(pf:%lu,bg:%lu) pages=%lu\n",
 				tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
 				uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
 				uffd_stats.total_pf_reqs,
@@ -220,25 +220,25 @@ void check_and_print_uffd_stats(void)
 
 		/* Print page fault histogram */
 
-		pr_warn("  PF: ");
+		pr_debug("  PF: ");
 		for (i = 0; i < 9; i++) {
 			if (uffd_stats.pf_hist[i] > 0)
-				pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.pf_hist[i]);
+				pr_debug(" %s=%lu", get_bucket_label(i), uffd_stats.pf_hist[i]);
 		}
-		pr_warn("\n");
+		pr_debug("\n");
 
 		/* Print background transfer histogram */
 
-		pr_warn("  BG: ");
+		pr_debug("  BG: ");
 		for (i = 0; i < 9; i++) {
 			if (uffd_stats.bg_hist[i] > 0)
-				pr_warn(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
+				pr_debug(" %s=%lu", get_bucket_label(i), uffd_stats.bg_hist[i]);
 		}
-		pr_warn("\n");
+		pr_debug("\n");
 
 		/* Print timing stats */
 		if (uffd_stats.io_complete_bulk_count_start > 0) {
-			pr_warn("  TIMING: io_bulk=%lu ns (%lu, %lu ops) copy=%lu ns (%lu ops) drop=%lu ns (%lu ops)\n",
+			pr_debug("  TIMING: io_bulk=%lu ns (%lu, %lu ops) copy=%lu ns (%lu ops) drop=%lu ns (%lu ops)\n",
 				uffd_stats.io_complete_bulk_total_ns / uffd_stats.io_complete_bulk_count,
 				uffd_stats.io_complete_bulk_count,
 				uffd_stats.io_complete_bulk_count_start,
@@ -250,7 +250,7 @@ void check_and_print_uffd_stats(void)
 
 		/* Print EAGAIN stats */
 		if (uffd_stats.eagain_processed > 0 || uffd_stats.eagain_skipped > 0 || uffd_stats.eagain_calls > 0) {
-			pr_warn("  EAGAIN: processed=%lu succeeded=%lu blocked=%lu errors=%lu skipped=%lu | time=%lu ns (%lu calls)\n",
+			pr_debug("  EAGAIN: processed=%lu succeeded=%lu blocked=%lu errors=%lu skipped=%lu | time=%lu ns (%lu calls)\n",
 				uffd_stats.eagain_processed,
 				uffd_stats.eagain_succeeded,
 				uffd_stats.eagain_blocked,
