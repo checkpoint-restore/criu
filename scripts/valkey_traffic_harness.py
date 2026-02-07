@@ -298,9 +298,12 @@ class Harness:
             "replicaof_rpc_ms": None,
             "role_wait_ms": None,
             "replicaof_total_ms": None,
+            "write_guard_ms": None,
+            "replicaof_done_to_gate_removed_ms": None,
             "post_role_to_gate_removed_ms": None,
             "cutover_to_ping_ready_ms": None,
             "cutover_to_replicaof_done_ms": None,
+            "cutover_to_write_guard_ok_ms": None,
             "cutover_to_gate_removed_ms": None,
         }
 
@@ -331,6 +334,12 @@ class Harness:
         result["replicaof_total_ms"] = self._duration_ms(
             events, "REPLICA_REPLICAOF_START", "REPLICA_REPLICAOF_DONE"
         )
+        result["write_guard_ms"] = self._duration_ms(
+            events, "REPLICA_WRITE_GUARD_START", "REPLICA_WRITE_GUARD_OK"
+        )
+        result["replicaof_done_to_gate_removed_ms"] = self._duration_ms(
+            events, "REPLICA_REPLICAOF_DONE", "REPLICA_GATE_REMOVED"
+        )
         result["post_role_to_gate_removed_ms"] = self._duration_ms(
             events, "REPLICA_ROLE_ACTIVE", "REPLICA_GATE_REMOVED"
         )
@@ -339,6 +348,9 @@ class Harness:
         )
         result["cutover_to_replicaof_done_ms"] = self._duration_ms(
             events, "CUTOVER_START_MS", "REPLICA_REPLICAOF_DONE"
+        )
+        result["cutover_to_write_guard_ok_ms"] = self._duration_ms(
+            events, "CUTOVER_START_MS", "REPLICA_WRITE_GUARD_OK"
         )
         result["cutover_to_gate_removed_ms"] = self._duration_ms(
             events, "CUTOVER_START_MS", "REPLICA_GATE_REMOVED"
@@ -761,6 +773,10 @@ def main() -> int:
             f"{float(phases.get('replicaof_rpc_ms') or 0.0):.3f} "
             "phase_role_wait_ms="
             f"{float(phases.get('role_wait_ms') or 0.0):.3f} "
+            "phase_write_guard_ms="
+            f"{float(phases.get('write_guard_ms') or 0.0):.3f} "
+            "phase_replicaof_done_to_gate_removed_ms="
+            f"{float(phases.get('replicaof_done_to_gate_removed_ms') or 0.0):.3f} "
             "phase_post_role_to_gate_removed_ms="
             f"{float(phases.get('post_role_to_gate_removed_ms') or 0.0):.3f} "
             "phase_cutover_to_gate_removed_ms="

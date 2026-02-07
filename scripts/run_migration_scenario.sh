@@ -178,7 +178,10 @@ print(f"phase_replica_events_found={phases.get('replica_events_found', False)}")
 print(f"phase_wait_ping_ms={phases.get('wait_ping_ms', 0) or 0:.3f}")
 print(f"phase_replicaof_rpc_ms={phases.get('replicaof_rpc_ms', 0) or 0:.3f}")
 print(f"phase_role_wait_ms={phases.get('role_wait_ms', 0) or 0:.3f}")
+print(f"phase_write_guard_ms={phases.get('write_guard_ms', 0) or 0:.3f}")
+print(f"phase_replicaof_done_to_gate_removed_ms={phases.get('replicaof_done_to_gate_removed_ms', 0) or 0:.3f}")
 print(f"phase_post_role_to_gate_removed_ms={phases.get('post_role_to_gate_removed_ms', 0) or 0:.3f}")
+print(f"phase_cutover_to_write_guard_ok_ms={phases.get('cutover_to_write_guard_ok_ms', 0) or 0:.3f}")
 print(f"phase_cutover_to_gate_removed_ms={phases.get('cutover_to_gate_removed_ms', 0) or 0:.3f}")
 PY
 	python3 "$SCRIPT_DIR/criu_kpi_report.py" \

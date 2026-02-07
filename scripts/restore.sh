@@ -13,6 +13,8 @@ CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
 RESTORE_VERIFY_DELAY_S=${RESTORE_VERIFY_DELAY_S:-0}
 RESTORE_MAX_PING_ATTEMPTS=${RESTORE_MAX_PING_ATTEMPTS:-600}
 RESTORE_PING_INTERVAL_S=${RESTORE_PING_INTERVAL_S:-0.05}
+RESTORE_WRITE_GUARD_ATTEMPTS=${RESTORE_WRITE_GUARD_ATTEMPTS:-2000}
+RESTORE_WRITE_GUARD_INTERVAL_S=${RESTORE_WRITE_GUARD_INTERVAL_S:-0.01}
 
 mark_phase_event() {
 	local event="$1"
@@ -166,13 +168,14 @@ mark_phase_event "REPLICA_REPLICATE_TASK_DONE"
 
 echo "Step 8c: Verifying replica write protection"
 WRITE_GUARD_OK=0
-for i in $(seq 1 40); do
+mark_phase_event "REPLICA_WRITE_GUARD_START"
+for i in $(seq 1 "$RESTORE_WRITE_GUARD_ATTEMPTS"); do
   WRITE_RESP=$(valkey-cli -p "$VALKEY_PORT" set __criu_replica_probe__ 1 2>&1 || true)
   if printf "%s\n" "$WRITE_RESP" | grep -qi "READONLY"; then
     WRITE_GUARD_OK=1
     break
   fi
-  sleep 0.1
+  sleep "$RESTORE_WRITE_GUARD_INTERVAL_S"
 done
 if [ "$WRITE_GUARD_OK" -ne 1 ]; then
   echo "ERROR: replica accepted write or did not return READONLY"

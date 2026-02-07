@@ -9,8 +9,10 @@ source "$SCRIPT_DIR/.env"
 
 MAX_WAIT_PING=${MAX_WAIT_PING:-600}      # 600 × 0.1s = 60s
 MAX_WAIT_REPLICA=${MAX_WAIT_REPLICA:-1200}  # 1200 × 0.1s = 120s
+WAIT_REPLICA_ROLE_ACTIVE=${WAIT_REPLICA_ROLE_ACTIVE:-1}
 WAIT_REPLICA_LINK_UP=${WAIT_REPLICA_LINK_UP:-0}
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
+REPLICA_POLL_INTERVAL_S=${REPLICA_POLL_INTERVAL_S:-0.02}
 
 mark_phase_event() {
   local event="$1"
@@ -34,7 +36,7 @@ for i in $(seq 1 "$MAX_WAIT_PING"); do
     mark_phase_event "REPLICA_WAIT_PING_READY"
     break
   fi
-  sleep 0.1
+  sleep "$REPLICA_POLL_INTERVAL_S"
 done
 
 if ! valkey-cli ping &>/dev/null; then
@@ -51,12 +53,18 @@ for i in $(seq 1 "$MAX_WAIT_REPLICA"); do
     mark_phase_event "REPLICA_REPLICAOF_SET"
     break
   fi
-  sleep 0.1
+  sleep "$REPLICA_POLL_INTERVAL_S"
 done
 
 if [ "$REPLICA_SET" -ne 1 ]; then
   echo "Failed to configure replicaof within ${MAX_WAIT_REPLICA}×0.1s seconds."
   exit 1
+fi
+
+if [ "$WAIT_REPLICA_ROLE_ACTIVE" != "1" ] && [ "$WAIT_REPLICA_LINK_UP" != "1" ]; then
+  echo "Replica command accepted; skipping role/link waits"
+  mark_phase_event "REPLICA_REPLICAOF_DONE"
+  exit 0
 fi
 
 # Wait until role transition is visible. This is enough to enforce READONLY.
@@ -71,7 +79,7 @@ for i in $(seq 1 "$MAX_WAIT_REPLICA"); do
     mark_phase_event "REPLICA_ROLE_ACTIVE"
     break
   fi
-  sleep 0.1
+  sleep "$REPLICA_POLL_INTERVAL_S"
 done
 
 if ! INFO=$(valkey-cli info replication 2>/dev/null || true); then
@@ -102,7 +110,7 @@ for i in $(seq 1 "$MAX_WAIT_REPLICA"); do
     mark_phase_event "REPLICA_REPLICAOF_DONE"
     exit 0
   fi
-  sleep 0.1
+  sleep "$REPLICA_POLL_INTERVAL_S"
 done
 
 echo "Timeout waiting for replica role/link to become active."
