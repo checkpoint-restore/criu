@@ -1050,7 +1050,7 @@ static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsi
 		return -1;
 	}
 
-	lp_err(lpi, "%s: mcopy_rc:%ld, errno:%d\n", op, mcopy_rc, errno);
+	lp_debug(lpi, "%s: mcopy_rc:%ld, errno:%d\n", op, mcopy_rc, errno);
 
 	if (mcopy_rc <= 0)
 		*nr_pages = 0;
@@ -1075,8 +1075,8 @@ static int queue_eagain_request(struct lazy_pages_info *lpi, __u64 address,
 	void *buf_copy = NULL;
 	unsigned long len = nr_pages * page_size();
 	
-	lp_err(lpi, "uffd_%s EAGAIN in COW mode: queueing 0x%llx/%ld for later\n", 
-	       op_name, address, len);
+	lp_debug(lpi, "uffd_%s EAGAIN in COW mode: queueing 0x%llx/%ld for later\n",
+		 op_name, address, len);
 	
 	/* Copy buffer if provided (copy operation) */
 	if (buf) {
@@ -1118,7 +1118,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 	uffdio_copy.mode = 0;
 	uffdio_copy.copy = 0;
 
-	lp_info(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
+	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
 		/* In COW dump mode, queue EAGAIN requests instead of blocking */
@@ -1234,7 +1234,7 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 
 	/* Process may exit while pages are in flight */
 	if (lpi->exited) {
-		lp_err(lpi, "Page at 0x%lx no longer needed existed\n", vaddr);
+		lp_debug(lpi, "Page at 0x%lx no longer needed existed\n", vaddr);
 		return 0;
 	}
 
@@ -1260,7 +1260,7 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 		unsigned long reqs_count = 0;
 #endif
 
-		lp_err(lpi, "Page at 0x%lx no longer needed (unmapped), dropping\n", vaddr);
+		lp_debug(lpi, "Page at 0x%lx no longer needed (unmapped), dropping\n", vaddr);
 #if 0	
 		/* Dump all IOVs to understand what happened */
 		lp_err(lpi, "=== IOV STATE DUMP (address 0x%lx not found) ===\n", vaddr);
@@ -1470,7 +1470,8 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	unreg.start = msg->arg.remove.start;
 	unreg.len = msg->arg.remove.end - msg->arg.remove.start;
 
-	lp_err(lpi, "%s: %llx(%llx)\n", msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP", unreg.start, unreg.len);
+	lp_debug(lpi, "%s: %llx(%llx)\n", msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP",
+		 unreg.start, unreg.len);
 
 	/*
 	 * The REMOVE event does not change the VMA, so we need to
@@ -1502,7 +1503,7 @@ static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	unsigned long to = msg->arg.remap.to;
 	unsigned long len = msg->arg.remap.len;
 
-	lp_err(lpi, "REMAP: %lx -> %lx (%ld)\n", from, to, len);
+	lp_debug(lpi, "REMAP: %lx -> %lx (%ld)\n", from, to, len);
 
 	return remap_iovs(lpi, from, to, len);
 }
@@ -1512,7 +1513,7 @@ static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
 	struct lazy_pages_info *lpi;
 	int uffd = msg->arg.fork.ufd;
 
-	lp_err(parent_lpi, "FORK: child with ufd=%d\n", uffd);
+	lp_debug(parent_lpi, "FORK: child with ufd=%d\n", uffd);
 
 	lpi = lpi_init();
 	if (!lpi)
