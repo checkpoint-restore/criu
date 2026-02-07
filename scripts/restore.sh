@@ -10,6 +10,7 @@ FAST_CUTOVER=${FAST_CUTOVER:-0}
 START_TOTAL=$(date +%s)
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
+RESTORE_VERIFY_DELAY_S=${RESTORE_VERIFY_DELAY_S:-0}
 
 mark_phase_event() {
 	local event="$1"
@@ -148,7 +149,9 @@ fi
 
 # Step 8: Verify and summarize
 echo "Step 8: Verifying restore..."
-sleep 2
+if [ "$RESTORE_VERIFY_DELAY_S" != "0" ]; then
+	sleep "$RESTORE_VERIFY_DELAY_S"
+fi
 
 # Ensure replicaof setup finished before opening remote access
 echo "Step 8b: Waiting for replica configuration task..."
