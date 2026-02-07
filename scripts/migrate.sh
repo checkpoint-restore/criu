@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.env"
 
 DATA_SIZE_GB=${1:-$DEFAULT_DATA_SIZE_GB}
+FAST_CUTOVER=${FAST_CUTOVER:-0}
+CUTOVER_PAUSE_MS=${CUTOVER_PAUSE_MS:-50}
 SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 REPLICA_SSH_HOST="${REPLICA_IP:-$REPLICA_HOST}"
 
@@ -62,7 +64,11 @@ sudo rm -rf "$IMAGES_DIR"/*
 
 # Step 5: Start replica FIRST (it will create ready signal and wait)
 log "Step 5: Start replica (will wait for page server)..."
-$SSH ubuntu@$REPLICA_SSH_HOST "sudo $SCRIPT_DIR/restore.sh" &
+if [ "$FAST_CUTOVER" = "1" ]; then
+  $SSH ubuntu@$REPLICA_SSH_HOST "FAST_CUTOVER=1 CUTOVER_PAUSE_MS=$CUTOVER_PAUSE_MS sudo $SCRIPT_DIR/restore.sh" &
+else
+  $SSH ubuntu@$REPLICA_SSH_HOST "sudo $SCRIPT_DIR/restore.sh" &
+fi
 REPLICA_PID=$!
 
 # Step 5b: Wait for replica ready signal
@@ -105,9 +111,38 @@ log "Step 7b: Stop dump process..."
 sudo pkill -9 -f "criu dump" 2>/dev/null || true
 sleep 1
 
-# Step 8: Check
-log "Step 8: Check replica..."
-sleep 3
+# Step 8: Cutover/check
+if [ "$FAST_CUTOVER" = "1" ]; then
+  log "Step 8: Fast cutover (pause ${CUTOVER_PAUSE_MS}ms writes, freeze source, resume replica)..."
+  valkey-cli -h 127.0.0.1 -p "$VALKEY_PORT" CLIENT PAUSE "$CUTOVER_PAUSE_MS" WRITE >/dev/null 2>&1 || true
+  sudo pkill -STOP -x valkey-server 2>/dev/null || true
+  $SSH ubuntu@$REPLICA_SSH_HOST "sudo pkill -CONT -x valkey-server" >/dev/null 2>&1 || true
+else
+  log "Step 8: Check replica..."
+  sleep 3
+fi
+
+REPLICA_UP=0
+for i in $(seq 1 120); do
+  if $SSH ubuntu@$REPLICA_SSH_HOST "valkey-cli ping >/dev/null 2>&1"; then
+    REPLICA_UP=1
+    break
+  fi
+  if [ "$FAST_CUTOVER" = "1" ]; then
+    sleep 0.05
+  else
+    sleep 0.25
+  fi
+done
+if [ "$REPLICA_UP" -ne 1 ]; then
+  log "ERROR: replica valkey is not responding"
+  if [ "$FAST_CUTOVER" = "1" ]; then
+    log "Recovering source from STOP state"
+    sudo pkill -CONT -x valkey-server 2>/dev/null || true
+  fi
+  exit 1
+fi
+
 REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r'" 2>/dev/null || echo "?")
 
 # Extract CRIU timing from logs

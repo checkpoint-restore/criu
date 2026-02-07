@@ -6,6 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.env"
 
+FAST_CUTOVER=${FAST_CUTOVER:-0}
 START_TOTAL=$(date +%s)
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
 
@@ -66,24 +67,48 @@ sleep 1
 
 # Step 6: Start CRIU restore (connects to local lazy-pages via Unix socket)
 echo "Step 6: Starting CRIU restore"
+RESTORE_ARGS=(
+  --images-dir "$IMAGES_DIR"
+  --lazy-pages
+  --tcp-close
+  --cow-dump
+  --skip-file-rwx-check
+)
+if [ "$FAST_CUTOVER" = "1" ]; then
+  RESTORE_ARGS+=(--leave-stopped)
+fi
 sudo criu restore \
-  --images-dir "$IMAGES_DIR" \
-  --lazy-pages \
-  --tcp-close \
-  --cow-dump \
-  --skip-file-rwx-check \
+  "${RESTORE_ARGS[@]}" \
   -v1 -o "$IMAGES_DIR/lazy-restore.log" &
 RESTORE_PID=$!
 
-# Step 7: Wait for valkey to be responsive
-echo "Step 7: Waiting for valkey to be responsive..."
-for i in $(seq 1 60); do
-  if valkey-cli ping &>/dev/null; then
-    echo "Valkey is up"
-    break
+VALKEY_PID=""
+if [ "$FAST_CUTOVER" = "1" ]; then
+  # Step 7: Wait for restored valkey process in stopped mode
+  echo "Step 7: Waiting for valkey process (restored, stopped)..."
+  for i in $(seq 1 120); do
+    VALKEY_PID=$(pgrep -x valkey-server || true)
+    if [ -n "$VALKEY_PID" ]; then
+      echo "Valkey restored in stopped mode (PID: $VALKEY_PID)"
+      break
+    fi
+    sleep 0.1
+  done
+  if [ -z "$VALKEY_PID" ]; then
+    echo "ERROR: Valkey process not restored in FAST_CUTOVER mode"
+    exit 1
   fi
-  sleep 0.5
-done
+else
+  # Step 7: Wait for valkey to be responsive
+  echo "Step 7: Waiting for valkey to be responsive..."
+  for i in $(seq 1 60); do
+    if valkey-cli ping &>/dev/null; then
+      echo "Valkey is up"
+      break
+    fi
+    sleep 0.5
+  done
+fi
 
 # Step 8: Verify and summarize
 echo "Step 8: Verifying restore..."
@@ -92,7 +117,13 @@ sleep 2
 END_TOTAL=$(date +%s)
 DURATION=$((END_TOTAL - START_TOTAL))
 
-if valkey-cli ping &>/dev/null; then
+if [ "$FAST_CUTOVER" = "1" ]; then
+  echo "================================================================"
+  echo "Replica staged for fast cutover"
+  echo "  Duration: ${DURATION}s"
+  echo "  Valkey PID: $VALKEY_PID (stopped until PRIMARY sends SIGCONT)"
+  echo "================================================================"
+elif valkey-cli ping &>/dev/null; then
   MEM=$(valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
   KEYS=$(valkey-cli dbsize | cut -d: -f2 | tr -d '\r' 2>/dev/null || valkey-cli dbsize)
   echo "================================================================"
