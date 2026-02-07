@@ -291,10 +291,11 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	int ret = 0;
 	unsigned long vma_start = *pvaddr;
 	unsigned long pages_skipped = 0;
-	struct timeval loop_start, loop_checkpoint;
+	struct timeval loop_start = {}, loop_checkpoint = {};
 	unsigned long should_dump_time_us = 0;
 	unsigned long pipe_add_time_us = 0;
 	unsigned long pages_processed_since_report = 0;
+	bool collect_timing = !pr_quelled(LOG_DEBUG);
 	bool cow_tracked = !opts.cow_dump ||
 			   cow_dump_is_vma_tracked(item->pid->real,
 						   vma->e->start,
@@ -369,26 +370,33 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		return 0;
 	}
 
-	gettimeofday(&loop_start, NULL);
-	loop_checkpoint = loop_start;
+	if (collect_timing) {
+		gettimeofday(&loop_start, NULL);
+		loop_checkpoint = loop_start;
+	}
 	
 	nr_scanned = 0;
 	for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {
-		struct timeval t1, t2, t_delta;
 		unsigned int ppb_flags = 0;
 		struct page_info page_info = {};
 		int st;
 
-		/* Timing: should_dump_page */
-		gettimeofday(&t1, NULL);
-		
-		/* If dump_all_pages is true, should_dump_page is called to get pme. */
-		if (should_dump_page(pmc, vma->e, vaddr, &page_info))
-			return -1;
-		
-		gettimeofday(&t2, NULL);
-		timersub(&t2, &t1, &t_delta);
-		should_dump_time_us += t_delta.tv_sec * 1000000 + t_delta.tv_usec;
+		if (collect_timing) {
+			struct timeval t1, t2, t_delta;
+
+			gettimeofday(&t1, NULL);
+
+			/* If dump_all_pages is true, should_dump_page is called to get pme. */
+			if (should_dump_page(pmc, vma->e, vaddr, &page_info))
+				return -1;
+
+			gettimeofday(&t2, NULL);
+			timersub(&t2, &t1, &t_delta);
+			should_dump_time_us += t_delta.tv_sec * 1000000 + t_delta.tv_usec;
+		} else {
+			if (should_dump_page(pmc, vma->e, vaddr, &page_info))
+				return -1;
+		}
 
 		if (!dump_all_pages && page_info.next != vaddr) {
 			vaddr = page_info.next - PAGE_SIZE;
@@ -405,23 +413,35 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		 * page. The latter would be checked in page-xfer.
 		 */
 
-		/* Timing: page_pipe_add_* */
-		gettimeofday(&t1, NULL);
-		
-		if (has_parent && page_in_parent(page_info.softdirty)) {
-			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
-			st = 0;
+		if (collect_timing) {
+			struct timeval t1, t2, t_delta;
+
+			gettimeofday(&t1, NULL);
+			if (has_parent && page_in_parent(page_info.softdirty)) {
+				ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
+				st = 0;
+			} else {
+				ret = page_pipe_add_page(pp, vaddr, ppb_flags);
+				if (ppb_flags & PPB_LAZY && opts.lazy_pages)
+					st = 1;
+				else
+					st = 2;
+			}
+			gettimeofday(&t2, NULL);
+			timersub(&t2, &t1, &t_delta);
+			pipe_add_time_us += t_delta.tv_sec * 1000000 + t_delta.tv_usec;
 		} else {
-			ret = page_pipe_add_page(pp, vaddr, ppb_flags);
-			if (ppb_flags & PPB_LAZY && opts.lazy_pages)
-				st = 1;
-			else
-				st = 2;
+			if (has_parent && page_in_parent(page_info.softdirty)) {
+				ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
+				st = 0;
+			} else {
+				ret = page_pipe_add_page(pp, vaddr, ppb_flags);
+				if (ppb_flags & PPB_LAZY && opts.lazy_pages)
+					st = 1;
+				else
+					st = 2;
+			}
 		}
-		
-		gettimeofday(&t2, NULL);
-		timersub(&t2, &t1, &t_delta);
-		pipe_add_time_us += t_delta.tv_sec * 1000000 + t_delta.tv_usec;
 
 		if (ret) {
 			/* Do not do pfn++, just bail out */
@@ -433,12 +453,12 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		pages_processed_since_report++;
 		
 		/* Report progress every 100K pages */
-		if (pages_processed_since_report >= 100000) {
+		if (collect_timing && pages_processed_since_report >= 100000) {
 			struct timeval now, elapsed;
 			gettimeofday(&now, NULL);
 			timersub(&now, &loop_checkpoint, &elapsed);
 			
-			pr_warn("  Progress: %lu pages scanned, %lu pages written, elapsed: %ld.%06ld s (should_dump: %lu us, pipe_add: %lu us)\n",
+			pr_debug("  Progress: %lu pages scanned, %lu pages written, elapsed: %ld.%06ld s (should_dump: %lu us, pipe_add: %lu us)\n",
 				nr_scanned, pages[2] + pages[1], elapsed.tv_sec, elapsed.tv_usec,
 				should_dump_time_us, pipe_add_time_us);
 			
@@ -455,7 +475,7 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	cnt_add(CNT_PAGES_LAZY, pages[1]);
 	cnt_add(CNT_PAGES_WRITTEN, pages[2]);
 
-	{
+	if (collect_timing) {
 		struct timeval loop_end, total_loop_time;
 		gettimeofday(&loop_end, NULL);
 		timersub(&loop_end, &loop_start, &total_loop_time);
