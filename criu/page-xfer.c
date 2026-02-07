@@ -970,11 +970,16 @@ static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_v
 	if (!lve && !list_empty(global_list))
 		lve = list_first_entry(global_list, struct lazy_vma_entry, list);
 	
-	/* Write all lazy VMAs that start before before_vaddr */
+	/* Write all lazy VMAs for this image that start before before_vaddr */
 	while (lve && &lve->list != global_list) {
 		struct iovec iov;
 		u32 flags = PE_LAZY;
 		unsigned long vma_start = lve->vma->e->start;
+
+		if (lve->dst_id != xfer->dst_id) {
+			lve = list_entry(lve->list.next, struct lazy_vma_entry, list);
+			continue;
+		}
 		
 		/* Stop if this VMA starts at or after our limit */
 		if (vma_start >= before_vaddr)
@@ -991,7 +996,8 @@ static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_v
 		BUG_ON(iov.iov_base < (void *)xfer->offset);
 		iov.iov_base -= xfer->offset;
 		
-		pr_warn("  Writing lazy VMA pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
+		pr_debug("Writing lazy VMA pagemap: dst_id=%lu 0x%lx-0x%lx (%lu pages)\n",
+			(unsigned long)xfer->dst_id,
 			vma_start, (unsigned long)lve->vma->e->end,
 			(unsigned long)(iov.iov_len / PAGE_SIZE));
 		
@@ -1054,9 +1060,9 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 			flags = ppb_xfer_flags(xfer, ppb);
 			
 
-			pr_info("  Writing non lazy PPE pagemap asaf: 0x%lx-0x%lx (%lu pages)\n",
-						(unsigned long)iov.iov_base, (unsigned long)(iov.iov_base+iov.iov_len),
-						(unsigned long)(iov.iov_len / PAGE_SIZE));
+			pr_debug("Writing pagemap segment: 0x%lx-0x%lx (%lu pages)\n",
+				 (unsigned long)iov.iov_base, (unsigned long)(iov.iov_base + iov.iov_len),
+				 (unsigned long)(iov.iov_len / PAGE_SIZE));
 
 			if (xfer->write_pagemap(xfer, &iov, flags))
 				return -1;
