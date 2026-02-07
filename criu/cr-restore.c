@@ -1614,6 +1614,21 @@ static int __restore_task_with_children(void *_arg)
 		if (mount_proc())
 			goto err;
 
+		/*
+		 * When main CRIU deferred /proc setup (userns + shared mntns),
+		 * install CR_PROC_FD_OFF here so child tasks can use it.
+		 */
+		if (get_service_fd(CR_PROC_FD_OFF) < 0) {
+			int proc_fd = get_service_fd(PROC_FD_OFF);
+
+			if (proc_fd >= 0) {
+				int cr_fd = dup(proc_fd);
+
+				if (cr_fd >= 0 && install_service_fd(CR_PROC_FD_OFF, cr_fd) < 0)
+					close(cr_fd);
+			}
+		}
+
 		if (!files_collected() && collect_image(&tty_cinfo))
 			goto err;
 		if (collect_images(before_ns_cinfos, ARRAY_SIZE(before_ns_cinfos)))
@@ -2007,15 +2022,25 @@ static int restore_root_task(struct pstree_item *init)
 		return -1;
 	}
 
-	fd = open("/proc", O_DIRECTORY | O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Unable to open /proc");
+	if (prepare_root_ns_mask())
 		return -1;
-	}
 
-	ret = install_service_fd(CR_PROC_FD_OFF, fd);
-	if (ret < 0)
-		return -1;
+	/*
+	 * When root task is in a new user ns but shared mount ns,
+	 * main CRIU may not access host /proc. Defer to root task
+	 * which will mount /proc and install CR_PROC_FD_OFF.
+	 */
+	if (!((root_ns_mask & CLONE_NEWUSER) && !(root_ns_mask & CLONE_NEWNS))) {
+		fd = open("/proc", O_DIRECTORY | O_RDONLY);
+		if (fd < 0) {
+			pr_perror("Unable to open /proc");
+			return -1;
+		}
+
+		ret = install_service_fd(CR_PROC_FD_OFF, fd);
+		if (ret < 0)
+			return -1;
+	}
 
 	/*
 	 * FIXME -- currently we assume that all the tasks live

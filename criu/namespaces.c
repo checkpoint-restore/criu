@@ -1835,6 +1835,34 @@ static int read_pid_ns_img(void)
 	return 0;
 }
 
+int prepare_root_ns_mask(void)
+{
+	TaskKobjIdsEntry *ids = root_item->ids;
+
+	if (!ids)
+		return 0;
+
+	root_ns_mask = 0;
+	if (ids->has_pid_ns_id)
+		root_ns_mask |= CLONE_NEWPID;
+	if (ids->has_net_ns_id)
+		root_ns_mask |= CLONE_NEWNET;
+	if (ids->has_ipc_ns_id)
+		root_ns_mask |= CLONE_NEWIPC;
+	if (ids->has_uts_ns_id)
+		root_ns_mask |= CLONE_NEWUTS;
+	if (ids->has_mnt_ns_id)
+		root_ns_mask |= CLONE_NEWNS;
+	if (ids->has_user_ns_id)
+		root_ns_mask |= CLONE_NEWUSER;
+	if (ids->has_cgroup_ns_id)
+		root_ns_mask |= CLONE_NEWCGROUP;
+	if (ids->has_time_ns_id)
+		root_ns_mask |= CLONE_NEWTIME;
+
+	return 0;
+}
+
 int prepare_namespace_before_tasks(void)
 {
 	if (start_usernsd())
