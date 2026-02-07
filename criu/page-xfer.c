@@ -1699,7 +1699,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 		pr_debug("[SEND_PAGE] Successfully sent compressed regular page at vaddr=0x%lx\n", vaddr);
 		
 		/* Unprotect non-COW page */
-		uffd = cow_get_uffd();
+		uffd = cow_get_uffd_for_pid(source_pid);
 		if (uffd >= 0) {
 			struct uffdio_writeprotect wp;
 			wp.range.start = vaddr;
@@ -1798,7 +1798,6 @@ static int send_request_page_lazy(struct page_request_entry *req, struct active_
 		unsigned long page_vaddr = req->vaddr + (i * PAGE_SIZE);
 		struct lazy_vma_entry *lve;
 		unsigned long page_idx;
-	//	verify_vmas(__FILE__, __LINE__);
 		/* Find which lazy VMA contains this page (uses global list) */
 		lve = find_lazy_vma_for_addr(page_vaddr, req->dst_id);
 		if (!lve) {
@@ -2017,6 +2016,7 @@ static int send_image_complete(struct active_image *img)
 		.vaddr = 0,
 		.dst_id = img->dst_id,
 	};
+	int ret;
 	int32_t status;
 
 	pr_warn("Image dst_id=%lu complete: %lu total pages (%lu COW, %lu req)\n",
@@ -2028,13 +2028,30 @@ static int send_image_complete(struct active_image *img)
 		pr_err("Failed to send close command\n");
 		return -1;
 	}
-	pr_warn("waiting for recieve\n");
-	/* Wait for acknowledgment from receiver */
-	if (__recv(img->main_sk, &status, sizeof(status), MSG_WAITALL) != sizeof(status)) {
+
+	/*
+	 * Preferred protocol: receiver replies with a 32-bit status ACK.
+	 * Backward-compatible fallback: older receivers may just close.
+	 */
+	ret = __recv(img->main_sk, &status, sizeof(status), MSG_WAITALL);
+	if (ret == 0) {
+		pr_info("Receiver closed after close marker, treating as completion\n");
+		return 0;
+	}
+	if (ret < 0) {
+		if (errno == EPIPE || errno == ECONNRESET) {
+			pr_info("Receiver closed after close marker, treating as completion\n");
+			return 0;
+		}
+
 		pr_perror("Failed to receive close acknowledgment");
 		return -1;
 	}
-	pr_warn("waiting for recieve done\n");
+	if (ret != sizeof(status)) {
+		pr_err("Short close acknowledgment: %d\n", ret);
+		return -1;
+	}
+
 	if (status != 0) {
 		pr_err("Receiver reported error status: %d\n", status);
 		return -1;
@@ -2129,6 +2146,9 @@ static void *unified_page_server_thread(void *arg)
 
 			/* Process each lazy VMA */
 			list_for_each_entry(lve, get_global_lazy_vmas(), list) {
+				if (lve->dst_id != img->dst_id)
+					continue;
+
 				source_pid = lve->source_pid;
 
 				if (process_vma_pages(img, lve, source_pid, &stats) < 0)
@@ -2148,17 +2168,20 @@ static void *unified_page_server_thread(void *arg)
 					pr_err("Failed to complete image dst_id=%lu\n",
 					       img->dst_id);
 				pthread_spin_lock(&active_images_lock);
+				list_del(&img->list);
+				xfree(img);
+				continue;
 			}
 
 			pr_err("Finished processing image dst_id=%lu img->remaining_pages=%lu\n", img->dst_id, img->remaining_pages);
 		}
 
+		g_unified_thread_stop = list_empty(&active_images_queue);
 		pthread_spin_unlock(&active_images_lock);
-		g_unified_thread_stop = true;
 	}
 
 	pr_err("Unified page server thread stopped\n");
-	exit(0); //TODO COW - exit gracefully
+	g_unified_thread_running = false;
 	return NULL;
 }
 
@@ -2180,6 +2203,7 @@ static int page_server_get_all_pages(int sk, struct page_server_iov *pi)
 	/* Start unified thread if not already running */
 	if (!g_unified_thread_running) {
 		pr_info("Starting unified page server thread\n");
+		g_unified_thread_stop = false;
 		ret = pthread_create(&g_unified_thread, NULL, unified_page_server_thread, NULL);
 		if (ret) {
 			pr_perror("Failed to create unified thread");

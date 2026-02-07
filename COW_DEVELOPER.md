@@ -163,6 +163,30 @@ script kills it at the start of each run. On the **REPLICA**, Valkey must be
 - Ensure Valkey is **not running** before each run.
 - `scripts/restore.sh` starts by killing Valkey.
 
+### COW Run Order (Current Implementation)
+
+Use this order as the source of truth for debugging:
+
+1. Dump phase registers per-task COW VMAs (parasite UFFD WP).
+2. Non-registerable VMAs are marked fallback and dumped via normal path.
+3. Base dump completes while source is still frozen.
+4. Just before source resume, CRIU starts one session monitor thread.
+5. Source resumes; monitor handles write faults and queues COW pages.
+6. Bulk sender ends each image stream with `nr_pages == 0` close marker.
+7. Receiver sends 32-bit ACK on end marker; sender accepts ACK or clean EOF for compatibility.
+
+If this contract is broken, fix CRIU core first; do not rely on script timeouts.
+
+### Performance Measurement Method
+
+For each run, capture:
+
+- cutover pause p50/p95/p99 (source freeze/resume boundary),
+- restore completion time,
+- full migration wall time.
+
+Measure under active traffic (not idle), and compare baseline lazy mode vs `--cow-dump`.
+
 ---
 
 ## 5. Setup Shared Storage

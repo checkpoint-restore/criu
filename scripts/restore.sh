@@ -10,6 +10,16 @@ FAST_CUTOVER=${FAST_CUTOVER:-0}
 START_TOTAL=$(date +%s)
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
 
+apply_replica_gate() {
+	sudo iptables -I INPUT 1 -p tcp --dport "$VALKEY_PORT" ! -s 127.0.0.1 -j REJECT 2>/dev/null || true
+}
+
+remove_replica_gate() {
+	sudo iptables -D INPUT -p tcp --dport "$VALKEY_PORT" ! -s 127.0.0.1 -j REJECT 2>/dev/null || true
+}
+
+trap remove_replica_gate EXIT
+
 echo "CRIU Restore - Replica Setup"
 echo "  Listen IP  : $REPLICA_IP"
 echo "  Port       : $CRIU_PORT"
@@ -21,6 +31,10 @@ echo "================================================================"
 echo "Step 1: Killing valkey-server"
 sudo pkill -9 valkey-server 2>/dev/null || true
 echo "valkey-server killed"
+
+# Step 1b: Block remote access until replica role is configured
+echo "Step 1b: Applying temporary replica network gate"
+apply_replica_gate
 
 # Step 2: Create ready signal for PRIMARY
 echo "Step 2: Creating ready signal"
@@ -113,6 +127,17 @@ fi
 # Step 8: Verify and summarize
 echo "Step 8: Verifying restore..."
 sleep 2
+
+# Ensure replicaof setup finished before opening remote access
+echo "Step 8b: Waiting for replica configuration task..."
+if ! wait "$REPLICATE_PID"; then
+	echo "ERROR: wait_and_replicate.sh failed"
+	exit 1
+fi
+echo "Replica configuration completed"
+
+echo "Step 8c: Removing temporary replica network gate"
+remove_replica_gate
 
 END_TOTAL=$(date +%s)
 DURATION=$((END_TOTAL - START_TOTAL))

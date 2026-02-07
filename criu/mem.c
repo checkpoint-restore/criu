@@ -16,6 +16,7 @@
 #include "parasite.h"
 #include "page-pipe.h"
 #include "page-xfer.h"
+#include "cow-dump.h"
 #include "log.h"
 #include "kerndat.h"
 #include "stats.h"
@@ -50,36 +51,9 @@ static void init_global_lazy_vmas(void)
 	}
 }
 
-struct list_head* get_global_lazy_vmas(void) {
-	return &global_lazy_vmas;
-}
-
-/* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
-void verify_vmas(char* file, int line)
+struct list_head *get_global_lazy_vmas(void)
 {
-	struct lazy_vma_entry *lve;
-	
-	if (!lazy_vmas_lock_initialized){
-		pr_err("Lazy VMA lock was not initilized\n");
-
-		return;
-	}
-	pr_err("verify_vmas file = %s, line = %d\n", file, line);
-	pthread_spin_lock(&lazy_vmas_lock);
-
-	list_for_each_entry(lve, &global_lazy_vmas, list) {		
-		if (lve->magic != 0xdeadbeaf || lve->magic_end != 0x12345678){
-				struct lazy_vma_entry *lve1;
-				pr_err("lve->magic=0x%x lve->end_magic=%x \n", lve->magic, lve->magic_end);
-				list_for_each_entry(lve1, &global_lazy_vmas, list) {
-					pr_err("VMA start=0x%lx end=%lx \n", lve1->start, lve1->end);
-				}
-				pthread_spin_unlock(&lazy_vmas_lock);
-				exit(0);
-
-		}
-	}
-	pthread_spin_unlock(&lazy_vmas_lock);
+	return &global_lazy_vmas;
 }
 
 /* Find lazy VMA entry for given address and dst_id (exported for page-xfer.c) */
@@ -87,33 +61,22 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 {
 	struct lazy_vma_entry *lve;
 	
-	if (!lazy_vmas_lock_initialized){
-		pr_err("Lazy VMA lock was not initialized  and not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
-
+	if (!lazy_vmas_lock_initialized)
 		return NULL;
-	}
-//	verify_vmas(__FILE__, __LINE__);
+
 	pthread_spin_lock(&lazy_vmas_lock);
 
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
-
-		if (vaddr >= lve->start && 
-		    vaddr < lve->end) { // && 		    lve->dst_id == dst_id) {
+		if (vaddr >= lve->start &&
+		    vaddr < lve->end &&
+		    lve->dst_id == dst_id) {
 			pthread_spin_unlock(&lazy_vmas_lock);
-			pr_debug("Lazy VMA was found for vaddr=0x%lx dst_id=%lu lve=0x%p\n", vaddr, dst_id, lve);
-
 			return lve;
 		}
 	}
-
-	list_for_each_entry(lve, &global_lazy_vmas, list) {
-		pr_err("lve->magic=0x%x lve->end_magic=%x \n", lve->magic, lve->magic_end);
-		pr_err("VMA start=0x%lx end=%lx \n", lve->start, lve->end);
-	}
-
 	pthread_spin_unlock(&lazy_vmas_lock);
-	
-	pr_err("Lazy VMA not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
+
+	pr_debug("Lazy VMA not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
 	return NULL;
 }
 
@@ -128,11 +91,8 @@ unsigned long count_lazy_vma_pages(u64 dst_id)
 	
 	pthread_spin_lock(&lazy_vmas_lock);
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
-		/*
-		 * Use pre-stored total_pages instead of lve->vma->e which
-		 * may be a dangling pointer after VMA structures are freed.
-		 */
-		total_pages += lve->total_pages;
+		if (lve->dst_id == dst_id)
+			total_pages += lve->total_pages;
 	}
 	pthread_spin_unlock(&lazy_vmas_lock);
 	
@@ -335,13 +295,19 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	unsigned long should_dump_time_us = 0;
 	unsigned long pipe_add_time_us = 0;
 	unsigned long pages_processed_since_report = 0;
+	bool cow_tracked = !opts.cow_dump ||
+			   cow_dump_is_vma_tracked(item->pid->real,
+						   vma->e->start,
+						   vma->e->end);
 
 	int lazy_capable = vma_entry_can_be_lazy(vma->e) &&
 	    !vma_area_is(vma, VMA_AREA_GUARD) &&
 		(vma->e->prot & PROT_WRITE) &&
 		!(!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED)) &&
 		!(vma->e->flags & MAP_DROPPABLE) &&
-		(vma->e->prot & PROT_READ) && !is_stack(item, vma_start);
+		(vma->e->prot & PROT_READ) &&
+		!is_stack(item, vma_start) &&
+		cow_tracked;
 
 
 	dump_all_pages = should_dump_entire_vma(vma->e);
@@ -373,8 +339,6 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		
 		/* Initialize global list on first use */
 		init_global_lazy_vmas();
-		lve->magic = 0xdeadbeaf;
-		lve->magic_end = 0x12345678;
 		lve->vma = vma;
 		nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 		lve->total_pages = nr_pages;
@@ -402,14 +366,6 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		pr_warn("Added lazy VMA 0x%llx-0x%llx to global list (%lu pages, %lu byte bitmap, dst_id=%lu, pid=%d)\n",
 			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages, bitmap_size,
 			(unsigned long)lve->dst_id, lve->source_pid);
-		nr_scanned = 0;
-		for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {
-			if (is_stack(item, vaddr)) {
-				pr_err("stack oh no exit\n");
-				exit(0);
-			}
-		}
-
 		return 0;
 	}
 

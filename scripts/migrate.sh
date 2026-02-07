@@ -9,6 +9,14 @@ source "$SCRIPT_DIR/.env"
 DATA_SIZE_GB=${1:-$DEFAULT_DATA_SIZE_GB}
 FAST_CUTOVER=${FAST_CUTOVER:-0}
 CUTOVER_PAUSE_MS=${CUTOVER_PAUSE_MS:-50}
+RUN_WORKLOAD_DURING_MIGRATION=${RUN_WORKLOAD_DURING_MIGRATION:-0}
+KEEP_SOURCE_RUNNING=${KEEP_SOURCE_RUNNING:-0}
+SKIP_FILL=${SKIP_FILL:-0}
+STOP_DUMP_ON_COMPLETE=${STOP_DUMP_ON_COMPLETE:-1}
+WORKLOAD_KEYSPACE=${WORKLOAD_KEYSPACE:-1000000}
+WORKLOAD_CLIENTS=${WORKLOAD_CLIENTS:-64}
+WORKLOAD_PIPELINE=${WORKLOAD_PIPELINE:-16}
+WORKLOAD_DATA_SIZE=${WORKLOAD_DATA_SIZE:-1024}
 SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 REPLICA_SSH_HOST="${REPLICA_IP:-$REPLICA_HOST}"
 
@@ -16,7 +24,11 @@ log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
 # Step 1: Kill on both
 log "Step 1: Kill processes..."
-sudo pkill -9 valkey-server 2>/dev/null || true
+if [ "$KEEP_SOURCE_RUNNING" = "1" ]; then
+  log "  Keeping source valkey-server running"
+else
+  sudo pkill -9 valkey-server 2>/dev/null || true
+fi
 sudo pkill -9 valkey-benchmark 2>/dev/null || true
 sudo pkill -9 criu 2>/dev/null || true
 $SSH ubuntu@$REPLICA_SSH_HOST "sudo pkill -9 valkey-server; sudo pkill -9 criu" 2>/dev/null || true
@@ -52,9 +64,13 @@ fi
 # Empirical: ~25300 keys per GB with 64KB values (includes overhead)
 NUM_KEYS=$((DATA_SIZE_GB * 25300))
 NUM_OPS=$((NUM_KEYS + 50000))
-log "Step 3: Fill ~${DATA_SIZE_GB}GB using valkey-benchmark..."
-log "  Keys: $NUM_KEYS, Ops: $NUM_OPS, Value size: 64KB"
-valkey-benchmark -h 127.0.0.1 -p "$VALKEY_PORT" -t set -d 64000 -r $NUM_KEYS -n $NUM_OPS --threads 10 -q
+if [ "$SKIP_FILL" = "1" ]; then
+  log "Step 3: Skip fill (SKIP_FILL=1)"
+else
+  log "Step 3: Fill ~${DATA_SIZE_GB}GB using valkey-benchmark..."
+  log "  Keys: $NUM_KEYS, Ops: $NUM_OPS, Value size: 64KB"
+  valkey-benchmark -h 127.0.0.1 -p "$VALKEY_PORT" -t set -d 64000 -r $NUM_KEYS -n $NUM_OPS --threads 10 -q
+fi
 MEM=$(valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
 log "  Memory: $MEM"
 
@@ -84,6 +100,19 @@ done
 
 # Step 6: NOW start CRIU dump (replica is waiting for page server)
 log "Step 6: CRIU dump..."
+PID=""
+for i in $(seq 1 40); do
+  PID=$(pgrep -x valkey-server || true)
+  if [ -n "$PID" ] && valkey-cli -h 127.0.0.1 -p "$VALKEY_PORT" ping &>/dev/null; then
+    break
+  fi
+  sleep 0.25
+done
+if [ -z "$PID" ]; then
+  log "ERROR: valkey-server PID not found before dump"
+  exit 1
+fi
+log "  Dump PID: $PID"
 sudo gdb -p $PID -batch -ex "call close(12)" -ex "call close(13)" -ex detach -ex quit 2>/dev/null || true
 sudo taskset -pc 0 $PID >/dev/null 2>&1 || true
 sudo touch "$IMAGES_DIR/lazy-primary.log"
@@ -102,14 +131,30 @@ sudo criu dump \
     -v2 -o "$IMAGES_DIR/lazy-primary.log" &
 DUMP_PID=$!
 
-# Step 7: Wait for replica to complete
-log "Step 7: Wait for replica..."
-wait $REPLICA_PID || true
+sleep 2
+if ! kill -0 "$DUMP_PID" 2>/dev/null; then
+  log "ERROR: criu dump exited early"
+  sudo tail -n 120 "$IMAGES_DIR/lazy-primary.log" || true
+  exit 1
+fi
 
-# Step 7b: Kill dump process (cow-dump keeps running forever with --leave-running)
-log "Step 7b: Stop dump process..."
-sudo pkill -9 -f "criu dump" 2>/dev/null || true
-sleep 1
+WORKLOAD_PID=""
+if [ "$RUN_WORKLOAD_DURING_MIGRATION" = "1" ]; then
+  log "Step 6b: Start workload traffic..."
+  valkey-benchmark -h 127.0.0.1 -p "$VALKEY_PORT" \
+    -t set,get \
+    -r "$WORKLOAD_KEYSPACE" \
+    -c "$WORKLOAD_CLIENTS" \
+    -P "$WORKLOAD_PIPELINE" \
+    -d "$WORKLOAD_DATA_SIZE" \
+    -n 1000000000 \
+    -q >/tmp/migrate_workload_live.log 2>&1 &
+  WORKLOAD_PID=$!
+  log "  Workload PID: $WORKLOAD_PID"
+fi
+
+# Step 7: Wait for replica readiness without blocking on ssh wrapper process
+log "Step 7: Wait for replica readiness..."
 
 # Step 8: Cutover/check
 if [ "$FAST_CUTOVER" = "1" ]; then
@@ -136,6 +181,18 @@ for i in $(seq 1 120); do
 done
 if [ "$REPLICA_UP" -ne 1 ]; then
   log "ERROR: replica valkey is not responding"
+  log "Step 8b: Stop dump process..."
+  sudo pkill -9 -f "criu dump" 2>/dev/null || true
+  sleep 1
+  if [ -n "$WORKLOAD_PID" ]; then
+    log "Step 8c: Stop workload traffic..."
+    kill "$WORKLOAD_PID" 2>/dev/null || true
+    sudo pkill -9 valkey-benchmark 2>/dev/null || true
+  fi
+  if kill -0 "$REPLICA_PID" 2>/dev/null; then
+    kill "$REPLICA_PID" 2>/dev/null || true
+    wait "$REPLICA_PID" 2>/dev/null || true
+  fi
   if [ "$FAST_CUTOVER" = "1" ]; then
     log "Recovering source from STOP state"
     sudo pkill -CONT -x valkey-server 2>/dev/null || true
@@ -143,14 +200,34 @@ if [ "$REPLICA_UP" -ne 1 ]; then
   exit 1
 fi
 
+# Step 8b: Optionally stop dump/page-server process
+if [ "$STOP_DUMP_ON_COMPLETE" = "1" ]; then
+  log "Step 8b: Stop dump process..."
+  sudo pkill -9 -f "criu dump" 2>/dev/null || true
+  sleep 1
+else
+  log "Step 8b: Keep dump process running (STOP_DUMP_ON_COMPLETE=0)"
+fi
+
+if [ -n "$WORKLOAD_PID" ]; then
+  log "Step 8c: Stop workload traffic..."
+  kill "$WORKLOAD_PID" 2>/dev/null || true
+  sudo pkill -9 valkey-benchmark 2>/dev/null || true
+fi
+
+if kill -0 "$REPLICA_PID" 2>/dev/null; then
+  kill "$REPLICA_PID" 2>/dev/null || true
+  wait "$REPLICA_PID" 2>/dev/null || true
+fi
+
 REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r'" 2>/dev/null || echo "?")
 
 # Extract CRIU timing from logs
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
-DUMP_TOTAL=$(sudo grep "dump_one_task TOTAL" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
-PARSE_SMAPS=$(sudo grep "parse_smaps took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
-DUMP_PAGES=$(sudo grep "parasite_dump_pages_seized took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
-GEN_IOVS=$(sudo grep "generate_vma_iovs loop" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
+DUMP_TOTAL=$(sudo grep -a "dump_one_task TOTAL" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
+PARSE_SMAPS=$(sudo grep -a "parse_smaps took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
+DUMP_PAGES=$(sudo grep -a "parasite_dump_pages_seized took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
+GEN_IOVS=$(sudo grep -a "generate_vma_iovs loop" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
 
 log "================================================================"
 log "Migration complete!"

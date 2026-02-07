@@ -677,8 +677,6 @@ static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 {
 	struct lazy_iov *iov, *n;
 
-	pr_info("__drop_iovs: addr=0x%lx len=0x%x\n", addr, len);
-
 	list_for_each_entry_safe(iov, n, iovs, l) {
 		unsigned long start = iov->start;
 		unsigned long end = iov->end;
@@ -1316,10 +1314,9 @@ found_iov:
 	if (lpi->exited)
 		return 0;
 
-	/* CRITICAL: Remove copied pages from IOV tracking to prevent duplicate faults */
-#if 0 //TODO
 	ret = drop_iovs(lpi, vaddr, pages * PAGE_SIZE);
-#endif
+	if (ret < 0)
+		return ret;
 	clock_gettime(CLOCK_MONOTONIC, &t_drop);
 	uffd_stats.drop_iovs_total_ns += (t_drop.tv_sec - t_copy.tv_sec) * 1000000000 + (t_drop.tv_nsec - t_copy.tv_nsec);
 	uffd_stats.drop_iovs_count++;
@@ -1428,8 +1425,6 @@ static struct lazy_iov *pick_next_range(struct lazy_pages_info *lpi)
  */
 static void update_xfer_len(struct lazy_pages_info *lpi, bool pf)
 {
-	lpi->xfer_len = 8 * 1024; //MAX_XFER_LEN;
-	return;			  //TODO remove
 	if (pf)
 		lpi->xfer_len = DEFAULT_XFER_LEN;
 	else
