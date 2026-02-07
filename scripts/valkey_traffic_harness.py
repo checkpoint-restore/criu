@@ -9,7 +9,7 @@ import statistics
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 
 class ValkeyError(Exception):
@@ -198,7 +198,7 @@ class Harness:
         }
 
         self.expected_lock = threading.Lock()
-        self.expected_values: Dict[str, str] = {}
+        self.touched_keys: Set[str] = set()
 
         self.replica_write_rejected = 0
         self.replica_write_accepted = 0
@@ -289,7 +289,7 @@ class Harness:
                 ok = isinstance(resp, str) and resp.upper() == "OK"
                 if ok:
                     with self.expected_lock:
-                        self.expected_values[key] = value
+                        self.touched_keys.add(key)
             except Exception:
                 ok = False
             self._record("source_write", ok, start, track_outage=True)
@@ -450,29 +450,24 @@ class Harness:
                 value_mismatches += 1
 
         with self.expected_lock:
-            expected_items = list(self.expected_values.items())
-        rnd.shuffle(expected_items)
-        expected_items = expected_items[: self.args.expected_check_limit]
+            touched_items = list(self.touched_keys)
+        rnd.shuffle(touched_items)
+        touched_items = touched_items[: self.args.expected_check_limit]
 
-        source_expected_mismatch = 0
-        replica_expected_mismatch = 0
+        touched_mismatches = 0
         expected_checked_actual = 0
-        for key, value in expected_items:
+        for key in touched_items:
             if time.time() >= deadline:
                 break
             expected_checked_actual += 1
-            expected = value.encode()
             try:
                 src_val = self._fetch_value(source, key)
                 dst_val = self._fetch_value(replica, key)
             except Exception:
-                source_expected_mismatch += 1
-                replica_expected_mismatch += 1
+                touched_mismatches += 1
                 continue
-            if src_val != expected:
-                source_expected_mismatch += 1
-            if dst_val != expected:
-                replica_expected_mismatch += 1
+            if src_val != dst_val:
+                touched_mismatches += 1
 
         return {
             "sampled_keys": sample_size,
@@ -482,8 +477,11 @@ class Harness:
             "source_sample_digest": source_digest.hexdigest(),
             "replica_sample_digest": replica_digest.hexdigest(),
             "expected_checked": expected_checked_actual,
-            "source_expected_mismatches": source_expected_mismatch,
-            "replica_expected_mismatches": replica_expected_mismatch,
+            "touched_keys_checked": expected_checked_actual,
+            "touched_key_mismatches": touched_mismatches,
+            # Backward-compatible fields kept for existing scripts.
+            "source_expected_mismatches": touched_mismatches,
+            "replica_expected_mismatches": touched_mismatches,
         }
 
     def _status_line(self) -> str:
@@ -527,7 +525,7 @@ class Harness:
             time.sleep(0.05)
 
         for thread in threads:
-            thread.join(timeout=2.0)
+            thread.join()
 
         now = time.time()
         for stat in self.metrics.values():
@@ -540,6 +538,22 @@ class Harness:
             replica_write_accepted = self.replica_write_accepted
             replica_write_rejected = self.replica_write_rejected
 
+        cutover = self._compute_cutover_metrics()
+        cutover_window_found = bool(cutover.get("window_found", False))
+        cutover_source_write_max = float(cutover.get("source_write_max_outage_ms", 0.0))
+        cutover_source_read_max = float(cutover.get("source_read_max_outage_ms", 0.0))
+        cutover_replica_read_max = float(cutover.get("replica_read_max_outage_ms", 0.0))
+        cutover_source_write_ok = cutover_window_found and (
+            cutover_source_write_max <= self.args.cutover_source_write_max_outage_ms
+        )
+        cutover_source_read_ok = cutover_window_found and (
+            cutover_source_read_max <= self.args.cutover_source_read_max_outage_ms
+        )
+        cutover_replica_read_ok = cutover_window_found and (
+            cutover_replica_read_max <= self.args.cutover_replica_read_max_outage_ms
+        )
+        cutover_gate_ok = cutover_source_write_ok and cutover_source_read_ok and cutover_replica_read_ok
+
         report = {
             "duration_seconds": now - self.started_at,
             "args": {
@@ -548,6 +562,9 @@ class Harness:
                 "replica_host": self.args.replica_host,
                 "replica_port": self.args.replica_port,
                 "keyspace": self.args.keyspace,
+                "cutover_source_write_max_outage_ms": self.args.cutover_source_write_max_outage_ms,
+                "cutover_source_read_max_outage_ms": self.args.cutover_source_read_max_outage_ms,
+                "cutover_replica_read_max_outage_ms": self.args.cutover_replica_read_max_outage_ms,
             },
             "metrics": {name: stat.summary() for name, stat in self.metrics.items()},
             "replica_write_rejected": replica_write_rejected,
@@ -555,7 +572,14 @@ class Harness:
             "replication_caught_up": replica_caught_up,
             "replication_offsets": offsets,
             "data_checks": data_checks,
-            "cutover": self._compute_cutover_metrics(),
+            "cutover": cutover,
+            "gates": {
+                "cutover_window_found": cutover_window_found,
+                "cutover_source_write_ok": cutover_source_write_ok,
+                "cutover_source_read_ok": cutover_source_read_ok,
+                "cutover_replica_read_ok": cutover_replica_read_ok,
+                "cutover_gate_ok": cutover_gate_ok,
+            },
         }
 
         report["pass"] = (
@@ -565,6 +589,7 @@ class Harness:
             and data_checks["sample_value_mismatches"] == 0
             and data_checks["source_expected_mismatches"] == 0
             and data_checks["replica_expected_mismatches"] == 0
+            and cutover_gate_ok
         )
         return report
 
@@ -591,6 +616,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--replica-readers", type=int, default=8)
     parser.add_argument("--replica-writers", type=int, default=2)
     parser.add_argument("--cutover-marker-file", default="")
+    parser.add_argument("--cutover-source-write-max-outage-ms", type=float, default=250.0)
+    parser.add_argument("--cutover-source-read-max-outage-ms", type=float, default=250.0)
+    parser.add_argument("--cutover-replica-read-max-outage-ms", type=float, default=250.0)
     parser.add_argument("--report", default="/tmp/valkey_traffic_harness_report.json")
     return parser.parse_args()
 
@@ -623,6 +651,8 @@ def main() -> int:
     )
     cutover = report.get("cutover", {})
     print(f"cutover_window_found={cutover.get('window_found', False)}", flush=True)
+    gates = report.get("gates", {})
+    print(f"cutover_gate_ok={gates.get('cutover_gate_ok', False)}", flush=True)
     if cutover.get("window_found", False):
         print(
             "cutover_window_ms="

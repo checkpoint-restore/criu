@@ -52,6 +52,8 @@ def extract_harness_metrics(harness_report: Path) -> Dict[str, object]:
     report = json.loads(harness_report.read_text(encoding="utf-8"))
     metrics = report.get("metrics", {})
     cutover = report.get("cutover", {})
+    gates = report.get("gates", {})
+    data_checks = report.get("data_checks", {})
     source_write = metrics.get("source_write", {})
     source_read = metrics.get("source_read", {})
     replica_read = metrics.get("replica_read", {})
@@ -60,13 +62,15 @@ def extract_harness_metrics(harness_report: Path) -> Dict[str, object]:
         "pass": bool(report.get("pass", False)),
         "replica_write_accepted": int(report.get("replica_write_accepted", 0)),
         "replication_caught_up": bool(report.get("replication_caught_up", False)),
-        "sample_mismatches": int(report.get("data_checks", {}).get("sample_value_mismatches", 0)),
+        "sample_mismatches": int(data_checks.get("sample_value_mismatches", 0)),
+        "touched_key_mismatches": int(data_checks.get("touched_key_mismatches", 0)),
         "source_write_p99_ms": float(source_write.get("latency_ms_p99", 0.0)),
         "source_read_p99_ms": float(source_read.get("latency_ms_p99", 0.0)),
         "replica_read_p99_ms": float(replica_read.get("latency_ms_p99", 0.0)),
         "source_write_max_outage_ms": float(source_write.get("max_outage_ms", 0.0)),
         "source_read_max_outage_ms": float(source_read.get("max_outage_ms", 0.0)),
         "replica_read_max_outage_ms": float(replica_read.get("max_outage_ms", 0.0)),
+        "cutover_gate_ok": bool(gates.get("cutover_gate_ok", False)),
         "cutover_window_found": bool(cutover.get("window_found", False)),
         "cutover_window_ms": float(cutover.get("window_ms", 0.0)),
         "cutover_source_write_max_outage_ms": float(cutover.get("source_write_max_outage_ms", 0.0)),
@@ -95,6 +99,7 @@ def main() -> int:
 
     print(f"kpi_report={output}")
     print(f"harness_pass={result['harness']['pass']}")
+    print(f"cutover_gate_ok={result['harness']['cutover_gate_ok']}")
     print(
         "criu_dump_total_s="
         f"{result['criu_primary']['timings']['dump_one_task_total_s']} "

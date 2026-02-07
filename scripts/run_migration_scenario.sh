@@ -20,6 +20,9 @@ HARNESS_REPLICA_WRITERS=${HARNESS_REPLICA_WRITERS:-2}
 HARNESS_STATUS_INTERVAL=${HARNESS_STATUS_INTERVAL:-2}
 HARNESS_CATCHUP_TIMEOUT=${HARNESS_CATCHUP_TIMEOUT:-120}
 HARNESS_CHECK_TIMEOUT=${HARNESS_CHECK_TIMEOUT:-45}
+HARNESS_CUTOVER_SOURCE_WRITE_MAX_OUTAGE_MS=${HARNESS_CUTOVER_SOURCE_WRITE_MAX_OUTAGE_MS:-250}
+HARNESS_CUTOVER_SOURCE_READ_MAX_OUTAGE_MS=${HARNESS_CUTOVER_SOURCE_READ_MAX_OUTAGE_MS:-250}
+HARNESS_CUTOVER_REPLICA_READ_MAX_OUTAGE_MS=${HARNESS_CUTOVER_REPLICA_READ_MAX_OUTAGE_MS:-250}
 HARNESS_WARMUP_SECONDS=${HARNESS_WARMUP_SECONDS:-2}
 HARNESS_SETTLE_SECONDS=${HARNESS_SETTLE_SECONDS:-10}
 HARNESS_REPORT=${HARNESS_REPORT:-/tmp/valkey_traffic_harness_report.json}
@@ -106,6 +109,9 @@ python3 "$SCRIPT_DIR/valkey_traffic_harness.py" \
 	--catchup-timeout "$HARNESS_CATCHUP_TIMEOUT" \
 	--check-timeout "$HARNESS_CHECK_TIMEOUT" \
 	--cutover-marker-file "$HARNESS_CUTOVER_MARKER" \
+	--cutover-source-write-max-outage-ms "$HARNESS_CUTOVER_SOURCE_WRITE_MAX_OUTAGE_MS" \
+	--cutover-source-read-max-outage-ms "$HARNESS_CUTOVER_SOURCE_READ_MAX_OUTAGE_MS" \
+	--cutover-replica-read-max-outage-ms "$HARNESS_CUTOVER_REPLICA_READ_MAX_OUTAGE_MS" \
 	--report "$HARNESS_REPORT" >"$HARNESS_LOG" 2>&1 &
 HARNESS_PID=$!
 log "Harness PID: $HARNESS_PID"
@@ -142,12 +148,14 @@ sw = metrics.get("source_write", {})
 sr = metrics.get("source_read", {})
 rr = metrics.get("replica_read", {})
 cut = report.get("cutover", {})
+gates = report.get("gates", {})
 print(f"pass={report.get('pass')}")
 print(f"replica_write_accepted={report.get('replica_write_accepted')}")
 print(f"replication_caught_up={report.get('replication_caught_up')}")
 print(f"sample_mismatches={report.get('data_checks', {}).get('sample_value_mismatches')}")
 print(f"source_expected_mismatches={report.get('data_checks', {}).get('source_expected_mismatches')}")
 print(f"replica_expected_mismatches={report.get('data_checks', {}).get('replica_expected_mismatches')}")
+print(f"touched_key_mismatches={report.get('data_checks', {}).get('touched_key_mismatches')}")
 print(f"source_write_p99_ms={sw.get('latency_ms_p99', 0):.3f}")
 print(f"source_read_p99_ms={sr.get('latency_ms_p99', 0):.3f}")
 print(f"replica_read_p99_ms={rr.get('latency_ms_p99', 0):.3f}")
@@ -155,6 +163,7 @@ print(f"source_write_max_outage_ms={sw.get('max_outage_ms', 0):.3f}")
 print(f"source_read_max_outage_ms={sr.get('max_outage_ms', 0):.3f}")
 print(f"replica_read_max_outage_ms={rr.get('max_outage_ms', 0):.3f}")
 print(f"cutover_window_found={cut.get('window_found', False)}")
+print(f"cutover_gate_ok={gates.get('cutover_gate_ok', False)}")
 print(f"cutover_window_ms={cut.get('window_ms', 0):.3f}")
 print(f"cutover_source_write_max_outage_ms={cut.get('source_write_max_outage_ms', 0):.3f}")
 print(f"cutover_source_read_max_outage_ms={cut.get('source_read_max_outage_ms', 0):.3f}")
