@@ -33,7 +33,10 @@ log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
 cleanup_dump() {
 	if [ "$SCENARIO_KILL_DUMP_AFTER" = "1" ]; then
-		sudo pkill -9 -f "criu dump --tree" 2>/dev/null || true
+		DUMP_PIDS=$(sudo pgrep -f "criu dump --tree" 2>/dev/null || true)
+		if [ -n "$DUMP_PIDS" ]; then
+			sudo kill -9 $DUMP_PIDS 2>/dev/null || true
+		fi
 	fi
 }
 
@@ -70,12 +73,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [ "$SCENARIO_RESTART_SOURCE_BEFORE_PREFILL" = "1" ]; then
+	restart_source_valkey
+else
+	ensure_source_valkey_ready
+fi
+
 if [ "$SCENARIO_PREFILL" = "1" ]; then
-	if [ "$SCENARIO_RESTART_SOURCE_BEFORE_PREFILL" = "1" ]; then
-		restart_source_valkey
-	else
-		ensure_source_valkey_ready
-	fi
 	log "Prefill source dataset (~${DATA_SIZE_GB}GB) before traffic starts"
 	NUM_KEYS=$((DATA_SIZE_GB * 25300))
 	NUM_OPS=$((NUM_KEYS + 50000))

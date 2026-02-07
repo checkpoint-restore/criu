@@ -17,10 +17,19 @@ WORKLOAD_KEYSPACE=${WORKLOAD_KEYSPACE:-1000000}
 WORKLOAD_CLIENTS=${WORKLOAD_CLIENTS:-64}
 WORKLOAD_PIPELINE=${WORKLOAD_PIPELINE:-16}
 WORKLOAD_DATA_SIZE=${WORKLOAD_DATA_SIZE:-1024}
+WORKLOAD_LOG_FILE=${WORKLOAD_LOG_FILE:-}
 SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 REPLICA_SSH_HOST="${REPLICA_IP:-$REPLICA_HOST}"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
+
+stop_workload() {
+	if [ -n "${WORKLOAD_PID:-}" ]; then
+		kill "$WORKLOAD_PID" 2>/dev/null || true
+		WORKLOAD_PID=""
+	fi
+	sudo pkill -9 valkey-benchmark 2>/dev/null || true
+}
 
 # Step 1: Kill on both
 log "Step 1: Kill processes..."
@@ -97,6 +106,10 @@ for i in $(seq 1 60); do
   fi
   sleep 0.5
 done
+if [ ! -f "$READY_FILE" ]; then
+  log "ERROR: replica ready signal not found at $READY_FILE"
+  exit 1
+fi
 
 # Step 6: NOW start CRIU dump (replica is waiting for page server)
 log "Step 6: CRIU dump..."
@@ -141,6 +154,12 @@ fi
 WORKLOAD_PID=""
 if [ "$RUN_WORKLOAD_DURING_MIGRATION" = "1" ]; then
   log "Step 6b: Start workload traffic..."
+  if [ -z "$WORKLOAD_LOG_FILE" ]; then
+    WORKLOAD_LOG_FILE=$(mktemp /tmp/migrate_workload_live.XXXXXX.log 2>/dev/null || echo "/tmp/migrate_workload_live.log")
+  fi
+  if ! touch "$WORKLOAD_LOG_FILE" 2>/dev/null; then
+    WORKLOAD_LOG_FILE="/dev/null"
+  fi
   valkey-benchmark -h 127.0.0.1 -p "$VALKEY_PORT" \
     -t set,get \
     -r "$WORKLOAD_KEYSPACE" \
@@ -148,9 +167,18 @@ if [ "$RUN_WORKLOAD_DURING_MIGRATION" = "1" ]; then
     -P "$WORKLOAD_PIPELINE" \
     -d "$WORKLOAD_DATA_SIZE" \
     -n 1000000000 \
-    -q >/tmp/migrate_workload_live.log 2>&1 &
+    -q >"$WORKLOAD_LOG_FILE" 2>&1 &
   WORKLOAD_PID=$!
   log "  Workload PID: $WORKLOAD_PID"
+  log "  Workload log: $WORKLOAD_LOG_FILE"
+  sleep 1
+  if ! kill -0 "$WORKLOAD_PID" 2>/dev/null; then
+    log "ERROR: workload process exited early"
+    if [ "$WORKLOAD_LOG_FILE" != "/dev/null" ]; then
+      tail -n 40 "$WORKLOAD_LOG_FILE" 2>/dev/null || true
+    fi
+    exit 1
+  fi
 fi
 
 # Step 7: Wait for replica readiness without blocking on ssh wrapper process
@@ -200,6 +228,31 @@ if [ "$REPLICA_UP" -ne 1 ]; then
   exit 1
 fi
 
+REPLICA_SYNCED=0
+for i in $(seq 1 120); do
+  if $SSH ubuntu@$REPLICA_SSH_HOST "valkey-cli info replication | awk -F: '/^role:/ {role=\$2} /^master_link_status:/ {link=\$2} END {gsub(/\r/, \"\", role); gsub(/\r/, \"\", link); if ((role == \"slave\" || role == \"replica\") && link == \"up\") exit 0; exit 1}'" >/dev/null 2>&1; then
+    REPLICA_SYNCED=1
+    break
+  fi
+  sleep 0.25
+done
+if [ "$REPLICA_SYNCED" -ne 1 ]; then
+  log "ERROR: replica did not reach role=replica/slave with master_link_status=up"
+  log "Step 8b: Stop dump process..."
+  sudo pkill -9 -f "criu dump" 2>/dev/null || true
+  sleep 1
+  stop_workload
+  if kill -0 "$REPLICA_PID" 2>/dev/null; then
+    kill "$REPLICA_PID" 2>/dev/null || true
+    wait "$REPLICA_PID" 2>/dev/null || true
+  fi
+  if [ "$FAST_CUTOVER" = "1" ]; then
+    log "Recovering source from STOP state"
+    sudo pkill -CONT -x valkey-server 2>/dev/null || true
+  fi
+  exit 1
+fi
+
 # Step 8b: Optionally stop dump/page-server process
 if [ "$STOP_DUMP_ON_COMPLETE" = "1" ]; then
   log "Step 8b: Stop dump process..."
@@ -211,8 +264,7 @@ fi
 
 if [ -n "$WORKLOAD_PID" ]; then
   log "Step 8c: Stop workload traffic..."
-  kill "$WORKLOAD_PID" 2>/dev/null || true
-  sudo pkill -9 valkey-benchmark 2>/dev/null || true
+  stop_workload
 fi
 
 if kill -0 "$REPLICA_PID" 2>/dev/null; then

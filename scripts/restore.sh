@@ -136,7 +136,23 @@ if ! wait "$REPLICATE_PID"; then
 fi
 echo "Replica configuration completed"
 
-echo "Step 8c: Removing temporary replica network gate"
+echo "Step 8c: Verifying replica write protection"
+WRITE_GUARD_OK=0
+for i in $(seq 1 40); do
+  WRITE_RESP=$(valkey-cli -p "$VALKEY_PORT" set __criu_replica_probe__ 1 2>&1 || true)
+  if printf "%s\n" "$WRITE_RESP" | grep -qi "READONLY"; then
+    WRITE_GUARD_OK=1
+    break
+  fi
+  sleep 0.1
+done
+if [ "$WRITE_GUARD_OK" -ne 1 ]; then
+  echo "ERROR: replica accepted write or did not return READONLY"
+  valkey-cli -p "$VALKEY_PORT" del __criu_replica_probe__ >/dev/null 2>&1 || true
+  exit 1
+fi
+
+echo "Step 8d: Removing temporary replica network gate"
 remove_replica_gate
 
 END_TOTAL=$(date +%s)
