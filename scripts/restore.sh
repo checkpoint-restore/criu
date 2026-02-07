@@ -11,6 +11,8 @@ START_TOTAL=$(date +%s)
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
 RESTORE_VERIFY_DELAY_S=${RESTORE_VERIFY_DELAY_S:-0}
+RESTORE_MAX_PING_ATTEMPTS=${RESTORE_MAX_PING_ATTEMPTS:-600}
+RESTORE_PING_INTERVAL_S=${RESTORE_PING_INTERVAL_S:-0.05}
 
 mark_phase_event() {
 	local event="$1"
@@ -137,13 +139,13 @@ if [ "$FAST_CUTOVER" = "1" ]; then
 else
   # Step 7: Wait for valkey to be responsive
   echo "Step 7: Waiting for valkey to be responsive..."
-  for i in $(seq 1 60); do
+  for i in $(seq 1 "$RESTORE_MAX_PING_ATTEMPTS"); do
     if valkey-cli ping &>/dev/null; then
       echo "Valkey is up"
       mark_phase_event "REPLICA_VALKEY_PING_READY"
       break
     fi
-    sleep 0.5
+    sleep "$RESTORE_PING_INTERVAL_S"
   done
 fi
 
