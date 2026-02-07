@@ -673,76 +673,62 @@ free_iovs:
  * Purge range (addr, addr + len) from lazy_iovs. The range may
  * cover several continuous IOVs.
  */
-static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
+static int __drop_iovs(struct list_head *iovs, unsigned long addr, unsigned long len)
 {
 	struct lazy_iov *iov, *n;
+	unsigned long drop_end;
+
+	if (!len)
+		return 0;
+
+	drop_end = addr + len;
+	if (drop_end < addr)
+		drop_end = ULONG_MAX;
 
 	list_for_each_entry_safe(iov, n, iovs, l) {
 		unsigned long start = iov->start;
 		unsigned long end = iov->end;
+		unsigned long overlap_start;
+		unsigned long overlap_end;
 
-		if (len <= 0 || addr + len < start) {
-			pr_debug("    Breaking: len exhausted or before iov\n");
+		if (end <= addr)
+			continue;
+
+		if (start >= drop_end)
 			break;
-		}
 
-		if (addr >= end) {
-			pr_debug("    Skipping: addr >= iov->end\n");
+		overlap_start = max(start, addr);
+		overlap_end = min(end, drop_end);
+		if (overlap_start >= overlap_end)
+			continue;
+
+		if (overlap_start == start && overlap_end == end) {
+			list_del(&iov->l);
+			xfree(iov);
 			continue;
 		}
 
-		if (addr < start) {
-			pr_debug("    Adjusting: addr < start, moving addr to 0x%lx\n", start);
-			len -= (start - addr);
-			addr = start;
+		if (overlap_start == start) {
+			iov->start = overlap_end;
+			iov->img_start += overlap_end - start;
+			continue;
 		}
 
-		/*
-		 * The range completely fits into the current IOV.
-		 * If addr equals iov_start we just "drop" the
-		 * beginning of the IOV. Otherwise, we make the IOV to
-		 * end at addr, and add a new IOV start starts at
-		 * addr + len.
-		 */
-		if (addr + len < end) {
-			if (addr == start) {
-				pr_debug("    Partial drop: adjusting IOV start 0x%lx -> 0x%lx\n",
-					 iov->start, iov->start + len);
-				iov->start += len;
-				iov->img_start += len;
-			} else {
-				pr_debug("    Partial drop: splitting at 0x%lx, truncating to 0x%lx\n",
-					 addr + len, addr);
-				if (split_iov(iov, addr + len))
-					return -1;
-				iov->end = addr;
-			}
-			break;
+		if (overlap_end == end) {
+			iov->end = overlap_start;
+			continue;
 		}
 
-		/*
-		 * The range spawns beyond the end of the current IOV.
-		 * If addr equals iov_start we just "drop" the entire
-		 * IOV.  Otherwise, we cut the beginning of the IOV
-		 * and continue to the next one with the updated range
-		 */
-		if (addr == start) {
-			pr_debug("    Full drop: deleting entire IOV 0x%lx-0x%lx\n", start, end);
-			list_del(&iov->l);
-			xfree(iov);
-		} else {
-			pr_debug("    Partial drop: truncating IOV end 0x%lx -> 0x%lx\n", end, addr);
-			iov->end = addr;
-		}
-
-		len -= (end - addr);
-		addr = end;
+		if (split_iov(iov, overlap_end))
+			return -1;
+		iov->end = overlap_start;
+		break;
 	}
 
 	return 0;
 }
 
-static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
+static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, unsigned long len)
 {
 	if (__drop_iovs(&lpi->iovs, addr, len))
 		return -1;
@@ -1236,6 +1222,7 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 {
 	struct lazy_pages_info *lpi;
 	unsigned long pages = nr;
+	unsigned long tracked_pages;
 	struct lazy_iov *iov;
 	int ret;
 	struct timespec t_start, t_copy, t_drop, t_end;
@@ -1300,6 +1287,10 @@ static int uffd_io_complete_bulk(struct page_read *pr, unsigned long vaddr, unsi
 	}
 
 found_iov:
+	tracked_pages = (iov->end - vaddr) / PAGE_SIZE;
+	pages = min(pages, tracked_pages);
+	if (!pages)
+		return 0;
 
 	/* Copy pages to userspace */
 	ret = uffd_copy(lpi, vaddr, &pages);
