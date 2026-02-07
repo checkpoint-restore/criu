@@ -372,7 +372,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	pr_info("COW dump initialized for pid %d: vm_as=%u tracked=%u fallback=%u pages=%lu uffd=%d\n",
 		item->pid->real, args->nr_vmas, tracked_vmas, fallback_vmas,
 		task->total_pages, task->uffd);
-	pr_info("PAGE SERVER READY TO SERVE\n");
+	pr_info("COW dump tracking armed\n");
 
 	xfree(failed_map);
 	return 0;
@@ -695,7 +695,6 @@ static void *cow_monitor_thread(void *arg)
 
 	pthread_setname_np(pthread_self(), "criu-cow-mon");
 	pr_info("COW monitor thread started\n");
-	pr_info("PAGE SERVER READY TO SERVE\n");
 
 	while (!g_stop_monitoring) {
 		int ret;

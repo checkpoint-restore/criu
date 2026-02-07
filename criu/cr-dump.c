@@ -1778,6 +1778,18 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 			pr_err("Failed to initialize COW dump for VMAs\n");
 			goto err_cure;
 		}
+
+		/*
+		 * COW tracking applies UFFD write-protect to writable VMAs.
+		 * The parasite itself can fault on protected pages (e.g. rseq/TLS
+		 * writes) while we are still in dump_one_task(), so start monitor
+		 * early to service those faults and avoid deadlock in RPC commands.
+		 */
+		if (opts.lazy_pages && cow_start_monitor_thread()) {
+			pr_err("Failed to start COW monitor thread\n");
+			ret = -1;
+			goto err_cure;
+		}
 	}
 
 	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
@@ -2222,6 +2234,7 @@ static int cr_dump_finish(int ret)
 
 	/* Resume process early if using COW dump with lazy pages */
 	if (!ret && opts.lazy_pages && opts.cow_dump) {
+		pr_err("PAGE SERVER READY TO SERVE\n");
 		pr_info("Resuming process with COW protection active\n");
 
 		if (cow_start_monitor_thread()) {
