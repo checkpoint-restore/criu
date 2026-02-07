@@ -18,10 +18,24 @@ WORKLOAD_CLIENTS=${WORKLOAD_CLIENTS:-64}
 WORKLOAD_PIPELINE=${WORKLOAD_PIPELINE:-16}
 WORKLOAD_DATA_SIZE=${WORKLOAD_DATA_SIZE:-1024}
 WORKLOAD_LOG_FILE=${WORKLOAD_LOG_FILE:-}
+CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
 SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 REPLICA_SSH_HOST="${REPLICA_IP:-$REPLICA_HOST}"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
+
+mark_cutover_event() {
+  local event="$1"
+  local ts_ms
+
+  if [ -z "$CUTOVER_MARKER_FILE" ]; then
+    return 0
+  fi
+
+  ts_ms=$(date +%s%3N)
+  mkdir -p "$(dirname "$CUTOVER_MARKER_FILE")" 2>/dev/null || true
+  printf "%s %s\n" "$event" "$ts_ms" >>"$CUTOVER_MARKER_FILE"
+}
 
 stop_workload() {
 	if [ -n "${WORKLOAD_PID:-}" ]; then
@@ -196,9 +210,11 @@ else
 fi
 
 REPLICA_UP=0
+mark_cutover_event "CUTOVER_START_MS"
 for i in $(seq 1 120); do
   if $SSH ubuntu@$REPLICA_SSH_HOST "valkey-cli ping >/dev/null 2>&1"; then
     REPLICA_UP=1
+    mark_cutover_event "CUTOVER_END_MS"
     break
   fi
   if [ "$FAST_CUTOVER" = "1" ]; then

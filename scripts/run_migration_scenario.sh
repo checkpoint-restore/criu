@@ -24,6 +24,7 @@ HARNESS_WARMUP_SECONDS=${HARNESS_WARMUP_SECONDS:-2}
 HARNESS_SETTLE_SECONDS=${HARNESS_SETTLE_SECONDS:-10}
 HARNESS_REPORT=${HARNESS_REPORT:-/tmp/valkey_traffic_harness_report.json}
 HARNESS_LOG=${HARNESS_LOG:-/tmp/valkey_traffic_harness.log}
+HARNESS_CUTOVER_MARKER=${HARNESS_CUTOVER_MARKER:-/tmp/valkey_cutover_marker.log}
 SCENARIO_KPI_REPORT=${SCENARIO_KPI_REPORT:-/tmp/criu_kpi_report.json}
 SCENARIO_PREFILL=${SCENARIO_PREFILL:-1}
 SCENARIO_KILL_DUMP_AFTER=${SCENARIO_KILL_DUMP_AFTER:-1}
@@ -88,6 +89,7 @@ if [ "$SCENARIO_PREFILL" = "1" ]; then
 fi
 
 log "Starting real traffic harness (report: $HARNESS_REPORT)"
+rm -f "$HARNESS_CUTOVER_MARKER"
 python3 "$SCRIPT_DIR/valkey_traffic_harness.py" \
 	--source-host "$HARNESS_SOURCE_HOST" \
 	--source-port "$HARNESS_SOURCE_PORT" \
@@ -103,6 +105,7 @@ python3 "$SCRIPT_DIR/valkey_traffic_harness.py" \
 	--status-interval "$HARNESS_STATUS_INTERVAL" \
 	--catchup-timeout "$HARNESS_CATCHUP_TIMEOUT" \
 	--check-timeout "$HARNESS_CHECK_TIMEOUT" \
+	--cutover-marker-file "$HARNESS_CUTOVER_MARKER" \
 	--report "$HARNESS_REPORT" >"$HARNESS_LOG" 2>&1 &
 HARNESS_PID=$!
 log "Harness PID: $HARNESS_PID"
@@ -110,7 +113,7 @@ log "Harness PID: $HARNESS_PID"
 sleep "$HARNESS_WARMUP_SECONDS"
 
 log "Running migration with ${DATA_SIZE_GB}GB dataset"
-RUN_WORKLOAD_DURING_MIGRATION=0 KEEP_SOURCE_RUNNING=1 SKIP_FILL=1 STOP_DUMP_ON_COMPLETE=0 \
+RUN_WORKLOAD_DURING_MIGRATION=0 KEEP_SOURCE_RUNNING=1 SKIP_FILL=1 STOP_DUMP_ON_COMPLETE=0 CUTOVER_MARKER_FILE="$HARNESS_CUTOVER_MARKER" \
 	"$SCRIPT_DIR/migrate.sh" "$DATA_SIZE_GB"
 
 sleep "$HARNESS_SETTLE_SECONDS"
@@ -138,6 +141,7 @@ metrics = report.get("metrics", {})
 sw = metrics.get("source_write", {})
 sr = metrics.get("source_read", {})
 rr = metrics.get("replica_read", {})
+cut = report.get("cutover", {})
 print(f"pass={report.get('pass')}")
 print(f"replica_write_accepted={report.get('replica_write_accepted')}")
 print(f"replication_caught_up={report.get('replication_caught_up')}")
@@ -150,6 +154,11 @@ print(f"replica_read_p99_ms={rr.get('latency_ms_p99', 0):.3f}")
 print(f"source_write_max_outage_ms={sw.get('max_outage_ms', 0):.3f}")
 print(f"source_read_max_outage_ms={sr.get('max_outage_ms', 0):.3f}")
 print(f"replica_read_max_outage_ms={rr.get('max_outage_ms', 0):.3f}")
+print(f"cutover_window_found={cut.get('window_found', False)}")
+print(f"cutover_window_ms={cut.get('window_ms', 0):.3f}")
+print(f"cutover_source_write_max_outage_ms={cut.get('source_write_max_outage_ms', 0):.3f}")
+print(f"cutover_source_read_max_outage_ms={cut.get('source_read_max_outage_ms', 0):.3f}")
+print(f"cutover_replica_read_max_outage_ms={cut.get('replica_read_max_outage_ms', 0):.3f}")
 PY
 	python3 "$SCRIPT_DIR/criu_kpi_report.py" \
 		--harness-report "$HARNESS_REPORT" \

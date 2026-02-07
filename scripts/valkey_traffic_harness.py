@@ -122,6 +122,7 @@ class OpStats:
     latencies_ms: List[float] = field(default_factory=list)
     outage_open_at: Optional[float] = None
     outages_ms: List[float] = field(default_factory=list)
+    outage_ranges: List[Tuple[float, float]] = field(default_factory=list)
 
     def record(self, ok: bool, latency_ms: float, now: float, track_outage: bool = True) -> None:
         self.total += 1
@@ -129,6 +130,7 @@ class OpStats:
             self.success += 1
             self.latencies_ms.append(latency_ms)
             if self.outage_open_at is not None:
+                self.outage_ranges.append((self.outage_open_at, now))
                 self.outages_ms.append((now - self.outage_open_at) * 1000.0)
                 self.outage_open_at = None
             return
@@ -139,8 +141,24 @@ class OpStats:
 
     def close_open_outage(self, now: float) -> None:
         if self.outage_open_at is not None:
+            self.outage_ranges.append((self.outage_open_at, now))
             self.outages_ms.append((now - self.outage_open_at) * 1000.0)
             self.outage_open_at = None
+
+    def max_outage_ms_in_window(self, start_ts: float, end_ts: float) -> float:
+        if end_ts <= start_ts:
+            return 0.0
+
+        max_ms = 0.0
+        for outage_start, outage_end in self.outage_ranges:
+            overlap_start = max(outage_start, start_ts)
+            overlap_end = min(outage_end, end_ts)
+            if overlap_end <= overlap_start:
+                continue
+            overlap_ms = (overlap_end - overlap_start) * 1000.0
+            if overlap_ms > max_ms:
+                max_ms = overlap_ms
+        return max_ms
 
     def summary(self) -> Dict[str, float]:
         lat = sorted(self.latencies_ms)
@@ -185,6 +203,64 @@ class Harness:
         self.replica_write_rejected = 0
         self.replica_write_accepted = 0
         self.replica_write_lock = threading.Lock()
+
+    def _compute_cutover_metrics(self) -> Dict[str, object]:
+        marker_file = self.args.cutover_marker_file
+        result: Dict[str, object] = {
+            "marker_file": marker_file,
+            "window_found": False,
+            "start_unix_ms": None,
+            "end_unix_ms": None,
+            "window_ms": 0.0,
+            "source_write_max_outage_ms": 0.0,
+            "source_read_max_outage_ms": 0.0,
+            "replica_read_max_outage_ms": 0.0,
+            "replica_write_attempt_max_outage_ms": 0.0,
+        }
+
+        if not marker_file:
+            return result
+
+        try:
+            with open(marker_file, "r", encoding="utf-8") as fh:
+                lines = fh.readlines()
+        except OSError:
+            return result
+
+        start_ms: Optional[int] = None
+        end_ms: Optional[int] = None
+        for raw_line in lines:
+            parts = raw_line.strip().split()
+            if len(parts) != 2:
+                continue
+            event, ts_raw = parts
+            try:
+                ts_ms = int(ts_raw)
+            except ValueError:
+                continue
+            if event == "CUTOVER_START_MS" and start_ms is None:
+                start_ms = ts_ms
+                continue
+            if event == "CUTOVER_END_MS" and start_ms is not None and ts_ms >= start_ms:
+                end_ms = ts_ms
+                break
+
+        if start_ms is None or end_ms is None:
+            return result
+
+        start_ts = start_ms / 1000.0
+        end_ts = end_ms / 1000.0
+        result["window_found"] = True
+        result["start_unix_ms"] = start_ms
+        result["end_unix_ms"] = end_ms
+        result["window_ms"] = (end_ts - start_ts) * 1000.0
+        result["source_write_max_outage_ms"] = self.metrics["source_write"].max_outage_ms_in_window(start_ts, end_ts)
+        result["source_read_max_outage_ms"] = self.metrics["source_read"].max_outage_ms_in_window(start_ts, end_ts)
+        result["replica_read_max_outage_ms"] = self.metrics["replica_read"].max_outage_ms_in_window(start_ts, end_ts)
+        result["replica_write_attempt_max_outage_ms"] = self.metrics[
+            "replica_write_attempt"
+        ].max_outage_ms_in_window(start_ts, end_ts)
+        return result
 
     def stop(self) -> None:
         self.stop_event.set()
@@ -479,6 +555,7 @@ class Harness:
             "replication_caught_up": replica_caught_up,
             "replication_offsets": offsets,
             "data_checks": data_checks,
+            "cutover": self._compute_cutover_metrics(),
         }
 
         report["pass"] = (
@@ -513,6 +590,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-readers", type=int, default=8)
     parser.add_argument("--replica-readers", type=int, default=8)
     parser.add_argument("--replica-writers", type=int, default=2)
+    parser.add_argument("--cutover-marker-file", default="")
     parser.add_argument("--report", default="/tmp/valkey_traffic_harness_report.json")
     return parser.parse_args()
 
@@ -543,6 +621,20 @@ def main() -> int:
         f"max_replica_read_outage_ms={report['metrics']['replica_read']['max_outage_ms']:.3f}",
         flush=True,
     )
+    cutover = report.get("cutover", {})
+    print(f"cutover_window_found={cutover.get('window_found', False)}", flush=True)
+    if cutover.get("window_found", False):
+        print(
+            "cutover_window_ms="
+            f"{float(cutover.get('window_ms', 0.0)):.3f} "
+            "cutover_src_write_max_outage_ms="
+            f"{float(cutover.get('source_write_max_outage_ms', 0.0)):.3f} "
+            "cutover_src_read_max_outage_ms="
+            f"{float(cutover.get('source_read_max_outage_ms', 0.0)):.3f} "
+            "cutover_replica_read_max_outage_ms="
+            f"{float(cutover.get('replica_read_max_outage_ms', 0.0)):.3f}",
+            flush=True,
+        )
 
     return 0 if report["pass"] else 2
 

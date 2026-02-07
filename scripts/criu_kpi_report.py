@@ -51,6 +51,7 @@ def extract_primary_metrics(primary_log: Path) -> Dict[str, object]:
 def extract_harness_metrics(harness_report: Path) -> Dict[str, object]:
     report = json.loads(harness_report.read_text(encoding="utf-8"))
     metrics = report.get("metrics", {})
+    cutover = report.get("cutover", {})
     source_write = metrics.get("source_write", {})
     source_read = metrics.get("source_read", {})
     replica_read = metrics.get("replica_read", {})
@@ -66,6 +67,11 @@ def extract_harness_metrics(harness_report: Path) -> Dict[str, object]:
         "source_write_max_outage_ms": float(source_write.get("max_outage_ms", 0.0)),
         "source_read_max_outage_ms": float(source_read.get("max_outage_ms", 0.0)),
         "replica_read_max_outage_ms": float(replica_read.get("max_outage_ms", 0.0)),
+        "cutover_window_found": bool(cutover.get("window_found", False)),
+        "cutover_window_ms": float(cutover.get("window_ms", 0.0)),
+        "cutover_source_write_max_outage_ms": float(cutover.get("source_write_max_outage_ms", 0.0)),
+        "cutover_source_read_max_outage_ms": float(cutover.get("source_read_max_outage_ms", 0.0)),
+        "cutover_replica_read_max_outage_ms": float(cutover.get("replica_read_max_outage_ms", 0.0)),
     }
 
 
@@ -97,7 +103,9 @@ def main() -> int:
         "source_read_max_outage_ms="
         f"{result['harness']['source_read_max_outage_ms']:.3f} "
         "replica_read_max_outage_ms="
-        f"{result['harness']['replica_read_max_outage_ms']:.3f}"
+        f"{result['harness']['replica_read_max_outage_ms']:.3f} "
+        "cutover_replica_read_max_outage_ms="
+        f"{result['harness']['cutover_replica_read_max_outage_ms']:.3f}"
     )
     return 0
 
