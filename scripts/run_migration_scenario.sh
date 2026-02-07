@@ -27,7 +27,7 @@ HARNESS_WARMUP_SECONDS=${HARNESS_WARMUP_SECONDS:-2}
 HARNESS_SETTLE_SECONDS=${HARNESS_SETTLE_SECONDS:-10}
 HARNESS_REPORT=${HARNESS_REPORT:-/tmp/valkey_traffic_harness_report.json}
 HARNESS_LOG=${HARNESS_LOG:-/tmp/valkey_traffic_harness.log}
-HARNESS_CUTOVER_MARKER=${HARNESS_CUTOVER_MARKER:-/tmp/valkey_cutover_marker.log}
+HARNESS_CUTOVER_MARKER=${HARNESS_CUTOVER_MARKER:-$IMAGES_DIR/valkey_cutover_marker.log}
 SCENARIO_KPI_REPORT=${SCENARIO_KPI_REPORT:-/tmp/criu_kpi_report.json}
 SCENARIO_PREFILL=${SCENARIO_PREFILL:-1}
 SCENARIO_KILL_DUMP_AFTER=${SCENARIO_KILL_DUMP_AFTER:-1}
@@ -92,7 +92,11 @@ if [ "$SCENARIO_PREFILL" = "1" ]; then
 fi
 
 log "Starting real traffic harness (report: $HARNESS_REPORT)"
-rm -f "$HARNESS_CUTOVER_MARKER"
+sudo rm -f "$HARNESS_CUTOVER_MARKER" 2>/dev/null || true
+if ! sudo install -m 666 /dev/null "$HARNESS_CUTOVER_MARKER" 2>/dev/null; then
+	touch "$HARNESS_CUTOVER_MARKER" 2>/dev/null || true
+	chmod 666 "$HARNESS_CUTOVER_MARKER" 2>/dev/null || true
+fi
 python3 "$SCRIPT_DIR/valkey_traffic_harness.py" \
 	--source-host "$HARNESS_SOURCE_HOST" \
 	--source-port "$HARNESS_SOURCE_PORT" \
@@ -149,6 +153,7 @@ sr = metrics.get("source_read", {})
 rr = metrics.get("replica_read", {})
 cut = report.get("cutover", {})
 gates = report.get("gates", {})
+phases = report.get("phases", {})
 print(f"pass={report.get('pass')}")
 print(f"replica_write_accepted={report.get('replica_write_accepted')}")
 print(f"replication_caught_up={report.get('replication_caught_up')}")
@@ -168,6 +173,13 @@ print(f"cutover_window_ms={cut.get('window_ms', 0):.3f}")
 print(f"cutover_source_write_max_outage_ms={cut.get('source_write_max_outage_ms', 0):.3f}")
 print(f"cutover_source_read_max_outage_ms={cut.get('source_read_max_outage_ms', 0):.3f}")
 print(f"cutover_replica_read_max_outage_ms={cut.get('replica_read_max_outage_ms', 0):.3f}")
+print(f"phase_events_found={phases.get('events_found', False)}")
+print(f"phase_replica_events_found={phases.get('replica_events_found', False)}")
+print(f"phase_wait_ping_ms={phases.get('wait_ping_ms', 0) or 0:.3f}")
+print(f"phase_replicaof_rpc_ms={phases.get('replicaof_rpc_ms', 0) or 0:.3f}")
+print(f"phase_role_wait_ms={phases.get('role_wait_ms', 0) or 0:.3f}")
+print(f"phase_post_role_to_gate_removed_ms={phases.get('post_role_to_gate_removed_ms', 0) or 0:.3f}")
+print(f"phase_cutover_to_gate_removed_ms={phases.get('cutover_to_gate_removed_ms', 0) or 0:.3f}")
 PY
 	python3 "$SCRIPT_DIR/criu_kpi_report.py" \
 		--harness-report "$HARNESS_REPORT" \

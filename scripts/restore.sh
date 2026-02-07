@@ -9,6 +9,20 @@ source "$SCRIPT_DIR/.env"
 FAST_CUTOVER=${FAST_CUTOVER:-0}
 START_TOTAL=$(date +%s)
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
+CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
+
+mark_phase_event() {
+	local event="$1"
+	local ts_ms
+
+	if [ -z "$CUTOVER_MARKER_FILE" ]; then
+		return 0
+	fi
+
+	ts_ms=$(date +%s%3N)
+	mkdir -p "$(dirname "$CUTOVER_MARKER_FILE")" 2>/dev/null || true
+	printf "%s %s %s\n" "$event" "$ts_ms" "REPLICA_RESTORE" >>"$CUTOVER_MARKER_FILE" 2>/dev/null || true
+}
 
 apply_replica_gate() {
 	sudo iptables -I INPUT 1 -p tcp --dport "$VALKEY_PORT" ! -s 127.0.0.1 -j REJECT 2>/dev/null || true
@@ -26,6 +40,7 @@ echo "  Port       : $CRIU_PORT"
 echo "  Images Dir : $IMAGES_DIR"
 echo "  Timeout    : ${WAIT_TIMEOUT}s"
 echo "================================================================"
+mark_phase_event "REPLICA_RESTORE_SCRIPT_START"
 
 # Step 1: Kill valkey-server
 echo "Step 1: Killing valkey-server"
@@ -35,11 +50,13 @@ echo "valkey-server killed"
 # Step 1b: Block remote access until replica role is configured
 echo "Step 1b: Applying temporary replica network gate"
 apply_replica_gate
+mark_phase_event "REPLICA_GATE_APPLIED"
 
 # Step 2: Create ready signal for PRIMARY
 echo "Step 2: Creating ready signal"
 echo "READY" | sudo tee "$IMAGES_DIR/ready.log" >/dev/null
 echo "Ready signal created at $IMAGES_DIR/ready.log"
+mark_phase_event "REPLICA_READY_SIGNAL_CREATED"
 
 # Step 3: Wait for PAGE SERVER READY TO SERVE
 echo "Step 3: Waiting for page server..."
@@ -47,6 +64,7 @@ START_TIME=$(date +%s)
 while true; do
   if [ -f "$LOG_FILE" ] && sudo grep -q "PAGE SERVER READY TO SERVE" "$LOG_FILE" 2>/dev/null; then
     echo "Page server ready!"
+    mark_phase_event "REPLICA_PAGE_SERVER_READY"
     break
   fi
   ELAPSED=$(($(date +%s) - START_TIME))
@@ -62,6 +80,7 @@ echo "Step 4: Starting wait_and_replicate.sh in background"
 "$SCRIPT_DIR/wait_and_replicate.sh" &
 REPLICATE_PID=$!
 echo "wait_and_replicate.sh started (PID: $REPLICATE_PID)"
+mark_phase_event "REPLICA_REPLICATE_TASK_STARTED"
 
 # Step 5: Start CRIU lazy-pages daemon (connects to PRIMARY's page server)
 echo "Step 5: Starting lazy-pages daemon (connecting to $PRIMARY_IP:$CRIU_PORT)"
@@ -75,6 +94,7 @@ sudo criu lazy-pages \
   -v1 -o "$IMAGES_DIR/lazy-server.log" &
 LAZY_PAGES_PID=$!
 echo "Lazy-pages daemon started (PID: $LAZY_PAGES_PID)"
+mark_phase_event "REPLICA_LAZY_PAGES_STARTED"
 
 # Sleep to let lazy-pages connect and be ready
 sleep 1
@@ -95,6 +115,7 @@ sudo criu restore \
   "${RESTORE_ARGS[@]}" \
   -v1 -o "$IMAGES_DIR/lazy-restore.log" &
 RESTORE_PID=$!
+mark_phase_event "REPLICA_CRIU_RESTORE_STARTED"
 
 VALKEY_PID=""
 if [ "$FAST_CUTOVER" = "1" ]; then
@@ -118,6 +139,7 @@ else
   for i in $(seq 1 60); do
     if valkey-cli ping &>/dev/null; then
       echo "Valkey is up"
+      mark_phase_event "REPLICA_VALKEY_PING_READY"
       break
     fi
     sleep 0.5
@@ -135,6 +157,7 @@ if ! wait "$REPLICATE_PID"; then
 	exit 1
 fi
 echo "Replica configuration completed"
+mark_phase_event "REPLICA_REPLICATE_TASK_DONE"
 
 echo "Step 8c: Verifying replica write protection"
 WRITE_GUARD_OK=0
@@ -151,9 +174,11 @@ if [ "$WRITE_GUARD_OK" -ne 1 ]; then
   valkey-cli -p "$VALKEY_PORT" del __criu_replica_probe__ >/dev/null 2>&1 || true
   exit 1
 fi
+mark_phase_event "REPLICA_WRITE_GUARD_OK"
 
 echo "Step 8d: Removing temporary replica network gate"
 remove_replica_gate
+mark_phase_event "REPLICA_GATE_REMOVED"
 
 END_TOTAL=$(date +%s)
 DURATION=$((END_TOTAL - START_TOTAL))
@@ -173,6 +198,7 @@ elif valkey-cli ping &>/dev/null; then
   echo "  Memory:   $MEM"
   echo "  Keys:     $KEYS"
   echo "================================================================"
+  mark_phase_event "REPLICA_RESTORE_SCRIPT_DONE"
 else
   echo "ERROR: Valkey not responding after restore"
   exit 1

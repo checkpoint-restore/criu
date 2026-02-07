@@ -34,7 +34,9 @@ mark_cutover_event() {
 
   ts_ms=$(date +%s%3N)
   mkdir -p "$(dirname "$CUTOVER_MARKER_FILE")" 2>/dev/null || true
-  printf "%s %s\n" "$event" "$ts_ms" >>"$CUTOVER_MARKER_FILE"
+  if ! printf "%s %s %s\n" "$event" "$ts_ms" "PRIMARY" | tee -a "$CUTOVER_MARKER_FILE" >/dev/null 2>&1; then
+    printf "%s %s %s\n" "$event" "$ts_ms" "PRIMARY" | sudo tee -a "$CUTOVER_MARKER_FILE" >/dev/null 2>&1 || true
+  fi
 }
 
 stop_workload() {
@@ -104,9 +106,9 @@ sudo rm -rf "$IMAGES_DIR"/*
 # Step 5: Start replica FIRST (it will create ready signal and wait)
 log "Step 5: Start replica (will wait for page server)..."
 if [ "$FAST_CUTOVER" = "1" ]; then
-  $SSH ubuntu@$REPLICA_SSH_HOST "FAST_CUTOVER=1 CUTOVER_PAUSE_MS=$CUTOVER_PAUSE_MS sudo $SCRIPT_DIR/restore.sh" &
+  $SSH ubuntu@$REPLICA_SSH_HOST "sudo env FAST_CUTOVER=1 CUTOVER_PAUSE_MS='$CUTOVER_PAUSE_MS' CUTOVER_MARKER_FILE='$CUTOVER_MARKER_FILE' $SCRIPT_DIR/restore.sh" &
 else
-  $SSH ubuntu@$REPLICA_SSH_HOST "sudo $SCRIPT_DIR/restore.sh" &
+  $SSH ubuntu@$REPLICA_SSH_HOST "sudo env CUTOVER_MARKER_FILE='$CUTOVER_MARKER_FILE' $SCRIPT_DIR/restore.sh" &
 fi
 REPLICA_PID=$!
 

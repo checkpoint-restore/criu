@@ -204,6 +204,40 @@ class Harness:
         self.replica_write_accepted = 0
         self.replica_write_lock = threading.Lock()
 
+    def _read_marker_events(self, marker_file: str) -> List[Tuple[str, int, str]]:
+        events: List[Tuple[str, int, str]] = []
+        try:
+            with open(marker_file, "r", encoding="utf-8") as fh:
+                for raw_line in fh:
+                    parts = raw_line.strip().split()
+                    if len(parts) < 2:
+                        continue
+                    event = parts[0]
+                    try:
+                        ts_ms = int(parts[1])
+                    except ValueError:
+                        continue
+                    source = parts[2] if len(parts) >= 3 else "UNKNOWN"
+                    events.append((event, ts_ms, source))
+        except OSError:
+            return []
+        return events
+
+    def _first_event_ts(self, events: List[Tuple[str, int, str]], name: str) -> Optional[int]:
+        for event, ts_ms, _source in events:
+            if event == name:
+                return ts_ms
+        return None
+
+    def _duration_ms(
+        self, events: List[Tuple[str, int, str]], start_name: str, end_name: str
+    ) -> Optional[float]:
+        start_ms = self._first_event_ts(events, start_name)
+        end_ms = self._first_event_ts(events, end_name)
+        if start_ms is None or end_ms is None or end_ms < start_ms:
+            return None
+        return float(end_ms - start_ms)
+
     def _compute_cutover_metrics(self) -> Dict[str, object]:
         marker_file = self.args.cutover_marker_file
         result: Dict[str, object] = {
@@ -221,23 +255,13 @@ class Harness:
         if not marker_file:
             return result
 
-        try:
-            with open(marker_file, "r", encoding="utf-8") as fh:
-                lines = fh.readlines()
-        except OSError:
+        events = self._read_marker_events(marker_file)
+        if not events:
             return result
 
         start_ms: Optional[int] = None
         end_ms: Optional[int] = None
-        for raw_line in lines:
-            parts = raw_line.strip().split()
-            if len(parts) != 2:
-                continue
-            event, ts_raw = parts
-            try:
-                ts_ms = int(ts_raw)
-            except ValueError:
-                continue
+        for event, ts_ms, _source in events:
             if event == "CUTOVER_START_MS" and start_ms is None:
                 start_ms = ts_ms
                 continue
@@ -260,6 +284,65 @@ class Harness:
         result["replica_write_attempt_max_outage_ms"] = self.metrics[
             "replica_write_attempt"
         ].max_outage_ms_in_window(start_ts, end_ts)
+        return result
+
+    def _compute_replica_phase_metrics(self) -> Dict[str, object]:
+        marker_file = self.args.cutover_marker_file
+        result: Dict[str, object] = {
+            "marker_file": marker_file,
+            "events_found": False,
+            "replica_events_found": False,
+            "restore_script_total_ms": None,
+            "page_server_wait_ms": None,
+            "wait_ping_ms": None,
+            "replicaof_rpc_ms": None,
+            "role_wait_ms": None,
+            "replicaof_total_ms": None,
+            "post_role_to_gate_removed_ms": None,
+            "cutover_to_ping_ready_ms": None,
+            "cutover_to_replicaof_done_ms": None,
+            "cutover_to_gate_removed_ms": None,
+        }
+
+        if not marker_file:
+            return result
+
+        events = self._read_marker_events(marker_file)
+        if not events:
+            return result
+
+        result["events_found"] = True
+        result["replica_events_found"] = any(event.startswith("REPLICA_") for event, _ts, _src in events)
+        result["restore_script_total_ms"] = self._duration_ms(
+            events, "REPLICA_RESTORE_SCRIPT_START", "REPLICA_RESTORE_SCRIPT_DONE"
+        )
+        result["page_server_wait_ms"] = self._duration_ms(
+            events, "REPLICA_READY_SIGNAL_CREATED", "REPLICA_PAGE_SERVER_READY"
+        )
+        result["wait_ping_ms"] = self._duration_ms(
+            events, "REPLICA_WAIT_PING_START", "REPLICA_WAIT_PING_READY"
+        )
+        result["replicaof_rpc_ms"] = self._duration_ms(
+            events, "REPLICA_REPLICAOF_START", "REPLICA_REPLICAOF_SET"
+        )
+        result["role_wait_ms"] = self._duration_ms(
+            events, "REPLICA_ROLE_WAIT_START", "REPLICA_ROLE_ACTIVE"
+        )
+        result["replicaof_total_ms"] = self._duration_ms(
+            events, "REPLICA_REPLICAOF_START", "REPLICA_REPLICAOF_DONE"
+        )
+        result["post_role_to_gate_removed_ms"] = self._duration_ms(
+            events, "REPLICA_ROLE_ACTIVE", "REPLICA_GATE_REMOVED"
+        )
+        result["cutover_to_ping_ready_ms"] = self._duration_ms(
+            events, "CUTOVER_START_MS", "REPLICA_VALKEY_PING_READY"
+        )
+        result["cutover_to_replicaof_done_ms"] = self._duration_ms(
+            events, "CUTOVER_START_MS", "REPLICA_REPLICAOF_DONE"
+        )
+        result["cutover_to_gate_removed_ms"] = self._duration_ms(
+            events, "CUTOVER_START_MS", "REPLICA_GATE_REMOVED"
+        )
         return result
 
     def stop(self) -> None:
@@ -553,6 +636,7 @@ class Harness:
             cutover_replica_read_max <= self.args.cutover_replica_read_max_outage_ms
         )
         cutover_gate_ok = cutover_source_write_ok and cutover_source_read_ok and cutover_replica_read_ok
+        phases = self._compute_replica_phase_metrics()
 
         report = {
             "duration_seconds": now - self.started_at,
@@ -573,6 +657,7 @@ class Harness:
             "replication_offsets": offsets,
             "data_checks": data_checks,
             "cutover": cutover,
+            "phases": phases,
             "gates": {
                 "cutover_window_found": cutover_window_found,
                 "cutover_source_write_ok": cutover_source_write_ok,
@@ -653,6 +738,9 @@ def main() -> int:
     print(f"cutover_window_found={cutover.get('window_found', False)}", flush=True)
     gates = report.get("gates", {})
     print(f"cutover_gate_ok={gates.get('cutover_gate_ok', False)}", flush=True)
+    phases = report.get("phases", {})
+    print(f"phase_events_found={phases.get('events_found', False)}", flush=True)
+    print(f"phase_replica_events_found={phases.get('replica_events_found', False)}", flush=True)
     if cutover.get("window_found", False):
         print(
             "cutover_window_ms="
@@ -663,6 +751,20 @@ def main() -> int:
             f"{float(cutover.get('source_read_max_outage_ms', 0.0)):.3f} "
             "cutover_replica_read_max_outage_ms="
             f"{float(cutover.get('replica_read_max_outage_ms', 0.0)):.3f}",
+            flush=True,
+        )
+    if phases.get("events_found", False):
+        print(
+            "phase_wait_ping_ms="
+            f"{float(phases.get('wait_ping_ms') or 0.0):.3f} "
+            "phase_replicaof_rpc_ms="
+            f"{float(phases.get('replicaof_rpc_ms') or 0.0):.3f} "
+            "phase_role_wait_ms="
+            f"{float(phases.get('role_wait_ms') or 0.0):.3f} "
+            "phase_post_role_to_gate_removed_ms="
+            f"{float(phases.get('post_role_to_gate_removed_ms') or 0.0):.3f} "
+            "phase_cutover_to_gate_removed_ms="
+            f"{float(phases.get('cutover_to_gate_removed_ms') or 0.0):.3f}",
             flush=True,
         )
 

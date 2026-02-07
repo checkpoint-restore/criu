@@ -54,6 +54,7 @@ def extract_harness_metrics(harness_report: Path) -> Dict[str, object]:
     cutover = report.get("cutover", {})
     gates = report.get("gates", {})
     data_checks = report.get("data_checks", {})
+    phases = report.get("phases", {})
     source_write = metrics.get("source_write", {})
     source_read = metrics.get("source_read", {})
     replica_read = metrics.get("replica_read", {})
@@ -76,6 +77,13 @@ def extract_harness_metrics(harness_report: Path) -> Dict[str, object]:
         "cutover_source_write_max_outage_ms": float(cutover.get("source_write_max_outage_ms", 0.0)),
         "cutover_source_read_max_outage_ms": float(cutover.get("source_read_max_outage_ms", 0.0)),
         "cutover_replica_read_max_outage_ms": float(cutover.get("replica_read_max_outage_ms", 0.0)),
+        "phase_events_found": bool(phases.get("events_found", False)),
+        "phase_replica_events_found": bool(phases.get("replica_events_found", False)),
+        "phase_wait_ping_ms": float(phases.get("wait_ping_ms") or 0.0),
+        "phase_replicaof_rpc_ms": float(phases.get("replicaof_rpc_ms") or 0.0),
+        "phase_role_wait_ms": float(phases.get("role_wait_ms") or 0.0),
+        "phase_post_role_to_gate_removed_ms": float(phases.get("post_role_to_gate_removed_ms") or 0.0),
+        "phase_cutover_to_gate_removed_ms": float(phases.get("cutover_to_gate_removed_ms") or 0.0),
     }
 
 
@@ -110,7 +118,9 @@ def main() -> int:
         "replica_read_max_outage_ms="
         f"{result['harness']['replica_read_max_outage_ms']:.3f} "
         "cutover_replica_read_max_outage_ms="
-        f"{result['harness']['cutover_replica_read_max_outage_ms']:.3f}"
+        f"{result['harness']['cutover_replica_read_max_outage_ms']:.3f} "
+        "phase_cutover_to_gate_removed_ms="
+        f"{result['harness']['phase_cutover_to_gate_removed_ms']:.3f}"
     )
     return 0
 
