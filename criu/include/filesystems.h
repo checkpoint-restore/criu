@@ -27,6 +27,4 @@ extern int aufs_parse(struct mount_info *mi);
 /* callback for OverlayFS support */
 extern int overlayfs_parse(struct mount_info *mi);
 
-/* FIXME -- remove */
-extern struct list_head binfmt_misc_list;
 #endif

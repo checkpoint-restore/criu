@@ -81,8 +81,6 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY_F(TMPFS_IMG,	"tmpfs-%u.tar.gz", O_NOBUF),
 	FD_ENTRY_F(TMPFS_DEV,	"tmpfs-dev-%u.tar.gz", O_NOBUF),
 	FD_ENTRY_F(AUTOFS,	"autofs-%u", O_NOBUF),
-	FD_ENTRY(BINFMT_MISC_OLD, "binfmt-misc-%u"),
-	FD_ENTRY(BINFMT_MISC,	"binfmt-misc"),
 	FD_ENTRY(TTY_FILES,	"tty"),
 	FD_ENTRY(TTY_INFO,	"tty-info"),
 	FD_ENTRY_F(TTY_DATA,	"tty-data", O_NOBUF),

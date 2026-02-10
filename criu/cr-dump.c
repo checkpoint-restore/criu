@@ -2097,7 +2097,6 @@ static int cr_dump_finish(int ret)
 		unsuspend_lsm();
 		network_unlock();
 		delete_link_remaps();
-		clean_cr_time_mounts();
 	}
 
 	if (!ret && opts.lazy_pages)

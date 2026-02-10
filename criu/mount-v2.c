@@ -1289,19 +1289,6 @@ int prepare_mnt_ns_v2(void)
 	if (!(root_ns_mask & CLONE_NEWNS))
 		return 0;
 
-#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
-	if (!opts.has_binfmt_misc && !list_empty(&binfmt_misc_list)) {
-		/*
-		 * Add to root yard along with other plain mounts and mntns
-		 * directories. This mount would be created and restored by
-		 * generic mount creation code, but it would never be moved to
-		 * any restored mount namespaces.
-		 */
-		if (!add_cr_time_mount(root_yard_mp, "binfmt_misc", "binfmt_misc", 0, true))
-			return -1;
-	}
-#endif
-
 	if (validate_mounts(mntinfo, false))
 		return -1;
 

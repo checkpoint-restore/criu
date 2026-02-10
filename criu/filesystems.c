@@ -32,25 +32,6 @@ static int attach_option(struct mount_info *pm, char *opt)
 	return pm->options ? 0 : -1;
 }
 
-#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
-struct binfmt_misc_info {
-	BinfmtMiscEntry *bme;
-	struct list_head list;
-};
-
-LIST_HEAD(binfmt_misc_list);
-
-static int binfmt_misc_parse_or_collect(struct mount_info *pm)
-{
-	opts.has_binfmt_misc = true;
-	return 0;
-}
-
-static int binfmt_misc_virtual(struct mount_info *pm)
-{
-	return kerndat_fs_virtualized(KERNDAT_FS_STAT_BINFMT_MISC, pm->s_dev);
-}
-
 static int parse_binfmt_misc_entry(struct bfd *f, BinfmtMiscEntry *bme)
 {
 	while (1) {
@@ -98,7 +79,7 @@ static int parse_binfmt_misc_entry(struct bfd *f, BinfmtMiscEntry *bme)
 	return 0;
 }
 
-static int dump_binfmt_misc_entry(int dfd, char *name, struct cr_img *img)
+static int __maybe_unused dump_binfmt_misc_entry(int dfd, char *name, struct cr_img *img)
 {
 	BinfmtMiscEntry bme = BINFMT_MISC_ENTRY__INIT;
 	struct bfd f;
@@ -128,62 +109,6 @@ err:
 	free(bme.magic);
 	free(bme.mask);
 	bclose(&f);
-	return ret;
-}
-
-static int binfmt_misc_dump(struct mount_info *pm)
-{
-	static bool dumped = false;
-	struct cr_img *img = NULL;
-	struct dirent *de;
-	DIR *fdir = NULL;
-	int fd, ret;
-
-	ret = binfmt_misc_virtual(pm);
-	if (ret <= 0)
-		return ret;
-
-	if (dumped) {
-		pr_err("Second binfmt_misc superblock\n");
-		return -1;
-	}
-	dumped = true;
-
-	fd = open_mountpoint(pm);
-	if (fd < 0)
-		return fd;
-
-	fdir = fdopendir(fd);
-	if (fdir == NULL) {
-		close(fd);
-		return -1;
-	}
-
-	ret = -1;
-	while ((de = readdir(fdir))) {
-		if (dir_dots(de))
-			continue;
-		if (!strcmp(de->d_name, "register"))
-			continue;
-		if (!strcmp(de->d_name, "status"))
-			continue;
-
-		if (!img) {
-			/* Create image only if an entry exists, i.e. here */
-			img = open_image(CR_FD_BINFMT_MISC, O_DUMP);
-			if (!img)
-				goto out;
-		}
-
-		if (dump_binfmt_misc_entry(fd, de->d_name, img))
-			goto out;
-	}
-
-	ret = 0;
-out:
-	if (img)
-		close_image(img);
-	closedir(fdir);
 	return ret;
 }
 
@@ -267,7 +192,7 @@ static int make_bfmtm_magic_str(char *buf, BinfmtMiscEntry *bme)
 	return 1;
 }
 
-static int binfmt_misc_restore_bme(struct mount_info *mi, BinfmtMiscEntry *bme, char *buf)
+static int __maybe_unused binfmt_misc_restore_bme(struct mount_info *mi, BinfmtMiscEntry *bme, char *buf)
 {
 	int ret;
 
@@ -298,83 +223,6 @@ bad_dump:
 	pr_perror("binfmt_misc: bad dump");
 	return -1;
 }
-
-static int binfmt_misc_restore(struct mount_info *mi)
-{
-	struct cr_img *img;
-	char *buf;
-	int ret = -1;
-
-	buf = xmalloc(BINFMT_MISC_STR);
-	if (!buf)
-		return -1;
-
-	if (!list_empty(&binfmt_misc_list)) {
-		struct binfmt_misc_info *bmi;
-
-		list_for_each_entry(bmi, &binfmt_misc_list, list) {
-			ret = binfmt_misc_restore_bme(mi, bmi->bme, buf);
-			if (ret)
-				break;
-		}
-		goto free_buf;
-	}
-
-	img = open_image(CR_FD_BINFMT_MISC_OLD, O_RSTR, mi->s_dev);
-	if (!img) {
-		pr_err("Can't open binfmt_misc_old image\n");
-		goto free_buf;
-	} else if (empty_image(img)) {
-		close_image(img);
-		ret = 0;
-		goto free_buf;
-	}
-
-	ret = 0;
-	while (ret == 0) {
-		BinfmtMiscEntry *bme;
-
-		ret = pb_read_one_eof(img, &bme, PB_BINFMT_MISC);
-		if (ret <= 0)
-			break;
-
-		ret = binfmt_misc_restore_bme(mi, bme, buf);
-
-		binfmt_misc_entry__free_unpacked(bme, NULL);
-	}
-
-	close_image(img);
-free_buf:
-	free(buf);
-	return ret;
-}
-
-static int collect_one_binfmt_misc_entry(void *o, ProtobufCMessage *msg, struct cr_img *img)
-{
-	struct binfmt_misc_info *bmi = o;
-
-	bmi->bme = pb_msg(msg, BinfmtMiscEntry);
-	list_add_tail(&bmi->list, &binfmt_misc_list);
-
-	return 0;
-}
-
-struct collect_image_info binfmt_misc_cinfo = {
-	.fd_type = CR_FD_BINFMT_MISC,
-	.pb_type = PB_BINFMT_MISC,
-	.priv_size = sizeof(struct binfmt_misc_info),
-	.collect = collect_one_binfmt_misc_entry,
-};
-
-int collect_binfmt_misc(void)
-{
-	return collect_image(&binfmt_misc_cinfo);
-}
-#else
-#define binfmt_misc_dump	     NULL
-#define binfmt_misc_restore	     NULL
-#define binfmt_misc_parse_or_collect NULL
-#endif
 
 static int tmpfs_dump(struct mount_info *pm)
 {
@@ -689,11 +537,7 @@ static struct fstype fstypes[] = {
 	},
 	{
 		.name = "binfmt_misc",
-		.parse = binfmt_misc_parse_or_collect,
-		.collect = binfmt_misc_parse_or_collect,
 		.code = FSTYPE__BINFMT_MISC,
-		.dump = binfmt_misc_dump,
-		.restore = binfmt_misc_restore,
 	},
 	{
 		.name = "tmpfs",

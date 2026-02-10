@@ -145,14 +145,6 @@ static inline bool mnt_is_nodev_external(struct mount_info *mi)
 }
 
 extern struct ns_desc mnt_ns_desc;
-#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
-extern int collect_binfmt_misc(void);
-#else
-static inline int collect_binfmt_misc(void)
-{
-	return 0;
-}
-#endif
 
 extern struct mount_info *mnt_entry_alloc(bool rst);
 extern void mnt_entry_free(struct mount_info *mi);
@@ -191,7 +183,6 @@ extern int ext_mount_parse_auto(char *key);
 extern int mntns_maybe_create_roots(void);
 extern int read_mnt_ns_img(void);
 extern void cleanup_mnt_ns(void);
-extern void clean_cr_time_mounts(void);
 
 extern char *get_plain_mountpoint(int mnt_id, char *name);
 
@@ -221,8 +212,6 @@ extern int mnt_tree_for_each(struct mount_info *start, int (*fn)(struct mount_in
 extern char *service_mountpoint(const struct mount_info *mi);
 
 extern int validate_mounts(struct mount_info *info, bool for_dump);
-extern __maybe_unused struct mount_info *add_cr_time_mount(struct mount_info *root, char *fsname, const char *path,
-							   unsigned int s_dev, bool rst);
 extern char *resolve_source(struct mount_info *mi);
 extern int fetch_rt_stat(struct mount_info *m, const char *where);
 extern int do_simple_mount(struct mount_info *mi, const char *src, const char *fstype, unsigned long mountflags);

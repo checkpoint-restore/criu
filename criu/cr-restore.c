@@ -250,9 +250,6 @@ static int crtools_prepare_shared(void)
 	if (!files_collected() && collect_image(&inet_sk_cinfo))
 		return -1;
 
-	if (collect_binfmt_misc())
-		return -1;
-
 	if (tty_prep_fds())
 		return -1;
 

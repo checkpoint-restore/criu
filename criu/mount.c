@@ -1659,123 +1659,6 @@ char *get_plain_mountpoint(int mnt_id, char *name)
 	return xstrdup(tmp);
 }
 
-struct mount_info __maybe_unused *add_cr_time_mount(struct mount_info *root, char *fsname, const char *path,
-						    unsigned int s_dev, bool rst)
-{
-	struct mount_info *mi, *t, *parent;
-	bool add_slash = false;
-	int len;
-
-	mi = mnt_entry_alloc(rst);
-	if (!mi)
-		return NULL;
-
-	len = strlen(root->mountpoint);
-	/* It may be "./" or "./path/to/dir" */
-	if (root->mountpoint[len - 1] != '/') {
-		add_slash = true;
-		len++;
-	}
-
-	mi->mountpoint = xmalloc(len + strlen(path) + 1);
-	if (!mi->mountpoint)
-		goto err;
-	if (!rst)
-		mi->ns_mountpoint = mi->mountpoint;
-	if (!add_slash)
-		sprintf(mi->mountpoint, "%s%s", root->mountpoint, path);
-	else
-		sprintf(mi->mountpoint, "%s/%s", root->mountpoint, path);
-	if (rst) {
-		mi->plain_mountpoint = get_plain_mountpoint(-1, "crtime");
-		if (!mi->plain_mountpoint)
-			goto err;
-	}
-	mi->mnt_id = HELPER_MNT_ID;
-	mi->is_dir = true;
-	mi->flags = mi->sb_flags = 0;
-	mi->root = xstrdup("/");
-	mi->fsname = xstrdup(fsname);
-	mi->source = xstrdup(fsname);
-	mi->options = xstrdup("");
-	if (!mi->root || !mi->fsname || !mi->source || !mi->options)
-		goto err;
-	mi->fstype = find_fstype_by_name(fsname);
-
-	mi->s_dev = mi->s_dev_rt = s_dev;
-
-	parent = root;
-	while (1) {
-		list_for_each_entry(t, &parent->children, siblings) {
-			if (strstartswith(service_mountpoint(mi), service_mountpoint(t))) {
-				parent = t;
-				break;
-			}
-		}
-		if (&t->siblings == &parent->children)
-			break;
-	}
-
-	mi->mnt_bind_is_populated = true;
-	mi->is_overmounted = false;
-	mi->nsid = parent->nsid;
-	mi->parent = parent;
-	mi->parent_mnt_id = parent->mnt_id;
-	list_add(&mi->siblings, &parent->children);
-	pr_info("Add cr-time mountpoint %s with parent %s(%u)\n", service_mountpoint(mi), service_mountpoint(parent),
-		parent->mnt_id);
-	return mi;
-
-err:
-	mnt_entry_free(mi);
-	return NULL;
-}
-
-/*
- * Returns:
- *  0 - success
- * -1 - error
- *  1 - skip
- */
-static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_dev, const char *source,
-					      const char *target, const char *type)
-{
-	int mnt_fd, cwd_fd, exit_code = -1;
-	struct stat st;
-
-	if (switch_mnt_ns(ns->ns_pid, &mnt_fd, &cwd_fd)) {
-		pr_err("Can't switch mnt_ns\n");
-		return -1;
-	}
-
-	if (mount(source, target, type, 0, NULL)) {
-		switch (errno) {
-		case EPERM:
-		case EBUSY:
-		case ENODEV:
-		case ENOENT:
-			pr_debug("Skipping %s as was unable to mount it: %s\n", type, strerror(errno));
-			exit_code = 1;
-			break;
-		default:
-			pr_perror("Unable to mount %s %s %s", type, source, target);
-		}
-		goto restore_ns;
-	}
-
-	if (stat(target, &st)) {
-		pr_perror("Can't stat %s", target);
-		goto restore_ns;
-	}
-
-	*s_dev = MKKDEV(major(st.st_dev), minor(st.st_dev));
-	exit_code = 0;
-restore_ns:
-	if (restore_mnt_ns(mnt_fd, &cwd_fd))
-		exit_code = -1;
-	return exit_code;
-}
-
 static int dump_one_fs(struct mount_info *mi)
 {
 	struct mount_info *pm = mi;
@@ -3517,7 +3400,7 @@ void fini_restore_mntns(void)
 /*
  * All nested mount namespaces are restore as sub-trees of the root namespace.
  */
-static int populate_roots_yard(struct mount_info *cr_time)
+static int populate_roots_yard(void)
 {
 	struct mnt_remap_entry *r;
 	char path[PATH_MAX];
@@ -3548,27 +3431,12 @@ static int populate_roots_yard(struct mount_info *cr_time)
 		}
 	}
 
-	if (cr_time && mkdirpat(AT_FDCWD, service_mountpoint(cr_time), 0755)) {
-		pr_perror("Unable to create %s", service_mountpoint(cr_time));
-		return -1;
-	}
-
 	return 0;
 }
 
 static int populate_mnt_ns(void)
 {
-	struct mount_info *cr_time = NULL;
 	int ret;
-
-#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
-	if (!opts.has_binfmt_misc && !list_empty(&binfmt_misc_list)) {
-		/* Add to mount tree. Generic code will mount it later */
-		cr_time = add_cr_time_mount(root_yard_mp, "binfmt_misc", "binfmt_misc", 0, true);
-		if (!cr_time)
-			return -1;
-	}
-#endif
 
 	if (resolve_shared_mounts(mntinfo))
 		return -1;
@@ -3579,7 +3447,7 @@ static int populate_mnt_ns(void)
 	if (find_remap_mounts(root_yard_mp))
 		return -1;
 
-	if (populate_roots_yard(cr_time))
+	if (populate_roots_yard())
 		return -1;
 
 	if (mount_clean_path())
@@ -3992,29 +3860,6 @@ int collect_mnt_namespaces(bool for_dump)
 
 	search_bindmounts();
 
-#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
-	if (for_dump && !opts.has_binfmt_misc) {
-		unsigned int s_dev = 0;
-		struct ns_id *ns;
-
-		for (ns = ns_ids; ns != NULL; ns = ns->next) {
-			if (ns->type == NS_ROOT && ns->nd == &mnt_ns_desc)
-				break;
-		}
-
-		if (ns) {
-			ret = mount_cr_time_mount(ns, &s_dev, "binfmt_misc", "/" BINFMT_MISC_HOME, "binfmt_misc");
-			if (ret == -1) {
-				goto err;
-			} else if (ret == 0 && !add_cr_time_mount(ns->mnt.mntinfo_tree, "binfmt_misc", BINFMT_MISC_HOME,
-								  s_dev, false)) {
-				ret = -1;
-				goto err;
-			}
-		}
-	}
-#endif
-
 	ret = resolve_external_mounts(mntinfo);
 	if (ret)
 		goto err;
@@ -4055,32 +3900,6 @@ int dump_mnt_namespaces(void)
 	}
 
 	return 0;
-}
-
-void clean_cr_time_mounts(void)
-{
-	struct mount_info *mi;
-	int ns_old, ret;
-
-	for (mi = mntinfo; mi; mi = mi->next) {
-		int cwd_fd;
-
-		if (mi->mnt_id != HELPER_MNT_ID)
-			continue;
-		ret = switch_mnt_ns(mi->nsid->ns_pid, &ns_old, &cwd_fd);
-		if (ret) {
-			pr_err("Can't switch to pid's %u mnt_ns\n", mi->nsid->ns_pid);
-			continue;
-		}
-
-		if (umount(mi->ns_mountpoint) < 0)
-			pr_perror("Can't umount forced mount %s", mi->ns_mountpoint);
-
-		if (restore_mnt_ns(ns_old, &cwd_fd)) {
-			pr_err("cleanup_forced_mounts exiting with wrong mnt_ns\n");
-			return;
-		}
-	}
 }
 
 struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");
