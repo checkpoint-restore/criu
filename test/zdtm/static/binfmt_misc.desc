@@ -1,1 +1,1 @@
-{'flavor': 'ns', 'flags': 'noauto excl suid'}
+{'flavor': 'uns', 'flags': 'excl suid', 'feature': 'binfmt_misc_sandboxing'}

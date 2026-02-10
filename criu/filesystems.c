@@ -79,9 +79,8 @@ static int parse_binfmt_misc_entry(struct bfd *f, BinfmtMiscEntry *bme)
 	return 0;
 }
 
-static int __maybe_unused dump_binfmt_misc_entry(int dfd, char *name, struct cr_img *img)
+static int dump_binfmt_misc_entry(int dfd, char *name, BinfmtMiscEntry *bme)
 {
-	BinfmtMiscEntry bme = BINFMT_MISC_ENTRY__INIT;
 	struct bfd f;
 	int ret = -1;
 
@@ -94,62 +93,232 @@ static int __maybe_unused dump_binfmt_misc_entry(int dfd, char *name, struct cr_
 	if (bfdopenr(&f))
 		return -1;
 
-	if (parse_binfmt_misc_entry(&f, &bme))
+	if (parse_binfmt_misc_entry(&f, bme))
 		goto err;
 
-	bme.name = name;
-
-	if (pb_write_one(img, &bme, PB_BINFMT_MISC))
+	bme->name = xstrdup(name);
+	if (!bme->name)
 		goto err;
+
 	ret = 0;
 err:
-	free(bme.interpreter);
-	free(bme.flags);
-	free(bme.extension);
-	free(bme.magic);
-	free(bme.mask);
 	bclose(&f);
 	return ret;
 }
 
-static int write_binfmt_misc_entry(char *mp, char *buf, BinfmtMiscEntry *bme)
+static void free_bme_fields(BinfmtMiscEntry *bme)
+{
+	xfree(bme->name);
+	xfree(bme->interpreter);
+	xfree(bme->flags);
+	xfree(bme->extension);
+	xfree(bme->magic);
+	xfree(bme->mask);
+}
+
+void free_pb_binfmt_misc_entries(BinfmtMiscEntry **bmes, int n)
+{
+	int i;
+
+	if (!bmes || n == 0)
+		return;
+
+	for (i = 0; i < n; i++)
+		free_bme_fields(bmes[i]);
+
+	xfree(bmes[0]);
+	xfree(bmes);
+}
+
+static int do_binfmt_misc_dump(int fd, BinfmtMiscEntry ***pb_bmes)
+{
+	BinfmtMiscEntry *bmes = NULL;
+	struct dirent *de;
+	DIR *fdir = NULL;
+	int i, ret = 0, len = 0, size = 0;
+
+	*pb_bmes = NULL;
+
+	fdir = fdopendir(fd);
+	if (fdir == NULL) {
+		pr_perror("Failed to open mount directory");
+		close(fd);
+		return -1;
+	}
+
+	while ((de = readdir(fdir))) {
+		BinfmtMiscEntry *bme;
+
+		if (dir_dots(de))
+			continue;
+		if (!strcmp(de->d_name, "register"))
+			continue;
+		if (!strcmp(de->d_name, "status"))
+			continue;
+
+		if (len == size) {
+			BinfmtMiscEntry *e;
+
+			size = size * 2 + 1;
+			e = xrealloc(bmes, size * sizeof(BinfmtMiscEntry));
+			if (e == NULL) {
+				pr_perror("Failed to allocate memory for BinfmtMiscEntry");
+				ret = -1;
+				goto close_dir;
+			}
+			bmes = e;
+		}
+
+		bme = &bmes[len];
+		binfmt_misc_entry__init(bme);
+		/*
+		 * Increase len now as dump_binfmt_misc_entry() might fail with
+		 * partially allocated BinfmtMiscEntry fields.
+		 */
+		len++;
+		ret = dump_binfmt_misc_entry(fd, de->d_name, bme);
+		if (ret < 0)
+			goto close_dir;
+	}
+
+	if (len == 0)
+		goto close_dir;
+
+	*pb_bmes = xmalloc(sizeof(BinfmtMiscEntry *) * len);
+	if (*pb_bmes == NULL) {
+		pr_perror("Failed to allocate memory for BinfmtMiscEntry pointers");
+		ret = -1;
+		goto close_dir;
+	}
+
+	for (i = 0; i < len; i++)
+		(*pb_bmes)[i] = &bmes[i];
+
+close_dir:
+	closedir(fdir);
+
+	if (ret >= 0)
+		return len;
+
+	for (i = 0; i < len; i++)
+		free_bme_fields(&bmes[i]);
+	xfree(bmes);
+
+	return -1;
+}
+
+struct binfmt_misc_dump_arg {
+	pid_t pid;
+	BinfmtMiscEntry ***bmes;
+	int n;
+};
+
+static int binfmt_misc_dump_from_child(void *arg)
+{
+	int exit_code = 1, fd, mnt_fd, n;
+	struct binfmt_misc_dump_arg *dump_arg = (struct binfmt_misc_dump_arg *)arg;
+	BinfmtMiscEntry ***bmes = dump_arg->bmes;
+
+	if (switch_mnt_ns(dump_arg->pid, NULL, NULL) < 0) {
+		pr_err("Failed to switch mount namespace\n");
+		return 1;
+	}
+
+	if (switch_ns(dump_arg->pid, &user_ns_desc, NULL) < 0) {
+		pr_err("Failed to switch user namespace\n");
+		return 1;
+	}
+
+	mnt_fd = mount_detached_fs("binfmt_misc");
+	if (mnt_fd < 0)
+		return 1;
+
+	fd = openat(mnt_fd, ".", O_DIRECTORY | O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Failed to open mountpoint");
+		goto close_mnt_fd;
+	}
+
+	n = do_binfmt_misc_dump(fd, bmes);
+	if (n < 0) {
+		pr_err("Failed to dump binfmt_misc contents\n");
+		goto close_mnt_fd;
+	}
+
+	dump_arg->n = n;
+	exit_code = 0;
+
+close_mnt_fd:
+	close(mnt_fd);
+
+	return exit_code;
+}
+
+/*
+ * The function allocates memory for pb_bmes. It's up to the caller to free it.
+ *
+ * Returns the number of dumped entries or -1 on error.
+ */
+int binfmt_misc_dump_sandboxed(pid_t pid, BinfmtMiscEntry ***pb_bmes)
+{
+	struct binfmt_misc_dump_arg dump_arg;
+	BinfmtMiscEntry **bmes = NULL;
+
+	if (!kdat.has_binfmt_misc_sandboxing)
+		return 0;
+
+	if (!(root_ns_mask & CLONE_NEWUSER)) {
+		pr_err("PID %i is not in a sandbox\n", pid);
+		return -1;
+	}
+
+	dump_arg.pid = pid;
+	dump_arg.bmes = &bmes;
+
+	if (call_in_child_process(binfmt_misc_dump_from_child, (void *)&dump_arg) < 0) {
+		pr_err("Failed to dump binfmt_misc contents from child process\n");
+		return -1;
+	}
+
+	*pb_bmes = bmes;
+	return dump_arg.n;
+}
+
+static int write_binfmt_misc_entry(int mnt_fd, char *buf, BinfmtMiscEntry *bme)
 {
 	int fd, len, ret = -1;
-	char path[PATH_MAX + 1];
 
-	snprintf(path, PATH_MAX, "%s/register", mp);
-
-	fd = open(path, O_WRONLY);
+	fd = openat(mnt_fd, "register", O_WRONLY);
 	if (fd < 0) {
-		pr_perror("binfmt_misc: can't open %s", path);
+		pr_perror("binfmt_misc: can't open 'register'");
 		return -1;
 	}
 
 	len = strlen(buf);
 
 	if (write(fd, buf, len) != len) {
-		pr_perror("binfmt_misc: can't write to %s", path);
+		pr_perror("binfmt_misc: can't write to 'register");
 		goto close;
 	}
 
 	if (!bme->enabled) {
 		close(fd);
-		snprintf(path, PATH_MAX, "%s/%s", mp, bme->name);
 
-		fd = open(path, O_WRONLY);
+		fd = openat(mnt_fd, bme->name, O_WRONLY);
 		if (fd < 0) {
-			pr_perror("binfmt_misc: can't open %s", path);
+			pr_perror("binfmt_misc: can't open %s", bme->name);
 			goto out;
 		}
 		if (write(fd, "0", 1) != 1) {
-			pr_perror("binfmt_misc: can't write to %s", path);
+			pr_perror("binfmt_misc: can't write to %s", bme->name);
 			goto close;
 		}
 	}
 
-	ret = 0;
 close:
 	close(fd);
+
+	ret = 0;
 out:
 	return ret;
 }
@@ -192,7 +361,7 @@ static int make_bfmtm_magic_str(char *buf, BinfmtMiscEntry *bme)
 	return 1;
 }
 
-static int __maybe_unused binfmt_misc_restore_bme(struct mount_info *mi, BinfmtMiscEntry *bme, char *buf)
+static int binfmt_misc_restore_bme(int mnt_fd, BinfmtMiscEntry *bme, char *buf)
 {
 	int ret;
 
@@ -215,13 +384,60 @@ static int __maybe_unused binfmt_misc_restore_bme(struct mount_info *mi, BinfmtM
 		goto bad_dump;
 
 	pr_debug("binfmt_misc_pattern=%s\n", buf);
-	ret = write_binfmt_misc_entry(service_mountpoint(mi), buf, bme);
+	ret = write_binfmt_misc_entry(mnt_fd, buf, bme);
 
 	return ret;
 
 bad_dump:
 	pr_perror("binfmt_misc: bad dump");
 	return -1;
+}
+
+/*
+ * The function is expected to be called from the 'pid' context with namespaces
+ * already set up so no namespace switching is required here.
+ */
+int binfmt_misc_restore_sandboxed(pid_t pid, BinfmtMiscEntry **bmes, size_t n)
+{
+	int ret, mnt_fd;
+	size_t i;
+	char *buf;
+
+	if (!(root_ns_mask & CLONE_NEWUSER)) {
+		pr_err("PID %i is not in a sandbox\n", pid);
+		return -1;
+	}
+
+	if (n == 0)
+		return 0;
+
+	if (!kdat.has_binfmt_misc_sandboxing) {
+		pr_err("binfmt_misc sandboxing is not supported\n");
+		return -1;
+	}
+
+	mnt_fd = mount_detached_fs("binfmt_misc");
+	if (mnt_fd < 0)
+		return -1;
+
+	buf = xmalloc(BINFMT_MISC_STR);
+	if (!buf) {
+		ret = -1;
+		goto close_mnt_fd;
+	}
+
+	for (i = 0; i < n; i++) {
+		ret = binfmt_misc_restore_bme(mnt_fd, bmes[i], buf);
+		if (ret < 0)
+			break;
+	}
+
+	xfree(buf);
+
+close_mnt_fd:
+	close(mnt_fd);
+
+	return ret;
 }
 
 static int tmpfs_dump(struct mount_info *pm)

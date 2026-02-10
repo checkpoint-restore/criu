@@ -2,6 +2,8 @@
 
 syntax = "proto2";
 
+import "binfmt-misc.proto";
+
 message uid_gid_extent {
 	required uint32 first		= 1;
 	required uint32 lower_first	= 2;
@@ -11,4 +13,5 @@ message uid_gid_extent {
 message userns_entry {
 	repeated uid_gid_extent uid_map	= 1;
 	repeated uid_gid_extent gid_map = 2;
+	repeated binfmt_misc_entry binfmt_misc = 3;
 }
