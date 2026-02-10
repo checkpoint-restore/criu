@@ -12,6 +12,24 @@ The approach uses userfaultfd write-protection to track memory modifications whi
 
 ## Architecture Overview
 
+### Implementation Contracts (Current Branch)
+
+1. **Bulk close contract**
+   - Sender emits `PS_IOV_CLOSE` with `nr_pages == 0`.
+   - Receiver replies with a 32-bit status ACK.
+   - Sender accepts ACK as success and also accepts clean EOF/close as
+     backward-compatible completion for older peers.
+
+2. **Session ownership**
+   - COW tracking is dump-session scoped.
+   - Task registration is per process in the tree.
+   - Monitor thread starts once (just before resume) and stops once.
+
+3. **VMA eligibility**
+   - VMAs that failed UFFD WP registration are excluded from COW lazy tracking.
+   - Those VMAs are forced through the standard dump path.
+   - Lazy VMA lookup during transfer is keyed by `dst_id` + address.
+
 ### Data Flow Source
 
 
@@ -20,22 +38,27 @@ The approach uses userfaultfd write-protection to track memory modifications whi
   - Register VMAs with UFFDIO_REGISTER_MODE_WP
   - Apply write-protection (UFFDIO_WRITEPROTECT)
   - Send userfaultfd back to CRIU
-  - Create Monitor thread to get write faults events
-  - Process resumes with COW protection active
+  - Record failed VMA indices (fallback VMAs)
 
-**Phase 2: Monitor Thread (Background)**
-  - read() from userfaultfd (blocking)
+**Phase 2: Base dump and fallback split**
+  - VMAs successfully registered for COW are sent via lazy/COW flow
+  - VMAs that failed registration are dumped via standard non-COW path
+
+**Phase 3: Session Monitor Thread (Background)**
+  - Single monitor thread starts once for the dump session
+  - Polls all tracked task UFFDs
   - On write fault:
     1. Read page from /proc/pid/mem (before modification)
     2. Copy the page and store it in hash table
     3. Unprotect page
     4. Wake faulting thread at the source process
 
-**Phase 3: Page Transfer (page_server_get_pages)**
+**Phase 4: Page Transfer (page_server_get_pages)**
   - Lookup COW pages in hash table
   - Fast path: No COW → splice (zero-copy)
   - Slow path: COW present → buffer + overlay
   - Bulk unprotect after transfer
+  - End stream with close marker (`nr_pages==0`) and receiver ACK
 
 #### Detailed design source
 
@@ -146,7 +169,12 @@ ioctl(uffd, UFFDIO_WRITEPROTECT)
 
 ### Data Flow Destination
 
-No changes were made at the destination and it is almost the same as in the original code. I implemented a single performance improvement that handles lazy page requests from destination with aggressive pipelining.
+Destination behavior is still lazy-pages based, but this fork also includes COW
+bulk-stream handling changes:
+
+- bulk end-marker handling sends explicit ACK to unblock sender close path,
+- sender side keeps compatibility fallback for peers that close without ACK,
+- bulk completion drops copied ranges from IOV tracking to avoid duplicate faults.
 
 ```
 ┌─────────────────────────────────────────────────────────┐

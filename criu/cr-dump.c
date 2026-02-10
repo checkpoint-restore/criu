@@ -1768,6 +1768,29 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	mdc.stat = &pps_buf;
 	mdc.parent_ie = parent_ie;
 
+	if (opts.cow_dump) {
+		ret = cow_dump_init(item, &vmas, parasite_ctl);
+		gettimeofday(&t_now, NULL);
+		timersub(&t_now, &t_checkpoint, &t_delta);
+		pr_err("TIMING: cow_dump_init took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+		t_checkpoint = t_now;
+		if (ret) {
+			pr_err("Failed to initialize COW dump for VMAs\n");
+			goto err_cure;
+		}
+
+		/*
+		 * COW tracking applies UFFD write-protect to writable VMAs.
+		 * The parasite itself can fault on protected pages (e.g. rseq/TLS
+		 * writes) while we are still in dump_one_task(), so start monitor
+		 * early to service those faults and avoid deadlock in RPC commands.
+		 */
+		if (opts.lazy_pages && cow_start_monitor_thread()) {
+			pr_err("Failed to start COW monitor thread\n");
+			ret = -1;
+			goto err_cure;
+		}
+	}
 
 	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 	gettimeofday(&t_now, NULL);
@@ -1827,31 +1850,6 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		goto err_cure;
 	}
 
-	if (opts.cow_dump) {
-		/* COW dump mode: split VMAs by size */
-		ret = cow_dump_init(item, &vmas, parasite_ctl);
-		gettimeofday(&t_now, NULL);
-		timersub(&t_now, &t_checkpoint, &t_delta);
-		pr_err("TIMING: cow_dump_init took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
-		t_checkpoint = t_now;
-		if (ret) {
-			pr_err("Failed to initialize COW dump for VMAs\n");
-			goto err_cure;
-		}
-		
-		/* Start background thread to monitor page faults */
-		ret = cow_start_monitor_thread();
-		gettimeofday(&t_now, NULL);
-		timersub(&t_now, &t_checkpoint, &t_delta);
-		pr_err("TIMING: cow_start_monitor_thread took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
-		t_checkpoint = t_now;
-		if (ret) {
-			pr_err("Failed to start COW monitor thread\n");
-			goto err_cure;
-		}
-	}
-	
-	
 	ret = compel_stop_daemon(parasite_ctl);
 	gettimeofday(&t_now, NULL);
 	timersub(&t_now, &t_checkpoint, &t_delta);
@@ -2236,10 +2234,19 @@ static int cr_dump_finish(int ret)
 
 	/* Resume process early if using COW dump with lazy pages */
 	if (!ret && opts.lazy_pages && opts.cow_dump) {
+		pr_err("PAGE SERVER READY TO SERVE\n");
 		pr_info("Resuming process with COW protection active\n");
-		
-		if (arch_set_thread_regs(root_item, true) < 0)
-			return -1;
+
+		if (cow_start_monitor_thread()) {
+			pr_err("Failed to start COW monitor thread\n");
+			ret = -1;
+			goto out_release_cow;
+		}
+
+		if (arch_set_thread_regs(root_item, true) < 0) {
+			ret = -1;
+			goto out_release_cow;
+		}
 
 		cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
 
@@ -2248,26 +2255,26 @@ static int cr_dump_finish(int ret)
 		
 		/* Now start lazy page transfer with process running */
 		ret = cr_lazy_mem_dump();
-		
-		/* Stop the monitor thread after lazy dump completes */
-		if (cow_stop_monitor_thread()) {
-			pr_err("Failed to stop COW monitor thread\n");
-			ret = -1;
-		}
 	} else {
 		/* Standard path: transfer pages then resume */
 		if (!ret && opts.lazy_pages)
 			ret = cr_lazy_mem_dump();
 		
 		if (arch_set_thread_regs(root_item, true) < 0)
-			return -1;
+			ret = -1;
+		else {
+			cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
 
-		cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
-
-		pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
-		timing_stop(TIME_FROZEN);
+			pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
+			timing_stop(TIME_FROZEN);
+		}
 	}
-	
+
+out_release_cow:
+	if (opts.cow_dump)
+		cow_dump_fini();
+	free_global_lazy_vmas();
+
 	free_pstree(root_item);
 	seccomp_free_entries();
 	free_file_locks();

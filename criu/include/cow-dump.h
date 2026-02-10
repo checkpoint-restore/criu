@@ -90,6 +90,26 @@ extern int cow_stop_monitor_thread(void);
 extern int cow_get_uffd(void);
 
 /**
+ * cow_get_uffd_for_pid - Get the userfaultfd for a tracked source pid
+ * @source_pid: Source process pid from dump-time tree
+ *
+ * Returns: userfaultfd on success, -1 if not found
+ */
+extern int cow_get_uffd_for_pid(pid_t source_pid);
+
+/**
+ * cow_dump_is_vma_tracked - Check whether a VMA is COW-tracked
+ * @source_pid: Source process pid from dump-time tree
+ * @start: VMA start address
+ * @end: VMA end address
+ *
+ * Returns: true if this exact VMA was successfully registered for COW.
+ */
+extern bool cow_dump_is_vma_tracked(pid_t source_pid,
+				    unsigned long start,
+				    unsigned long end);
+
+/**
  * cow_lookup_page - Look up a COW page without removing it
  * @vaddr: Virtual address of the page
  *
