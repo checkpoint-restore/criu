@@ -1848,6 +1848,92 @@ void kerndat_warn_about_madv_guards(void)
 			"Please, consider updating your kernel.\n");
 }
 
+/* Keep the fd open so that it can be closed by the caller (required by the parent process) */
+static int __mount_and_stat_detached_binfmt_misc(struct stat *st, int *mnt_fd)
+{
+	int fd;
+
+	fd = mount_detached_fs("binfmt_misc");
+	if (fd < 0) {
+		/* Most likely a permission error, so we can't use binfmt_misc */
+		return 1;
+	}
+
+	if (fstat(fd, st) < 0) {
+		pr_perror("Failed to stat a binfmt_misc mountpoint");
+		close(fd);
+		return -1;
+	}
+
+	*mnt_fd = fd;
+
+	return 0;
+}
+
+struct has_binfmt_misc_arg {
+	dev_t st_dev;
+	bool has;
+};
+
+static int __has_binfmt_misc_sandboxing(void *arg)
+{
+	struct has_binfmt_misc_arg *has_arg = (struct has_binfmt_misc_arg *)arg;
+	struct stat st;
+	int ret, mnt_fd;
+
+	if (unshare(CLONE_NEWNS | CLONE_NEWUSER)) {
+		pr_perror("Failed to unshare namespaces");
+		return 1;
+	}
+
+	ret = __mount_and_stat_detached_binfmt_misc(&st, &mnt_fd);
+	if (ret < 0) {
+		return 1;
+	} else if (ret == 1) {
+		has_arg->has = false;
+		return 0;
+	}
+
+	if (has_arg->st_dev != st.st_dev)
+		has_arg->has = true;
+	else
+		has_arg->has = false;
+
+	close(mnt_fd);
+
+	return 0;
+}
+
+static int kerndat_has_binfmt_misc_sandboxing(void)
+{
+	int ret, mnt_fd;
+	struct stat st;
+	struct has_binfmt_misc_arg arg;
+
+	ret = __mount_and_stat_detached_binfmt_misc(&st, &mnt_fd);
+	if (ret < 0) {
+		return -1;
+	} else if (ret == 1) {
+		arg.has = false;
+		goto out;
+	}
+
+	arg.st_dev = st.st_dev;
+
+	ret = call_in_child_process(__has_binfmt_misc_sandboxing, (void *)&arg);
+	close(mnt_fd);
+	if (ret < 0) {
+		pr_err("Failed to check binfmt_misc sandboxing support in child process\n");
+		return -1;
+	}
+
+out:
+	pr_info("binfmt_misc sandboxing is %s supported\n", arg.has ? "" : "not");
+	kdat.has_binfmt_misc_sandboxing = arg.has;
+
+	return 0;
+}
+
 /*
  * Some features depend on resource that can be dynamically changed
  * at the OS runtime. There are cases that we cannot determine the
@@ -2119,6 +2205,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_madv_guard()) {
 		pr_err("kerndat_has_madv_guard has failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_binfmt_misc_sandboxing()) {
+		pr_err("kerndat_has_binfmt_misc_sandboxing has failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
