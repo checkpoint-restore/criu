@@ -344,8 +344,10 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 		lve->total_pages = nr_pages;
 		
-		/* Store dst_id and source_pid for this lazy VMA */
-		lve->dst_id = xfer ? xfer->dst_id : 0;
+		/* Store virtual PID to match request_all_remote_pages() which
+		 * sends lpi->pr.img_id (the vpid).
+		 */
+		lve->dst_id = vpid(item);
 		lve->source_pid = item->pid->real;
 		
 		/* Allocate sent bitmap for this VMA */

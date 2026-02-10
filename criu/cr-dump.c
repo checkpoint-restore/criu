@@ -2272,6 +2272,8 @@ static int cr_dump_finish(int ret)
 	}
 
 out_release_cow:
+	/* Wait for background page server thread before destroying COW session */
+	wait_for_page_server_thread();
 	if (opts.cow_dump)
 		cow_dump_fini();
 	free_global_lazy_vmas();

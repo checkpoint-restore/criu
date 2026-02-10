@@ -962,57 +962,45 @@ err:
 }
 
 /* Helper to write lazy VMA pagemap entries that come before a given vaddr */
-static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_vaddr, 
+static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_vaddr,
 				   struct lazy_vma_entry **cur_lve)
 {
 	struct list_head *global_list = get_global_lazy_vmas();
 	struct lazy_vma_entry *lve = *cur_lve;
-	
+
 	/* Start from beginning if not set */
 	if (!lve && !list_empty(global_list))
 		lve = list_first_entry(global_list, struct lazy_vma_entry, list);
-	
-	/* Write all lazy VMAs for this image that start before before_vaddr */
+
+	/* Write all lazy VMAs that start before before_vaddr.
+	 * Use lve->start/end (not lve->vma->e) since vma structs
+	 * may be freed after the dump completes.
+	 */
 	while (lve && &lve->list != global_list) {
 		struct iovec iov;
 		u32 flags = PE_LAZY;
-		unsigned long vma_start = lve->vma->e->start;
 
-		if (lve->dst_id != xfer->dst_id) {
-			lve = list_entry(lve->list.next, struct lazy_vma_entry, list);
-			continue;
-		}
-		
-		/* Stop if this VMA starts at or after our limit */
-		if (vma_start >= before_vaddr)
+		if (lve->start >= before_vaddr)
 			break;
-		
-		/* Write this lazy VMA's pagemap entry */
-		
-		
-		
-		iov.iov_base = (void *)vma_start;
-		iov.iov_len = lve->vma->e->end - vma_start;
-		
-		/* Apply offset */
+
+		iov.iov_base = (void *)(unsigned long)lve->start;
+		iov.iov_len = lve->end - lve->start;
+
 		BUG_ON(iov.iov_base < (void *)xfer->offset);
 		iov.iov_base -= xfer->offset;
-		
-		pr_debug("Writing lazy VMA pagemap: dst_id=%lu 0x%lx-0x%lx (%lu pages)\n",
-			(unsigned long)xfer->dst_id,
-			vma_start, (unsigned long)lve->vma->e->end,
+
+		pr_debug("Writing lazy VMA pagemap: 0x%lx-0x%lx (%lu pages)\n",
+			(unsigned long)lve->start, (unsigned long)lve->end,
 			(unsigned long)(iov.iov_len / PAGE_SIZE));
-		
+
 		if (xfer->write_pagemap(xfer, &iov, flags)) {
 			pr_err("Failed to write pagemap for lazy VMA\n");
 			return -1;
 		}
-		
-		/* Move to next lazy VMA */
+
 		lve = list_entry(lve->list.next, struct lazy_vma_entry, list);
 	}
-	
-	/* Update caller's position */
+
 	*cur_lve = lve;
 	return 0;
 }
@@ -1531,6 +1519,15 @@ static pthread_t g_unified_thread;
 static volatile bool g_unified_thread_running = false;
 static volatile bool g_unified_thread_stop = false;
 
+void wait_for_page_server_thread(void)
+{
+	if (!g_unified_thread_running)
+		return;
+	pr_info("Waiting for page server thread to finish...\n");
+	pthread_join(g_unified_thread, NULL);
+	g_unified_thread_running = false;
+	pr_info("Page server thread finished\n");
+}
 
 /* Active image tracking for unified background thread */
 
@@ -1640,77 +1637,72 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 	
-	/* Get hash bucket lock */
+	/* Get hash bucket lock (may be NULL if COW session already destroyed) */
 	lock = cow_get_hash_lock(vaddr);
-	if (!lock) {
-		pr_err("Failed to get COW hash lock\n");
-		return -1;
+	if (lock) {
+		pthread_spin_lock(lock);
+		clock_gettime(CLOCK_MONOTONIC, &t_lock);
+
+		cow_pg = cow_lookup_page(vaddr);
+		clock_gettime(CLOCK_MONOTONIC, &t_cow);
+	} else {
+		cow_pg = NULL;
+		clock_gettime(CLOCK_MONOTONIC, &t_lock);
+		t_cow = t_lock;
 	}
-	
-	pthread_spin_lock(lock);
-	clock_gettime(CLOCK_MONOTONIC, &t_lock);
-	
-	/* Check for COW page */
-	cow_pg = cow_lookup_page(vaddr);
-	clock_gettime(CLOCK_MONOTONIC, &t_cow);
-	
+
 	/* Send data with compression */
 	if (cow_pg) {
-		/* Send COW data with compression */
 		pr_debug("[SEND_PAGE] Sending compressed COW page at vaddr=0x%lx\n", vaddr);
-		
-		t_readv = t_cow; /* No readv for COW pages */
+
+		t_readv = t_cow;
 		ret = send_page_compressed(sk, cow_pg->data, dst_id, vaddr);
-		clock_gettime(CLOCK_MONOTONIC, &t_socket); /* compress+send combined */		
-		
+		clock_gettime(CLOCK_MONOTONIC, &t_socket);
+
 		if (ret != 0) {
 			pr_perror("Failed to send compressed COW page");
-			pthread_spin_unlock(lock);
+			if (lock)
+				pthread_spin_unlock(lock);
 			return -1;
 		}
-		pr_debug("[SEND_PAGE] Successfully sent compressed COW page at vaddr=0x%lx\n", vaddr);
-		t_unprot = t_socket; /* No unprotect for COW */
+		t_unprot = t_socket;
 	} else {
-		/* Read from process memory */
-		pr_debug("[SEND_PAGE] Reading regular page from process memory at vaddr=0x%lx pid=%d\n", vaddr, source_pid);
-		
+		pr_debug("[SEND_PAGE] Reading regular page at vaddr=0x%lx pid=%d\n", vaddr, source_pid);
+
 		buffer = xmalloc(PAGE_SIZE);
 		if (!buffer) {
-			pthread_spin_unlock(lock);
+			if (lock)
+				pthread_spin_unlock(lock);
 			return -1;
 		}
-		
+
+		/* Unlock before syscall to avoid holding spinlock */
+		if (lock)
+			pthread_spin_unlock(lock);
+
 		local_iov.iov_base = buffer;
 		local_iov.iov_len = PAGE_SIZE;
 		remote_iov.iov_base = (void *)vaddr;
 		remote_iov.iov_len = PAGE_SIZE;
-		
+
 		ret = process_vm_readv(source_pid, &local_iov, 1, &remote_iov, 1, 0);
 		clock_gettime(CLOCK_MONOTONIC, &t_readv);
-		
+
 		if (ret != PAGE_SIZE) {
 			pr_perror("Failed to read page at %lx from pid %d", vaddr, source_pid);
 			xfree(buffer);
-			pthread_spin_unlock(lock);
 			return -1;
 		}
-		
-		pr_debug("[SEND_PAGE] Read successful, sending compressed page at vaddr=0x%lx\n", vaddr);
-		
-		/* Send buffer with compression */
+
 		ret = send_page_compressed(sk, buffer, dst_id, vaddr);
 		clock_gettime(CLOCK_MONOTONIC, &t_socket);
 		xfree(buffer);
-		
+
 		if (ret != 0) {
 			pr_perror("Failed to send compressed page");
-			pthread_spin_unlock(lock);
 			return -1;
 		}
-		
-		pr_debug("[SEND_PAGE] Successfully sent compressed regular page at vaddr=0x%lx\n", vaddr);
-		
-		/* Unprotect non-COW page */
+
 		uffd = cow_get_uffd_for_pid(source_pid);
 		if (uffd >= 0) {
 			struct uffdio_writeprotect wp;
@@ -1719,20 +1711,21 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 			wp.mode = 0;
 			if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
 				pr_perror("Failed to unprotect page at 0x%lx", vaddr);
-				pthread_spin_unlock(lock);
 				return -1;
 			}
 		}
 		clock_gettime(CLOCK_MONOTONIC, &t_unprot);
+		lock = NULL; /* Already unlocked */
 	}
-	
+
 	/* Remove COW page if it exists */
 	if (cow_pg)
 		cow_remove_page(vaddr);
-	
-	pthread_spin_unlock(lock);
+
+	if (lock)
+		pthread_spin_unlock(lock);
 	clock_gettime(CLOCK_MONOTONIC, &t_end);
-	
+
 	/* Accumulate sub-timings (nanoseconds) */
 	cow_timing.send_lock_ns += (t_lock.tv_sec - t_start.tv_sec) * 1000000000 + (t_lock.tv_nsec - t_start.tv_nsec);
 	cow_timing.send_cow_lookup_ns += (t_cow.tv_sec - t_lock.tv_sec) * 1000000000 + (t_cow.tv_nsec - t_lock.tv_nsec);
