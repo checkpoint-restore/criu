@@ -56,6 +56,12 @@ All C code MUST follow the [Linux Kernel Coding Style](https://www.kernel.org/do
 - **page-server**: Launches CRIU in page server mode to send memory pages over
   the network during migration.
 
+## Build & Verification
+- **Build**: `make` (creates `./criu/criu`).
+- **Dependencies**: See `contrib/dependencies` for install scripts.
+- **Lint**: `make lint` (checks python, shell, spelling).
+- **Style**: `make indent` (checks C code style).
+
 ## Development & Testing
 - **ZDTM (Zero-Downtime Migration)**: The primary test suite located in
   `test/zdtm`.
