@@ -1873,11 +1873,11 @@ static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
 	size_t img_size;
 	int fd, ret;
 
-	/* This is restorer plugin for renderD nodes. Criu doesn't guarantee that they will
-	 * be called before the plugin is called for kfd file descriptor.
-	 * TODO: Currently, this code will only work if this function is called for /dev/kfd
-	 * first as we assume restore_maps is already filled. Need to fix this later.
+	/* This is restorer plugin for renderD nodes. Criu doesn't guarantee
+	 * that they will be called before the plugin is called for kfd file
+	 * descriptor.
 	 */
+
 	snprintf(img_path, sizeof(img_path), IMG_DRM_FILE, id);
 	ret = load_img(img_path, &buf, &img_size);
 	if (ret < 0) {
@@ -1906,14 +1906,61 @@ static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
 
 	pr_info("render node gpu_id = 0x%04x\n", rd->gpu_id);
 
-	target_gpu_id = maps_get_dest_gpu(&restore_maps, rd->gpu_id);
-	if (!target_gpu_id) {
-		fd = -ENODEV;
-		goto fail;
+	if (fd_next == -1) {
+		ret = find_unused_fd_pid(getpid());
+		if (ret < 0) {
+			pr_err("Failed to find unused fd (fd:%d)\n", ret);
+			fd = ret;
+			goto fail;
+		}
+		fd_next = ret;
+	}
+
+	if (!dest_topology.parsed) {
+		pr_info("Parsing local topology for render node restore\n");
+		ret = topology_parse(&dest_topology, "Local");
+		if (ret) {
+			pr_err("Failed to parse local system topology %d\n",
+			       ret);
+			fd = ret;
+			goto fail;
+		}
+	}
+
+	if (restore_maps.mapped_cnt) {
+		target_gpu_id = maps_get_dest_gpu(&restore_maps, rd->gpu_id);
+		if (!target_gpu_id) {
+			pr_err("Unable to map gpu_id 0x%04x!\n", rd->gpu_id);
+			fd = -ENODEV;
+			goto fail;
+		}
+	} else {
+		unsigned int num_gpus = 0;
+
+		pr_info("Assuming same system with a single gpu_id 0x%04x\n",
+			rd->gpu_id);
+		list_for_each_entry(tp_node, &dest_topology.nodes,
+				    listm_system) {
+			if (NODE_IS_GPU(tp_node)) {
+				num_gpus++;
+				target_gpu_id = tp_node->gpu_id;
+			}
+		}
+		if (num_gpus != 1) {
+			pr_err("Unexpectedly found %u GPUs!\n", num_gpus);
+			fd = -EINVAL;
+			goto fail;
+		} else if (target_gpu_id != rd->gpu_id) {
+			pr_err("Unexpectedly found gpu_id 0x%04x (expected 0x%04x)!\n",
+			       target_gpu_id, rd->gpu_id);
+			fd = -EINVAL;
+			goto fail;
+		}
 	}
 
 	tp_node = sys_get_node_by_gpu_id(&dest_topology, target_gpu_id);
 	if (!tp_node) {
+		pr_err("Unable to find target gpu_id=0x%04x!\n", target_gpu_id);
 		fd = -ENODEV;
 		goto fail;
 	}

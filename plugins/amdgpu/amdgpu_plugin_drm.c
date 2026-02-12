@@ -452,7 +452,10 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	}
 
 	/* Get the GPU_ID of the DRM device */
-	rd->gpu_id = maps_get_dest_gpu(&checkpoint_maps, tp_node->gpu_id);
+	if (checkpoint_maps.mapped_cnt)
+		rd->gpu_id = maps_get_dest_gpu(&checkpoint_maps, tp_node->gpu_id);
+	else
+		rd->gpu_id = tp_node->gpu_id; /* Render node only */
 	if (!rd->gpu_id) {
 		pr_err("Failed to find valid gpu_id for the device = %d\n", tp_node->gpu_id);
 		return -ENODEV;
