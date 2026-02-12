@@ -443,6 +443,22 @@ struct thread_data {
 	int id; /* File ID used by CRIU to identify KFD image for this process */
 };
 
+static int amdgpu_add_to_inventory(void)
+{
+	int ret;
+
+	if (plugin_added_to_inventory)
+		return 0;
+
+	ret = add_inventory_plugin(CR_PLUGIN_DESC.name);
+	if (ret)
+		pr_err("Failed to add AMDGPU plugin to inventory image\n");
+	else
+		plugin_added_to_inventory = true;
+
+	return ret;
+}
+
 int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 {
 	struct stat st_kfd;
@@ -465,13 +481,8 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 	if (ret)
 		pr_perror("%s(), Can't handle VMAs of input device", __func__);
 
-	if (!ret && !plugin_added_to_inventory) {
-		ret = add_inventory_plugin(CR_PLUGIN_DESC.name);
-		if (ret)
-			pr_err("Failed to add AMDGPU plugin to inventory image\n");
-		else
-			plugin_added_to_inventory = true;
-	}
+	if (!ret)
+		ret = amdgpu_add_to_inventory();
 
 	return ret;
 }
@@ -1472,8 +1483,12 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		if (ret)
 			return ret;
 
-		/* Need to return success here so that criu can call plugins for renderD nodes */
-		return try_dump_dmabuf_list();
+		ret = try_dump_dmabuf_list();
+
+		if (!ret)
+			ret = amdgpu_add_to_inventory();
+
+		return ret;
 	}
 
 	pr_info("%s() called for fd = %d\n", __func__, major(st.st_rdev));
