@@ -563,7 +563,7 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 	uint32_t expired;
 	amdgpu_context_handle h_ctx;
 	uint32_t *ib = NULL;
-	int j, err, packets_per_buffer;
+	int j, err, err2, packets_per_buffer;
 
 	buffer_bo_size = min(size, buffer_size);
 	packets_per_buffer = ((buffer_bo_size - 1) / max_copy_size) + 1;
@@ -767,31 +767,32 @@ err_ctx:
 err_bo_list:
 	free_and_unmap(packets_per_buffer * 28, h_bo_ib, h_va_ib, gpu_addr_ib, ib);
 err_ib_gpu_alloc:
-	err = amdgpu_bo_va_op(h_bo_dst, 0, dst_bo_size, gpu_addr_dst, 0, AMDGPU_VA_OP_UNMAP);
-	if (err)
+	err2 = amdgpu_bo_va_op(h_bo_dst, 0, dst_bo_size, gpu_addr_dst, 0, AMDGPU_VA_OP_UNMAP);
+	if (err2)
 		pr_perror("failed to GPU unmap the dest BO %lx, size = %lx",
 			  gpu_addr_dst, dst_bo_size);
 err_dst_bo_map:
-	err = amdgpu_va_range_free(h_va_dst);
-	if (err)
+	err2 = amdgpu_va_range_free(h_va_dst);
+	if (err2)
 		pr_perror("dest range free failed");
 err_dst_va:
-	if (!do_not_free)
-		err = amdgpu_bo_free(h_bo_dst);
-	if (err)
-		pr_perror("dest bo free failed");
+	if (!do_not_free) {
+		err2 = amdgpu_bo_free(h_bo_dst);
+		if (err2)
+			pr_perror("dest bo free failed");
+	}
 err_dst_bo_prep:
-	err = amdgpu_bo_va_op(h_bo_src, 0, src_bo_size, gpu_addr_src, 0, AMDGPU_VA_OP_UNMAP);
-	if (err)
+	err2 = amdgpu_bo_va_op(h_bo_src, 0, src_bo_size, gpu_addr_src, 0, AMDGPU_VA_OP_UNMAP);
+	if (err2)
 		pr_perror("failed to GPU unmap the src BO %lx, size = %lx",
 			  gpu_addr_src, src_bo_size);
 err_src_bo_map:
-	err = amdgpu_va_range_free(h_va_src);
-	if (err)
+	err2 = amdgpu_va_range_free(h_va_src);
+	if (err2)
 		pr_perror("src range free failed");
 err_src_va:
-	err = amdgpu_bo_free(h_bo_src);
-	if (err)
+	err2 = amdgpu_bo_free(h_bo_src);
+	if (err2)
 		pr_perror("src bo free failed");
 	plugin_log_msg("Leaving sdma_copy_bo, err = %d\n", err);
 	return err;

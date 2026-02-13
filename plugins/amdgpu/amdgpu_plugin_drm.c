@@ -438,6 +438,8 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 		ret = sdma_copy_bo(dmabuf_fd, handle_entry.size, bo_contents_fp, buffer, handle_entry.size, h_dev, 0x1000,
 				   SDMA_OP_VRAM_READ, false);
+		if (ret)
+			goto exit;
 
 		xfree(buffer);
 
