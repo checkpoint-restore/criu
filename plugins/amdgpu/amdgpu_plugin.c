@@ -1161,91 +1161,99 @@ out:
 
 int amdgpu_restore_init(void)
 {
-	if (!shared_memory) {
-		int protection = PROT_READ | PROT_WRITE;
-		int visibility = MAP_SHARED | MAP_ANONYMOUS;
-		int num_handles = 0;
-		CriuRenderNode *rd = NULL;
-		CriuKfd *e = NULL;
+	int num_handles = 0;
+	struct dirent *dir;
+	DIR *d;
 
-		DIR *d;
-		struct dirent *dir;
-		d = opendir(".");
-		if (d) {
-			while ((dir = readdir(d)) != NULL) {
-				unsigned char *buf;
-				size_t img_size;
-				int ret;
+	if (shared_memory)
+		return 0;
 
-				if (strncmp("amdgpu-kfd-", dir->d_name, strlen("amdgpu-kfd-")) == 0) {
-					ret = load_img(dir->d_name, &buf, &img_size);
-					if (ret < 0) {
-						closedir(d);
-						return ret;
-					}
+	d = opendir(".");
+	if (!d)
+		return -1;
 
-					e = criu_kfd__unpack(NULL, img_size, buf);
-					if (!e) {
-						pr_err("Unable to unpack %s!\n", dir->d_name);
-						xfree(buf);
-						return -EINVAL;
-					}
-					num_handles += e->num_of_bos;
-					criu_kfd__free_unpacked(e, NULL);
-					xfree(buf);
-				}
-				if (strncmp("amdgpu-renderD-", dir->d_name, strlen("amdgpu-renderD-")) == 0) {
-					ret = load_img(dir->d_name, &buf, &img_size);
-					if (ret < 0) {
-						closedir(d);
-						return ret;
-					}
+	while ((dir = readdir(d)) != NULL) {
+		unsigned char *buf;
+		size_t img_size;
+		int ret;
 
-					rd = criu_render_node__unpack(NULL, img_size, buf);
-					if (!rd) {
-						pr_err("Unable to unpack %s!\n", dir->d_name);
-						xfree(buf);
-						return -EINVAL;
-					}
-					num_handles += rd->num_of_bos;
-					criu_render_node__free_unpacked(rd, NULL);
-					xfree(buf);
-				}
+		if (strncmp("amdgpu-kfd-", dir->d_name, strlen("amdgpu-kfd-")) == 0) {
+			CriuKfd *e;
+
+			ret = load_img(dir->d_name, &buf, &img_size);
+			if (ret < 0) {
+				closedir(d);
+				return ret;
 			}
-			closedir(d);
+
+			e = criu_kfd__unpack(NULL, img_size, buf);
+			if (!e) {
+				pr_err("Unable to unpack %s!\n", dir->d_name);
+				xfree(buf);
+				closedir(d);
+				return -EINVAL;
+			}
+			num_handles += e->num_of_bos;
+			criu_kfd__free_unpacked(e, NULL);
+			xfree(buf);
+		}
+		if (strncmp("amdgpu-renderD-", dir->d_name, strlen("amdgpu-renderD-")) == 0) {
+			CriuRenderNode *rd;
+
+			ret = load_img(dir->d_name, &buf, &img_size);
+			if (ret < 0) {
+				closedir(d);
+				return ret;
+			}
+
+			rd = criu_render_node__unpack(NULL, img_size, buf);
+			if (!rd) {
+				pr_err("Unable to unpack %s!\n", dir->d_name);
+				xfree(buf);
+				closedir(d);
+				return -EINVAL;
+			}
+			num_handles += rd->num_of_bos;
+			criu_render_node__free_unpacked(rd, NULL);
+			xfree(buf);
+		}
+	}
+	closedir(d);
+
+	if (num_handles > 0) {
+		const int protection = PROT_READ | PROT_WRITE;
+		const int visibility = MAP_SHARED | MAP_ANONYMOUS;
+
+		shared_memory = mmap(NULL, sizeof(*shared_memory), protection, visibility, -1, 0);
+		if (shared_memory == MAP_FAILED) {
+			pr_perror("Failed to allocate shared memory!");
+			shared_memory = NULL;
+			return -1;
+		}
+		shared_memory->num_handles = num_handles;
+		shared_memory->handles = mmap(NULL, sizeof(struct handle_id) * num_handles, protection, visibility, -1, 0);
+		if (shared_memory->handles == MAP_FAILED) {
+			pr_perror("Failed to allocate shared handles memory!");
+			munmap(shared_memory, sizeof(*shared_memory));
+			shared_memory = NULL;
+			return -1;
 		}
 
-		if (num_handles > 0) {
-			shared_memory = mmap(NULL, sizeof(*shared_memory), protection, visibility, -1, 0);
-			if (shared_memory == MAP_FAILED) {
-				pr_perror("Failed to allocate shared memory!");
-				shared_memory = NULL;
-				return -1;
-			}
-			shared_memory->num_handles = num_handles;
-			shared_memory->handles = mmap(NULL, sizeof(struct handle_id) * num_handles, protection, visibility, -1, 0);
-			if (shared_memory->handles == MAP_FAILED) {
-				pr_perror("Failed to allocate shared handles memory!");
-				munmap(shared_memory, sizeof(*shared_memory));
-				shared_memory = NULL;
-				return -1;
-			}
-
-			shared_memory_mutex = shmalloc(sizeof(*shared_memory_mutex));
-			if (!shared_memory_mutex) {
-				pr_err("Can't create amdgpu mutex\n");
-				munmap(shared_memory->handles, sizeof(struct handle_id) * num_handles);
-				munmap(shared_memory, sizeof(*shared_memory));
-				shared_memory = NULL;
-				return -1;
-			}
-
-			for (int i = 0; i < num_handles; i++) {
-				shared_memory->handles[i].handle = -1;
-				shared_memory->handles[i].fdstore_id = -1;
-			}
-			mutex_init(shared_memory_mutex);
+		shared_memory_mutex = shmalloc(sizeof(*shared_memory_mutex));
+		if (!shared_memory_mutex) {
+			pr_err("Can't create amdgpu mutex\n");
+			munmap(shared_memory->handles, sizeof(struct handle_id) * num_handles);
+			munmap(shared_memory, sizeof(*shared_memory));
+			shared_memory = NULL;
+			return -1;
 		}
+
+		for (int i = 0; i < num_handles; i++) {
+			shared_memory->handles[i].handle = -1;
+			shared_memory->handles[i].fdstore_id = -1;
+		}
+
+		mutex_init(shared_memory_mutex);
 	}
 
 	return 0;
