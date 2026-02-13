@@ -1875,7 +1875,6 @@ static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
 	CriuRenderNode *rd;
 	unsigned char *buf;
 	size_t img_size;
-	FILE *img_fp;
 	int fd, ret;
 
 	/* This is restorer plugin for renderD nodes. Criu doesn't guarantee that they will
@@ -1884,9 +1883,8 @@ static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
 	 * first as we assume restore_maps is already filled. Need to fix this later.
 	 */
 	snprintf(img_path, sizeof(img_path), IMG_DRM_FILE, id);
-
-	img_fp = open_img_file(img_path, false, &img_size, true);
-	if (!img_fp) {
+	ret = load_img(img_path, &buf, &img_size);
+	if (ret < 0) {
 		ret = amdgpu_plugin_dmabuf_restore(id);
 		if (ret == 1) {
 			/* This is a dmabuf fd, but the corresponding buffer object that was
@@ -1898,29 +1896,16 @@ static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
 		}
 		return ret;
 	}
-	pr_info("Restoring RenderD %s\n", img_path);
-	pr_debug("RenderD Image file size:%ld\n", img_size);
-	buf = xmalloc(img_size);
-	if (!buf) {
-		pr_perror("Failed to allocate memory");
-		return -ENOMEM;
-	}
 
-	ret = read_fp(img_fp, buf, img_size);
-	if (ret) {
-		pr_perror("Unable to read from %s", img_path);
-		xfree(buf);
-		return -1;
-	}
+	pr_info("Restoring RenderD %s image of %lu bytes\n",
+		img_path, img_size);
 
 	rd = criu_render_node__unpack(NULL, img_size, buf);
 	if (rd == NULL) {
-		pr_perror("Unable to parse the RenderD message %d", id);
+		pr_perror("Unable to parse the RenderD image %d", id);
 		xfree(buf);
-		fclose(img_fp);
 		return -1;
 	}
-	fclose(img_fp);
 
 	pr_info("render node gpu_id = 0x%04x\n", rd->gpu_id);
 
