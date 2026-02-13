@@ -80,7 +80,6 @@ struct shared_handle_ids *shared_memory = NULL;
 
 static mutex_t *shared_memory_mutex;
 
-int current_pid;
 /*
  * In the case of a single process (common case), this optimization can effectively
  * reduce the restore latency with parallel restore. In the case of multiple processes,
