@@ -31,7 +31,7 @@ const char *test_author = "Shashank Balaji <shashank.mahadasyam@sony.com>";
  * compiler optimization) and use it (to prevent "unused variable" warning)
  */
 void UPROBED_FUNCTION(void) {
-	volatile int dummy = 0;
+	volatile int dummy __maybe_unused = 0;
 	dummy += 1;
 }
 /* Calling via volatile function pointer ensures noinline at callsite */

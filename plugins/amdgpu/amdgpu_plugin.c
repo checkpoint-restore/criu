@@ -181,7 +181,7 @@ static int allocate_bo_entries(CriuKfd *e, int num_bos, struct kfd_criu_bo_bucke
 int topology_to_devinfo(struct tp_system *sys, struct device_maps *maps, KfdDeviceEntry **deviceEntries)
 {
 	uint32_t devinfo_index = 0;
-	struct tp_node *node;
+	struct tp_node *node, *node2;
 
 	list_for_each_entry(node, &sys->nodes, listm_system) {
 		KfdDeviceEntry *devinfo = deviceEntries[devinfo_index++];
@@ -191,7 +191,7 @@ int topology_to_devinfo(struct tp_system *sys, struct device_maps *maps, KfdDevi
 		if (NODE_IS_GPU(node)) {
 			devinfo->gpu_id = maps_get_dest_gpu(maps, node->gpu_id);
 			if (!devinfo->gpu_id)
-				return -EINVAL;
+				continue;
 
 			devinfo->simd_count = node->simd_count;
 			devinfo->mem_banks_count = node->mem_banks_count;
@@ -233,7 +233,16 @@ int topology_to_devinfo(struct tp_system *sys, struct device_maps *maps, KfdDevi
 				return -ENOMEM;
 
 			list_for_each_entry(iolink, &node->iolinks, listm) {
+				bool link_to_present_node = false;
+
 				if (!iolink->valid)
+					continue;
+
+				list_for_each_entry(node2, &sys->nodes, listm_system)
+					if (node2->id == iolink->node_to_id && maps_get_dest_gpu(maps, node2->gpu_id) != 0)
+						link_to_present_node = true;
+
+				if (!link_to_present_node)
 					continue;
 
 				devinfo->iolinks[iolink_index] = xmalloc(sizeof(DevIolink));

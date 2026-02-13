@@ -242,7 +242,7 @@ class criu:
         # process resources from its own if criu is located in a same
         # process tree it is trying to dump.
         daemon = False
-        if req.type == rpc.DUMP and not req.opts.HasField('pid'):
+        if req.type == rpc.DUMP and (not req.opts.HasField('pid') or req.opts.pid == os.getpid()):
             daemon = True
 
         try:

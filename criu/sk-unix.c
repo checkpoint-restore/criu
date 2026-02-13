@@ -1404,6 +1404,7 @@ static int post_open_standalone(struct file_desc *d, int fd)
 	mutex_lock(mutex_ghost);
 	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr.sun_family) + len) < 0) {
 		pr_perror("Can't connect %d socket", ui->ue->ino);
+		mutex_unlock(mutex_ghost);
 		goto err_revert_and_exit;
 	}
 	mutex_unlock(mutex_ghost);
