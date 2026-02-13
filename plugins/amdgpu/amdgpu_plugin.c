@@ -1426,6 +1426,30 @@ exit:
 	return ret;
 }
 
+static int amdgpu_plugin_dump_drm_file(int fd, int id, struct stat *st)
+{
+	int ret;
+
+	/* This is RenderD dumper plugin, for now just save renderD
+	 * minor number to be used during restore. In later phases this
+	 * needs to save more data for video decode etc.
+	 */
+	ret = amdgpu_plugin_drm_dump_file(fd, id, st);
+	if (ret)
+		return ret;
+
+	ret = record_dumped_fd(fd, true);
+	if (ret)
+		return ret;
+
+	ret = try_dump_dmabuf_list();
+
+	if (!ret)
+		ret = amdgpu_add_to_inventory();
+
+	return ret;
+}
+
 int amdgpu_plugin_dump_file(int fd, int id)
 {
 	struct kfd_ioctl_criu_args args = { 0 };
@@ -1464,34 +1488,13 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		pr_perror("Failed to get dmabuf info");
 		return -1;
 	}
-	if (ret == 0) {
-		pr_info("Dumping dmabuf fd = %d\n", fd);
-		return amdgpu_plugin_dmabuf_dump(fd, id);
-	}
-
-	if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0) {
-
-		/* This is RenderD dumper plugin, for now just save renderD
-		 * minor number to be used during restore. In later phases this
-		 * needs to save more data for video decode etc.
-		 */
-		ret = amdgpu_plugin_drm_dump_file(fd, id, &st);
-		if (ret)
-			return ret;
-
-		ret = record_dumped_fd(fd, true);
-		if (ret)
-			return ret;
-
-		ret = try_dump_dmabuf_list();
-
-		if (!ret)
-			ret = amdgpu_add_to_inventory();
-
-		return ret;
-	}
 
 	pr_info("%s() called for fd = %d\n", __func__, major(st.st_rdev));
+
+	if (ret == 0)
+		return amdgpu_plugin_dmabuf_dump(fd, id);
+	else if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0)
+		return amdgpu_plugin_dump_drm_file(fd, id, &st);
 
 	/* KFD only allows ioctl calls from the same process that opened the KFD file descriptor.
 	 * The existing /dev/kfd file descriptor that is passed in is only allowed to do IOCTL calls with
@@ -1864,12 +1867,124 @@ exit:
 	return ret;
 }
 
+static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
+{
+	char img_path[PATH_MAX];
+	struct tp_node *tp_node;
+	uint32_t target_gpu_id;
+	CriuRenderNode *rd;
+	unsigned char *buf;
+	size_t img_size;
+	FILE *img_fp;
+	int fd, ret;
+
+	/* This is restorer plugin for renderD nodes. Criu doesn't guarantee that they will
+	 * be called before the plugin is called for kfd file descriptor.
+	 * TODO: Currently, this code will only work if this function is called for /dev/kfd
+	 * first as we assume restore_maps is already filled. Need to fix this later.
+	 */
+	snprintf(img_path, sizeof(img_path), IMG_DRM_FILE, id);
+
+	img_fp = open_img_file(img_path, false, &img_size, true);
+	if (!img_fp) {
+		ret = amdgpu_plugin_dmabuf_restore(id);
+		if (ret == 1) {
+			/* This is a dmabuf fd, but the corresponding buffer object that was
+			 * exported to make it has not yet been restored. Need to try again
+			 * later when the buffer object exists, so it can be re-exported.
+			 */
+			*retry_needed = true;
+			return 0;
+		}
+		return ret;
+	}
+	pr_info("Restoring RenderD %s\n", img_path);
+	pr_debug("RenderD Image file size:%ld\n", img_size);
+	buf = xmalloc(img_size);
+	if (!buf) {
+		pr_perror("Failed to allocate memory");
+		return -ENOMEM;
+	}
+
+	ret = read_fp(img_fp, buf, img_size);
+	if (ret) {
+		pr_perror("Unable to read from %s", img_path);
+		xfree(buf);
+		return -1;
+	}
+
+	rd = criu_render_node__unpack(NULL, img_size, buf);
+	if (rd == NULL) {
+		pr_perror("Unable to parse the RenderD message %d", id);
+		xfree(buf);
+		fclose(img_fp);
+		return -1;
+	}
+	fclose(img_fp);
+
+	pr_info("render node gpu_id = 0x%04x\n", rd->gpu_id);
+
+	target_gpu_id = maps_get_dest_gpu(&restore_maps, rd->gpu_id);
+	if (!target_gpu_id) {
+		fd = -ENODEV;
+		goto fail;
+	}
+
+	tp_node = sys_get_node_by_gpu_id(&dest_topology, target_gpu_id);
+	if (!tp_node) {
+		fd = -ENODEV;
+		goto fail;
+	}
+
+	pr_info("render node destination gpu_id = 0x%04x\n", tp_node->gpu_id);
+
+	fd = node_get_drm_render_device(tp_node);
+	if (fd < 0) {
+		pr_err("Failed to open render device (minor:%d) - %s\n",
+		       tp_node->drm_render_minor, strerror(-fd));
+		goto fail;
+	}
+
+	ret = amdgpu_plugin_drm_restore_file(fd, rd);
+	if (ret == 1)
+		*retry_needed = true;
+	if (ret < 0) {
+		fd = ret;
+		goto fail;
+	}
+fail:
+	criu_render_node__free_unpacked(rd, NULL);
+	xfree(buf);
+	/*
+	 * We need to use the file descriptor used to create the BOs for mmap later, otherwise the kernel DRM
+	 * drivers will not allow the mmap. Therefore, we keep a copy of the file descriptor (stored in tp_node)
+	 * so that we can return it in amdgpu_plugin_update_vmamap later. Also, CRIU core will dup and close the
+	 * returned fd after this function returns, and this will make our fd invalid. So we return a dup'ed
+	 * copy of the fd. CRIU core owns the duplicated returned fd, and amdgpu_plugin owns the fd stored in
+	 * tp_node.
+	 */
+
+	if (fd < 0)
+		return fd;
+
+	if (!(*retry_needed)) {
+		fd = dup(fd);
+		if (fd == -1) {
+			pr_perror("unable to duplicate the render fd");
+			return -1;
+		}
+		return fd;
+	}
+
+	return 0;
+
+}
+
 int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 {
 	int ret = 0, fd;
 	char img_path[PATH_MAX];
 	unsigned char *buf;
-	CriuRenderNode *rd;
 	CriuKfd *e = NULL;
 	struct kfd_ioctl_criu_args args = { 0 };
 	size_t img_size;
@@ -1885,110 +2000,8 @@ int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 	snprintf(img_path, sizeof(img_path), IMG_KFD_FILE, id);
 
 	img_fp = open_img_file(img_path, false, &img_size, false);
-	if (!img_fp) {
-		struct tp_node *tp_node;
-		uint32_t target_gpu_id;
-
-		/* This is restorer plugin for renderD nodes. Criu doesn't guarantee that they will
-		 * be called before the plugin is called for kfd file descriptor.
-		 * TODO: Currently, this code will only work if this function is called for /dev/kfd
-		 * first as we assume restore_maps is already filled. Need to fix this later.
-		 */
-		snprintf(img_path, sizeof(img_path), IMG_DRM_FILE, id);
-
-		img_fp = open_img_file(img_path, false, &img_size, true);
-		if (!img_fp) {
-			ret = amdgpu_plugin_dmabuf_restore(id);
-			if (ret == 1) {
-				/* This is a dmabuf fd, but the corresponding buffer object that was
-				 * exported to make it has not yet been restored. Need to try again
-				 * later when the buffer object exists, so it can be re-exported.
-				 */
-				*retry_needed = true;
-				return 0;
-			}
-			return ret;
-		}
-		pr_info("Restoring RenderD %s\n", img_path);
-		pr_debug("RenderD Image file size:%ld\n", img_size);
-		buf = xmalloc(img_size);
-		if (!buf) {
-			pr_perror("Failed to allocate memory");
-			return -ENOMEM;
-		}
-
-		ret = read_fp(img_fp, buf, img_size);
-		if (ret) {
-			pr_perror("Unable to read from %s", img_path);
-			xfree(buf);
-			return -1;
-		}
-
-		rd = criu_render_node__unpack(NULL, img_size, buf);
-		if (rd == NULL) {
-			pr_perror("Unable to parse the RenderD message %d", id);
-			xfree(buf);
-			fclose(img_fp);
-			return -1;
-		}
-		fclose(img_fp);
-
-		pr_info("render node gpu_id = 0x%04x\n", rd->gpu_id);
-
-		target_gpu_id = maps_get_dest_gpu(&restore_maps, rd->gpu_id);
-		if (!target_gpu_id) {
-			fd = -ENODEV;
-			goto fail;
-		}
-
-		tp_node = sys_get_node_by_gpu_id(&dest_topology, target_gpu_id);
-		if (!tp_node) {
-			fd = -ENODEV;
-			goto fail;
-		}
-
-		pr_info("render node destination gpu_id = 0x%04x\n", tp_node->gpu_id);
-
-		fd = node_get_drm_render_device(tp_node);
-		if (fd < 0) {
-			pr_err("Failed to open render device (minor:%d) - %s\n",
-			       tp_node->drm_render_minor, strerror(-fd));
-			return -1;
-		}
-
-		ret = amdgpu_plugin_drm_restore_file(fd, rd);
-		if (ret == 1)
-			*retry_needed = true;
-		if (ret < 0) {
-			fd = ret;
-			goto fail;
-		}
-	fail:
-		criu_render_node__free_unpacked(rd, NULL);
-		xfree(buf);
-		/*
-		 * We need to use the file descriptor used to create the BOs for mmap later, otherwise the kernel DRM
-		 * drivers will not allow the mmap. Therefore, we keep a copy of the file descriptor (stored in tp_node)
-		 * so that we can return it in amdgpu_plugin_update_vmamap later. Also, CRIU core will dup and close the
-		 * returned fd after this function returns, and this will make our fd invalid. So we return a dup'ed
-		 * copy of the fd. CRIU core owns the duplicated returned fd, and amdgpu_plugin owns the fd stored in
-		 * tp_node.
-		 */
-
-		if (fd < 0)
-			return fd;
-
-		if (!(*retry_needed)) {
-			fd = dup(fd);
-			if (fd == -1) {
-				pr_perror("unable to duplicate the render fd");
-				return -1;
-			}
-			return fd;
-		}
-
-		return 0;
-	}
+	if (!img_fp)
+		return amdgpu_plugin_restore_drm_file(id, retry_needed);
 
 	fd = open(AMDGPU_KFD_DEVICE, O_RDWR | O_CLOEXEC);
 	if (fd < 0) {

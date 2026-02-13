@@ -167,6 +167,8 @@ int amdgpu_plugin_dmabuf_dump(int dmabuf_fd, int id)
 {
 	int ret;
 
+	pr_info("Dumping dmabuf fd %d\n", dmabuf_fd);
+
 	ret = __amdgpu_plugin_dmabuf_dump(dmabuf_fd, id);
 	if (ret == -EAGAIN) {
 		struct dmabuf *b = xmalloc(sizeof(*b));
