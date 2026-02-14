@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	/* Small delay to ensure everything is ready */
+	
 	usleep(100000);
 
 	/* Send from sender to multicast, receive on receiver */

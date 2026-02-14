@@ -1,10 +1,1 @@
-{
-  "comment": "Tests UDP multicast socket membership restoration. Currently expected to fail because CRIU doesn't restore IP_ADD_MEMBERSHIP socket option.",
-  "author": "Shailja Shaktawat",
-  "needs": ["ipv4"],
-  "runs": ["h"],
-  "timeout": 10,
-  "broken": True,
-  "requires": "loopback interface with multicast enabled",
-  "notes": "Multicast group memberships (IP_ADD_MEMBERSHIP) are not currently preserved across checkpoint/restore. This test documents this limitation."
-}
+{'flags': 'suid crfail'}
