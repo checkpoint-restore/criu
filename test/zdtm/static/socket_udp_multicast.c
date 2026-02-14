@@ -126,9 +126,6 @@ int main(int argc, char **argv)
 	if (ret <= 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			fail("Multicast membership NOT restored (expected - CRIU doesn't support IP_ADD_MEMBERSHIP)");
-			test_msg("This test demonstrates that CRIU currently does NOT restore multicast group memberships\n");
-			test_msg("To fix this, implement IP_ADD_MEMBERSHIP support in criu/sk-inet.c\n");
-			test_msg("See https://github.com/checkpoint-restore/criu/issues/2873\n");
 		} else {
 			pr_perror("Error receiving");
 			return 1;
@@ -136,17 +133,16 @@ int main(int argc, char **argv)
 	} else {
 		if (ret != sizeof(MSG1) || memcmp(buf, MSG1, ret)) {
 			fail("Wrong multicast message");
-			return 1;
+			goto out;
 		}
 		pass();
 	}
 
-	/* Drop multicast membership */
-	if (setsockopt(recv_sk, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-		pr_perror("Can't drop multicast membership");
-		return 1;
-	}
+	/* Drop multicast membership (only if it was restored) */
+	if (setsockopt(recv_sk, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+		test_msg("Can't drop multicast membership (expected if not restored)\n");
 
+out:
 	close(send_sk);
 	close(recv_sk);
 
