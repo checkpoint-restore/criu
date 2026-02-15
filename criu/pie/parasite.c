@@ -993,7 +993,14 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	args->total_pages = total_pages;
 	args->ret = 0;
 
-	/* Don't close uffd - it will remain open for the process */
+	/*
+	 * Close the parasite's copy of uffd.
+	 *
+	 * CRIU keeps a duplicated reference received via SCM_RIGHTS, so
+	 * leaving it open in the target would leak an fd and make future
+	 * dumps fail on anon_inode:[userfaultfd].
+	 */
+	sys_close(uffd);
 	return 0;
 }
 
