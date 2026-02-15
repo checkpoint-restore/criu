@@ -161,6 +161,7 @@ RESTORE_ARGS=(
 	--lazy-pages
 	--tcp-close
 	--cow-dump
+	--restore-detached
 	--skip-file-rwx-check
 	--file-validation filesize   # Tolerate library build-ID mismatches
 )
