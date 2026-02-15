@@ -352,20 +352,23 @@ else
 fi
 
 # Step 8b: Optionally stop dump/page-server process
-if [ "$STOP_DUMP_ON_COMPLETE" = "1" ]; then
-  log "Step 8b: Stop dump process..."
-  sudo pkill -9 -f "[c]riu dump" 2>/dev/null || true
-  sleep 1
-else
-  log "Step 8b: Keep dump process running (STOP_DUMP_ON_COMPLETE=0)"
-fi
-
 if [ -n "$WORKLOAD_PID" ]; then
-  log "Step 8c: Stop workload traffic..."
+  log "Step 8b: Stop workload traffic..."
   stop_workload
 fi
 
 wait "$REPLICA_PID" 2>/dev/null || true
+
+# Step 8c: Optionally stop dump/page-server process.
+# Keep it alive until the replica's lazy-pages daemon finishes transferring
+# all lazy pages, otherwise the replica can hang on unresolved faults.
+if [ "$STOP_DUMP_ON_COMPLETE" = "1" ]; then
+  log "Step 8c: Stop dump process..."
+  sudo pkill -9 -f "[c]riu dump" 2>/dev/null || true
+  sleep 1
+else
+  log "Step 8c: Keep dump process running (STOP_DUMP_ON_COMPLETE=0)"
+fi
 
 REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "timeout ${VALKEY_CMD_TIMEOUT_S}s valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r'" 2>/dev/null || echo "?")
 

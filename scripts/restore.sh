@@ -309,6 +309,14 @@ echo "Step 8d: Removing temporary replica network gate"
 remove_replica_gate
 mark_phase_event "REPLICA_GATE_REMOVED"
 
+echo "Step 8e: Waiting for lazy-pages to finish background transfer..."
+if ! wait "$LAZY_PAGES_PID"; then
+	echo "ERROR: lazy-pages exited with failure"
+	sudo tail -n 200 "$IMAGES_DIR/lazy-server.log" 2>/dev/null || true
+	exit 1
+fi
+mark_phase_event "REPLICA_LAZY_PAGES_DONE"
+
 # --- Summary -----------------------------------------------------------------
 END_TOTAL=$(date +%s)
 DURATION=$((END_TOTAL - START_TOTAL))
