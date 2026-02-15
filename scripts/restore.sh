@@ -92,6 +92,11 @@ for i in $(seq 1 200); do
 	fi
 	sleep 0.01
 done
+
+echo "Step 1a: Resetting valkey log files"
+sudo truncate -s 0 /var/log/valkey/stderr.log 2>/dev/null || true
+sudo truncate -s 0 /var/log/valkey/stdout.log 2>/dev/null || true
+
 # --- Step 1b: Network gate ---------------------------------------------------
 # Block remote clients immediately. The gate stays up until replicaof is
 # configured and write protection is verified (Step 8d).
