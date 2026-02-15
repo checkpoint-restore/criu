@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-const char *test_doc = "Test for UDP multicast socket - DOCUMENTS that CRIU does NOT restore IP_ADD_MEMBERSHIP\n";
+const char *test_doc = "Test for UDP Multicast socket - DOCUMENTS that CRIU does NOT restore IP_ADD_MEMBERSHIP\n";
 const char *test_author = "Shailja Shaktawat";
 
 #define MCAST_ADDR "224.0.0.250"
