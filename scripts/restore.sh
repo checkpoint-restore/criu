@@ -65,8 +65,14 @@ remove_replica_gate() {
 	sudo iptables -D INPUT -p tcp --dport "$VALKEY_PORT" ! -s 127.0.0.1 -j REJECT 2>/dev/null || true
 }
 
+cleanup() {
+	remove_replica_gate
+}
+
 # Safety net: always remove the gate on exit to avoid locking out valkey.
-trap remove_replica_gate EXIT
+trap cleanup EXIT
+# Ensure we run cleanup even if SSH disconnects or we get terminated.
+trap 'exit 1' INT TERM HUP
 
 echo "CRIU Restore - Replica Setup"
 echo "  Listen IP  : $REPLICA_IP"

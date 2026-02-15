@@ -82,7 +82,7 @@ else
 fi
 sudo pkill -9 valkey-benchmark 2>/dev/null || true
 sudo pkill -9 criu 2>/dev/null || true
-$SSH ubuntu@$REPLICA_SSH_HOST "sudo pkill -9 valkey-server || true; sudo pkill -9 criu || true; sudo pkill -9 -f '[/]scripts/restore.sh' || true; sudo pkill -9 -f '[c]riu lazy-pages' || true" 2>/dev/null || true
+$SSH ubuntu@$REPLICA_SSH_HOST "sudo pkill -9 valkey-server || true; sudo pkill -9 criu || true; sudo pkill -9 -f '[/]scripts/restore.sh' || true; sudo pkill -9 -f '[c]riu lazy-pages' || true; while sudo iptables -C INPUT -p tcp --dport $VALKEY_PORT ! -s 127.0.0.1 -j REJECT 2>/dev/null; do sudo iptables -D INPUT -p tcp --dport $VALKEY_PORT ! -s 127.0.0.1 -j REJECT || true; done" 2>/dev/null || true
 sleep 1
 
 # Step 2: Wait for valkey to be running and responsive on master
@@ -304,7 +304,7 @@ done
 if [ "$REPLICA_UP" -ne 1 ]; then
   log "ERROR: replica valkey is not responding"
   log "Step 8b: Stop dump process..."
-  sudo pkill -9 -f "criu dump" 2>/dev/null || true
+  sudo pkill -9 -f "[c]riu dump" 2>/dev/null || true
   sleep 1
   if [ -n "$WORKLOAD_PID" ]; then
     log "Step 8c: Stop workload traffic..."
@@ -331,10 +331,10 @@ if [ "$POST_REPLICA_SYNC_CHECK" = "1" ]; then
     fi
     sleep 0.25
   done
-  if [ "$REPLICA_SYNCED" -ne 1 ]; then
+if [ "$REPLICA_SYNCED" -ne 1 ]; then
     log "ERROR: replica did not reach role=replica/slave with master_link_status=up"
     log "Step 8b: Stop dump process..."
-    sudo pkill -9 -f "criu dump" 2>/dev/null || true
+    sudo pkill -9 -f "[c]riu dump" 2>/dev/null || true
     sleep 1
     stop_workload
     if kill -0 "$REPLICA_PID" 2>/dev/null; then
@@ -354,7 +354,7 @@ fi
 # Step 8b: Optionally stop dump/page-server process
 if [ "$STOP_DUMP_ON_COMPLETE" = "1" ]; then
   log "Step 8b: Stop dump process..."
-  sudo pkill -9 -f "criu dump" 2>/dev/null || true
+  sudo pkill -9 -f "[c]riu dump" 2>/dev/null || true
   sleep 1
 else
   log "Step 8b: Keep dump process running (STOP_DUMP_ON_COMPLETE=0)"
@@ -365,10 +365,7 @@ if [ -n "$WORKLOAD_PID" ]; then
   stop_workload
 fi
 
-if kill -0 "$REPLICA_PID" 2>/dev/null; then
-  kill "$REPLICA_PID" 2>/dev/null || true
-  wait "$REPLICA_PID" 2>/dev/null || true
-fi
+wait "$REPLICA_PID" 2>/dev/null || true
 
 REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "timeout ${VALKEY_CMD_TIMEOUT_S}s valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r'" 2>/dev/null || echo "?")
 
