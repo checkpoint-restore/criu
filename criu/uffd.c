@@ -1840,7 +1840,6 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 	int ret;
 
 	for (;;) {
-
 		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)
 			goto out;
@@ -1849,30 +1848,39 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 			if (ret < 0)
 				goto out;
 			if (restore_finished)
-				poll_timeout = 0;
+				poll_timeout = opts.cow_dump ? 100 : 0;
 			if (!restore_finished || !ret)
 				continue;
 		}
 
 		/* make sure we return success if there is nothing to xfer */
 		ret = 0;
-		if (!opts.cow_dump) {
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
-			if (!list_empty(&lpi->iovs) && list_empty(&lpi->reqs)) {
-				ret = xfer_pages(lpi);
-				if (ret < 0)
-					goto out;
-				break;
+			if (!opts.cow_dump) {
+				if (!list_empty(&lpi->iovs) &&
+				    list_empty(&lpi->reqs)) {
+					ret = xfer_pages(lpi);
+					if (ret < 0)
+						goto out;
+					break;
+				}
+
+				if (!list_empty(&lpi->reqs))
+					continue;
+			} else {
+				if (!restore_finished)
+					continue;
+				if (!lpi->exited &&
+				    (!list_empty(&lpi->iovs) ||
+				     !list_empty(&lpi->reqs)))
+					continue;
 			}
 
-			if (list_empty(&lpi->reqs)) {
-				lazy_pages_summary(lpi);
-				list_del(&lpi->l);
-				lpi_put(lpi);
-			}
+			lazy_pages_summary(lpi);
+			list_del(&lpi->l);
+			lpi_put(lpi);
 		}
-		}
-		if (!opts.cow_dump && list_empty(&lpis))
+		if (list_empty(&lpis))
 			break;
 	}
 
