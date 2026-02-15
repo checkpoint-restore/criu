@@ -77,6 +77,16 @@ echo "Step 1: Killing valkey-server"
 sudo pkill -9 valkey-server 2>/dev/null || true
 echo "valkey-server killed"
 
+# If the previous restored valkey had the same PID we want to restore (common
+# when re-running without restarting the PRIMARY), we can hit EEXIST during
+# pid-restore if the old process is still a zombie. Wait until it's fully
+# gone from the process table.
+for i in $(seq 1 200); do
+	if ! pgrep -x valkey-server >/dev/null 2>&1; then
+		break
+	fi
+	sleep 0.01
+done
 # --- Step 1b: Network gate ---------------------------------------------------
 # Block remote clients immediately. The gate stays up until replicaof is
 # configured and write protection is verified (Step 8d).
