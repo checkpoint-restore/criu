@@ -192,6 +192,14 @@ void compel_set_thread_ip(struct parasite_thread_ctl *tctl, uint64_t v);
 
 extern void compel_get_stack(struct parasite_ctl *ctl, void **rstack, void **r_thread_stack);
 
+#ifndef compel_host_supports_gcs
+static inline bool compel_host_supports_gcs(void)
+{
+	return false;
+}
+#define compel_host_supports_gcs
+#endif
+
 #ifndef compel_shstk_enabled
 static inline bool compel_shstk_enabled(user_fpregs_struct_t *ext_regs)
 {

@@ -2492,6 +2492,7 @@ static int page_pipe_from_pagemap(struct page_pipe **pp, int pid)
 {
 	struct page_read pr;
 	unsigned long nr_pages = 0;
+	int ret = -1;
 
 	if (open_page_read(pid, &pr, PR_TASK) <= 0) {
 		pr_err("Failed to open page read for %d\n", pid);
@@ -2505,13 +2506,20 @@ static int page_pipe_from_pagemap(struct page_pipe **pp, int pid)
 	*pp = create_page_pipe(nr_pages, NULL, 0);
 	if (!*pp) {
 		pr_err("Cannot create page pipe for %d\n", pid);
-		return -1;
+		goto err;
 	}
 
 	if (fill_page_pipe(&pr, *pp))
-		return -1;
+		goto err_pp;
 
-	return 0;
+	ret = 0;
+err:
+	pr.close(&pr);
+	return ret;
+err_pp:
+	destroy_page_pipe(*pp);
+	*pp = NULL;
+	goto err;
 }
 
 static int page_server_init_send(void)

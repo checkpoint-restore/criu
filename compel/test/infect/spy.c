@@ -112,6 +112,9 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+#ifdef GCS_TEST_ENABLE
+	setenv("GLIBC_TUNABLES", "glibc.cpu.aarch64_gcs=1:glibc.cpu.aarch64_gcs_policy=2", 1);
+#endif
 	pid = vfork();
 	if (pid == 0) {
 		close(p_in[1]);

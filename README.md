@@ -7,7 +7,7 @@
 [![CircleCI](https://circleci.com/gh/checkpoint-restore/criu.svg?style=svg)](
     https://circleci.com/gh/checkpoint-restore/criu)
 
-<p align="center"><img src="https://criu.org/w/images/1/1c/CRIU.svg" width="256px"/></p>
+<p align="center"><img src="Documentation/logo.svg" width="256px"/></p>
 
 ## CRIU -- A project to implement checkpoint/restore functionality for Linux
 

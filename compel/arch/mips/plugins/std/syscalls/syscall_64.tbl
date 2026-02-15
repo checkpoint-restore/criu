@@ -84,7 +84,7 @@ __NR_sys_timer_settime		5217		sys_timer_settime	(kernel_timer_t timer_id, int fl
 __NR_sys_timer_gettime		5218		sys_timer_gettime	(int timer_id, const struct itimerspec *setting)
 __NR_sys_timer_getoverrun	5219		sys_timer_getoverrun	(int timer_id)
 __NR_sys_timer_delete		5220		sys_timer_delete	(kernel_timer_t timer_id)
-__NR_clock_gettime		5222		sys_clock_gettime	(const clockid_t which_clock, const struct timespec *tp)
+__NR_clock_gettime		5222		sys_clock_gettime	(clockid_t which_clock, struct timespec *tp)
 __NR_exit_group			5205		sys_exit_group		(int error_code)
 __NR_set_thread_area		5242		sys_set_thread_area	(unsigned long *addr)
 __NR_openat			5247		sys_openat		(int dfd, const char *filename, int flags, int mode)

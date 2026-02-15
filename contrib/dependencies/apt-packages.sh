@@ -13,6 +13,7 @@ fi
 	build-essential \
 	gdb \
 	git-core \
+	iproute2 \
 	iptables \
 	kmod \
 	libaio-dev \

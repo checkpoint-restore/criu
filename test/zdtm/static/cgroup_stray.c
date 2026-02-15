@@ -135,7 +135,7 @@ out:
 int main(int argc, char **argv)
 {
 	int ret = -1, sk_pair[2], sk, status;
-	char path[PATH_MAX], c;
+	char path[PATH_MAX], c = 0;
 	pid_t pid = 0;
 
 	test_init(argc, argv);

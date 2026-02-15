@@ -17,6 +17,11 @@ message user_aarch64_fpsimd_context_entry {
 	required uint32 fpcr	= 3;
 }
 
+message user_aarch64_gcs_entry {
+	required uint64 gcspr_el0		= 1 [(criu).hex = true];
+	required uint64 features_enabled	= 2 [(criu).hex = true];
+}
+
 message pac_address_keys {
 	required uint64 apiakey_lo = 1;
 	required uint64 apiakey_hi = 2;
@@ -45,4 +50,5 @@ message thread_info_aarch64 {
 	required user_aarch64_regs_entry		gpregs		= 3[(criu).hex = true];
 	required user_aarch64_fpsimd_context_entry	fpsimd		= 4;
 	optional pac_keys				pac_keys = 5;
+	optional user_aarch64_gcs_entry			gcs 		= 6;
 }

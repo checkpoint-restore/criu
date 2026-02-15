@@ -19,7 +19,7 @@ all: $(DEPS_CUDA)
 
 cuda_plugin.so: cuda_plugin.c
 	$(call msg-gen, $@)
-	$(Q) $(CC) $(PLUGIN_CFLAGS) $(shell $(COMPEL) includes) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS)
+	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS)
 
 clean:
 	$(call msg-clean, $@)
