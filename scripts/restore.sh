@@ -18,7 +18,12 @@ source "$SCRIPT_DIR/.env"
 
 # --- Configuration defaults (all overridable via environment) ----------------
 FAST_CUTOVER=${FAST_CUTOVER:-0}
-CRIU_BIN=${CRIU_BIN:-criu}
+DEFAULT_CRIU_BIN="$SCRIPT_DIR/../criu/criu"
+if [ -x "$DEFAULT_CRIU_BIN" ]; then
+	CRIU_BIN=${CRIU_BIN:-$DEFAULT_CRIU_BIN}
+else
+	CRIU_BIN=${CRIU_BIN:-criu}
+fi
 START_TOTAL=$(date +%s)
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}

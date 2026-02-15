@@ -7,7 +7,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/.env"
 
 DATA_SIZE_GB=${1:-$DEFAULT_DATA_SIZE_GB}
-CRIU_BIN=${CRIU_BIN:-criu}
+DEFAULT_CRIU_BIN="$SCRIPT_DIR/../criu/criu"
+if [ -x "$DEFAULT_CRIU_BIN" ]; then
+	CRIU_BIN=${CRIU_BIN:-$DEFAULT_CRIU_BIN}
+else
+	CRIU_BIN=${CRIU_BIN:-criu}
+fi
 FAST_CUTOVER=${FAST_CUTOVER:-0}
 CUTOVER_PAUSE_MS=${CUTOVER_PAUSE_MS:-50}
 RUN_WORKLOAD_DURING_MIGRATION=${RUN_WORKLOAD_DURING_MIGRATION:-0}
@@ -17,7 +22,8 @@ STOP_DUMP_ON_COMPLETE=${STOP_DUMP_ON_COMPLETE:-1}
 WORKLOAD_KEYSPACE=${WORKLOAD_KEYSPACE:-1000000}
 WORKLOAD_CLIENTS=${WORKLOAD_CLIENTS:-64}
 WORKLOAD_PIPELINE=${WORKLOAD_PIPELINE:-16}
-WORKLOAD_DATA_SIZE=${WORKLOAD_DATA_SIZE:-1024}
+# Default to 64KB so the live workload does not shrink the 64KB-filled dataset.
+WORKLOAD_DATA_SIZE=${WORKLOAD_DATA_SIZE:-64000}
 WORKLOAD_LOG_FILE=${WORKLOAD_LOG_FILE:-}
 CRIU_DUMP_STRACE_OUT=${CRIU_DUMP_STRACE_OUT:-}
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
@@ -76,7 +82,7 @@ else
 fi
 sudo pkill -9 valkey-benchmark 2>/dev/null || true
 sudo pkill -9 criu 2>/dev/null || true
-$SSH ubuntu@$REPLICA_SSH_HOST "sudo pkill -9 valkey-server; sudo pkill -9 criu" 2>/dev/null || true
+$SSH ubuntu@$REPLICA_SSH_HOST "sudo pkill -9 valkey-server || true; sudo pkill -9 criu || true; sudo pkill -9 -f '[/]scripts/restore.sh' || true; sudo pkill -9 -f '[c]riu lazy-pages' || true" 2>/dev/null || true
 sleep 1
 
 # Step 2: Wait for valkey to be running and responsive on master
@@ -178,8 +184,6 @@ if [ -z "$PID" ]; then
   exit 1
 fi
 log "  Dump PID: $PID"
-sudo gdb -p $PID -batch -ex "call close(12)" -ex "call close(13)" -ex detach -ex quit 2>/dev/null || true
-sudo taskset -pc 0 $PID >/dev/null 2>&1 || true
 sudo touch "$IMAGES_DIR/lazy-primary.log"
 sudo chmod 644 "$IMAGES_DIR/lazy-primary.log"
 # Run dump - cow-dump keeps running, we'll kill it after restore.
