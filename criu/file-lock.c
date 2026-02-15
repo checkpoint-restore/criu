@@ -550,7 +550,7 @@ static int restore_breaking_file_lease(FileLockEntry *fle)
 		return -1;
 	}
 
-	ret = restore_lease_prebreaking_state(fle->fd, fdle->desc->ops->type);
+	ret = restore_lease_prebreaking_state(fle->fd, fdle->fe->flags);
 	if (ret)
 		return ret;
 
