@@ -458,7 +458,6 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi,
 	struct uffdio_range range;
 	ssize_t ret;
 	unsigned int hash;
-	struct cow_page_queue_entry *entry;
 	struct iovec local_iov, remote_iov;
 
 	pr_debug("Write fault at 0x%lx\n", page_addr);
@@ -536,27 +535,6 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi,
 	
 	cow_stats.pages_woken++;
 	cdi->total_pages--;
-
-	/*
-	 * COW faults only happen on lazy VMAs, which are NOT in page pipes.
-	 * Lazy VMAs are read directly via process_vm_readv(), so we don't
-	 * need to store location info (ppb, seg_idx, page_idx_in_seg).
-	 * Just store the vaddr in the queue for the page server.
-	 */
-	entry = xmalloc(sizeof(*entry));
-	if (entry) {
-		entry->vaddr = page_addr;
-		entry->ppb = NULL;  /* Indicates lazy VMA - no location info needed */
-		entry->seg_idx = 0;
-		entry->page_idx_in_seg = 0;
-		INIT_LIST_HEAD(&entry->list);
-		pthread_spin_lock(&cdi->queue_lock);
-		list_add_tail(&entry->list, &cdi->cow_page_queue);
-		pthread_spin_unlock(&cdi->queue_lock);
-		pr_debug("Added lazy VMA COW page 0x%lx to queue\n", page_addr);
-	} else {
-		pr_warn("Failed to allocate queue entry for page 0x%lx\n", page_addr);
-	}
 
 	return 0;
 }
