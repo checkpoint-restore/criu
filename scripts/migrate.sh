@@ -144,7 +144,7 @@ sleep 1
 log "Step 2: Check valkey..."
 PID=""
 for i in $(seq 1 240); do
-  PID=$(pgrep -x valkey-server || true)
+  PID=$(pgrep -x valkey-server | head -n1 || true)
   if [ -n "$PID" ]; then
     break
   fi
@@ -228,7 +228,7 @@ fi
 log "Step 6: CRIU dump..."
 PID=""
 for i in $(seq 1 40); do
-  PID=$(pgrep -x valkey-server || true)
+  PID=$(pgrep -x valkey-server | head -n1 || true)
   if [ -n "$PID" ] && valkey_ping_ok; then
     break
   fi
@@ -281,6 +281,12 @@ if [ -n "$CRIU_DUMP_STRACE_OUT" ]; then
     --display-stats
     -v2 -o "$IMAGES_DIR/lazy-primary.log"
   )
+fi
+
+if [ "$RUN_WORKLOAD_DURING_MIGRATION" = "1" ]; then
+  # Under traffic, clients may be mid-connect/teardown during dump. Ignore those
+  # transient in-flight sockets so C/R can proceed (we use --tcp-close anyway).
+  CRIU_DUMP_CMD+=(--skip-in-flight)
 fi
 
 mark_local_event "DUMP_LAUNCH_MS"

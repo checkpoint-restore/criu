@@ -2061,7 +2061,7 @@ static int process_vma_pages(struct active_image *img,
 		/* Priority 3: Send this lazy VMA page */
 		if (send_single_lazy_page(img, lve, vaddr, page_idx,
 					  source_pid, stats) < 0)
-			continue; /* Log error but continue with next page */
+			return -1;
 	}
 
 	return 0;
@@ -2109,6 +2109,7 @@ static void *unified_page_server_thread(void *arg)
 		list_for_each_entry_safe(img, tmp, &active_images_queue, list) {
 			struct lazy_vma_entry *lve;
 			pid_t source_pid = 0;
+			bool image_failed = false;
 
 			pthread_spin_unlock(&active_images_lock);
 
@@ -2122,18 +2123,23 @@ static void *unified_page_server_thread(void *arg)
 
 				source_pid = lve->source_pid;
 
-				if (process_vma_pages(img, lve, source_pid, &stats) < 0)
+				if (process_vma_pages(img, lve, source_pid, &stats) < 0) {
 					pr_err("Error processing VMA %lx-%lx\n",
 					       lve->start, lve->end);
+					image_failed = true;
+					break;
+				}
 			}
 
 			/* Final drain of any remaining queued pages */
 			pthread_spin_lock(&active_images_lock);
-			if (final_queue_drain(img, source_pid, &stats) < 0)
+			if (!image_failed && final_queue_drain(img, source_pid, &stats) < 0) {
 				pr_err("Error in final queue drain\n");
+				image_failed = true;
+			}
 
 			/* Check if complete */
-			if (img->remaining_pages == 0) {
+			if (!image_failed && img->remaining_pages == 0) {
 				pthread_spin_unlock(&active_images_lock);
 				if (send_image_complete(img) < 0)
 					pr_err("Failed to complete image dst_id=%lu\n",
@@ -2144,7 +2150,11 @@ static void *unified_page_server_thread(void *arg)
 				continue;
 			}
 
-			pr_err("Finished processing image dst_id=%lu img->remaining_pages=%lu\n", img->dst_id, img->remaining_pages);
+			pr_err("Failed processing image dst_id=%lu remaining_pages=%lu, closing stream\n",
+			       img->dst_id, img->remaining_pages);
+			shutdown(img->main_sk, SHUT_RDWR);
+			list_del(&img->list);
+			xfree(img);
 		}
 
 		g_unified_thread_stop = list_empty(&active_images_queue);
@@ -3117,7 +3127,7 @@ static int page_server_start_sync_read(void *buf, unsigned long nr, ps_async_rea
 int page_server_start_read(void *buf, unsigned long nr, ps_async_read_complete complete, void *priv, unsigned flags)
 {
 	/* In bulk mode, use continuous stream reader */
-	pr_err("page_server_start_read\n");
+	pr_debug("page_server_start_read\n");
 
 	if (opts.cow_dump) {
 		if (flags & PR_ASYNC)
