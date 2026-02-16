@@ -17,6 +17,7 @@
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/syscall.h>
 #include "common/err.h"
+#include "common/page.h"
 #include "asm/infect-types.h"
 #include "ptrace.h"
 #include "infect.h"
@@ -738,7 +739,9 @@ int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs)
 	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
 }
 
-#define TASK_SIZE ((1UL << 47) - PAGE_SIZE)
+#define TASK_SIZE_47 ((1UL << 47) - PAGE_SIZE)
+#define TASK_SIZE_56 ((1UL << 56) - PAGE_SIZE)
+
 /*
  * Task size may be limited to 3G but we need a
  * higher limit, because it's backward compatible.
@@ -747,7 +750,23 @@ int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs)
 
 unsigned long compel_task_size(void)
 {
-	return TASK_SIZE;
+	void *addr;
+
+	/*
+	 * On x86-64, task_size is either (1UL << 47) for 4-level paging
+	 * or (1UL << 56) for 5-level paging.
+	 */
+	addr = mmap((void *)(TASK_SIZE_47), page_size(), PROT_NONE,
+		    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
+		    -1, 0);
+	if (addr != MAP_FAILED) {
+		munmap(addr, page_size());
+		return TASK_SIZE_56;
+	}
+	if (errno == EEXIST)
+		return TASK_SIZE_56;
+
+	return TASK_SIZE_47;
 }
 
 bool __compel_shstk_enabled(user_fpregs_struct_t *ext_regs)
