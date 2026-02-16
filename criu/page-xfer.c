@@ -1653,22 +1653,25 @@ static struct {
 	unsigned long send_sub_count;
 } cow_timing;
 
-/* Helper to send a lazy VMA page using process_vm_readv with LZ4 compression */
-static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t source_pid)
+/* Helper to send a lazy VMA page using process_vm_readv */
+static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id,
+			      pid_t source_pid)
 {
 	struct cow_page *cow_pg;
+	const void *data;
 	pthread_spinlock_t *lock;
 	char buffer[PAGE_SIZE];
 	int ret;
 	int uffd;
 	struct iovec local_iov, remote_iov;
-	struct timespec t_start, t_lock, t_cow, t_readv, t_socket, t_unprot, t_end;
-	
-	pr_debug("[SEND_PAGE] Entering send_lazy_vma_page: vaddr=0x%lx dst_id=%lu pid=%d\n", 
+	struct timespec t_start, t_lock, t_cow, t_readv, t_socket, t_unprot,
+			t_end;
+
+	pr_debug("[SEND_PAGE] Entering send_lazy_vma_page: vaddr=0x%lx dst_id=%lu pid=%d\n",
 		 vaddr, (unsigned long)dst_id, source_pid);
-	
+
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
-	
+
 	/* Get hash bucket lock (may be NULL if COW session already destroyed). */
 	lock = cow_get_hash_lock(vaddr);
 	if (lock)
@@ -1681,19 +1684,70 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	if (lock)
 		pthread_spin_unlock(lock);
 
-	/* Send data with compression */
 	if (cow_pg) {
-		pr_debug("[SEND_PAGE] Sending compressed COW page at vaddr=0x%lx\n", vaddr);
+		pr_debug("[SEND_PAGE] Sending COW page at vaddr=0x%lx\n", vaddr);
 
+		data = cow_pg->data;
 		t_readv = t_cow;
-		ret = send_page_uncompressed(sk, cow_pg->data, dst_id, vaddr);
-		clock_gettime(CLOCK_MONOTONIC, &t_socket);
+	} else {
+		int saved_errno;
 
-		if (ret != 0) {
-			pr_perror("Failed to send COW page");
-			return -1;
+		pr_debug("[SEND_PAGE] Reading regular page at vaddr=0x%lx pid=%d\n",
+			 vaddr, source_pid);
+
+		local_iov.iov_base = buffer;
+		local_iov.iov_len = PAGE_SIZE;
+		remote_iov.iov_base = (void *)vaddr;
+		remote_iov.iov_len = PAGE_SIZE;
+
+		ret = process_vm_readv(source_pid, &local_iov, 1, &remote_iov, 1,
+				       0);
+		saved_errno = errno;
+		clock_gettime(CLOCK_MONOTONIC, &t_readv);
+
+		if (ret != PAGE_SIZE) {
+			if (ret < 0 && saved_errno == EFAULT) {
+				/*
+				 * The source can unmap/shrink VMAs while we're
+				 * copying in --leave-running mode. Treat an
+				 * unmapped page as a zero page and keep going,
+				 * otherwise a tiny allocator trim can abort
+				 * the whole bulk transfer.
+				 */
+				memset(buffer, 0, PAGE_SIZE);
+			} else {
+				errno = saved_errno;
+				pr_perror("Failed to read page at %lx from pid %d",
+					  vaddr, source_pid);
+				return -1;
+			}
 		}
 
+		/*
+		 * Re-check the COW hash after the read: a concurrent write-fault
+		 * handler may have captured the pre-write snapshot for this page
+		 * and unprotected it while we were racing. If that happened,
+		 * always send the hash snapshot to preserve dump-time semantics.
+		 */
+		lock = cow_get_hash_lock(vaddr);
+		if (lock)
+			pthread_spin_lock(lock);
+		cow_pg = lock ? cow_lookup_page(vaddr) : NULL;
+		if (lock)
+			pthread_spin_unlock(lock);
+
+		data = cow_pg ? cow_pg->data : buffer;
+	}
+
+	ret = send_page_uncompressed(sk, data, dst_id, vaddr);
+	clock_gettime(CLOCK_MONOTONIC, &t_socket);
+
+	if (ret != 0) {
+		pr_perror("Failed to send page");
+		return -1;
+	}
+
+	if (cow_pg) {
 		t_unprot = t_socket;
 
 		/* Remove only after the send completes. */
@@ -1704,29 +1758,6 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 			pthread_spin_unlock(lock);
 		}
 	} else {
-		pr_debug("[SEND_PAGE] Reading regular page at vaddr=0x%lx pid=%d\n", vaddr, source_pid);
-
-		local_iov.iov_base = buffer;
-		local_iov.iov_len = PAGE_SIZE;
-		remote_iov.iov_base = (void *)vaddr;
-		remote_iov.iov_len = PAGE_SIZE;
-
-		ret = process_vm_readv(source_pid, &local_iov, 1, &remote_iov, 1, 0);
-		clock_gettime(CLOCK_MONOTONIC, &t_readv);
-
-		if (ret != PAGE_SIZE) {
-			pr_perror("Failed to read page at %lx from pid %d", vaddr, source_pid);
-			return -1;
-		}
-
-		ret = send_page_uncompressed(sk, buffer, dst_id, vaddr);
-		clock_gettime(CLOCK_MONOTONIC, &t_socket);
-
-		if (ret != 0) {
-			pr_perror("Failed to send page");
-			return -1;
-		}
-
 		uffd = cow_get_uffd_for_pid(source_pid);
 		if (uffd >= 0) {
 			struct uffdio_writeprotect wp;
@@ -1735,25 +1766,50 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 			wp.range.len = PAGE_SIZE;
 			wp.mode = 0;
 			if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
-				pr_perror("Failed to unprotect page at 0x%lx", vaddr);
-				return -1;
+				pr_pwarn("Failed to unprotect page at 0x%lx",
+					 vaddr);
 			}
 		}
 
 		clock_gettime(CLOCK_MONOTONIC, &t_unprot);
+
+		/*
+		 * A write-fault can race with our regular send: the page is still
+		 * write-protected until we clear WP, so the monitor may capture a
+		 * snapshot into the hash while we are sending. If that happens,
+		 * drop the snapshot since we've already sent the page.
+		 */
+		lock = cow_get_hash_lock(vaddr);
+		if (lock) {
+			pthread_spin_lock(lock);
+			cow_remove_page(vaddr);
+			pthread_spin_unlock(lock);
+		}
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 	/* Accumulate sub-timings (nanoseconds) */
-	cow_timing.send_lock_ns += (t_lock.tv_sec - t_start.tv_sec) * 1000000000 + (t_lock.tv_nsec - t_start.tv_nsec);
-	cow_timing.send_cow_lookup_ns += (t_cow.tv_sec - t_lock.tv_sec) * 1000000000 + (t_cow.tv_nsec - t_lock.tv_nsec);
-	cow_timing.send_vm_readv_ns += (t_readv.tv_sec - t_cow.tv_sec) * 1000000000 + (t_readv.tv_nsec - t_cow.tv_nsec);
-	cow_timing.send_compress_ns += (t_socket.tv_sec - t_readv.tv_sec) * 1000000000 + (t_socket.tv_nsec - t_readv.tv_nsec);
-	cow_timing.send_unprotect_ns += (t_unprot.tv_sec - t_socket.tv_sec) * 1000000000 + (t_unprot.tv_nsec - t_socket.tv_nsec);
-	cow_timing.send_unlock_ns += (t_end.tv_sec - t_unprot.tv_sec) * 1000000000 + (t_end.tv_nsec - t_unprot.tv_nsec);
+	cow_timing.send_lock_ns += (t_lock.tv_sec - t_start.tv_sec) *
+				  1000000000UL +
+				  (t_lock.tv_nsec - t_start.tv_nsec);
+	cow_timing.send_cow_lookup_ns += (t_cow.tv_sec - t_lock.tv_sec) *
+					1000000000UL +
+					(t_cow.tv_nsec - t_lock.tv_nsec);
+	cow_timing.send_vm_readv_ns += (t_readv.tv_sec - t_cow.tv_sec) *
+				      1000000000UL +
+				      (t_readv.tv_nsec - t_cow.tv_nsec);
+	cow_timing.send_compress_ns += (t_socket.tv_sec - t_readv.tv_sec) *
+				      1000000000UL +
+				      (t_socket.tv_nsec - t_readv.tv_nsec);
+	cow_timing.send_unprotect_ns += (t_unprot.tv_sec - t_socket.tv_sec) *
+				       1000000000UL +
+				       (t_unprot.tv_nsec - t_socket.tv_nsec);
+	cow_timing.send_unlock_ns += (t_end.tv_sec - t_unprot.tv_sec) *
+				    1000000000UL +
+				    (t_end.tv_nsec - t_unprot.tv_nsec);
 	cow_timing.send_sub_count++;
-		
+
 	return 0;
 }
 
