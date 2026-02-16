@@ -739,6 +739,38 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, unsigned l
 	return 0;
 }
 
+static void dump_lazy_iov_list(struct lazy_pages_info *lpi, const char *name,
+			       struct list_head *iovs, unsigned int max_dump)
+{
+	struct lazy_iov *iov;
+	unsigned long count = 0;
+	unsigned long pages = 0;
+	unsigned long prev_start = 0;
+	bool sorted = true;
+	bool first = true;
+
+	list_for_each_entry(iov, iovs, l) {
+		unsigned long iov_pages;
+
+		iov_pages = (iov->end - iov->start) / page_size();
+		pages += iov_pages;
+
+		if (!first && iov->start < prev_start)
+			sorted = false;
+		first = false;
+		prev_start = iov->start;
+
+		if (count < max_dump)
+			lp_err(lpi, "%s[%lu]: 0x%lx-0x%lx img_start=0x%lx pages=%lu\n",
+			       name, count, iov->start, iov->end, iov->img_start,
+			       iov_pages);
+		count++;
+	}
+
+	lp_err(lpi, "%s: count=%lu pages=%lu sorted=%s\n", name, count, pages,
+	       sorted ? "yes" : "no");
+}
+
 static struct lazy_iov *extract_range(struct lazy_iov *iov, unsigned long start, unsigned long end)
 {
 	/* move the IOV tail into a new IOV */
@@ -1442,7 +1474,7 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 	iov = extract_range(iov, iov->start, iov->start + len);
 	if (!iov)
 		return -1;
-	list_move(&iov->l, &lpi->reqs);
+	iov_list_insert(iov, &lpi->reqs);
 
 	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
 
@@ -1614,7 +1646,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		return -1;
 	}
 
-	list_move(&iov->l, &lpi->reqs);
+	iov_list_insert(iov, &lpi->reqs);
 
 	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
 
@@ -1819,6 +1851,19 @@ int process_eagain_requests(void)
 		/* Success! */
 		uffd_stats.eagain_succeeded++;
 
+		/*
+		 * Mark the range as complete in our tracking lists. Even
+		 * though the original UFFD operation was delayed, the
+		 * destination page is now populated (or zeroed).
+		 */
+		if (drop_iovs(req->lpi, req->address,
+			      req->nr_pages * page_size())) {
+			lp_err(req->lpi,
+			       "Failed to drop IOVs for EAGAIN retry at 0x%llx/%lu\n",
+			       req->address, req->nr_pages);
+			return -1;
+		}
+
 		/* Clean up and remove from queue */
 		list_del(&req->l);
 		if (req->buf)
@@ -1855,8 +1900,16 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 
 		/* make sure we return success if there is nothing to xfer */
 		ret = 0;
-		list_for_each_entry_safe(lpi, n, &lpis, l) {
-			if (!opts.cow_dump) {
+
+		if (opts.cow_dump && !list_empty(&eagain_requests)) {
+			if (process_eagain_requests()) {
+				ret = -1;
+				goto out;
+			}
+		}
+
+		if (!opts.cow_dump) {
+			list_for_each_entry_safe(lpi, n, &lpis, l) {
 				if (!list_empty(&lpi->iovs) &&
 				    list_empty(&lpi->reqs)) {
 					ret = xfer_pages(lpi);
@@ -1867,19 +1920,68 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 
 				if (!list_empty(&lpi->reqs))
 					continue;
-			} else {
-				if (!restore_finished)
-					continue;
-				if (!lpi->exited &&
-				    (!list_empty(&lpi->iovs) ||
-				     !list_empty(&lpi->reqs)))
-					continue;
+
+				lazy_pages_summary(lpi);
+				list_del(&lpi->l);
+				lpi_put(lpi);
 			}
+
+			if (list_empty(&lpis))
+				break;
+			continue;
+		}
+
+		/*
+		 * COW/bulk mode: no background xfer loop. We just wait for
+		 * bulk pages to arrive and be copied. Once the restorer is
+		 * finished and the bulk stream is done, no more pages will
+		 * come - any remaining ranges mean a bug.
+		 */
+		if (restore_finished && page_server_bulk_stream_done()) {
+			if (!list_empty(&eagain_requests))
+				continue;
+
+			list_for_each_entry_safe(lpi, n, &lpis, l) {
+				if (!lpi->exited &&
+				    (!list_empty(&lpi->reqs) ||
+				     !list_empty(&lpi->iovs))) {
+					lp_err(lpi, "Bulk stream ended but pages remain (iovs=%s reqs=%s)\n",
+					       list_empty(&lpi->iovs) ? "empty" : "non-empty",
+					       list_empty(&lpi->reqs) ? "empty" : "non-empty");
+					if (!list_empty(&lpi->reqs))
+						dump_lazy_iov_list(lpi, "REQ",
+								   &lpi->reqs, 32);
+					if (!list_empty(&lpi->iovs))
+						dump_lazy_iov_list(lpi, "IOV",
+								   &lpi->iovs, 32);
+					ret = -1;
+					goto out;
+				}
+
+				lazy_pages_summary(lpi);
+				list_del(&lpi->l);
+				lpi_put(lpi);
+			}
+
+			if (list_empty(&lpis))
+				break;
+			continue;
+		}
+
+		/* Stream not finished yet. Cleanup only if drained or exited. */
+		list_for_each_entry_safe(lpi, n, &lpis, l) {
+			if (!restore_finished)
+				continue;
+
+			if (!lpi->exited &&
+			    (!list_empty(&lpi->iovs) || !list_empty(&lpi->reqs)))
+				continue;
 
 			lazy_pages_summary(lpi);
 			list_del(&lpi->l);
 			lpi_put(lpi);
 		}
+
 		if (list_empty(&lpis))
 			break;
 	}
