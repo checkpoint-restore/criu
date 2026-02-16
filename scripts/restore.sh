@@ -27,6 +27,7 @@ fi
 START_TOTAL=$(date +%s)
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
+REPLICA_STAGED_FILE=${REPLICA_STAGED_FILE:-$IMAGES_DIR/replica_staged.log}
 RESTORE_VERIFY_DELAY_S=${RESTORE_VERIFY_DELAY_S:-0}
 RESTORE_MAX_PING_ATTEMPTS=${RESTORE_MAX_PING_ATTEMPTS:-600}
 RESTORE_PING_INTERVAL_S=${RESTORE_PING_INTERVAL_S:-0.05}
@@ -142,11 +143,16 @@ done
 # Start wait_and_replicate.sh which waits for valkey to respond, then
 # runs REPLICAOF to configure this instance as a replica of the source.
 # Runs in background so it doesn't block the restore.
-echo "Step 4: Starting wait_and_replicate.sh in background"
-"$SCRIPT_DIR/wait_and_replicate.sh" &
-REPLICATE_PID=$!
-echo "wait_and_replicate.sh started (PID: $REPLICATE_PID)"
-mark_phase_event "REPLICA_REPLICATE_TASK_STARTED"
+REPLICATE_PID=""
+if [ "$FAST_CUTOVER" != "1" ]; then
+	echo "Step 4: Starting wait_and_replicate.sh in background"
+	"$SCRIPT_DIR/wait_and_replicate.sh" &
+	REPLICATE_PID=$!
+	echo "wait_and_replicate.sh started (PID: $REPLICATE_PID)"
+	mark_phase_event "REPLICA_REPLICATE_TASK_STARTED"
+else
+	echo "Step 4: FAST_CUTOVER=1: defer replicaof configuration until after SIGCONT"
+fi
 
 # --- Step 5/6: Lazy-pages + restore with retry ------------------------------
 # Start the lazy-pages daemon (connects to source page server over TCP)
@@ -254,6 +260,83 @@ if [ "$FAST_CUTOVER" = "1" ]; then
     echo "ERROR: Valkey process not restored in FAST_CUTOVER mode"
     exit 1
   fi
+
+  echo "Step 8: Waiting for lazy-pages to finish background transfer (FAST_CUTOVER)..."
+  if ! wait "$LAZY_PAGES_PID"; then
+    echo "ERROR: lazy-pages exited with failure"
+    sudo tail -n 200 "$IMAGES_DIR/lazy-server.log" 2>/dev/null || true
+    exit 1
+  fi
+  mark_phase_event "REPLICA_LAZY_PAGES_DONE"
+
+  echo "Step 9: Writing staged marker: $REPLICA_STAGED_FILE"
+  echo "STAGED" | sudo tee "$REPLICA_STAGED_FILE" >/dev/null
+  sudo chmod 644 "$REPLICA_STAGED_FILE" 2>/dev/null || true
+  mark_phase_event "REPLICA_STAGED_FOR_CUTOVER"
+
+  echo "Step 10: Waiting for Valkey to be responsive after SIGCONT..."
+  for i in $(seq 1 6000); do
+    if timeout 1s valkey-cli ping &>/dev/null; then
+      echo "Valkey is up (post-cutover resume)"
+      mark_phase_event "REPLICA_VALKEY_PING_READY"
+      break
+    fi
+    sleep "$RESTORE_PING_INTERVAL_S"
+  done
+  if ! timeout 1s valkey-cli ping &>/dev/null; then
+    echo "ERROR: Valkey did not become responsive after cutover"
+    exit 1
+  fi
+
+  echo "Step 11: Starting wait_and_replicate.sh in background (post-cutover)..."
+  "$SCRIPT_DIR/wait_and_replicate.sh" &
+  REPLICATE_PID=$!
+  echo "wait_and_replicate.sh started (PID: $REPLICATE_PID)"
+  mark_phase_event "REPLICA_REPLICATE_TASK_STARTED"
+
+  echo "Step 12: Waiting for replica configuration task..."
+  if ! wait "$REPLICATE_PID"; then
+    echo "ERROR: wait_and_replicate.sh failed"
+    exit 1
+  fi
+  echo "Replica configuration completed"
+  mark_phase_event "REPLICA_REPLICATE_TASK_DONE"
+
+  echo "Step 13: Verifying replica write protection"
+  WRITE_GUARD_OK=0
+  mark_phase_event "REPLICA_WRITE_GUARD_START"
+  for i in $(seq 1 "$RESTORE_WRITE_GUARD_ATTEMPTS"); do
+    WRITE_RESP=$(valkey-cli -p "$VALKEY_PORT" set __criu_replica_probe__ 1 2>&1 || true)
+    if printf "%s\n" "$WRITE_RESP" | grep -qi "READONLY"; then
+      WRITE_GUARD_OK=1
+      break
+    fi
+    sleep "$RESTORE_WRITE_GUARD_INTERVAL_S"
+  done
+  if [ "$WRITE_GUARD_OK" -ne 1 ]; then
+    echo "ERROR: replica accepted write or did not return READONLY"
+    valkey-cli -p "$VALKEY_PORT" del __criu_replica_probe__ >/dev/null 2>&1 || true
+    exit 1
+  fi
+  mark_phase_event "REPLICA_WRITE_GUARD_OK"
+
+  echo "Step 14: Removing temporary replica network gate"
+  remove_replica_gate
+  mark_phase_event "REPLICA_GATE_REMOVED"
+
+  END_TOTAL=$(date +%s)
+  DURATION=$((END_TOTAL - START_TOTAL))
+  MEM=$(valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
+  KEYS=$(valkey-cli dbsize | cut -d: -f2 | tr -d '\r' 2>/dev/null || valkey-cli dbsize)
+  echo "================================================================"
+  echo "Migration completed successfully!"
+  echo "  Duration: ${DURATION}s"
+  echo "  Memory:   $MEM"
+  echo "  Keys:     $KEYS"
+  echo "================================================================"
+  mark_phase_event "REPLICA_RESTORE_SCRIPT_DONE"
+
+  exit 0
 else
   # Normal mode: process was restored and resumed immediately.
   # Wait for it to respond to PING (pages are demand-faulted as needed).

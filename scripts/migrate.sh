@@ -27,6 +27,7 @@ WORKLOAD_DATA_SIZE=${WORKLOAD_DATA_SIZE:-64000}
 WORKLOAD_LOG_FILE=${WORKLOAD_LOG_FILE:-}
 CRIU_DUMP_STRACE_OUT=${CRIU_DUMP_STRACE_OUT:-}
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
+REPLICA_STAGED_FILE=${REPLICA_STAGED_FILE:-$IMAGES_DIR/replica_staged.log}
 REPLICA_PING_POLL_INTERVAL_S=${REPLICA_PING_POLL_INTERVAL_S:-0.01}
 VALKEY_CMD_TIMEOUT_S=${VALKEY_CMD_TIMEOUT_S:-2}
 MEASURE_SOURCE_AVAILABILITY=${MEASURE_SOURCE_AVAILABILITY:-1}
@@ -363,6 +364,23 @@ if [ "$FAST_CUTOVER" != "1" ] && [ -n "$CUTOVER_MARKER_FILE" ] && [[ "$CUTOVER_M
   else
     log "  WARN: replica gate removal marker not observed before cutover timing"
   fi
+fi
+
+if [ "$FAST_CUTOVER" = "1" ]; then
+  log "Step 7b: Waiting for replica staged marker ($REPLICA_STAGED_FILE)..."
+  STAGED_OK=0
+  for _ in $(seq 1 $((WAIT_TIMEOUT * 20))); do
+    if [ -f "$REPLICA_STAGED_FILE" ]; then
+      STAGED_OK=1
+      break
+    fi
+    sleep 0.05
+  done
+  if [ "$STAGED_OK" -ne 1 ]; then
+    log "ERROR: replica staged marker not found at $REPLICA_STAGED_FILE"
+    exit 1
+  fi
+  log "  Replica staged marker detected"
 fi
 
 # Step 8: Cutover/check
