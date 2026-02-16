@@ -44,6 +44,11 @@
 static int page_server_sk = -1;
 static bool bulk_stream_done = false;
 
+bool page_server_bulk_stream_done(void)
+{
+	return bulk_stream_done;
+}
+
 #define BULK_STREAM_WOULD_BLOCK 0
 #define BULK_STREAM_PROGRESS 1
 #define BULK_STREAM_COMPLETE 2
