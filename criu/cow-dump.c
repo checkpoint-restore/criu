@@ -133,9 +133,7 @@ static struct cow_tracked_task *cow_find_task_by_pid(pid_t source_pid)
 
 bool cow_check_kernel_support(void)
 {
-	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
-				 UFFD_FEATURE_EVENT_FORK |
-				 UFFD_FEATURE_EVENT_REMAP;
+	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP;
 	int uffd, err = 0;
 
 	uffd = uffd_open(0, &features, &err);

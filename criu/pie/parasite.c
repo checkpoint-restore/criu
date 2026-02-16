@@ -887,9 +887,7 @@ static int parasite_cow_dump_init(struct parasite_cow_dump_args *args)
 	/* Initialize userfaultfd API with WP features */
 	memset(&api, 0, sizeof(api));
 	api.api = UFFD_API;
-	api.features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
-		       UFFD_FEATURE_EVENT_FORK |
-		       UFFD_FEATURE_EVENT_REMAP;
+	api.features = UFFD_FEATURE_PAGEFAULT_FLAG_WP;
 	api.ioctls = 0;
 
 	ret = sys_ioctl(uffd, UFFDIO_API, (unsigned long)&api);
