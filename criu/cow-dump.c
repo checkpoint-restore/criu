@@ -133,8 +133,7 @@ static struct cow_tracked_task *cow_find_task_by_pid(pid_t source_pid)
 
 bool cow_check_kernel_support(void)
 {
-	unsigned long features = UFFD_FEATURE_WP_ASYNC |
-				 UFFD_FEATURE_PAGEFAULT_FLAG_WP | 
+	unsigned long features = UFFD_FEATURE_PAGEFAULT_FLAG_WP |
 				 UFFD_FEATURE_EVENT_FORK |
 				 UFFD_FEATURE_EVENT_REMAP;
 	int uffd, err = 0;
@@ -146,12 +145,6 @@ bool cow_check_kernel_support(void)
 		} else if (err == EPERM) {
 			pr_info("userfaultfd requires CAP_SYS_PTRACE or sysctl vm.unprivileged_userfaultfd=1\n");
 		}
-		return false;
-	}
-
-	if (!(features & UFFD_FEATURE_WP_ASYNC)) {
-		pr_info("userfaultfd write-protect feature not supported (need kernel 5.7+)\n");
-		close(uffd);
 		return false;
 	}
 

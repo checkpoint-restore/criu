@@ -19,7 +19,8 @@ with Valkey live migration.
 
 ```bash
 uname -r
-# Must be >= 5.7 for UFFD_FEATURE_WP_ASYNC
+# Must be >= 5.7 for userfaultfd write-protect (UFFD_FEATURE_PAGEFAULT_FLAG_WP)
+# Note: UFFD_FEATURE_WP_ASYNC is Linux 6.7+ and not enabled by default.
 ```
 
 ### Enable Unprivileged Userfaultfd
@@ -486,7 +487,7 @@ cat /fsx/lazy/lazy-restore.log
 # Check kernel support
 ./criu/criu check --feature uffd-noncoop
 
-# Check for WP_ASYNC support in kernel
+# Optional: check kernel logs for userfaultfd hints
 dmesg | grep -i userfaultfd
 ```
 

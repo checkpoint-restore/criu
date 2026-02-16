@@ -29,12 +29,31 @@ CRIU_DUMP_STRACE_OUT=${CRIU_DUMP_STRACE_OUT:-}
 CUTOVER_MARKER_FILE=${CUTOVER_MARKER_FILE:-}
 REPLICA_PING_POLL_INTERVAL_S=${REPLICA_PING_POLL_INTERVAL_S:-0.01}
 VALKEY_CMD_TIMEOUT_S=${VALKEY_CMD_TIMEOUT_S:-2}
+MEASURE_SOURCE_AVAILABILITY=${MEASURE_SOURCE_AVAILABILITY:-1}
+SOURCE_PING_INTERVAL_MS=${SOURCE_PING_INTERVAL_MS:-5}
+SOURCE_PING_TIMEOUT_MS=${SOURCE_PING_TIMEOUT_MS:-10000}
 POST_REPLICA_SYNC_CHECK=${POST_REPLICA_SYNC_CHECK:-0}
 CUTOVER_GATE_EVENT_WAIT_S=${CUTOVER_GATE_EVENT_WAIT_S:-15}
 SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 REPLICA_SSH_HOST="${REPLICA_IP:-$REPLICA_HOST}"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
+
+umask 022
+ARTIFACTS_DIR=${ARTIFACTS_DIR:-"$SCRIPT_DIR/../artifacts"}
+RUN_ID=${RUN_ID:-"$(date '+%Y%m%d_%H%M%S')"}
+RUN_DIR="$ARTIFACTS_DIR/$RUN_ID"
+mkdir -p "$RUN_DIR" 2>/dev/null || true
+chmod 755 "$RUN_DIR" 2>/dev/null || true
+LOCAL_MARKER_FILE="$RUN_DIR/source_markers.log"
+touch "$LOCAL_MARKER_FILE" 2>/dev/null || true
+
+mark_local_event() {
+  local event="$1"
+  local ts_ms
+  ts_ms=$(date +%s%3N)
+  printf "%s %s %s\n" "$event" "$ts_ms" "PRIMARY" >>"$LOCAL_MARKER_FILE" 2>/dev/null || true
+}
 
 valkey_cmd()
 {
@@ -68,6 +87,42 @@ stop_workload() {
 	fi
 	sudo pkill -9 valkey-benchmark 2>/dev/null || true
 }
+
+SOURCE_PING_PID=""
+SOURCE_PING_LOG=""
+
+start_source_ping_monitor() {
+  if [ "$MEASURE_SOURCE_AVAILABILITY" != "1" ]; then
+    return 0
+  fi
+
+  SOURCE_PING_LOG="$RUN_DIR/source-ping.log"
+  log "  Source ping monitor: $SOURCE_PING_LOG (interval=${SOURCE_PING_INTERVAL_MS}ms timeout=${SOURCE_PING_TIMEOUT_MS}ms)"
+  python3 "$SCRIPT_DIR/valkey_ping_monitor.py" \
+    --host 127.0.0.1 \
+    --port "$VALKEY_PORT" \
+    --interval-ms "$SOURCE_PING_INTERVAL_MS" \
+    --timeout-ms "$SOURCE_PING_TIMEOUT_MS" \
+    --out "$SOURCE_PING_LOG" &
+  SOURCE_PING_PID=$!
+  mark_local_event "SOURCE_PING_MONITOR_START_MS"
+}
+
+stop_source_ping_monitor() {
+  if [ -z "${SOURCE_PING_PID:-}" ]; then
+    return 0
+  fi
+  kill "$SOURCE_PING_PID" 2>/dev/null || true
+  wait "$SOURCE_PING_PID" 2>/dev/null || true
+  mark_local_event "SOURCE_PING_MONITOR_STOP_MS"
+  SOURCE_PING_PID=""
+}
+
+cleanup() {
+  stop_source_ping_monitor
+}
+
+trap cleanup EXIT
 
 # Step 1: Kill on both
 log "Step 1: Kill processes..."
@@ -184,8 +239,14 @@ if [ -z "$PID" ]; then
   exit 1
 fi
 log "  Dump PID: $PID"
+log "  Artifacts dir: $RUN_DIR"
 sudo touch "$IMAGES_DIR/lazy-primary.log"
 sudo chmod 644 "$IMAGES_DIR/lazy-primary.log"
+mark_local_event "DUMP_PREP_MS"
+
+log "Step 6a: Start source availability monitor..."
+start_source_ping_monitor
+
 # Run dump - cow-dump keeps running, we'll kill it after restore.
 # Optional syscall profiling can be enabled via CRIU_DUMP_STRACE_OUT.
 CRIU_DUMP_CMD=(
@@ -199,6 +260,7 @@ CRIU_DUMP_CMD=(
   --tcp-close
   --ext-unix-sk
   --leave-running
+  --display-stats
   -v2 -o "$IMAGES_DIR/lazy-primary.log"
 )
 
@@ -216,10 +278,12 @@ if [ -n "$CRIU_DUMP_STRACE_OUT" ]; then
     --tcp-close
     --ext-unix-sk
     --leave-running
+    --display-stats
     -v2 -o "$IMAGES_DIR/lazy-primary.log"
   )
 fi
 
+mark_local_event "DUMP_LAUNCH_MS"
 "${CRIU_DUMP_CMD[@]}" &
 DUMP_PID=$!
 
@@ -228,6 +292,19 @@ if ! kill -0 "$DUMP_PID" 2>/dev/null; then
   log "ERROR: criu dump exited early"
   sudo tail -n 120 "$IMAGES_DIR/lazy-primary.log" || true
   exit 1
+fi
+
+PAGE_SERVER_READY=0
+for _ in $(seq 1 600); do
+  if sudo grep -a -q "PAGE SERVER READY TO SERVE" "$IMAGES_DIR/lazy-primary.log" 2>/dev/null; then
+    PAGE_SERVER_READY=1
+    mark_local_event "PAGE_SERVER_READY_MS"
+    break
+  fi
+  sleep 0.05
+done
+if [ "$PAGE_SERVER_READY" -ne 1 ]; then
+  log "WARN: did not observe 'PAGE SERVER READY TO SERVE' in lazy-primary.log within 30s"
 fi
 
 WORKLOAD_PID=""
@@ -370,6 +447,8 @@ else
   log "Step 8c: Keep dump process running (STOP_DUMP_ON_COMPLETE=0)"
 fi
 
+stop_source_ping_monitor
+
 REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "timeout ${VALKEY_CMD_TIMEOUT_S}s valkey-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r'" 2>/dev/null || echo "?")
 
 # Extract CRIU timing from logs
@@ -378,6 +457,83 @@ DUMP_TOTAL=$(sudo grep -a "dump_one_task TOTAL" "$LOG_FILE" 2>/dev/null | grep -
 PARSE_SMAPS=$(sudo grep -a "parse_smaps took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
 DUMP_PAGES=$(sudo grep -a "parasite_dump_pages_seized took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
 GEN_IOVS=$(sudo grep -a "generate_vma_iovs loop" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
+
+FROZEN_US=$(sudo grep -a "Frozen time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $3}' || echo "")
+FREEZING_US=$(sudo grep -a "Freezing time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $3}' || echo "")
+
+SOURCE_PING_SUMMARY=""
+if [ -n "${SOURCE_PING_LOG:-}" ] && [ -f "$SOURCE_PING_LOG" ]; then
+  SOURCE_PING_SUMMARY=$(python3 - "$SOURCE_PING_LOG" <<'PY' 2>/dev/null || true
+import sys, math
+
+path = sys.argv[1]
+ok = 0
+timeouts = 0
+errors = 0
+rtts_us = []
+max_rtt_us = 0
+max_status = ""
+
+with open(path, "r", encoding="utf-8") as f:
+    for line in f:
+        parts = line.strip().split()
+        if len(parts) != 4:
+            continue
+        try:
+            send_ns = int(parts[0])
+            recv_ns = int(parts[1])
+            rtt_us = int(parts[2])
+        except ValueError:
+            continue
+        status = parts[3]
+
+        if status == "OK":
+            ok += 1
+            rtts_us.append(rtt_us)
+        elif status == "TIMEOUT":
+            timeouts += 1
+        else:
+            errors += 1
+
+        if rtt_us >= max_rtt_us:
+            max_rtt_us = rtt_us
+            max_status = status
+
+def pct(xs, p):
+    if not xs:
+        return None
+    xs = sorted(xs)
+    idx = max(0, min(len(xs) - 1, int(math.ceil((p/100.0) * len(xs))) - 1))
+    return xs[idx]
+
+def fmt_us(v):
+    if v is None:
+        return "?"
+    return f"{v/1000.0:.3f}ms"
+
+p50 = pct(rtts_us, 50)
+p95 = pct(rtts_us, 95)
+p99 = pct(rtts_us, 99)
+
+print(
+    f"samples_ok={ok} samples_timeout={timeouts} samples_error={errors} "
+    f"rtt_p50={fmt_us(p50)} rtt_p95={fmt_us(p95)} rtt_p99={fmt_us(p99)} "
+    f"rtt_max={max_rtt_us/1000.0:.3f}ms max_status={max_status}"
+)
+PY
+)
+fi
+
+# Archive key logs under the run artifacts dir so the next run's FSX cleanup won't destroy them.
+sudo cp -f "$IMAGES_DIR/lazy-primary.log" "$RUN_DIR/lazy-primary.log" 2>/dev/null || true
+sudo cp -f "$IMAGES_DIR/lazy-restore.log" "$RUN_DIR/lazy-restore.log" 2>/dev/null || true
+sudo cp -f "$IMAGES_DIR/lazy-server.log" "$RUN_DIR/lazy-server.log" 2>/dev/null || true
+if [ -n "${CUTOVER_MARKER_FILE:-}" ] && [ -f "$CUTOVER_MARKER_FILE" ]; then
+  sudo cp -f "$CUTOVER_MARKER_FILE" "$RUN_DIR/cutover_markers.log" 2>/dev/null || true
+fi
+if [ -n "${WORKLOAD_LOG_FILE:-}" ] && [ "$WORKLOAD_LOG_FILE" != "/dev/null" ] && [ -f "$WORKLOAD_LOG_FILE" ]; then
+  sudo cp -f "$WORKLOAD_LOG_FILE" "$RUN_DIR/workload.log" 2>/dev/null || true
+fi
 
 log "================================================================"
 log "Migration complete!"
@@ -389,4 +545,14 @@ log "    dump_one_task TOTAL:   ${DUMP_TOTAL}s"
 log "    parse_smaps:           ${PARSE_SMAPS}s"
 log "    dump_pages_seized:     ${DUMP_PAGES}s"
 log "    generate_vma_iovs:     ${GEN_IOVS}s"
+if [ -n "${FREEZING_US:-}" ] || [ -n "${FROZEN_US:-}" ]; then
+  log "    freezing_time:         ${FREEZING_US:-?}us"
+  log "    frozen_time:           ${FROZEN_US:-?}us"
+fi
+if [ -n "${SOURCE_PING_SUMMARY:-}" ]; then
+  log "----------------------------------------------------------------"
+  log "  Source availability (Valkey PING):"
+  log "    $SOURCE_PING_SUMMARY"
+fi
+log "  Artifacts: $RUN_DIR"
 log "================================================================"

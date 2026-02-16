@@ -47,7 +47,7 @@ static bool bulk_stream_done = false;
 #define BULK_STREAM_WOULD_BLOCK 0
 #define BULK_STREAM_PROGRESS 1
 #define BULK_STREAM_COMPLETE 2
-#define BULK_CLOSE_ACK_TIMEOUT_MS 5000
+/* No ACK on bulk close: end-of-stream marker is enough. */
 
 /* Global compression statistics for stats printing */
 static unsigned long g_compress_uncompressed_bytes = 0;
@@ -1626,7 +1626,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 {
 	struct cow_page *cow_pg;
 	pthread_spinlock_t *lock;
-	void *buffer;
+	void *buffer = NULL;
 	int ret;
 	int uffd;
 	struct iovec local_iov, remote_iov;
@@ -1637,19 +1637,17 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 	
-	/* Get hash bucket lock (may be NULL if COW session already destroyed) */
+	/* Get hash bucket lock (may be NULL if COW session already destroyed). */
 	lock = cow_get_hash_lock(vaddr);
-	if (lock) {
+	if (lock)
 		pthread_spin_lock(lock);
-		clock_gettime(CLOCK_MONOTONIC, &t_lock);
+	clock_gettime(CLOCK_MONOTONIC, &t_lock);
 
-		cow_pg = cow_lookup_page(vaddr);
-		clock_gettime(CLOCK_MONOTONIC, &t_cow);
-	} else {
-		cow_pg = NULL;
-		clock_gettime(CLOCK_MONOTONIC, &t_lock);
-		t_cow = t_lock;
-	}
+	cow_pg = lock ? cow_lookup_page(vaddr) : NULL;
+	clock_gettime(CLOCK_MONOTONIC, &t_cow);
+
+	if (lock)
+		pthread_spin_unlock(lock);
 
 	/* Send data with compression */
 	if (cow_pg) {
@@ -1661,24 +1659,24 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 
 		if (ret != 0) {
 			pr_perror("Failed to send compressed COW page");
-			if (lock)
-				pthread_spin_unlock(lock);
 			return -1;
 		}
+
 		t_unprot = t_socket;
+
+		/* Remove only after the send completes. */
+		lock = cow_get_hash_lock(vaddr);
+		if (lock) {
+			pthread_spin_lock(lock);
+			cow_remove_page(vaddr);
+			pthread_spin_unlock(lock);
+		}
 	} else {
 		pr_debug("[SEND_PAGE] Reading regular page at vaddr=0x%lx pid=%d\n", vaddr, source_pid);
 
 		buffer = xmalloc(PAGE_SIZE);
-		if (!buffer) {
-			if (lock)
-				pthread_spin_unlock(lock);
+		if (!buffer)
 			return -1;
-		}
-
-		/* Unlock before syscall to avoid holding spinlock */
-		if (lock)
-			pthread_spin_unlock(lock);
 
 		local_iov.iov_base = buffer;
 		local_iov.iov_len = PAGE_SIZE;
@@ -1697,6 +1695,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 		ret = send_page_compressed(sk, buffer, dst_id, vaddr);
 		clock_gettime(CLOCK_MONOTONIC, &t_socket);
 		xfree(buffer);
+		buffer = NULL;
 
 		if (ret != 0) {
 			pr_perror("Failed to send compressed page");
@@ -1706,6 +1705,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 		uffd = cow_get_uffd_for_pid(source_pid);
 		if (uffd >= 0) {
 			struct uffdio_writeprotect wp;
+
 			wp.range.start = vaddr;
 			wp.range.len = PAGE_SIZE;
 			wp.mode = 0;
@@ -1714,16 +1714,10 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 				return -1;
 			}
 		}
+
 		clock_gettime(CLOCK_MONOTONIC, &t_unprot);
-		lock = NULL; /* Already unlocked */
 	}
 
-	/* Remove COW page if it exists */
-	if (cow_pg)
-		cow_remove_page(vaddr);
-
-	if (lock)
-		pthread_spin_unlock(lock);
 	clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 	/* Accumulate sub-timings (nanoseconds) */
@@ -1734,7 +1728,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	cow_timing.send_unprotect_ns += (t_unprot.tv_sec - t_socket.tv_sec) * 1000000000 + (t_unprot.tv_nsec - t_socket.tv_nsec);
 	cow_timing.send_unlock_ns += (t_end.tv_sec - t_unprot.tv_sec) * 1000000000 + (t_end.tv_nsec - t_unprot.tv_nsec);
 	cow_timing.send_sub_count++;
-	
+		
 	return 0;
 }
 
@@ -2021,12 +2015,6 @@ static int send_image_complete(struct active_image *img)
 		.vaddr = 0,
 		.dst_id = img->dst_id,
 	};
-	int ret;
-	int32_t status;
-	struct pollfd pfd = {
-		.fd = img->main_sk,
-		.events = POLLIN | POLLHUP | POLLERR | POLLNVAL,
-	};
 
 	pr_warn("Image dst_id=%lu complete: %lu total pages (%lu COW, %lu req)\n",
 		img->dst_id, img->total_pages,
@@ -2034,71 +2022,13 @@ static int send_image_complete(struct active_image *img)
 
 	/* Send close command */
 	if (send_psi(img->main_sk, &close_cmd)) {
-		pr_err("Failed to send close command\n");
-		return -1;
-	}
-
-	/*
-	 * Preferred protocol: receiver replies with a 32-bit status ACK.
-	 * Backward-compatible fallback: older receivers may just close.
-	 */
-	while (1) {
-		ret = poll(&pfd, 1, BULK_CLOSE_ACK_TIMEOUT_MS);
-		if (ret < 0 && errno == EINTR)
-			continue;
-		break;
-	}
-	if (ret == 0) {
-		pr_err("Timed out waiting for close acknowledgment\n");
-		return -1;
-	}
-	if (ret < 0) {
-		pr_perror("Failed while waiting for close acknowledgment");
-		return -1;
-	}
-	if (pfd.revents & POLLNVAL) {
-		pr_err("Invalid socket while waiting for close acknowledgment\n");
-		return -1;
-	}
-	if (pfd.revents & POLLERR) {
-		pr_err("Socket error while waiting for close acknowledgment\n");
-		return -1;
-	}
-	if ((pfd.revents & POLLHUP) && !(pfd.revents & POLLIN)) {
-		pr_info("Receiver closed after close marker, treating as completion\n");
-		return 0;
-	}
-
-	while (1) {
-		ret = __recv(img->main_sk, &status, sizeof(status), MSG_WAITALL);
-		if (ret < 0 && errno == EINTR)
-			continue;
-		break;
-	}
-	if (ret == 0) {
-		pr_info("Receiver closed after close marker, treating as completion\n");
-		return 0;
-	}
-	if (ret < 0) {
 		if (errno == EPIPE || errno == ECONNRESET) {
 			pr_info("Receiver closed after close marker, treating as completion\n");
 			return 0;
 		}
-
-		pr_perror("Failed to receive close acknowledgment");
+		pr_err("Failed to send close command\n");
 		return -1;
 	}
-	if (ret != sizeof(status)) {
-		pr_err("Short close acknowledgment: %d\n", ret);
-		return -1;
-	}
-
-	if (status != 0) {
-		pr_err("Receiver reported error status: %d\n", status);
-		return -1;
-	}
-
-	pr_info("Image dst_id=%lu transfer confirmed by receiver\n", img->dst_id);
 	return 0;
 }
 
@@ -2782,26 +2712,13 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 		if (ar->rb == sizeof(ar->pi)) {
 			cmd = decode_ps_cmd(ar->pi.cmd);
 
-			if (ar->pi.nr_pages == 0) {
-				pr_info("Received end-of-transfer marker (cmd=%u dst_id=%lu)\n", cmd,
-					(unsigned long)ar->pi.dst_id);
-				bulk_stream_done = true;
+				if (ar->pi.nr_pages == 0) {
+					pr_info("Received end-of-transfer marker (cmd=%u dst_id=%lu)\n", cmd,
+						(unsigned long)ar->pi.dst_id);
+					bulk_stream_done = true;
 
-				if (cmd == PS_IOV_CLOSE || cmd == PS_IOV_FORCE_CLOSE) {
-					int32_t status = 0;
-
-					if (__send(page_server_sk, &status, sizeof(status), 0) != sizeof(status)) {
-						if (errno == EPIPE || errno == ECONNRESET) {
-							pr_info("Sender closed before bulk close acknowledgment, treating as completion\n");
-						} else {
-							pr_perror("Failed to send bulk close acknowledgment");
-							return -1;
-						}
-					}
+					return BULK_STREAM_COMPLETE;
 				}
-
-				return BULK_STREAM_COMPLETE;
-			}
 
 			if (cmd == PS_IOV_ADD_F_COMPRESS) {
 				ar->compress_state = COMPRESS_STATE_READING_SIZE;
