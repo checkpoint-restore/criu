@@ -259,6 +259,10 @@ CRIU_DUMP_CMD=(
   --address "$PRIMARY_IP"
   --port "$CRIU_PORT"
   --tcp-close
+  # We don't restore active TCP sessions (we use --tcp-close), and the ping
+  # monitor/workload can have sockets mid-teardown. Don't fail the dump on
+  # transient in-flight connections.
+  --skip-in-flight
   --ext-unix-sk
   --leave-running
   --display-stats
@@ -277,17 +281,12 @@ if [ -n "$CRIU_DUMP_STRACE_OUT" ]; then
     --address "$PRIMARY_IP"
     --port "$CRIU_PORT"
     --tcp-close
+    --skip-in-flight
     --ext-unix-sk
     --leave-running
     --display-stats
     -v2 -o "$IMAGES_DIR/lazy-primary.log"
   )
-fi
-
-if [ "$RUN_WORKLOAD_DURING_MIGRATION" = "1" ]; then
-  # Under traffic, clients may be mid-connect/teardown during dump. Ignore those
-  # transient in-flight sockets so C/R can proceed (we use --tcp-close anyway).
-  CRIU_DUMP_CMD+=(--skip-in-flight)
 fi
 
 mark_local_event "DUMP_LAUNCH_MS"
