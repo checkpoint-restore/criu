@@ -1631,7 +1631,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 {
 	struct cow_page *cow_pg;
 	pthread_spinlock_t *lock;
-	void *buffer = NULL;
+	char buffer[PAGE_SIZE];
 	int ret;
 	int uffd;
 	struct iovec local_iov, remote_iov;
@@ -1679,10 +1679,6 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 	} else {
 		pr_debug("[SEND_PAGE] Reading regular page at vaddr=0x%lx pid=%d\n", vaddr, source_pid);
 
-		buffer = xmalloc(PAGE_SIZE);
-		if (!buffer)
-			return -1;
-
 		local_iov.iov_base = buffer;
 		local_iov.iov_len = PAGE_SIZE;
 		remote_iov.iov_base = (void *)vaddr;
@@ -1693,14 +1689,11 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 
 		if (ret != PAGE_SIZE) {
 			pr_perror("Failed to read page at %lx from pid %d", vaddr, source_pid);
-			xfree(buffer);
 			return -1;
 		}
 
 		ret = send_page_compressed(sk, buffer, dst_id, vaddr);
 		clock_gettime(CLOCK_MONOTONIC, &t_socket);
-		xfree(buffer);
-		buffer = NULL;
 
 		if (ret != 0) {
 			pr_perror("Failed to send compressed page");
