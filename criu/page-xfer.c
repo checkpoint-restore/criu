@@ -202,7 +202,8 @@ static inline int send_psi(int sk, struct page_server_iov *pi)
  * Protocol: header (PS_IOV_ADD_F_COMPRESS) + compressed_size (4 bytes) + compressed_data
  * Optimized: single buffer, single send() syscall
  */
-static int send_page_compressed(int sk, const void *data, u64 dst_id, unsigned long vaddr)
+static __maybe_unused int send_page_compressed(int sk, const void *data, u64 dst_id,
+					      unsigned long vaddr)
 {
 	/* Buffer layout: [header][compressed_size][compressed_data] */
 	char send_buf[sizeof(struct page_server_iov) + sizeof(int) + LZ4_compressBound(PAGE_SIZE)];
@@ -239,6 +240,32 @@ static int send_page_compressed(int sk, const void *data, u64 dst_id, unsigned l
 	ret = __send(sk, send_buf, total_len, 0);
 	if (ret != total_len) {
 		pr_perror("Failed to send compressed page (sent %d/%d)", ret, total_len);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int send_page_uncompressed(int sk, const void *data, u64 dst_id,
+				  unsigned long vaddr)
+{
+	char send_buf[sizeof(struct page_server_iov) + PAGE_SIZE];
+	struct page_server_iov *pi = (struct page_server_iov *)send_buf;
+	void *payload = send_buf + sizeof(*pi);
+	int total_len;
+	int ret;
+
+	memcpy(payload, data, PAGE_SIZE);
+
+	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	pi->nr_pages = 1;
+	pi->vaddr = vaddr;
+	pi->dst_id = dst_id;
+
+	total_len = sizeof(*pi) + PAGE_SIZE;
+	ret = __send(sk, send_buf, total_len, 0);
+	if (ret != total_len) {
+		pr_perror("Failed to send page (sent %d/%d)", ret, total_len);
 		return -1;
 	}
 
@@ -1659,11 +1686,11 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 		pr_debug("[SEND_PAGE] Sending compressed COW page at vaddr=0x%lx\n", vaddr);
 
 		t_readv = t_cow;
-		ret = send_page_compressed(sk, cow_pg->data, dst_id, vaddr);
+		ret = send_page_uncompressed(sk, cow_pg->data, dst_id, vaddr);
 		clock_gettime(CLOCK_MONOTONIC, &t_socket);
 
 		if (ret != 0) {
-			pr_perror("Failed to send compressed COW page");
+			pr_perror("Failed to send COW page");
 			return -1;
 		}
 
@@ -1692,11 +1719,11 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t sou
 			return -1;
 		}
 
-		ret = send_page_compressed(sk, buffer, dst_id, vaddr);
+		ret = send_page_uncompressed(sk, buffer, dst_id, vaddr);
 		clock_gettime(CLOCK_MONOTONIC, &t_socket);
 
 		if (ret != 0) {
-			pr_perror("Failed to send compressed page");
+			pr_perror("Failed to send page");
 			return -1;
 		}
 
