@@ -246,8 +246,9 @@ static __maybe_unused int send_page_compressed(int sk, const void *data, u64 dst
 	return 0;
 }
 
-static int send_page_uncompressed(int sk, const void *data, u64 dst_id,
-				  unsigned long vaddr)
+static __maybe_unused int send_page_uncompressed(int sk, const void *data,
+						 u64 dst_id,
+						 unsigned long vaddr)
 {
 	char send_buf[sizeof(struct page_server_iov) + PAGE_SIZE];
 	struct page_server_iov *pi = (struct page_server_iov *)send_buf;
@@ -1739,7 +1740,7 @@ static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id,
 		data = cow_pg ? cow_pg->data : buffer;
 	}
 
-	ret = send_page_uncompressed(sk, data, dst_id, vaddr);
+	ret = send_page_compressed(sk, data, dst_id, vaddr);
 	clock_gettime(CLOCK_MONOTONIC, &t_socket);
 
 	if (ret != 0) {
