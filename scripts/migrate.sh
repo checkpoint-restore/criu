@@ -390,6 +390,7 @@ if [ "$FAST_CUTOVER" = "1" ]; then
   log "Step 8: Fast cutover (pause ${CUTOVER_PAUSE_MS}ms writes, freeze source, resume replica)..."
   valkey_cmd CLIENT PAUSE "$CUTOVER_PAUSE_MS" WRITE >/dev/null 2>&1 || true
   sudo pkill -STOP -x valkey-server 2>/dev/null || true
+  SOURCE_FROZEN=1
   $SSH ubuntu@$REPLICA_SSH_HOST "sudo pkill -CONT -x valkey-server" >/dev/null 2>&1 || true
 else
   log "Step 8: Check replica..."
@@ -421,6 +422,12 @@ if [ "$REPLICA_UP" -ne 1 ]; then
     sudo pkill -CONT -x valkey-server 2>/dev/null || true
   fi
   exit 1
+fi
+
+if [ "$FAST_CUTOVER" = "1" ] && [ "$KEEP_SOURCE_RUNNING" = "1" ]; then
+  log "  Resuming source valkey-server (KEEP_SOURCE_RUNNING=1)"
+  sudo pkill -CONT -x valkey-server 2>/dev/null || true
+  SOURCE_FROZEN=0
 fi
 
 REPLICA_SYNCED=0
