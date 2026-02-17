@@ -2577,7 +2577,12 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	int sk = -1;
 	int ret;
 
-	if (init_stats(DUMP_STATS))
+	/*
+	 * When running inside the dump process (lazy_dump=true), stats are
+	 * already initialized by cr_dump_tasks(). Re-initializing them here
+	 * would reset counters/timings and make dump stats meaningless.
+	 */
+	if (!lazy_dump && init_stats(DUMP_STATS))
 		return -1;
 
 	if (!opts.lazy_pages)
