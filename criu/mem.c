@@ -625,6 +625,7 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma, str
 {
 	u64 vaddr;
 	int ret;
+	bool cow_lazy_opt;
 
 	if (!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED))
 		return 0;
@@ -705,6 +706,28 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma, str
 		if (pre_dump)
 			return 0;
 		has_parent = false;
+	}
+
+	cow_lazy_opt = opts.cow_dump &&
+		       vma_area_is_private(vma, kdat.task_size) &&
+		       vma_entry_can_be_lazy(vma->e) &&
+		       !vma_area_is(vma, VMA_AREA_GUARD) &&
+		       ((vma->e->prot & (PROT_READ | PROT_WRITE)) ==
+			(PROT_READ | PROT_WRITE)) &&
+		       !is_stack(item, vma->e->start) &&
+		       cow_dump_is_vma_tracked(item->pid->real,
+					       vma->e->start,
+					       vma->e->end);
+
+	/*
+	 * COW dump can skip expensive per-page pagemap scanning for VMAs that
+	 * are tracked and lazy-capable. Let generate_iovs() take the fast-path
+	 * without touching pagemap at all (avoids PAGEMAP_SCAN for large VMAs).
+	 */
+	if (cow_lazy_opt) {
+		vaddr = vma->e->start;
+		return generate_iovs(item, vma, pp, pmc, &vaddr, has_parent,
+				     xfer);
 	}
 
 	if (pmc_get_map(pmc, vma))
