@@ -2210,25 +2210,28 @@ int amdgpu_plugin_update_vmamap(const char *in_path, const uint64_t addr, const 
 	}
 
 	list_for_each_entry(vma_md, &update_vma_info_list, list) {
-		if (addr == vma_md->vma_entry && old_offset == vma_md->old_pgoff) {
-			*new_offset = vma_md->new_pgoff;
+		if (old_offset != vma_md->old_pgoff)
+			continue;
+		if (is_kfd && addr != vma_md->vma_entry)
+			continue;
 
-			*updated_fd = -1;
-			if (is_renderD) {
-				int fd = dup(vma_md->fd);
-				if (fd == -1) {
-					pr_perror("unable to duplicate the render fd");
-					return -1;
-				}
-				*updated_fd = fd;
+		*new_offset = vma_md->new_pgoff;
+		if (is_renderD) {
+			int fd = dup(vma_md->fd);
+
+			if (fd == -1) {
+				pr_perror("unable to duplicate the render fd");
+				return -1;
 			}
-
-			pr_debug("old_pgoff=0x%lx new_pgoff=0x%lx fd=%d\n",
-				 vma_md->old_pgoff, vma_md->new_pgoff,
-				 *updated_fd);
-
-			return 1;
+			*updated_fd = fd;
+		} else {
+			*updated_fd = -1;
 		}
+
+		pr_debug("old_pgoff=0x%lx new_pgoff=0x%lx fd=%d\n",
+			 vma_md->old_pgoff, vma_md->new_pgoff, *updated_fd);
+
+		return 1;
 	}
 	pr_info("No match for addr:0x%lx offset:%lx\n", addr, old_offset);
 	return 0;
