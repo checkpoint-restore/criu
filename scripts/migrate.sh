@@ -486,7 +486,18 @@ REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "timeout ${VALKEY_CMD_TIMEOUT_S}s va
 # Extract CRIU timing from logs
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
 DUMP_TOTAL=$(sudo grep -a "dump_one_task TOTAL" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
-PARSE_SMAPS=$(sudo grep -a "parse_smaps took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
+PARSE_MAPS=$(sudo grep -a "parse_maps took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || true)
+PARSE_SMAPS=$(sudo grep -a "parse_smaps took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || true)
+if [ -n "${PARSE_MAPS:-}" ]; then
+  PARSE_MAPPINGS="$PARSE_MAPS"
+  PARSE_MAPPINGS_LABEL="parse_maps"
+elif [ -n "${PARSE_SMAPS:-}" ]; then
+  PARSE_MAPPINGS="$PARSE_SMAPS"
+  PARSE_MAPPINGS_LABEL="parse_smaps"
+else
+  PARSE_MAPPINGS="?"
+  PARSE_MAPPINGS_LABEL="parse_mappings"
+fi
 DUMP_PAGES=$(sudo grep -a "parasite_dump_pages_seized took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
 GEN_IOVS=$(sudo grep -a "generate_vma_iovs loop" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
 
@@ -574,7 +585,7 @@ log "  Replica Memory:  $REPLICA_MEM"
 log "----------------------------------------------------------------"
 log "  CRIU Timing (dump):"
 log "    dump_one_task TOTAL:   ${DUMP_TOTAL}s"
-log "    parse_smaps:           ${PARSE_SMAPS}s"
+log "    ${PARSE_MAPPINGS_LABEL}:           ${PARSE_MAPPINGS}s"
 log "    dump_pages_seized:     ${DUMP_PAGES}s"
 log "    generate_vma_iovs:     ${GEN_IOVS}s"
 if [ -n "${FREEZING_US:-}" ] || [ -n "${FROZEN_US:-}" ]; then
