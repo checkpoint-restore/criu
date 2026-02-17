@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/syscall.h>
 #include <sys/prctl.h>
 #include <pthread.h>
@@ -768,6 +769,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	bool has_parent;
 	int parent_predump_mode = -1;
 	struct timeval t_start, t_checkpoint;
+	unsigned int nr_segs;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid->real);
@@ -795,7 +797,57 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		cpp_flags |= PP_CHUNK_MODE;
 	
 	gettimeofday(&t_checkpoint, NULL);
-	pp = create_page_pipe(vma_area_list->nr_priv_pages, mdc->lazy ? NULL : pargs_iovs(args), cpp_flags);
+	nr_segs = vma_area_list->nr_priv_pages;
+	if (opts.cow_dump && mdc->lazy) {
+		unsigned long pages = 0;
+
+		list_for_each_entry(vma_area, &vma_area_list->h, list) {
+			unsigned long vma_pages;
+			bool cow_tracked;
+			bool lazy_capable;
+
+			if (vma_area_is(vma_area, VMA_AREA_GUARD))
+				continue;
+			if (!vma_area_is_private(vma_area, kdat.task_size) &&
+			    !vma_area_is(vma_area, VMA_ANON_SHARED))
+				continue;
+			if (vma_entry_is(vma_area->e, VMA_AREA_VVAR))
+				continue;
+			if (vma_area->e->flags & MAP_DROPPABLE)
+				continue;
+			if (vma_area_is(vma_area, VMA_ANON_SHARED))
+				continue;
+
+			vma_pages = vma_area_len(vma_area) / PAGE_SIZE;
+
+			cow_tracked = cow_dump_is_vma_tracked(item->pid->real,
+							      vma_area->e->start,
+							      vma_area->e->end);
+			lazy_capable = vma_entry_can_be_lazy(vma_area->e) &&
+				       !vma_area_is(vma_area, VMA_AREA_GUARD) &&
+				       (vma_area->e->prot & PROT_WRITE) &&
+				       !(vma_area->e->flags & MAP_DROPPABLE) &&
+				       (vma_area->e->prot & PROT_READ) &&
+				       !is_stack(item, vma_area->e->start) &&
+				       cow_tracked;
+
+			if (lazy_capable)
+				continue;
+
+			pages += vma_pages;
+		}
+
+		/*
+		 * Keep at least one iov slot to satisfy create_page_pipe()
+		 * internal bookkeeping.
+		 */
+		if (pages == 0)
+			pages = 1;
+		if (pages < UINT_MAX)
+			nr_segs = pages;
+	}
+
+	pp = create_page_pipe(nr_segs, mdc->lazy ? NULL : pargs_iovs(args), cpp_flags);
 	if (!pp)
 		goto out;
 	
@@ -858,7 +910,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 		pr_err("TIMING: generate_vma_iovs loop took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
 	}
 	if (mdc->lazy)
-		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->nr_iovs);
+		memcpy(pargs_iovs(args), pp->iovs, sizeof(struct iovec) * pp->free_iov);
 
 	/*
 	 * Faking drain_pages for pre-dump here. Actual drain_pages for pre-dump
