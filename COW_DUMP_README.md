@@ -1,118 +1,124 @@
-# COW Dump - Copy-on-Write Live Migration for CRIU
+# CRIU COW Dump (Copy-on-Write live migration)
 
-## Overview
+## Summary
 
-COW (Copy-on-Write) dump is a new feature that enables live migration of processes with minimal downtime by using userfaultfd write-protection to track memory modifications while the process continues running.
+`--cow-dump` is an experimental CRIU mode that keeps the source process running
+while memory is transferred, by tracking writes with `userfaultfd` write-protect
+(WP) and shipping the **pre-write** contents of dirtied pages.
 
-## How It Works
+This fork is tested with **Valkey**: the restored instance is configured as a
+Valkey replica of the source, so it catches up after the point-in-time
+snapshot.
 
-Traditional CRIU lazy-pages mode keeps the source process halted during memory transfer.
-COW dump changes that by keeping write tracking active while restore proceeds.
+## Quick start (Valkey)
 
-1. **Per-task COW registration while frozen**
-   - CRIU registers lazy-capable writable VMAs in parasite context with userfaultfd WP.
-   - VMAs that fail registration are explicitly marked as fallback and dumped by the normal path.
-2. **Base dump with tracked-vs-fallback split**
-   - Only successfully registered VMAs use COW/lazy transfer.
-   - Non-registerable VMAs are transferred deterministically in the non-COW path.
-3. **Session monitor starts once**
-   - A single monitor thread starts after all dump tasks are prepared (process-tree aware).
-   - It watches all task UFFDs for WP faults.
-4. **Write-fault handling**
-   - On first write fault, CRIU snapshots page content, queues it for transfer, unprotects, and wakes the task.
-5. **Bulk stream close contract**
-   - Sender ends stream with `nr_pages == 0` close marker.
-   - Receiver sends a 32-bit status ACK.
-   - Sender treats ACK success as completion; for old peers that close without ACK, sender accepts clean EOF/close as compatibility fallback.
+1. Follow `COW_DEVELOPER.md` to set up PRIMARY+REPLICA, shared `IMAGES_DIR`
+   (e.g. `/fsx/lazy`), and `scripts/.env`.
+2. On PRIMARY:
 
-## Process Tree Notes
+```bash
+# Basic migration (fills dataset, then migrates)
+sudo ./scripts/migrate.sh 40
 
-- COW tracking state is session-level, but registration is per task.
-- Lazy VMA lookup is keyed by `dst_id` and address to avoid cross-process mismatches.
-- Page counts and transfers are scoped per destination image (`dst_id`).
+# Real scenario with traffic + integrity checks (recommended)
+./scripts/run_migration_scenario.sh 40
+```
 
-## Latency Measurement
+Artifacts are written under `artifacts/<run_id>/` on PRIMARY.
 
-For cutover tuning, track:
-- source pause p50/p95/p99 around dump-resume boundary,
-- restore completion time,
-- end-to-end migration time.
+## Architecture (human view)
 
-Use workload traffic during migration (not idle benchmarks), and compare baseline lazy mode vs `--cow-dump`.
+### Actors
 
-## Real Client Scenario Harness
+- **Valkey (PRIMARY)**: the live source process.
+- **CRIU dump (PRIMARY)**: creates the base checkpoint and runs the page server.
+- **COW monitor (PRIMARY)**: background thread that snapshots pages on first
+  write fault.
+- **CRIU lazy-pages (REPLICA)**: receives pages from PRIMARY and services faults.
+- **CRIU restore (REPLICA)**: restores the process and installs UFFD handlers.
+- **Valkey replication**: `REPLICAOF` makes the replica catch up.
 
-Use the traffic harness to simulate a real app while migration is running:
-- continuous writes/reads to source,
-- continuous reads to replica,
-- intentional misrouted writes to replica (must be rejected with `READONLY`),
-- client-side latency, error, and outage-window tracking,
-- post-run replication catch-up and sampled value integrity checks.
+### Timeline (what happens)
 
-Run:
+1. **Stop-the-world (short):** CRIU seizes the process tree to build a consistent
+   base snapshot.
+2. **Arm COW tracking:**
+   - parasite creates a `userfaultfd` and registers eligible VMAs with
+     `UFFDIO_REGISTER_MODE_WP`,
+   - CRIU applies `UFFDIO_WRITEPROTECT` to those ranges (parallelized),
+   - the COW monitor thread starts (or is kept running) to handle write faults.
+3. **Base dump completes:** CRIU writes images and prints `PAGE SERVER READY TO SERVE`.
+4. **Source resumes:** the source keeps running under WP tracking.
+5. **Page transfer:** the page server streams lazy pages to the replica; if a
+   page was modified after the dump, the streamed content is the pre-write
+   snapshot captured by the monitor.
+6. **Replica becomes usable:**
+   - restore starts Valkey from images,
+   - scripts configure it as a replica and verify it rejects writes (`READONLY`),
+   - only then external clients are allowed in (iptables gate removed).
+
+### Bulk stream termination (no hangs)
+
+The page stream ends with an end marker: a `PS_IOV_CLOSE` header with
+`nr_pages == 0`. The receiver does **not** send an ACK back on the same socket
+(mixing control bytes with the bulk stream desynchronizes the protocol).
+
+## Measuring downtime (what numbers mean)
+
+There are two different measurements:
+
+- **CRIU frozen time**: from `stats-dump` (`freezing_time` + `frozen_time`).
+- **Client-observed latency/outage**: from ping/traffic monitors.
+
+Useful commands:
+
+```bash
+# Per-phase latency using artifacts/<run_id>/source_markers.log + source-ping.log
+python3 scripts/analyze_phase_latency.py artifacts/<run_id>
+
+# CRIU internal timings (archived by migrate.sh)
+cat artifacts/<run_id>/stats-dump.json
+cat artifacts/<run_id>/stats-restore.json
+```
+
+For app-like KPIs (p99 read/write latency, max outage windows, data-integrity
+checks), use:
+
 ```bash
 ./scripts/run_migration_scenario.sh 40
 ```
 
-Artifacts:
-- Harness report JSON: `/tmp/valkey_traffic_harness_report.json`
-- Harness live log: `/tmp/valkey_traffic_harness.log`
-
-Key pass conditions:
-- `replica_write_accepted == 0`
-- `replication_caught_up == true`
-- `sample_value_mismatches == 0`
-- `source_expected_mismatches == 0`
-- `replica_expected_mismatches == 0`
-
 ## Requirements
 
 - **Kernel**: Linux 5.7+ (for `UFFD_FEATURE_PAGEFAULT_FLAG_WP`)
-- **Privileges**: CAP_SYS_PTRACE or `sudo sysctl vm.unprivileged_userfaultfd=1`
+- **Privileges**: root, or `vm.unprivileged_userfaultfd=1`
 
-## update to allow replication
+## Troubleshooting
+
+### Permission denied for userfaultfd
+
+```
+userfaultfd requires CAP_SYS_PTRACE or sysctl vm.unprivileged_userfaultfd=1
+```
+
+Run as root, or:
+
+```bash
+sudo sysctl -w vm.unprivileged_userfaultfd=1
+```
+
+### Replica accepts writes
+
+The replica must be configured via `REPLICAOF` before opening it to clients.
+Check:
+
+- `scripts/wait_and_replicate.sh`
+- `/fsx/lazy/lazy-restore.log`
+- `/fsx/lazy/lazy-server.log`
+
+If Valkey can't persist replication state, ensure permissions:
+
 ```bash
 sudo chown -R ubuntu:ubuntu /var/lib/valkey
 sudo chmod 750 /var/lib/valkey
 ```
-
-## Usage
-At the source create a custom valkey.conf at /etc/valkey/valkey.conf 
-```bash
-# Perform COW dump src
-sudo cp valkey.confg /etc/valkey/valkey.conf 
-```
-
-At the source call to
-```bash
-# Perform COW dump src
-sudo scripts/./dump_replica_lazy.sh
-
-```
-
-At the dest 
-```bash
-# Perform COW dump src
-sudo scripts/./orchestrate_kill_and_sync.sh
-
-```
-
-## Command-Line Options
-
-- `--cow-dump`: Enable COW-based live migration
-- `--leave-running`: Keep process running after dump (recommended with --cow-dump)
-
-
-## Troubleshooting
-
-### Kernel Doesn't Support Write-Protect
-```
-Error: userfaultfd write-protect not supported (need kernel 5.7+)
-```
-**Solution**: Upgrade to Linux 5.7 or newer
-
-### Permission Denied
-```
-Error: userfaultfd requires CAP_SYS_PTRACE or sysctl vm.unprivileged_userfaultfd=1
-```
-**Solution**: Run as root or configure sysctl
