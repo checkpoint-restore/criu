@@ -1685,7 +1685,8 @@ static int restore_bos(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 	return 0;
 }
 
-int save_vma_updates(uint64_t offset, uint64_t addr, uint64_t restored_offset, int fd)
+int save_vma_updates(uint64_t offset, uint64_t addr, uint64_t restored_offset,
+		     int fd)
 {
 	struct vma_metadata *vma_md;
 
@@ -1694,13 +1695,14 @@ int save_vma_updates(uint64_t offset, uint64_t addr, uint64_t restored_offset, i
 		return -ENOMEM;
 	}
 
-	memset(vma_md, 0, sizeof(*vma_md));
-
 	vma_md->old_pgoff = offset;
 	vma_md->vma_entry = addr;
-
 	vma_md->new_pgoff = restored_offset;
 	vma_md->fd = fd;
+
+	pr_debug("adding vma_entry:addr:%"  PRIx64 " old-off:%" PRIx64 " new_off:%" PRIx64 " fd:%d\n",
+		 vma_md->vma_entry, vma_md->old_pgoff, vma_md->new_pgoff,
+		 vma_md->fd);
 
 	list_add_tail(&vma_md->list, &update_vma_info_list);
 
@@ -1719,37 +1721,25 @@ static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKf
 
 		if (bo_bucket->alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT |
 					      KFD_IOC_ALLOC_MEM_FLAGS_MMIO_REMAP | KFD_IOC_ALLOC_MEM_FLAGS_DOORBELL)) {
-			struct vma_metadata *vma_md;
 			uint32_t target_gpu_id; /* actual gpu_id where the BO will be restored */
 
-			vma_md = xmalloc(sizeof(*vma_md));
-			if (!vma_md) {
-				ret = -ENOMEM;
-				goto exit;
-			}
-
-			memset(vma_md, 0, sizeof(*vma_md));
-
-			vma_md->old_pgoff = bo_bucket->offset;
-			vma_md->vma_entry = bo_bucket->addr;
-
-			target_gpu_id = maps_get_dest_gpu(&restore_maps, bo_bucket->gpu_id);
-
-			tp_node = sys_get_node_by_gpu_id(&dest_topology, target_gpu_id);
+			target_gpu_id = maps_get_dest_gpu(&restore_maps,
+							  bo_bucket->gpu_id);
+			tp_node = sys_get_node_by_gpu_id(&dest_topology,
+							 target_gpu_id);
 			if (!tp_node) {
-				pr_err("Failed to find node with gpu_id:0x%04x\n", target_gpu_id);
+				pr_err("Failed to find node with gpu_id:0x%04x\n",
+				       target_gpu_id);
 				ret = -ENODEV;
 				goto exit;
 			}
 
-			vma_md->new_pgoff = bo_bucket->restored_offset;
-			vma_md->fd = node_get_drm_render_device(tp_node);
-
-			pr_debug("adding vma_entry:addr:0x%lx old-off:0x%lx new_off:0x%lx new_minor:%d\n",
-				 vma_md->vma_entry, vma_md->old_pgoff,
-				 vma_md->new_pgoff, tp_node->drm_render_minor);
-
-			list_add_tail(&vma_md->list, &update_vma_info_list);
+			ret = save_vma_updates(bo_bucket->offset,
+					       bo_bucket->addr,
+					       bo_bucket->restored_offset,
+					       node_get_drm_render_device(tp_node));
+			if (ret)
+				goto exit;
 		}
 	}
 

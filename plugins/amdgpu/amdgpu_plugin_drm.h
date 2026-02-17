@@ -34,7 +34,8 @@ int store_dmabuf_fd(int handle, int fd);
 
 int get_gem_handle(amdgpu_device_handle h_dev, int dmabuf_fd);
 
-int save_vma_updates(uint64_t offset, uint64_t addr, uint64_t restored_offset, int gpu_id);
+int save_vma_updates(uint64_t offset, uint64_t addr, uint64_t restored_offset,
+		     int fd);
 
 #endif		/* __AMDGPU_PLUGIN_DRM_H__ */
 
