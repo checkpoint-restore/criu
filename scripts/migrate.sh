@@ -249,7 +249,7 @@ if [ -z "$PID" ]; then
   log "ERROR: valkey-server PID not found before dump"
   exit 1
 fi
-log "  Dump PID: $PID"
+log "  Valkey PID: $PID"
 log "  Artifacts dir: $RUN_DIR"
 sudo touch "$IMAGES_DIR/lazy-primary.log"
 sudo chmod 644 "$IMAGES_DIR/lazy-primary.log"
@@ -541,10 +541,87 @@ fi
 DUMP_PAGES=$(sudo grep -a "parasite_dump_pages_seized took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
 GEN_IOVS=$(sudo grep -a "generate_vma_iovs loop" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
 
-FROZEN_US=$(sudo grep -a "Frozen time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $3}' || echo "")
-FREEZING_US=$(sudo grep -a "Freezing time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $3}' || echo "")
-MEMDUMP_US=$(sudo grep -a "Memory dump time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $4}' || echo "")
-MEMWRITE_US=$(sudo grep -a "Memory write time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $4}' || echo "")
+STATS_DUMP_FILE="$IMAGES_DIR/stats-dump"
+FROZEN_US=""
+FREEZING_US=""
+MEMDUMP_US=""
+MEMWRITE_US=""
+PAGES_SCANNED=""
+PAGES_WRITTEN=""
+PAGES_LAZY=""
+if [ -f "$STATS_DUMP_FILE" ]; then
+  while IFS='=' read -r k v; do
+    case "$k" in
+      freezing_time) FREEZING_US="$v" ;;
+      frozen_time) FROZEN_US="$v" ;;
+      memdump_time) MEMDUMP_US="$v" ;;
+      memwrite_time) MEMWRITE_US="$v" ;;
+      pages_scanned) PAGES_SCANNED="$v" ;;
+      pages_written) PAGES_WRITTEN="$v" ;;
+      pages_lazy) PAGES_LAZY="$v" ;;
+    esac
+  done < <(python3 - "$STATS_DUMP_FILE" <<'PY' 2>/dev/null || true
+import json
+import subprocess
+import sys
+
+path = sys.argv[1]
+try:
+    raw = subprocess.check_output([sys.executable, "-m", "crit", "decode", "-i", path])
+    data = json.loads(raw)
+    entries = data.get("entries") or []
+    entry = entries[0] if entries else {}
+    dump = entry.get("dump") or {}
+except Exception:
+    sys.exit(0)
+
+for key in (
+    "freezing_time",
+    "frozen_time",
+    "memdump_time",
+    "memwrite_time",
+    "pages_scanned",
+    "pages_written",
+    "pages_lazy",
+):
+    val = dump.get(key)
+    if val is not None:
+        print(f"{key}={val}")
+PY
+)
+fi
+
+STATS_RESTORE_FILE="$IMAGES_DIR/stats-restore"
+RESTORE_US=""
+RESTORED_PAGES=""
+if [ -f "$STATS_RESTORE_FILE" ]; then
+  while IFS='=' read -r k v; do
+    case "$k" in
+      restore_time) RESTORE_US="$v" ;;
+      pages_restored) RESTORED_PAGES="$v" ;;
+    esac
+  done < <(python3 - "$STATS_RESTORE_FILE" <<'PY' 2>/dev/null || true
+import json
+import subprocess
+import sys
+
+path = sys.argv[1]
+try:
+    raw = subprocess.check_output([sys.executable, "-m", "crit", "decode", "-i", path])
+    data = json.loads(raw)
+    entries = data.get("entries") or []
+    entry = entries[0] if entries else {}
+    restore = entry.get("restore") or {}
+except Exception:
+    sys.exit(0)
+
+for key in ("restore_time", "pages_restored"):
+    val = restore.get(key)
+    if val is not None:
+        print(f"{key}={val}")
+PY
+)
+fi
 
 SOURCE_PING_SUMMARY=""
 if [ -n "${SOURCE_PING_LOG:-}" ] && [ -f "$SOURCE_PING_LOG" ]; then
@@ -613,6 +690,14 @@ fi
 sudo cp -f "$IMAGES_DIR/lazy-primary.log" "$RUN_DIR/lazy-primary.log" 2>/dev/null || true
 sudo cp -f "$IMAGES_DIR/lazy-restore.log" "$RUN_DIR/lazy-restore.log" 2>/dev/null || true
 sudo cp -f "$IMAGES_DIR/lazy-server.log" "$RUN_DIR/lazy-server.log" 2>/dev/null || true
+sudo cp -f "$IMAGES_DIR/stats-dump" "$RUN_DIR/stats-dump" 2>/dev/null || true
+sudo cp -f "$IMAGES_DIR/stats-restore" "$RUN_DIR/stats-restore" 2>/dev/null || true
+if [ -f "$RUN_DIR/stats-dump" ]; then
+  python3 -m crit decode --pretty -i "$RUN_DIR/stats-dump" >"$RUN_DIR/stats-dump.json" 2>/dev/null || true
+fi
+if [ -f "$RUN_DIR/stats-restore" ]; then
+  python3 -m crit decode --pretty -i "$RUN_DIR/stats-restore" >"$RUN_DIR/stats-restore.json" 2>/dev/null || true
+fi
 if [ -n "${CUTOVER_MARKER_FILE:-}" ] && [ -f "$CUTOVER_MARKER_FILE" ]; then
   sudo cp -f "$CUTOVER_MARKER_FILE" "$RUN_DIR/cutover_markers.log" 2>/dev/null || true
 fi
@@ -643,6 +728,17 @@ fi
 if [ -n "${MEMDUMP_US:-}" ] || [ -n "${MEMWRITE_US:-}" ]; then
   log "    memdump_time:          ${MEMDUMP_US:-?}us"
   log "    memwrite_time:         ${MEMWRITE_US:-?}us"
+fi
+if [ -n "${PAGES_SCANNED:-}" ] || [ -n "${PAGES_WRITTEN:-}" ] || [ -n "${PAGES_LAZY:-}" ]; then
+  log "    pages_scanned:         ${PAGES_SCANNED:-?}"
+  log "    pages_written:         ${PAGES_WRITTEN:-?}"
+  log "    pages_lazy:            ${PAGES_LAZY:-?}"
+fi
+if [ -n "${RESTORE_US:-}" ] || [ -n "${RESTORED_PAGES:-}" ]; then
+  log "----------------------------------------------------------------"
+  log "  CRIU Timing (restore):"
+  log "    restore_time:          ${RESTORE_US:-?}us"
+  log "    pages_restored:        ${RESTORED_PAGES:-?}"
 fi
 if [ -n "${SOURCE_PING_SUMMARY:-}" ]; then
   log "----------------------------------------------------------------"

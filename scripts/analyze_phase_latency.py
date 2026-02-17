@@ -131,6 +131,7 @@ def build_phases(markers: dict[str, int]) -> list[Phase]:
     phases: list[Phase] = []
     start = markers.get("SOURCE_PING_MONITOR_START_MS")
     stop = markers.get("SOURCE_PING_MONITOR_STOP_MS")
+    dump_exit = markers.get("DUMP_EXIT_MS")
     if start is not None and stop is not None and stop > start:
         phases.append(Phase("total", start, stop))
 
@@ -141,6 +142,13 @@ def build_phases(markers: dict[str, int]) -> list[Phase]:
     page_ready = markers.get("PAGE_SERVER_READY_MS")
     if dump_launch is not None and page_ready is not None and page_ready > dump_launch:
         phases.append(Phase("dump_until_ready", dump_launch, page_ready))
+
+    if (
+        page_ready is not None
+        and dump_exit is not None
+        and dump_exit > page_ready
+    ):
+        phases.append(Phase("copy_until_exit", page_ready, dump_exit))
 
     cutover_start = markers.get("CUTOVER_START_MS")
     cutover_end = markers.get("CUTOVER_END_MS")
@@ -158,6 +166,9 @@ def build_phases(markers: dict[str, int]) -> list[Phase]:
             phases.append(Phase("post_cutover", cutover_end, stop))
         if not any(p.name in {"migration", "cutover", "post_cutover"} for p in phases):
             phases.append(Phase("post_ready", page_ready, stop))
+
+    if dump_exit is not None and stop is not None and stop > dump_exit:
+        phases.append(Phase("post_dump_exit", dump_exit, stop))
 
     return phases
 
