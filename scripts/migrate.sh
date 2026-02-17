@@ -35,10 +35,15 @@ SOURCE_PING_INTERVAL_MS=${SOURCE_PING_INTERVAL_MS:-5}
 SOURCE_PING_TIMEOUT_MS=${SOURCE_PING_TIMEOUT_MS:-10000}
 POST_REPLICA_SYNC_CHECK=${POST_REPLICA_SYNC_CHECK:-0}
 CUTOVER_GATE_EVENT_WAIT_S=${CUTOVER_GATE_EVENT_WAIT_S:-15}
+DUMP_EXIT_TIMEOUT_S=${DUMP_EXIT_TIMEOUT_S:-60}
 SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10"
 REPLICA_SSH_HOST="${REPLICA_IP:-$REPLICA_HOST}"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
+
+if [ -z "${CUTOVER_MARKER_FILE:-}" ]; then
+  CUTOVER_MARKER_FILE="$IMAGES_DIR/cutover_markers.log"
+fi
 
 umask 022
 ARTIFACTS_DIR=${ARTIFACTS_DIR:-"$SCRIPT_DIR/../artifacts"}
@@ -187,6 +192,11 @@ log "  Memory: $MEM"
 # Step 4: Clean images dir
 log "Step 4: Clean $IMAGES_DIR..."
 sudo rm -rf "$IMAGES_DIR"/*
+
+# Best-effort: ensure shared marker file is writable/empty for this run.
+if [ -n "${CUTOVER_MARKER_FILE:-}" ]; then
+  sudo rm -f "$CUTOVER_MARKER_FILE" 2>/dev/null || true
+fi
 
 # Step 5: Start replica FIRST (it will create ready signal and wait)
 log "Step 5: Start replica (will wait for page server)..."
@@ -472,9 +482,37 @@ wait "$REPLICA_PID" 2>/dev/null || true
 # Keep it alive until the replica's lazy-pages daemon finishes transferring
 # all lazy pages, otherwise the replica can hang on unresolved faults.
 if [ "$STOP_DUMP_ON_COMPLETE" = "1" ]; then
-  log "Step 8c: Stop dump process..."
-  sudo pkill -9 -f "[c]riu dump" 2>/dev/null || true
-  sleep 1
+  log "Step 8c: Wait for dump process to finish (write stats)..."
+  mark_local_event "DUMP_WAIT_FOR_EXIT_START_MS"
+
+  DUMP_EXITED=0
+  for _i in $(seq 1 $((DUMP_EXIT_TIMEOUT_S * 10))); do
+    if ! kill -0 "$DUMP_PID" 2>/dev/null; then
+      DUMP_EXITED=1
+      break
+    fi
+    sleep 0.1
+  done
+
+  if [ "$DUMP_EXITED" -ne 1 ]; then
+    log "  WARN: dump still running after ${DUMP_EXIT_TIMEOUT_S}s; sending SIGTERM"
+    sudo kill -TERM "$DUMP_PID" 2>/dev/null || true
+    for _i in $(seq 1 100); do
+      if ! kill -0 "$DUMP_PID" 2>/dev/null; then
+        DUMP_EXITED=1
+        break
+      fi
+      sleep 0.1
+    done
+  fi
+
+  if [ "$DUMP_EXITED" -ne 1 ]; then
+    log "  WARN: dump did not exit; sending SIGKILL"
+    sudo kill -KILL "$DUMP_PID" 2>/dev/null || true
+  fi
+
+  wait "$DUMP_PID" 2>/dev/null || true
+  mark_local_event "DUMP_EXIT_MS"
 else
   log "Step 8c: Keep dump process running (STOP_DUMP_ON_COMPLETE=0)"
 fi
@@ -505,6 +543,8 @@ GEN_IOVS=$(sudo grep -a "generate_vma_iovs loop" "$LOG_FILE" 2>/dev/null | grep 
 
 FROZEN_US=$(sudo grep -a "Frozen time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $3}' || echo "")
 FREEZING_US=$(sudo grep -a "Freezing time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $3}' || echo "")
+MEMDUMP_US=$(sudo grep -a "Memory dump time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $4}' || echo "")
+MEMWRITE_US=$(sudo grep -a "Memory write time:" "$LOG_FILE" 2>/dev/null | tail -n 1 | awk '{print $4}' || echo "")
 
 SOURCE_PING_SUMMARY=""
 if [ -n "${SOURCE_PING_LOG:-}" ] && [ -f "$SOURCE_PING_LOG" ]; then
@@ -599,6 +639,10 @@ log "    generate_vma_iovs:     ${GEN_IOVS}s"
 if [ -n "${FREEZING_US:-}" ] || [ -n "${FROZEN_US:-}" ]; then
   log "    freezing_time:         ${FREEZING_US:-?}us"
   log "    frozen_time:           ${FROZEN_US:-?}us"
+fi
+if [ -n "${MEMDUMP_US:-}" ] || [ -n "${MEMWRITE_US:-}" ]; then
+  log "    memdump_time:          ${MEMDUMP_US:-?}us"
+  log "    memwrite_time:         ${MEMWRITE_US:-?}us"
 fi
 if [ -n "${SOURCE_PING_SUMMARY:-}" ]; then
   log "----------------------------------------------------------------"
