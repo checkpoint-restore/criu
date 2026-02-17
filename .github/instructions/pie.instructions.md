@@ -1,5 +1,5 @@
 ---
-applyTo: "**/{pie,compel}/**/*.{c,h}"
+applyTo: "**/{criu/pie,compel/plugins,compel/arch/*/plugins}/**/*.{c,h}"
 ---
 # Copilot Instructions for PIE (Position Independent Executable) Code
 
@@ -13,17 +13,23 @@ This environment is extremely restrictive.
     *   The code must be completely self-contained.
 
 2.  **No Global State**:
-    *   Avoid global variables that require relocation or initialization by the dynamic linker.
-    *   Read-only globals (`const`) are generally safe if they don't contain pointers to other globals.
+    *   Avoid introducing new complex global state in PIE/parasite code.
+    *   Simple POD (plain data) globals that follow existing patterns in `criu/pie` are acceptable when necessary.
+    *   Do not rely on runtime or dynamic-linker–managed global initialization; PIE code must be robust without such assumptions.
 
 3.  **Internal Dependencies Only**:
     *   You may ONLY use functions defined within this directory or provided by the Compel library headers.
     *   Look for helper functions in `compel/plugins/std` (e.g., `std_printf`, `std_memcpy`).
 
 4.  **System Calls**:
-    *   Use raw system calls for all OS interactions.
-    *   Do not rely on glibc wrappers.
-    *   Use the provided syscall wrappers (e.g., `sys_write`, `sys_mmap`) if available in the headers.
+    *   **Strictly forbid** libc wrappers (`printf`, `malloc`, `open`, etc.). Use raw system calls or CRIU helpers.
+    *   **Use existing helpers**:
+        *   Look for `sys_*` functions (e.g., `sys_write`, `sys_mmap`) declared in `compel/plugins/include/uapi/std/syscall.h` (or similar headers in `compel/include/uapi`).
+        *   Implementation is often in `compel/arch/*/plugins/std/syscalls/`.
+    *   **Adding a new syscall**:
+        1.  Declare it in `compel/plugins/include/uapi/std/syscall.h` (or the relevant header).
+        2.  Add the system call number and entry to the architecture-specific table: `compel/arch/<ARCH>/plugins/std/syscalls/syscall_<ARCH>.tbl`.
+        3.  Reflect architecture differences if needed (e.g., different syscall numbers or calling conventions).
 
 5.  **Stack Usage**:
     *   Be mindful of stack usage. This code often runs on a limited or borrowed stack.
