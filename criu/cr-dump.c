@@ -123,6 +123,7 @@ int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap
 {
 	int ret = -1;
 	struct timeval t_start, t_checkpoint, t_now, t_delta;
+	bool use_maps;
 
 	gettimeofday(&t_start, NULL);
 	t_checkpoint = t_start;
@@ -131,15 +132,17 @@ int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap
 	pr_err("Collecting mappings (pid: %d)\n", pid);
 	pr_err("----------------------------------------\n");
 
-	ret = parse_smaps(pid, vma_area_list, dump_file);
+	use_maps = opts.cow_dump && opts.lazy_pages;
+	ret = use_maps ? parse_maps(pid, vma_area_list, dump_file) : parse_smaps(pid, vma_area_list, dump_file);
 	gettimeofday(&t_now, NULL);
 	timersub(&t_now, &t_checkpoint, &t_delta);
-	pr_err("TIMING: parse_smaps took %ld.%06ld seconds\n", t_delta.tv_sec, t_delta.tv_usec);
+	pr_err("TIMING: parse_%s took %ld.%06ld seconds\n", use_maps ? "maps" : "smaps", t_delta.tv_sec,
+	       t_delta.tv_usec);
 	t_checkpoint = t_now;
 	if (ret < 0)
 		goto err;
 
-	pr_err("parse_smaps ended (pid: %d)\n", pid);	
+	pr_err("parse_%s ended (pid: %d)\n", use_maps ? "maps" : "smaps", pid);
 	/*
 	 * In addition to real process VMAs we should keep an info about
 	 * madvise(MADV_GUARD_INSTALL) pages. While these are not represented
