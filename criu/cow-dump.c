@@ -57,6 +57,205 @@ struct cow_dump_info {
 	pthread_spinlock_t queue_lock;		/* Protects the queue */
 };
 
+/*
+ * Applying UFFD write-protect over a large address space can dominate the
+ * initial stall. We can apply it in parallel from the CRIU process after
+ * receiving the userfaultfd from the parasite.
+ */
+#define COW_WP_CHUNK_SIZE	(256UL * 1024 * 1024)
+#define COW_WP_MAX_THREADS	8
+
+struct cow_wp_range {
+	unsigned long start;
+	unsigned long len;
+};
+
+struct cow_wp_job {
+	int uffd;
+	struct cow_wp_range *ranges;
+	unsigned int start_idx;
+	unsigned int end_idx;
+	int err;
+};
+
+static void *cow_wp_worker(void *arg)
+{
+	struct cow_wp_job *job = arg;
+	struct uffdio_writeprotect wp;
+	unsigned int i;
+
+	for (i = job->start_idx; i < job->end_idx; i++) {
+		wp.range.start = job->ranges[i].start;
+		wp.range.len = job->ranges[i].len;
+		wp.mode = UFFDIO_WRITEPROTECT_MODE_WP;
+
+		if (ioctl(job->uffd, UFFDIO_WRITEPROTECT, &wp)) {
+			job->err = -errno;
+			return NULL;
+		}
+	}
+
+	return NULL;
+}
+
+static unsigned int cow_wp_nr_threads(unsigned int nr_ranges)
+{
+	long nproc;
+	unsigned int nr_threads;
+
+	nproc = sysconf(_SC_NPROCESSORS_ONLN);
+	if (nproc < 1)
+		return 1;
+
+	nr_threads = (unsigned int)nproc;
+	if (nr_threads > COW_WP_MAX_THREADS)
+		nr_threads = COW_WP_MAX_THREADS;
+	if (nr_threads > nr_ranges)
+		nr_threads = nr_ranges;
+	if (nr_threads < 1)
+		nr_threads = 1;
+
+	return nr_threads;
+}
+
+static struct cow_wp_range *cow_wp_build_ranges(struct cow_tracked_task *task,
+						unsigned int *nr_ranges)
+{
+	struct cow_wp_range *ranges;
+	unsigned long start, end, pos;
+	unsigned long len;
+	unsigned int nr = 0;
+	unsigned int i, idx = 0;
+
+	for (i = 0; i < task->nr_tracked_vmas; i++) {
+		start = task->tracked_vmas[i].start;
+		end = task->tracked_vmas[i].end;
+		if (end <= start)
+			continue;
+
+		len = end - start;
+		nr += (len + COW_WP_CHUNK_SIZE - 1) / COW_WP_CHUNK_SIZE;
+	}
+
+	if (nr == 0) {
+		*nr_ranges = 0;
+		return NULL;
+	}
+
+	*nr_ranges = nr;
+
+	ranges = xmalloc(nr * sizeof(*ranges));
+	if (!ranges)
+		return NULL;
+
+	for (i = 0; i < task->nr_tracked_vmas; i++) {
+		start = task->tracked_vmas[i].start;
+		end = task->tracked_vmas[i].end;
+		if (end <= start)
+			continue;
+
+		pos = start;
+		while (pos < end) {
+			len = end - pos;
+			if (len > COW_WP_CHUNK_SIZE)
+				len = COW_WP_CHUNK_SIZE;
+
+			ranges[idx].start = pos;
+			ranges[idx].len = len;
+			idx++;
+
+			pos += len;
+		}
+	}
+
+	*nr_ranges = idx;
+	return ranges;
+}
+
+static int cow_task_apply_writeprotect(struct cow_tracked_task *task)
+{
+	struct cow_wp_range *ranges;
+	struct cow_wp_job *jobs;
+	pthread_t *threads;
+	struct timespec t_start, t_end;
+	unsigned int nr_ranges, nr_threads;
+	unsigned int i, created = 0;
+	unsigned int per;
+	unsigned long sec, nsec;
+	int ret = 0;
+
+	if (!task->nr_tracked_vmas)
+		return 0;
+
+	ranges = cow_wp_build_ranges(task, &nr_ranges);
+	if (!ranges) {
+		if (nr_ranges)
+			return -1;
+		return 0;
+	}
+
+	nr_threads = cow_wp_nr_threads(nr_ranges);
+	threads = xmalloc(nr_threads * sizeof(*threads));
+	jobs = xzalloc(nr_threads * sizeof(*jobs));
+	if (!threads || !jobs) {
+		ret = -1;
+		goto out;
+	}
+
+	per = (nr_ranges + nr_threads - 1) / nr_threads;
+	for (i = 0; i < nr_threads; i++) {
+		jobs[i].uffd = task->uffd;
+		jobs[i].ranges = ranges;
+		jobs[i].start_idx = i * per;
+		jobs[i].end_idx = jobs[i].start_idx + per;
+		if (jobs[i].end_idx > nr_ranges)
+			jobs[i].end_idx = nr_ranges;
+	}
+
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
+
+	for (i = 0; i < nr_threads; i++) {
+		if (jobs[i].start_idx >= jobs[i].end_idx)
+			break;
+		if (pthread_create(&threads[i], NULL, cow_wp_worker, &jobs[i])) {
+			pr_err("Failed to create write-protect worker thread\n");
+			ret = -1;
+			break;
+		}
+		created++;
+	}
+
+	for (i = 0; i < created; i++)
+		pthread_join(threads[i], NULL);
+
+	clock_gettime(CLOCK_MONOTONIC, &t_end);
+
+	for (i = 0; i < created; i++) {
+		if (jobs[i].err) {
+			pr_err("Failed to apply UFFD write-protect: %s (%d)\n",
+			       strerror(-jobs[i].err), -jobs[i].err);
+			ret = -1;
+			break;
+		}
+	}
+
+	sec = t_end.tv_sec - t_start.tv_sec;
+	if (t_end.tv_nsec < t_start.tv_nsec) {
+		sec--;
+		nsec = 1000000000UL + t_end.tv_nsec - t_start.tv_nsec;
+	} else {
+		nsec = t_end.tv_nsec - t_start.tv_nsec;
+	}
+	pr_err("TIMING: cow_dump_writeprotect took %lu.%06lu seconds (%u ranges, %u threads)\n",
+	       sec, nsec / 1000, nr_ranges, created ? created : 1);
+
+out:
+	xfree(threads);
+	xfree(jobs);
+	xfree(ranges);
+	return ret;
+}
+
 
 static struct cow_dump_info *g_cow_info = NULL;
 static pthread_t g_monitor_thread;
@@ -363,7 +562,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 
 	pr_info("Calling parasite to register %u VMAs\n", args->nr_vmas);
 
-	/* Call parasite to create uffd and perform registration (async) */
+	/* Call parasite to create uffd and register VMAs for WP tracking */
 	ret = compel_rpc_call(PARASITE_CMD_COW_DUMP_INIT, ctl);
 	if (ret < 0) {
 		pr_err("Failed to initiate COW dump RPC\n");
@@ -376,7 +575,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		pr_err("Failed to receive userfaultfd from parasite: %d\n", task->uffd);
 		goto err;
 	}
-	pr_info("Got fd %d VMAs\n", task->uffd);
+	pr_info("Got uffd fd %d from parasite\n", task->uffd);
 	/* Wait for parasite to complete */
 	ret = compel_rpc_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
 	if (ret < 0 || args->ret != 0) {
@@ -426,6 +625,9 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		}
 		task->nr_tracked_vmas = tracked_vmas;
 	}
+
+	if (cow_task_apply_writeprotect(task))
+		goto err;
 
 	pthread_mutex_lock(&g_tracked_tasks_lock);
 	list_add_tail(&task->list, &cdi->tracked_tasks);
