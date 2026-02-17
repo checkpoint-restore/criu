@@ -487,6 +487,7 @@ REPLICA_MEM=$($SSH ubuntu@$REPLICA_SSH_HOST "timeout ${VALKEY_CMD_TIMEOUT_S}s va
 LOG_FILE="$IMAGES_DIR/lazy-primary.log"
 DUMP_TOTAL=$(sudo grep -a "dump_one_task TOTAL" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || echo "?")
 COW_INIT=$(sudo grep -a "cow_dump_init took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || true)
+COW_WRITEPROTECT=$(sudo grep -a "cow_dump_writeprotect took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || true)
 PARSE_MAPS=$(sudo grep -a "parse_maps took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || true)
 PARSE_SMAPS=$(sudo grep -a "parse_smaps took" "$LOG_FILE" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || true)
 if [ -n "${PARSE_MAPS:-}" ]; then
@@ -589,6 +590,9 @@ log "    dump_one_task TOTAL:   ${DUMP_TOTAL}s"
 log "    ${PARSE_MAPPINGS_LABEL}:           ${PARSE_MAPPINGS}s"
 if [ -n "${COW_INIT:-}" ]; then
   log "    cow_dump_init:         ${COW_INIT}s"
+fi
+if [ -n "${COW_WRITEPROTECT:-}" ]; then
+  log "    cow_writeprotect:      ${COW_WRITEPROTECT}s"
 fi
 log "    dump_pages_seized:     ${DUMP_PAGES}s"
 log "    generate_vma_iovs:     ${GEN_IOVS}s"
