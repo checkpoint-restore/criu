@@ -86,7 +86,7 @@ stop_workload() {
 		kill "$WORKLOAD_PID" 2>/dev/null || true
 		WORKLOAD_PID=""
 	fi
-	sudo pkill -9 valkey-benchmark 2>/dev/null || true
+	sudo pkill -9 -f "[v]alkey-benchmark" 2>/dev/null || true
 }
 
 SOURCE_PING_PID=""
@@ -136,7 +136,7 @@ if [ "$KEEP_SOURCE_RUNNING" = "1" ] || [ "$SKIP_FILL" = "1" ]; then
 else
   sudo pkill -9 valkey-server 2>/dev/null || true
 fi
-sudo pkill -9 valkey-benchmark 2>/dev/null || true
+sudo pkill -9 -f "[v]alkey-benchmark" 2>/dev/null || true
 sudo pkill -9 criu 2>/dev/null || true
 $SSH ubuntu@$REPLICA_SSH_HOST "sudo pkill -9 valkey-server || true; sudo pkill -9 criu || true; sudo pkill -9 -f '[/]scripts/restore.sh' || true; sudo pkill -9 -f '[c]riu lazy-pages' || true; while sudo iptables -C INPUT -p tcp --dport $VALKEY_PORT ! -s 127.0.0.1 -j REJECT 2>/dev/null; do sudo iptables -D INPUT -p tcp --dport $VALKEY_PORT ! -s 127.0.0.1 -j REJECT || true; done" 2>/dev/null || true
 sleep 1
@@ -412,7 +412,7 @@ if [ "$REPLICA_UP" -ne 1 ]; then
   if [ -n "$WORKLOAD_PID" ]; then
     log "Step 8c: Stop workload traffic..."
     kill "$WORKLOAD_PID" 2>/dev/null || true
-    sudo pkill -9 valkey-benchmark 2>/dev/null || true
+    sudo pkill -9 -f "[v]alkey-benchmark" 2>/dev/null || true
   fi
   if kill -0 "$REPLICA_PID" 2>/dev/null; then
     kill "$REPLICA_PID" 2>/dev/null || true
