@@ -11,6 +11,7 @@
 #include <time.h>
 #include <string.h>
 #include <poll.h>
+#include <sys/eventfd.h>
 
 #include "types.h"
 #include "cr_options.h"
@@ -62,6 +63,10 @@ static pthread_t g_monitor_thread;
 static volatile bool g_monitor_thread_running = false;
 static volatile bool g_stop_monitoring = false;
 static pthread_mutex_t g_monitor_state_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t g_tracked_tasks_lock = PTHREAD_MUTEX_INITIALIZER;
+static int g_monitor_eventfd = -1;
+static unsigned long g_tracked_tasks_generation;
+static unsigned long g_monitor_snapshot_generation;
 
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
 #define COW_FLUSH_THRESHOLD 1000       /* Flush to disk every 1000 pages */
@@ -123,12 +128,69 @@ static struct cow_tracked_task *cow_find_task_by_pid(pid_t source_pid)
 	if (!g_cow_info)
 		return NULL;
 
+	pthread_mutex_lock(&g_tracked_tasks_lock);
 	list_for_each_entry(task, &g_cow_info->tracked_tasks, list) {
-		if (task->source_pid == source_pid)
+		if (task->source_pid == source_pid) {
+			pthread_mutex_unlock(&g_tracked_tasks_lock);
 			return task;
+		}
 	}
+	pthread_mutex_unlock(&g_tracked_tasks_lock);
 
 	return NULL;
+}
+
+static bool cow_monitor_is_running(void)
+{
+	bool running;
+
+	pthread_mutex_lock(&g_monitor_state_lock);
+	running = g_monitor_thread_running;
+	pthread_mutex_unlock(&g_monitor_state_lock);
+
+	return running;
+}
+
+static void cow_monitor_wakeup(void)
+{
+	uint64_t one = 1;
+	ssize_t ret;
+
+	if (g_monitor_eventfd < 0)
+		return;
+
+	ret = write(g_monitor_eventfd, &one, sizeof(one));
+	(void)ret;
+}
+
+static void cow_monitor_drain_eventfd(void)
+{
+	uint64_t v;
+
+	if (g_monitor_eventfd < 0)
+		return;
+
+	while (read(g_monitor_eventfd, &v, sizeof(v)) == sizeof(v))
+		;
+}
+
+static int cow_wait_monitor_snapshot(unsigned long want_generation)
+{
+	unsigned long seen;
+	int i;
+
+	for (i = 0; i < 1000; i++) {
+		pthread_mutex_lock(&g_tracked_tasks_lock);
+		seen = g_monitor_snapshot_generation;
+		pthread_mutex_unlock(&g_tracked_tasks_lock);
+
+		if (seen >= want_generation)
+			return 0;
+
+		usleep(1000);
+	}
+
+	return -1;
 }
 
 bool cow_check_kernel_support(void)
@@ -173,16 +235,9 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	unsigned int fallback_vmas = 0;
 	bool *failed_map = NULL;
 	unsigned int i;
+	unsigned long want_generation = 0;
 
 	pr_info("Initializing COW dump for pid %d (via parasite)\n", item->pid->real);
-
-	pthread_mutex_lock(&g_monitor_state_lock);
-	if (g_monitor_thread_running) {
-		pthread_mutex_unlock(&g_monitor_state_lock);
-		pr_err("COW monitor thread is already running; refusing late task registration\n");
-		return -1;
-	}
-	pthread_mutex_unlock(&g_monitor_state_lock);
 
 	if (!cdi) {
 		if (!cow_check_kernel_support()) {
@@ -203,6 +258,21 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		pthread_spin_init(&cdi->queue_lock, PTHREAD_PROCESS_PRIVATE);
 		g_cow_info = cdi;
 		created_session = true;
+
+		pthread_mutex_lock(&g_tracked_tasks_lock);
+		g_tracked_tasks_generation = 0;
+		g_monitor_snapshot_generation = 0;
+		pthread_mutex_unlock(&g_tracked_tasks_lock);
+
+		if (g_monitor_eventfd >= 0) {
+			close(g_monitor_eventfd);
+			g_monitor_eventfd = -1;
+		}
+		g_monitor_eventfd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+		if (g_monitor_eventfd < 0) {
+			pr_perror("Failed to create cow monitor eventfd");
+			goto err;
+		}
 	}
 
 	if (cow_find_task_by_pid(item->pid->real)) {
@@ -357,8 +427,19 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 		task->nr_tracked_vmas = tracked_vmas;
 	}
 
+	pthread_mutex_lock(&g_tracked_tasks_lock);
 	list_add_tail(&task->list, &cdi->tracked_tasks);
+	g_tracked_tasks_generation++;
+	want_generation = g_tracked_tasks_generation;
+	pthread_mutex_unlock(&g_tracked_tasks_lock);
 	cdi->total_pages += task->total_pages;
+
+	if (cow_monitor_is_running()) {
+		cow_monitor_wakeup();
+		if (cow_wait_monitor_snapshot(want_generation))
+			pr_warn("Timed out waiting for monitor to pick up pid %d\n",
+				item->pid->real);
+	}
 
 	pr_info("COW dump initialized for pid %d: vm_as=%u tracked=%u fallback=%u pages=%lu uffd=%d\n",
 		item->pid->real, args->nr_vmas, tracked_vmas, fallback_vmas,
@@ -384,6 +465,10 @@ err:
 		pthread_spin_destroy(&cdi->queue_lock);
 		xfree(cdi);
 		g_cow_info = NULL;
+		if (g_monitor_eventfd >= 0) {
+			close(g_monitor_eventfd);
+			g_monitor_eventfd = -1;
+		}
 	}
 
 	return -1;
@@ -406,6 +491,16 @@ void cow_dump_fini(void)
 	}
 
 	pr_info("Cleaning up COW dump\n");
+
+	if (g_monitor_eventfd >= 0) {
+		close(g_monitor_eventfd);
+		g_monitor_eventfd = -1;
+	}
+
+	pthread_mutex_lock(&g_tracked_tasks_lock);
+	g_tracked_tasks_generation = 0;
+	g_monitor_snapshot_generation = 0;
+	pthread_mutex_unlock(&g_tracked_tasks_lock);
 
 	/* Clean up any remaining queue entries */
 	pthread_spin_lock(&g_cow_info->queue_lock);
@@ -626,31 +721,70 @@ static int cow_wait_for_events(struct cow_dump_info *cdi, int timeout_ms)
 {
 	struct cow_tracked_task *task;
 	struct pollfd *pfds;
+	struct cow_tracked_task **tasks;
 	int nr_tasks = 0;
 	int idx = 0;
 	int ret;
+	int i;
 
+	pthread_mutex_lock(&g_tracked_tasks_lock);
 	list_for_each_entry(task, &cdi->tracked_tasks, list)
 		nr_tasks++;
 
-	if (!nr_tasks)
+	g_monitor_snapshot_generation = g_tracked_tasks_generation;
+
+	if (!nr_tasks) {
+		pthread_mutex_unlock(&g_tracked_tasks_lock);
 		return 0;
+	}
 
-	pfds = xmalloc(sizeof(*pfds) * nr_tasks);
-	if (!pfds)
+	pfds = xmalloc(sizeof(*pfds) * (nr_tasks + 1));
+	tasks = xmalloc(sizeof(*tasks) * nr_tasks);
+	if (!pfds || !tasks) {
+		pthread_mutex_unlock(&g_tracked_tasks_lock);
+		xfree(pfds);
+		xfree(tasks);
 		return -1;
+	}
 
+	pfds[0].fd = g_monitor_eventfd;
+	pfds[0].events = POLLIN;
+	pfds[0].revents = 0;
+	idx = 1;
+	i = 0;
 	list_for_each_entry(task, &cdi->tracked_tasks, list) {
+		tasks[i++] = task;
 		pfds[idx].fd = task->uffd;
 		pfds[idx].events = POLLIN;
 		pfds[idx].revents = 0;
 		idx++;
 	}
+	pthread_mutex_unlock(&g_tracked_tasks_lock);
 
-	ret = poll(pfds, nr_tasks, timeout_ms);
+	ret = poll(pfds, nr_tasks + 1, timeout_ms);
 	if (ret < 0)
 		pr_perror("poll() failed on uffd set");
+	if (ret <= 0)
+		goto out;
 
+	if (pfds[0].revents & POLLIN) {
+		cow_monitor_drain_eventfd();
+		goto out;
+	}
+
+	for (i = 0; i < nr_tasks; i++) {
+		if (!(pfds[i + 1].revents & (POLLIN | POLLERR | POLLHUP | POLLNVAL)))
+			continue;
+		if (cow_process_events(cdi, tasks[i], false) < 0) {
+			pr_err("Error processing COW events for pid %d\n",
+			       tasks[i]->source_pid);
+			ret = -1;
+			break;
+		}
+	}
+
+out:
+	xfree(tasks);
 	xfree(pfds);
 	return ret;
 }
@@ -659,7 +793,6 @@ static int cow_wait_for_events(struct cow_dump_info *cdi, int timeout_ms)
 static void *cow_monitor_thread(void *arg)
 {
 	struct cow_dump_info *cdi = (struct cow_dump_info *)arg;
-	struct cow_tracked_task *task;
 	bool monitor_error = false;
 
 	pthread_setname_np(pthread_self(), "criu-cow-mon");
@@ -673,19 +806,6 @@ static void *cow_monitor_thread(void *arg)
 			monitor_error = true;
 			break;
 		}
-		if (ret == 0)
-			continue;
-
-		list_for_each_entry(task, &cdi->tracked_tasks, list) {
-			if (cow_process_events(cdi, task, false) < 0) {
-				pr_err("Error processing COW events for pid %d\n", task->source_pid);
-				monitor_error = true;
-				break;
-			}
-		}
-
-		if (monitor_error)
-			break;
 	}
 	
 	if (monitor_error)
@@ -698,6 +818,7 @@ static void *cow_monitor_thread(void *arg)
 int cow_start_monitor_thread(void)
 {
 	int ret;
+	bool no_tasks;
 	
 	pthread_mutex_lock(&g_monitor_state_lock);
 
@@ -707,7 +828,19 @@ int cow_start_monitor_thread(void)
 		return -1;
 	}
 
-	if (list_empty(&g_cow_info->tracked_tasks)) {
+	if (g_monitor_eventfd < 0) {
+		g_monitor_eventfd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+		if (g_monitor_eventfd < 0) {
+			pthread_mutex_unlock(&g_monitor_state_lock);
+			pr_perror("Failed to create cow monitor eventfd");
+			return -1;
+		}
+	}
+
+	pthread_mutex_lock(&g_tracked_tasks_lock);
+	no_tasks = list_empty(&g_cow_info->tracked_tasks);
+	pthread_mutex_unlock(&g_tracked_tasks_lock);
+	if (no_tasks) {
 		pthread_mutex_unlock(&g_monitor_state_lock);
 		pr_err("COW tracking has no registered tasks\n");
 		return -1;
@@ -751,6 +884,8 @@ int cow_stop_monitor_thread(void)
 	g_stop_monitoring = true;
 	monitor_thread = g_monitor_thread;
 	pthread_mutex_unlock(&g_monitor_state_lock);
+
+	cow_monitor_wakeup();
 	
 	/* Wait for thread to finish */
 	ret = pthread_join(monitor_thread, &retval);
@@ -771,12 +906,21 @@ int cow_stop_monitor_thread(void)
 int cow_get_uffd(void)
 {
 	struct cow_tracked_task *task;
+	int uffd;
 
-	if (!g_cow_info || list_empty(&g_cow_info->tracked_tasks))
+	if (!g_cow_info)
 		return -1;
 
+	pthread_mutex_lock(&g_tracked_tasks_lock);
+	if (list_empty(&g_cow_info->tracked_tasks)) {
+		pthread_mutex_unlock(&g_tracked_tasks_lock);
+		return -1;
+	}
 	task = list_first_entry(&g_cow_info->tracked_tasks, struct cow_tracked_task, list);
-	return task->uffd;
+	uffd = task->uffd;
+	pthread_mutex_unlock(&g_tracked_tasks_lock);
+
+	return uffd;
 }
 
 int cow_get_uffd_for_pid(pid_t source_pid)
