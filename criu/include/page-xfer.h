@@ -46,6 +46,9 @@ struct page_xfer {
 	};
 
 	struct page_read *parent;
+
+	/* private data for page-xfer decorators */
+	void *priv;
 };
 
 extern int open_page_xfer(struct page_xfer *xfer, int fd_type, unsigned long id);
@@ -57,6 +60,8 @@ extern int connect_to_page_server_to_recv(int epfd);
 extern int disconnect_from_page_server(void);
 
 extern int check_parent_page_xfer(int fd_type, unsigned long id);
+
+int open_page_compress_xfer(struct page_xfer *xfer);
 
 /*
  * The post-copy migration makes it necessary to receive pages from

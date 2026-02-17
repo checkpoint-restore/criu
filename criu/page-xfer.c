@@ -431,13 +431,26 @@ err_pmi:
 
 int open_page_xfer(struct page_xfer *xfer, int fd_type, unsigned long img_id)
 {
-	xfer->offset = 0;
-	xfer->transfer_lazy = true;
+	int ret;
 
 	if (opts.use_page_server)
-		return open_page_server_xfer(xfer, fd_type, img_id);
+		ret = open_page_server_xfer(xfer, fd_type, img_id);
 	else
-		return open_page_local_xfer(xfer, fd_type, img_id);
+		ret = open_page_local_xfer(xfer, fd_type, img_id);
+
+	if (ret)
+		return ret;
+
+	if (opts.compress_lz4) {
+		pr_info("using LZ4 compression\n");
+
+		if (open_page_compress_xfer(xfer)) {
+			pr_err("Failed to open LZ4 compression xfer\n");
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 static int page_xfer_dump_hole(struct page_xfer *xfer, struct iovec *hole, u32 flags)
@@ -1357,6 +1370,7 @@ static int page_pipe_from_pagemap(struct page_pipe **pp, int pid)
 {
 	struct page_read pr;
 	unsigned long nr_pages = 0;
+	int ret = -1;
 
 	if (open_page_read(pid, &pr, PR_TASK) <= 0) {
 		pr_err("Failed to open page read for %d\n", pid);
@@ -1370,13 +1384,20 @@ static int page_pipe_from_pagemap(struct page_pipe **pp, int pid)
 	*pp = create_page_pipe(nr_pages, NULL, 0);
 	if (!*pp) {
 		pr_err("Cannot create page pipe for %d\n", pid);
-		return -1;
+		goto err;
 	}
 
 	if (fill_page_pipe(&pr, *pp))
-		return -1;
+		goto err_pp;
 
-	return 0;
+	ret = 0;
+err:
+	pr.close(&pr);
+	return ret;
+err_pp:
+	destroy_page_pipe(*pp);
+	*pp = NULL;
+	goto err;
 }
 
 static int page_server_init_send(void)
