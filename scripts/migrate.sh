@@ -385,6 +385,7 @@ fi
 # Step 8: Cutover/check
 REPLICA_UP=0
 mark_cutover_event "CUTOVER_START_MS"
+mark_local_event "CUTOVER_START_MS"
 if [ "$FAST_CUTOVER" = "1" ]; then
   log "Step 8: Fast cutover (pause ${CUTOVER_PAUSE_MS}ms writes, freeze source, resume replica)..."
   valkey_cmd CLIENT PAUSE "$CUTOVER_PAUSE_MS" WRITE >/dev/null 2>&1 || true
@@ -398,6 +399,7 @@ for i in $(seq 1 120); do
   if $SSH ubuntu@$REPLICA_SSH_HOST "timeout ${VALKEY_CMD_TIMEOUT_S}s valkey-cli ping >/dev/null 2>&1"; then
     REPLICA_UP=1
     mark_cutover_event "CUTOVER_END_MS"
+    mark_local_event "CUTOVER_END_MS"
     break
   fi
   sleep "$REPLICA_PING_POLL_INTERVAL_S"
@@ -583,6 +585,11 @@ if [ -n "${SOURCE_PING_SUMMARY:-}" ]; then
   log "----------------------------------------------------------------"
   log "  Source availability (Valkey PING):"
   log "    $SOURCE_PING_SUMMARY"
+fi
+if [ -f "$RUN_DIR/source_markers.log" ] && [ -f "$RUN_DIR/source-ping.log" ]; then
+  log "----------------------------------------------------------------"
+  log "  Source availability by phase (from artifacts markers):"
+  python3 "$SCRIPT_DIR/analyze_phase_latency.py" "$RUN_DIR" 2>/dev/null | sed 's/^/    /' || true
 fi
 log "  Artifacts: $RUN_DIR"
 log "================================================================"
