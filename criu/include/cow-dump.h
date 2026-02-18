@@ -33,11 +33,13 @@ struct cow_page_queue_entry {
  * cow_dump_init - Initialize COW dump for a process
  * @item: Process tree item to set up COW tracking for
  * @vma_area_list: List of VMAs to track
- * @ctl: Parasite control structure for RPC
+ * @ctl: Parasite control structure for RPC (NULL to use /proc/<pid>/userfaultfd)
  *
  * Sets up userfaultfd with write-protection for all writable memory
- * regions of the target process. The registration is performed via
- * parasite RPC to ensure it runs in the target process's context.
+ * regions of the target process.  When kdat.has_uffd_proc is true the
+ * userfaultfd is created via /proc/<pid>/userfaultfd and VMAs are
+ * registered directly from CRIU (ctl may be NULL).  Otherwise falls
+ * back to parasite RPC.
  *
  * Returns: 0 on success, -1 on error
  */

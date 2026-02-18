@@ -1359,6 +1359,20 @@ static int kerndat_uffd(void)
 	 */
 	close(uffd);
 
+	/*
+	 * Detect /proc/<pid>/userfaultfd support (kernel 6.11+).
+	 * This allows creating a userfaultfd bound to another process's
+	 * mm_struct from an external process, eliminating the need for
+	 * parasite RPC in COW dump.
+	 */
+	kdat.has_uffd_proc = false;
+	uffd = open("/proc/self/userfaultfd", O_RDWR | O_CLOEXEC);
+	if (uffd >= 0) {
+		kdat.has_uffd_proc = true;
+		close(uffd);
+		pr_info("/proc/<pid>/userfaultfd interface available\n");
+	}
+
 	return 0;
 }
 

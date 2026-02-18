@@ -418,25 +418,160 @@ bool cow_check_kernel_support(void)
 	return true;
 }
 
+/*
+ * Open a userfaultfd bound to another process's mm_struct via
+ * /proc/<pid>/userfaultfd (kernel 6.11+).  Returns the fd with
+ * UFFDIO_API already negotiated, or -1 on failure.
+ */
+static int uffd_open_proc(pid_t pid)
+{
+	char path[64];
+	struct uffdio_api api;
+	int fd;
+
+	snprintf(path, sizeof(path), "/proc/%d/userfaultfd", pid);
+
+	fd = open(path, O_RDWR | O_CLOEXEC | O_NONBLOCK);
+	if (fd < 0) {
+		pr_perror("Cannot open %s", path);
+		return -1;
+	}
+
+	memset(&api, 0, sizeof(api));
+	api.api = UFFD_API;
+	api.features = UFFD_FEATURE_PAGEFAULT_FLAG_WP;
+
+	if (ioctl(fd, UFFDIO_API, &api)) {
+		pr_perror("UFFDIO_API on %s failed", path);
+		close(fd);
+		return -1;
+	}
+
+	if (!(api.features & UFFD_FEATURE_PAGEFAULT_FLAG_WP)) {
+		pr_err("userfaultfd from %s lacks WP pagefault flag\n", path);
+		close(fd);
+		return -1;
+	}
+
+	pr_info("Opened %s: fd=%d features=0x%llx\n", path, fd,
+		(unsigned long long)api.features);
+	return fd;
+}
+
+/*
+ * Register eligible VMAs for UFFDIO_REGISTER_MODE_WP directly from
+ * CRIU's process context (requires uffd from /proc/<pid>/userfaultfd).
+ * Populates task->tracked_vmas with the successfully registered VMAs.
+ * Returns 0 on success, -1 on fatal error.
+ */
+static int cow_register_vmas(int uffd, struct cow_tracked_task *task,
+			     struct vm_area_list *vma_area_list,
+			     unsigned long *out_total_pages)
+{
+	struct vma_area *vma;
+	struct uffdio_register reg;
+	unsigned int nr_eligible = 0, nr_tracked = 0, nr_failed = 0;
+	unsigned long total_pages = 0;
+	struct cow_tracked_vma *tvmas;
+	unsigned int i;
+
+	/* First pass: count eligible VMAs */
+	list_for_each_entry(vma, &vma_area_list->h, list) {
+		if (!vma_entry_can_be_lazy(vma->e))
+			continue;
+		if (vma_area_is(vma, VMA_AREA_GUARD))
+			continue;
+		if (!(vma->e->prot & PROT_WRITE))
+			continue;
+		if (!vma_area_is_private(vma, kdat.task_size) &&
+		    !vma_area_is(vma, VMA_ANON_SHARED))
+			continue;
+		if (vma_entry_is(vma->e, VMA_AREA_VVAR))
+			continue;
+		if (vma->e->flags & MAP_DROPPABLE)
+			continue;
+		nr_eligible++;
+	}
+
+	if (!nr_eligible) {
+		*out_total_pages = 0;
+		return 0;
+	}
+
+	tvmas = xzalloc(sizeof(*tvmas) * nr_eligible);
+	if (!tvmas)
+		return -1;
+
+	/* Second pass: register and track */
+	i = 0;
+	list_for_each_entry(vma, &vma_area_list->h, list) {
+		unsigned long start = vma->e->start;
+		unsigned long len = vma->e->end - start;
+		int ret;
+
+		if (!vma_entry_can_be_lazy(vma->e))
+			continue;
+		if (vma_area_is(vma, VMA_AREA_GUARD))
+			continue;
+		if (!(vma->e->prot & PROT_WRITE))
+			continue;
+		if (!vma_area_is_private(vma, kdat.task_size) &&
+		    !vma_area_is(vma, VMA_ANON_SHARED))
+			continue;
+		if (vma_entry_is(vma->e, VMA_AREA_VVAR))
+			continue;
+		if (vma->e->flags & MAP_DROPPABLE)
+			continue;
+
+		reg.range.start = start;
+		reg.range.len = len;
+		reg.mode = UFFDIO_REGISTER_MODE_WP;
+
+		ret = ioctl(uffd, UFFDIO_REGISTER, &reg);
+		if (ret) {
+			pr_warn("UFFDIO_REGISTER WP %lx-%lx failed: %s\n",
+				start, start + len, strerror(errno));
+			nr_failed++;
+			continue;
+		}
+
+		tvmas[i].start = start;
+		tvmas[i].end = start + len;
+		total_pages += len / PAGE_SIZE;
+		i++;
+	}
+
+	nr_tracked = i;
+	if (nr_tracked > 0) {
+		void *tmp = xrealloc(tvmas, sizeof(*tvmas) * nr_tracked);
+
+		if (tmp)
+			tvmas = tmp;
+		task->tracked_vmas = tvmas;
+	} else {
+		xfree(tvmas);
+		task->tracked_vmas = NULL;
+	}
+	task->nr_tracked_vmas = nr_tracked;
+	*out_total_pages = total_pages;
+
+	pr_info("Registered %u/%u VMAs (%u failed) via /proc: %lu pages\n",
+		nr_tracked, nr_eligible, nr_failed, total_pages);
+	return 0;
+}
+
 int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl)
 {
 	struct cow_dump_info *cdi = g_cow_info;
 	struct cow_tracked_task *task = NULL;
-	struct vma_area *vma;
-	struct parasite_cow_dump_args *args;
-	struct parasite_vma_entry *p_vma;
-	unsigned int *failed_indices;
+	struct parasite_cow_dump_args *args = NULL;
 	bool created_session = false;
 	int ret;
 	unsigned long args_size;
-	unsigned int nr_vmas = 0;
-	unsigned int tracked_vmas = 0;
-	unsigned int fallback_vmas = 0;
-	bool *failed_map = NULL;
 	unsigned int i;
 	unsigned long want_generation = 0;
 
-	pr_info("Initializing COW dump for pid %d (via parasite)\n", item->pid->real);
+	pr_info("Initializing COW dump for pid %d\n", item->pid->real);
 
 	if (!cdi) {
 		if (!cow_check_kernel_support()) {
@@ -487,144 +622,68 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	task->source_pid = item->pid->real;
 	task->uffd = -1;
 
-	/* Prepare parasite arguments - count writable VMAs */
-	/* IMPORTANT: Apply same filters as generate_vma_iovs() to avoid mismatches */
-	nr_vmas = 0;
-	list_for_each_entry(vma, &vma_area_list->h, list) {
-		if (!vma_entry_can_be_lazy(vma->e))
-		{		
-			continue;
-		}
-		if (vma_area_is(vma, VMA_AREA_GUARD))
-			continue;
-		
-		/* Must be writable */
-		if (!(vma->e->prot & PROT_WRITE))
-			continue;
-		
-		/* Match generate_vma_iovs() filters */
-		if (!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED))
-			continue;
-		
-		if (vma_entry_is(vma->e, VMA_AREA_VVAR))
-			continue;
-		
-		if (vma->e->flags & MAP_DROPPABLE)
-			continue;
-		
-		nr_vmas++;
-	}
+	if (kdat.has_uffd_proc) {
+		/*
+		 * Fast path: open userfaultfd via /proc/<pid>/userfaultfd
+		 * and register VMAs directly from CRIU, no parasite RPC.
+		 */
+		pr_info("Using /proc/%d/userfaultfd (direct path)\n",
+			item->pid->real);
 
-	/* Allocate parasite args - includes space for VMAs and failed indices */
-	args_size = sizeof(*args) + 
-		    nr_vmas * sizeof(struct parasite_vma_entry) +
-		    nr_vmas * sizeof(unsigned int);  /* Space for failed indices */
-	args = compel_parasite_args_s(ctl, args_size);
-	if (!args) {
-		pr_err("Failed to allocate parasite args\n");
-		goto err;
-	}
-
-	args->nr_vmas = nr_vmas;
-	args->total_pages = 0;
-	args->nr_failed_vmas = 0;
-	args->ret = -1;
-
-	/* Fill VMA entries - must match the filters used above */
-	p_vma = cow_dump_vmas(args);
-	nr_vmas = 0;
-	list_for_each_entry(vma, &vma_area_list->h, list) {
-		if (!vma_entry_can_be_lazy(vma->e))
-		{
-			continue;
-		}
-		if (vma_area_is(vma, VMA_AREA_GUARD))
-			continue;
-		
-		if (!(vma->e->prot & PROT_WRITE))
-			continue;
-		
-		/* Match generate_vma_iovs() filters */
-		if (!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED))
-			continue;
-		
-		if (vma_entry_is(vma->e, VMA_AREA_VVAR))
-			continue;
-		
-		if (vma->e->flags & MAP_DROPPABLE)
-			continue;
-
-		p_vma[nr_vmas].start = vma->e->start;
-		p_vma[nr_vmas].len = vma->e->end - vma->e->start;
-		p_vma[nr_vmas].prot = vma->e->prot;
-		nr_vmas++;
-	}
-
-	pr_info("Calling parasite to register %u VMAs\n", args->nr_vmas);
-
-	/* Call parasite to create uffd and register VMAs for WP tracking */
-	ret = compel_rpc_call(PARASITE_CMD_COW_DUMP_INIT, ctl);
-	if (ret < 0) {
-		pr_err("Failed to initiate COW dump RPC\n");
-		goto err;
-	}
-
-	/* Receive userfaultfd from parasite */
-	compel_util_recv_fd(ctl, &task->uffd);
-	if (task->uffd < 0) {
-		pr_err("Failed to receive userfaultfd from parasite: %d\n", task->uffd);
-		goto err;
-	}
-	pr_info("Got uffd fd %d from parasite\n", task->uffd);
-	/* Wait for parasite to complete */
-	ret = compel_rpc_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
-	if (ret < 0 || args->ret != 0) {
-		pr_err("Parasite COW dump init failed: %d (ret=%d)\n", ret, args->ret);
-		goto err;
-	}
-
-	task->total_pages = args->total_pages;
-
-	if (args->nr_vmas > 0) {
-		failed_map = xzalloc(args->nr_vmas * sizeof(*failed_map));
-		if (!failed_map)
+		task->uffd = uffd_open_proc(item->pid->real);
+		if (task->uffd < 0)
 			goto err;
-	}
-
-	failed_indices = cow_dump_failed_indices(args);
-	for (i = 0; i < args->nr_failed_vmas; i++) {
-		unsigned int idx = failed_indices[i];
-
-		if (idx >= args->nr_vmas) {
-			pr_warn("Ignoring invalid failed VMA index %u (nr_vmas=%u)\n", idx, args->nr_vmas);
-			continue;
-		}
-
-		if (!failed_map[idx]) {
-			failed_map[idx] = true;
-			fallback_vmas++;
-		}
-	}
-
-	tracked_vmas = args->nr_vmas - fallback_vmas;
-	if (tracked_vmas > 0) {
-		unsigned int tracked_idx = 0;
-
-		task->tracked_vmas = xzalloc(sizeof(*task->tracked_vmas) * tracked_vmas);
-		if (!task->tracked_vmas)
+	} else {
+		/*
+		 * Use parasite only to create the userfaultfd and
+		 * negotiate UFFDIO_API inside the target process.
+		 * Pass nr_vmas=0 so the parasite skips VMA registration;
+		 * we do that from CRIU below since UFFDIO_REGISTER
+		 * operates on the uffd's mm_struct, not current->mm.
+		 */
+		args_size = sizeof(*args);
+		args = compel_parasite_args_s(ctl, args_size);
+		if (!args) {
+			pr_err("Failed to allocate parasite args\n");
 			goto err;
-
-		p_vma = cow_dump_vmas(args);
-		for (i = 0; i < args->nr_vmas; i++) {
-			if (failed_map[i])
-				continue;
-
-			task->tracked_vmas[tracked_idx].start = p_vma[i].start;
-			task->tracked_vmas[tracked_idx].end = p_vma[i].start + p_vma[i].len;
-			tracked_idx++;
 		}
-		task->nr_tracked_vmas = tracked_vmas;
+
+		args->nr_vmas = 0;
+		args->total_pages = 0;
+		args->nr_failed_vmas = 0;
+		args->ret = -1;
+
+		ret = compel_rpc_call(PARASITE_CMD_COW_DUMP_INIT, ctl);
+		if (ret < 0) {
+			pr_err("Failed to initiate COW dump RPC\n");
+			goto err;
+		}
+
+		compel_util_recv_fd(ctl, &task->uffd);
+		if (task->uffd < 0) {
+			pr_err("Failed to receive uffd from parasite: %d\n",
+			       task->uffd);
+			goto err;
+		}
+
+		ret = compel_rpc_sync(PARASITE_CMD_COW_DUMP_INIT, ctl);
+		if (ret < 0 || args->ret != 0) {
+			pr_err("Parasite COW dump init failed: %d (ret=%d)\n",
+			       ret, args->ret);
+			goto err;
+		}
 	}
+
+	/*
+	 * Register VMAs for write-protect tracking directly from CRIU.
+	 * UFFDIO_REGISTER operates on the uffd's associated mm_struct
+	 * (set during userfaultfd() syscall in the target), so this
+	 * works from any process holding the fd.
+	 */
+	ret = cow_register_vmas(task->uffd, task, vma_area_list,
+				&task->total_pages);
+	if (ret)
+		goto err;
 
 	if (cow_task_apply_writeprotect(task))
 		goto err;
@@ -643,12 +702,10 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 				item->pid->real);
 	}
 
-	pr_info("COW dump initialized for pid %d: vm_as=%u tracked=%u fallback=%u pages=%lu uffd=%d\n",
-		item->pid->real, args->nr_vmas, tracked_vmas, fallback_vmas,
+	pr_info("COW dump initialized for pid %d: tracked=%u pages=%lu uffd=%d\n",
+		item->pid->real, task->nr_tracked_vmas,
 		task->total_pages, task->uffd);
-	pr_info("COW dump tracking armed\n");
 
-	xfree(failed_map);
 	return 0;
 
 err:
@@ -658,8 +715,6 @@ err:
 		xfree(task->tracked_vmas);
 		xfree(task);
 	}
-
-	xfree(failed_map);
 
 	if (created_session) {
 		for (i = 0; i < COW_HASH_SIZE; i++)
