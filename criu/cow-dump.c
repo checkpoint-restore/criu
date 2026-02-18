@@ -63,7 +63,8 @@ struct cow_dump_info {
  * receiving the userfaultfd from the parasite.
  */
 #define COW_WP_CHUNK_SIZE	(256UL * 1024 * 1024)
-#define COW_WP_MAX_THREADS	8
+/* Use all available CPUs — more threads reduce WP ioctl serialization */
+#define COW_WP_MAX_THREADS	0	/* 0 = use nproc (set in cow_wp_nr_threads) */
 
 struct cow_wp_range {
 	unsigned long start;
@@ -108,8 +109,6 @@ static unsigned int cow_wp_nr_threads(unsigned int nr_ranges)
 		return 1;
 
 	nr_threads = (unsigned int)nproc;
-	if (nr_threads > COW_WP_MAX_THREADS)
-		nr_threads = COW_WP_MAX_THREADS;
 	if (nr_threads > nr_ranges)
 		nr_threads = nr_ranges;
 	if (nr_threads < 1)
