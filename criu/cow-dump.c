@@ -62,7 +62,7 @@ struct cow_dump_info {
  * initial stall. We can apply it in parallel from the CRIU process after
  * receiving the userfaultfd from the parasite.
  */
-#define COW_WP_CHUNK_SIZE	(256UL * 1024 * 1024)
+#define COW_WP_CHUNK_SIZE	(64UL * 1024 * 1024)
 /* Use all available CPUs — more threads reduce WP ioctl serialization */
 #define COW_WP_MAX_THREADS	0	/* 0 = use nproc (set in cow_wp_nr_threads) */
 
