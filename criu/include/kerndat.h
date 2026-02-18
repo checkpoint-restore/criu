@@ -56,6 +56,7 @@ struct kerndat_s {
 	bool apparmor_ns_dumping_enabled;
 	bool has_uffd;
 	unsigned long uffd_features;
+	bool has_uffd_proc; /* /proc/<pid>/userfaultfd available (kernel 6.11+) */
 	bool has_thp_disable;
 	bool can_map_vdso;
 	bool vdso_hint_reliable;

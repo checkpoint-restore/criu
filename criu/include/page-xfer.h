@@ -55,6 +55,8 @@ extern int page_xfer_predump_pages(int pid, struct page_xfer *, struct page_pipe
 extern int connect_to_page_server_to_send(void);
 extern int connect_to_page_server_to_recv(int epfd);
 extern int disconnect_from_page_server(void);
+extern void wait_for_page_server_thread(void);
+extern bool page_server_bulk_stream_done(void);
 
 extern int check_parent_page_xfer(int fd_type, unsigned long id);
 

@@ -44,10 +44,15 @@
 static int page_server_sk = -1;
 static bool bulk_stream_done = false;
 
+bool page_server_bulk_stream_done(void)
+{
+	return bulk_stream_done;
+}
+
 #define BULK_STREAM_WOULD_BLOCK 0
 #define BULK_STREAM_PROGRESS 1
 #define BULK_STREAM_COMPLETE 2
-#define BULK_CLOSE_ACK_TIMEOUT_MS 5000
+/* No ACK on bulk close: end-of-stream marker is enough. */
 
 /* Global compression statistics for stats printing */
 static unsigned long g_compress_uncompressed_bytes = 0;
@@ -197,7 +202,8 @@ static inline int send_psi(int sk, struct page_server_iov *pi)
  * Protocol: header (PS_IOV_ADD_F_COMPRESS) + compressed_size (4 bytes) + compressed_data
  * Optimized: single buffer, single send() syscall
  */
-static int send_page_compressed(int sk, const void *data, u64 dst_id, unsigned long vaddr)
+static __maybe_unused int send_page_compressed(int sk, const void *data, u64 dst_id,
+					      unsigned long vaddr)
 {
 	/* Buffer layout: [header][compressed_size][compressed_data] */
 	char send_buf[sizeof(struct page_server_iov) + sizeof(int) + LZ4_compressBound(PAGE_SIZE)];
@@ -234,6 +240,33 @@ static int send_page_compressed(int sk, const void *data, u64 dst_id, unsigned l
 	ret = __send(sk, send_buf, total_len, 0);
 	if (ret != total_len) {
 		pr_perror("Failed to send compressed page (sent %d/%d)", ret, total_len);
+		return -1;
+	}
+
+	return 0;
+}
+
+static __maybe_unused int send_page_uncompressed(int sk, const void *data,
+						 u64 dst_id,
+						 unsigned long vaddr)
+{
+	char send_buf[sizeof(struct page_server_iov) + PAGE_SIZE];
+	struct page_server_iov *pi = (struct page_server_iov *)send_buf;
+	void *payload = send_buf + sizeof(*pi);
+	int total_len;
+	int ret;
+
+	memcpy(payload, data, PAGE_SIZE);
+
+	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	pi->nr_pages = 1;
+	pi->vaddr = vaddr;
+	pi->dst_id = dst_id;
+
+	total_len = sizeof(*pi) + PAGE_SIZE;
+	ret = __send(sk, send_buf, total_len, 0);
+	if (ret != total_len) {
+		pr_perror("Failed to send page (sent %d/%d)", ret, total_len);
 		return -1;
 	}
 
@@ -962,57 +995,45 @@ err:
 }
 
 /* Helper to write lazy VMA pagemap entries that come before a given vaddr */
-static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_vaddr, 
+static int write_lazy_vmas_before(struct page_xfer *xfer, unsigned long before_vaddr,
 				   struct lazy_vma_entry **cur_lve)
 {
 	struct list_head *global_list = get_global_lazy_vmas();
 	struct lazy_vma_entry *lve = *cur_lve;
-	
+
 	/* Start from beginning if not set */
 	if (!lve && !list_empty(global_list))
 		lve = list_first_entry(global_list, struct lazy_vma_entry, list);
-	
-	/* Write all lazy VMAs for this image that start before before_vaddr */
+
+	/* Write all lazy VMAs that start before before_vaddr.
+	 * Use lve->start/end (not lve->vma->e) since vma structs
+	 * may be freed after the dump completes.
+	 */
 	while (lve && &lve->list != global_list) {
 		struct iovec iov;
 		u32 flags = PE_LAZY;
-		unsigned long vma_start = lve->vma->e->start;
 
-		if (lve->dst_id != xfer->dst_id) {
-			lve = list_entry(lve->list.next, struct lazy_vma_entry, list);
-			continue;
-		}
-		
-		/* Stop if this VMA starts at or after our limit */
-		if (vma_start >= before_vaddr)
+		if (lve->start >= before_vaddr)
 			break;
-		
-		/* Write this lazy VMA's pagemap entry */
-		
-		
-		
-		iov.iov_base = (void *)vma_start;
-		iov.iov_len = lve->vma->e->end - vma_start;
-		
-		/* Apply offset */
+
+		iov.iov_base = (void *)(unsigned long)lve->start;
+		iov.iov_len = lve->end - lve->start;
+
 		BUG_ON(iov.iov_base < (void *)xfer->offset);
 		iov.iov_base -= xfer->offset;
-		
-		pr_debug("Writing lazy VMA pagemap: dst_id=%lu 0x%lx-0x%lx (%lu pages)\n",
-			(unsigned long)xfer->dst_id,
-			vma_start, (unsigned long)lve->vma->e->end,
+
+		pr_debug("Writing lazy VMA pagemap: 0x%lx-0x%lx (%lu pages)\n",
+			(unsigned long)lve->start, (unsigned long)lve->end,
 			(unsigned long)(iov.iov_len / PAGE_SIZE));
-		
+
 		if (xfer->write_pagemap(xfer, &iov, flags)) {
 			pr_err("Failed to write pagemap for lazy VMA\n");
 			return -1;
 		}
-		
-		/* Move to next lazy VMA */
+
 		lve = list_entry(lve->list.next, struct lazy_vma_entry, list);
 	}
-	
-	/* Update caller's position */
+
 	*cur_lve = lve;
 	return 0;
 }
@@ -1531,6 +1552,15 @@ static pthread_t g_unified_thread;
 static volatile bool g_unified_thread_running = false;
 static volatile bool g_unified_thread_stop = false;
 
+void wait_for_page_server_thread(void)
+{
+	if (!g_unified_thread_running)
+		return;
+	pr_info("Waiting for page server thread to finish...\n");
+	pthread_join(g_unified_thread, NULL);
+	g_unified_thread_running = false;
+	pr_info("Page server thread finished\n");
+}
 
 /* Active image tracking for unified background thread */
 
@@ -1624,124 +1654,163 @@ static struct {
 	unsigned long send_sub_count;
 } cow_timing;
 
-/* Helper to send a lazy VMA page using process_vm_readv with LZ4 compression */
-static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id, pid_t source_pid)
+/* Helper to send a lazy VMA page using process_vm_readv */
+static int send_lazy_vma_page(int sk, unsigned long vaddr, u64 dst_id,
+			      pid_t source_pid)
 {
 	struct cow_page *cow_pg;
+	const void *data;
 	pthread_spinlock_t *lock;
-	void *buffer;
+	char buffer[PAGE_SIZE];
 	int ret;
 	int uffd;
 	struct iovec local_iov, remote_iov;
-	struct timespec t_start, t_lock, t_cow, t_readv, t_socket, t_unprot, t_end;
-	
-	pr_debug("[SEND_PAGE] Entering send_lazy_vma_page: vaddr=0x%lx dst_id=%lu pid=%d\n", 
+	struct timespec t_start, t_lock, t_cow, t_readv, t_socket, t_unprot,
+			t_end;
+
+	pr_debug("[SEND_PAGE] Entering send_lazy_vma_page: vaddr=0x%lx dst_id=%lu pid=%d\n",
 		 vaddr, (unsigned long)dst_id, source_pid);
-	
+
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
-	
-	/* Get hash bucket lock */
+
+	/* Get hash bucket lock (may be NULL if COW session already destroyed). */
 	lock = cow_get_hash_lock(vaddr);
-	if (!lock) {
-		pr_err("Failed to get COW hash lock\n");
-		return -1;
-	}
-	
-	pthread_spin_lock(lock);
+	if (lock)
+		pthread_spin_lock(lock);
 	clock_gettime(CLOCK_MONOTONIC, &t_lock);
-	
-	/* Check for COW page */
-	cow_pg = cow_lookup_page(vaddr);
+
+	cow_pg = lock ? cow_lookup_page(vaddr) : NULL;
 	clock_gettime(CLOCK_MONOTONIC, &t_cow);
-	
-	/* Send data with compression */
+
+	if (lock)
+		pthread_spin_unlock(lock);
+
 	if (cow_pg) {
-		/* Send COW data with compression */
-		pr_debug("[SEND_PAGE] Sending compressed COW page at vaddr=0x%lx\n", vaddr);
-		
-		t_readv = t_cow; /* No readv for COW pages */
-		ret = send_page_compressed(sk, cow_pg->data, dst_id, vaddr);
-		clock_gettime(CLOCK_MONOTONIC, &t_socket); /* compress+send combined */		
-		
-		if (ret != 0) {
-			pr_perror("Failed to send compressed COW page");
-			pthread_spin_unlock(lock);
-			return -1;
-		}
-		pr_debug("[SEND_PAGE] Successfully sent compressed COW page at vaddr=0x%lx\n", vaddr);
-		t_unprot = t_socket; /* No unprotect for COW */
+		pr_debug("[SEND_PAGE] Sending COW page at vaddr=0x%lx\n", vaddr);
+
+		data = cow_pg->data;
+		t_readv = t_cow;
 	} else {
-		/* Read from process memory */
-		pr_debug("[SEND_PAGE] Reading regular page from process memory at vaddr=0x%lx pid=%d\n", vaddr, source_pid);
-		
-		buffer = xmalloc(PAGE_SIZE);
-		if (!buffer) {
-			pthread_spin_unlock(lock);
-			return -1;
-		}
-		
+		int saved_errno;
+
+		pr_debug("[SEND_PAGE] Reading regular page at vaddr=0x%lx pid=%d\n",
+			 vaddr, source_pid);
+
 		local_iov.iov_base = buffer;
 		local_iov.iov_len = PAGE_SIZE;
 		remote_iov.iov_base = (void *)vaddr;
 		remote_iov.iov_len = PAGE_SIZE;
-		
-		ret = process_vm_readv(source_pid, &local_iov, 1, &remote_iov, 1, 0);
+
+		ret = process_vm_readv(source_pid, &local_iov, 1, &remote_iov, 1,
+				       0);
+		saved_errno = errno;
 		clock_gettime(CLOCK_MONOTONIC, &t_readv);
-		
+
 		if (ret != PAGE_SIZE) {
-			pr_perror("Failed to read page at %lx from pid %d", vaddr, source_pid);
-			xfree(buffer);
-			pthread_spin_unlock(lock);
-			return -1;
+			if (ret < 0 && saved_errno == EFAULT) {
+				/*
+				 * The source can unmap/shrink VMAs while we're
+				 * copying in --leave-running mode. Treat an
+				 * unmapped page as a zero page and keep going,
+				 * otherwise a tiny allocator trim can abort
+				 * the whole bulk transfer.
+				 */
+				memset(buffer, 0, PAGE_SIZE);
+			} else {
+				errno = saved_errno;
+				pr_perror("Failed to read page at %lx from pid %d",
+					  vaddr, source_pid);
+				return -1;
+			}
 		}
-		
-		pr_debug("[SEND_PAGE] Read successful, sending compressed page at vaddr=0x%lx\n", vaddr);
-		
-		/* Send buffer with compression */
-		ret = send_page_compressed(sk, buffer, dst_id, vaddr);
-		clock_gettime(CLOCK_MONOTONIC, &t_socket);
-		xfree(buffer);
-		
-		if (ret != 0) {
-			pr_perror("Failed to send compressed page");
+
+		/*
+		 * Re-check the COW hash after the read: a concurrent write-fault
+		 * handler may have captured the pre-write snapshot for this page
+		 * and unprotected it while we were racing. If that happened,
+		 * always send the hash snapshot to preserve dump-time semantics.
+		 */
+		lock = cow_get_hash_lock(vaddr);
+		if (lock)
+			pthread_spin_lock(lock);
+		cow_pg = lock ? cow_lookup_page(vaddr) : NULL;
+		if (lock)
 			pthread_spin_unlock(lock);
-			return -1;
+
+		data = cow_pg ? cow_pg->data : buffer;
+	}
+
+	ret = send_page_compressed(sk, data, dst_id, vaddr);
+	clock_gettime(CLOCK_MONOTONIC, &t_socket);
+
+	if (ret != 0) {
+		pr_perror("Failed to send page");
+		return -1;
+	}
+
+	if (cow_pg) {
+		t_unprot = t_socket;
+
+		/* Remove only after the send completes. */
+		lock = cow_get_hash_lock(vaddr);
+		if (lock) {
+			pthread_spin_lock(lock);
+			cow_remove_page(vaddr);
+			pthread_spin_unlock(lock);
 		}
-		
-		pr_debug("[SEND_PAGE] Successfully sent compressed regular page at vaddr=0x%lx\n", vaddr);
-		
-		/* Unprotect non-COW page */
+	} else {
 		uffd = cow_get_uffd_for_pid(source_pid);
 		if (uffd >= 0) {
 			struct uffdio_writeprotect wp;
+
 			wp.range.start = vaddr;
 			wp.range.len = PAGE_SIZE;
 			wp.mode = 0;
 			if (ioctl(uffd, UFFDIO_WRITEPROTECT, &wp)) {
-				pr_perror("Failed to unprotect page at 0x%lx", vaddr);
-				pthread_spin_unlock(lock);
-				return -1;
+				pr_pwarn("Failed to unprotect page at 0x%lx",
+					 vaddr);
 			}
 		}
+
 		clock_gettime(CLOCK_MONOTONIC, &t_unprot);
+
+		/*
+		 * A write-fault can race with our regular send: the page is still
+		 * write-protected until we clear WP, so the monitor may capture a
+		 * snapshot into the hash while we are sending. If that happens,
+		 * drop the snapshot since we've already sent the page.
+		 */
+		lock = cow_get_hash_lock(vaddr);
+		if (lock) {
+			pthread_spin_lock(lock);
+			cow_remove_page(vaddr);
+			pthread_spin_unlock(lock);
+		}
 	}
-	
-	/* Remove COW page if it exists */
-	if (cow_pg)
-		cow_remove_page(vaddr);
-	
-	pthread_spin_unlock(lock);
+
 	clock_gettime(CLOCK_MONOTONIC, &t_end);
-	
+
 	/* Accumulate sub-timings (nanoseconds) */
-	cow_timing.send_lock_ns += (t_lock.tv_sec - t_start.tv_sec) * 1000000000 + (t_lock.tv_nsec - t_start.tv_nsec);
-	cow_timing.send_cow_lookup_ns += (t_cow.tv_sec - t_lock.tv_sec) * 1000000000 + (t_cow.tv_nsec - t_lock.tv_nsec);
-	cow_timing.send_vm_readv_ns += (t_readv.tv_sec - t_cow.tv_sec) * 1000000000 + (t_readv.tv_nsec - t_cow.tv_nsec);
-	cow_timing.send_compress_ns += (t_socket.tv_sec - t_readv.tv_sec) * 1000000000 + (t_socket.tv_nsec - t_readv.tv_nsec);
-	cow_timing.send_unprotect_ns += (t_unprot.tv_sec - t_socket.tv_sec) * 1000000000 + (t_unprot.tv_nsec - t_socket.tv_nsec);
-	cow_timing.send_unlock_ns += (t_end.tv_sec - t_unprot.tv_sec) * 1000000000 + (t_end.tv_nsec - t_unprot.tv_nsec);
+	cow_timing.send_lock_ns += (t_lock.tv_sec - t_start.tv_sec) *
+				  1000000000UL +
+				  (t_lock.tv_nsec - t_start.tv_nsec);
+	cow_timing.send_cow_lookup_ns += (t_cow.tv_sec - t_lock.tv_sec) *
+					1000000000UL +
+					(t_cow.tv_nsec - t_lock.tv_nsec);
+	cow_timing.send_vm_readv_ns += (t_readv.tv_sec - t_cow.tv_sec) *
+				      1000000000UL +
+				      (t_readv.tv_nsec - t_cow.tv_nsec);
+	cow_timing.send_compress_ns += (t_socket.tv_sec - t_readv.tv_sec) *
+				      1000000000UL +
+				      (t_socket.tv_nsec - t_readv.tv_nsec);
+	cow_timing.send_unprotect_ns += (t_unprot.tv_sec - t_socket.tv_sec) *
+				       1000000000UL +
+				       (t_unprot.tv_nsec - t_socket.tv_nsec);
+	cow_timing.send_unlock_ns += (t_end.tv_sec - t_unprot.tv_sec) *
+				    1000000000UL +
+				    (t_end.tv_nsec - t_unprot.tv_nsec);
 	cow_timing.send_sub_count++;
-	
+
 	return 0;
 }
 
@@ -2028,12 +2097,6 @@ static int send_image_complete(struct active_image *img)
 		.vaddr = 0,
 		.dst_id = img->dst_id,
 	};
-	int ret;
-	int32_t status;
-	struct pollfd pfd = {
-		.fd = img->main_sk,
-		.events = POLLIN | POLLHUP | POLLERR | POLLNVAL,
-	};
 
 	pr_warn("Image dst_id=%lu complete: %lu total pages (%lu COW, %lu req)\n",
 		img->dst_id, img->total_pages,
@@ -2041,71 +2104,13 @@ static int send_image_complete(struct active_image *img)
 
 	/* Send close command */
 	if (send_psi(img->main_sk, &close_cmd)) {
-		pr_err("Failed to send close command\n");
-		return -1;
-	}
-
-	/*
-	 * Preferred protocol: receiver replies with a 32-bit status ACK.
-	 * Backward-compatible fallback: older receivers may just close.
-	 */
-	while (1) {
-		ret = poll(&pfd, 1, BULK_CLOSE_ACK_TIMEOUT_MS);
-		if (ret < 0 && errno == EINTR)
-			continue;
-		break;
-	}
-	if (ret == 0) {
-		pr_err("Timed out waiting for close acknowledgment\n");
-		return -1;
-	}
-	if (ret < 0) {
-		pr_perror("Failed while waiting for close acknowledgment");
-		return -1;
-	}
-	if (pfd.revents & POLLNVAL) {
-		pr_err("Invalid socket while waiting for close acknowledgment\n");
-		return -1;
-	}
-	if (pfd.revents & POLLERR) {
-		pr_err("Socket error while waiting for close acknowledgment\n");
-		return -1;
-	}
-	if ((pfd.revents & POLLHUP) && !(pfd.revents & POLLIN)) {
-		pr_info("Receiver closed after close marker, treating as completion\n");
-		return 0;
-	}
-
-	while (1) {
-		ret = __recv(img->main_sk, &status, sizeof(status), MSG_WAITALL);
-		if (ret < 0 && errno == EINTR)
-			continue;
-		break;
-	}
-	if (ret == 0) {
-		pr_info("Receiver closed after close marker, treating as completion\n");
-		return 0;
-	}
-	if (ret < 0) {
 		if (errno == EPIPE || errno == ECONNRESET) {
 			pr_info("Receiver closed after close marker, treating as completion\n");
 			return 0;
 		}
-
-		pr_perror("Failed to receive close acknowledgment");
+		pr_err("Failed to send close command\n");
 		return -1;
 	}
-	if (ret != sizeof(status)) {
-		pr_err("Short close acknowledgment: %d\n", ret);
-		return -1;
-	}
-
-	if (status != 0) {
-		pr_err("Receiver reported error status: %d\n", status);
-		return -1;
-	}
-
-	pr_info("Image dst_id=%lu transfer confirmed by receiver\n", img->dst_id);
 	return 0;
 }
 
@@ -2138,7 +2143,7 @@ static int process_vma_pages(struct active_image *img,
 		/* Priority 3: Send this lazy VMA page */
 		if (send_single_lazy_page(img, lve, vaddr, page_idx,
 					  source_pid, stats) < 0)
-			continue; /* Log error but continue with next page */
+			return -1;
 	}
 
 	return 0;
@@ -2186,6 +2191,7 @@ static void *unified_page_server_thread(void *arg)
 		list_for_each_entry_safe(img, tmp, &active_images_queue, list) {
 			struct lazy_vma_entry *lve;
 			pid_t source_pid = 0;
+			bool image_failed = false;
 
 			pthread_spin_unlock(&active_images_lock);
 
@@ -2199,18 +2205,23 @@ static void *unified_page_server_thread(void *arg)
 
 				source_pid = lve->source_pid;
 
-				if (process_vma_pages(img, lve, source_pid, &stats) < 0)
+				if (process_vma_pages(img, lve, source_pid, &stats) < 0) {
 					pr_err("Error processing VMA %lx-%lx\n",
 					       lve->start, lve->end);
+					image_failed = true;
+					break;
+				}
 			}
 
 			/* Final drain of any remaining queued pages */
 			pthread_spin_lock(&active_images_lock);
-			if (final_queue_drain(img, source_pid, &stats) < 0)
+			if (!image_failed && final_queue_drain(img, source_pid, &stats) < 0) {
 				pr_err("Error in final queue drain\n");
+				image_failed = true;
+			}
 
 			/* Check if complete */
-			if (img->remaining_pages == 0) {
+			if (!image_failed && img->remaining_pages == 0) {
 				pthread_spin_unlock(&active_images_lock);
 				if (send_image_complete(img) < 0)
 					pr_err("Failed to complete image dst_id=%lu\n",
@@ -2221,7 +2232,11 @@ static void *unified_page_server_thread(void *arg)
 				continue;
 			}
 
-			pr_err("Finished processing image dst_id=%lu img->remaining_pages=%lu\n", img->dst_id, img->remaining_pages);
+			pr_err("Failed processing image dst_id=%lu remaining_pages=%lu, closing stream\n",
+			       img->dst_id, img->remaining_pages);
+			shutdown(img->main_sk, SHUT_RDWR);
+			list_del(&img->list);
+			xfree(img);
 		}
 
 		g_unified_thread_stop = list_empty(&active_images_queue);
@@ -2562,7 +2577,12 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	int sk = -1;
 	int ret;
 
-	if (init_stats(DUMP_STATS))
+	/*
+	 * When running inside the dump process (lazy_dump=true), stats are
+	 * already initialized by cr_dump_tasks(). Re-initializing them here
+	 * would reset counters/timings and make dump stats meaningless.
+	 */
+	if (!lazy_dump && init_stats(DUMP_STATS))
 		return -1;
 
 	if (!opts.lazy_pages)
@@ -2789,26 +2809,13 @@ static int page_server_read_bulk_stream(struct ps_async_read *ar, int flags)
 		if (ar->rb == sizeof(ar->pi)) {
 			cmd = decode_ps_cmd(ar->pi.cmd);
 
-			if (ar->pi.nr_pages == 0) {
-				pr_info("Received end-of-transfer marker (cmd=%u dst_id=%lu)\n", cmd,
-					(unsigned long)ar->pi.dst_id);
-				bulk_stream_done = true;
+				if (ar->pi.nr_pages == 0) {
+					pr_info("Received end-of-transfer marker (cmd=%u dst_id=%lu)\n", cmd,
+						(unsigned long)ar->pi.dst_id);
+					bulk_stream_done = true;
 
-				if (cmd == PS_IOV_CLOSE || cmd == PS_IOV_FORCE_CLOSE) {
-					int32_t status = 0;
-
-					if (__send(page_server_sk, &status, sizeof(status), 0) != sizeof(status)) {
-						if (errno == EPIPE || errno == ECONNRESET) {
-							pr_info("Sender closed before bulk close acknowledgment, treating as completion\n");
-						} else {
-							pr_perror("Failed to send bulk close acknowledgment");
-							return -1;
-						}
-					}
+					return BULK_STREAM_COMPLETE;
 				}
-
-				return BULK_STREAM_COMPLETE;
-			}
 
 			if (cmd == PS_IOV_ADD_F_COMPRESS) {
 				ar->compress_state = COMPRESS_STATE_READING_SIZE;
@@ -3207,7 +3214,7 @@ static int page_server_start_sync_read(void *buf, unsigned long nr, ps_async_rea
 int page_server_start_read(void *buf, unsigned long nr, ps_async_read_complete complete, void *priv, unsigned flags)
 {
 	/* In bulk mode, use continuous stream reader */
-	pr_err("page_server_start_read\n");
+	pr_debug("page_server_start_read\n");
 
 	if (opts.cow_dump) {
 		if (flags & PR_ASYNC)

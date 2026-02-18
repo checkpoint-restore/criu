@@ -35,3 +35,4 @@ include/common/asm
 include/common/config.h
 build/**
 scripts/.env
+artifacts/

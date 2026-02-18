@@ -19,7 +19,8 @@ with Valkey live migration.
 
 ```bash
 uname -r
-# Must be >= 5.7 for UFFD_FEATURE_WP_ASYNC
+# Must be >= 5.7 for userfaultfd write-protect (UFFD_FEATURE_PAGEFAULT_FLAG_WP)
+# Note: UFFD_FEATURE_WP_ASYNC is Linux 6.7+ and not enabled by default.
 ```
 
 ### Enable Unprivileged Userfaultfd
@@ -167,25 +168,42 @@ script kills it at the start of each run. On the **REPLICA**, Valkey must be
 
 Use this order as the source of truth for debugging:
 
-1. Dump phase registers per-task COW VMAs (parasite UFFD WP).
-2. Non-registerable VMAs are marked fallback and dumped via normal path.
-3. Base dump completes while source is still frozen.
-4. Just before source resume, CRIU starts one session monitor thread.
-5. Source resumes; monitor handles write faults and queues COW pages.
-6. Bulk sender ends each image stream with `nr_pages == 0` close marker.
-7. Receiver sends 32-bit ACK on end marker; sender accepts ACK or clean EOF for compatibility.
+1. CRIU seizes the process tree (short stop-the-world).
+2. For each task, the parasite creates a `userfaultfd` inside the target and
+   sends the fd to CRIU (or CRIU opens `/proc/<pid>/userfaultfd` on 6.11+).
+   CRIU then calls `UFFDIO_REGISTER` with `UFFDIO_REGISTER_MODE_WP` for
+   eligible VMAs directly from its own context; non-registerable VMAs are
+   skipped and dumped via the normal path.
+3. CRIU applies initial `UFFDIO_WRITEPROTECT` to tracked VMAs (parallelized in
+   the CRIU process), then starts/keeps a single monitor thread to service WP
+   faults.
+4. Base dump completes while the source is still seized.
+5. CRIU prints `PAGE SERVER READY TO SERVE`, resumes the source, and runs
+   `cr_lazy_mem_dump()` (page server + unified sender thread) while COW tracking
+   stays active.
+6. The bulk page stream ends with an end marker (`PS_IOV_CLOSE` with
+   `nr_pages == 0`); the receiver closes without sending an ACK back.
 
 If this contract is broken, fix CRIU core first; do not rely on script timeouts.
 
 ### Performance Measurement Method
 
-For each run, capture:
+For each run, capture both:
 
-- cutover pause p50/p95/p99 (source freeze/resume boundary),
-- restore completion time,
-- full migration wall time.
+- **CRIU internal freeze**: `stats-dump` (`freezing_time`, `frozen_time`).
+- **Client-observed latency/outage**: traffic harness or ping monitor.
 
-Measure under active traffic (not idle), and compare baseline lazy mode vs `--cow-dump`.
+The harness writes artifacts under `artifacts/<run_id>/` and includes:
+
+- `stats-dump.json`, `stats-restore.json`
+- `source-ping.log`, `source_markers.log`
+- `lazy-primary.log`, `lazy-restore.log`, `lazy-server.log`
+
+Phase analysis:
+
+```bash
+python3 scripts/analyze_phase_latency.py artifacts/<run_id>
+```
 
 ---
 
@@ -486,7 +504,7 @@ cat /fsx/lazy/lazy-restore.log
 # Check kernel support
 ./criu/criu check --feature uffd-noncoop
 
-# Check for WP_ASYNC support in kernel
+# Optional: check kernel logs for userfaultfd hints
 dmesg | grep -i userfaultfd
 ```
 

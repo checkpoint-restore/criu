@@ -1,263 +1,206 @@
-# COW-Based Live Migration Design Document
+# CRIU COW Dump: Design + Code Map
 
+This document describes the current COW (copy-on-write) live migration design in
+this fork, and points to the concrete code paths that implement it.
 
-## Introduction
-This feature implements COW (Copy-On-Write) based live migration for CRIU, enabling process duplication to remote instances to achieve the goal of: 
-1. Minimized downtime at the source. 
-2. Making the destination alive ASAP like in the current design of lazy dump.
-3. Transfer the data at high speed to complete the process soon and reduce the amount of COW operations.
-   
-   
-The approach uses userfaultfd write-protection to track memory modifications while the process continues running at the source and the destination is loaded same as in the lazy dump implementation. It overcomes the main issue with the lazy dump where the source is frozen during the dump.
+For setup and how to run the Valkey harness, see `COW_DEVELOPER.md` and
+`COW_DUMP_README.md`.
 
-## Architecture Overview
+## Goals
 
-### Implementation Contracts (Current Branch)
+1. **Minimize source downtime**: keep the source process running during memory
+   transfer (`--leave-running`), instead of freezing it for the full lazy-pages
+   duration.
+2. **Bring up the replica quickly**: restore and start servicing faults early
+   (same core idea as CRIU lazy-pages).
+3. **Preserve dump-time semantics**: if the source writes to a page after the
+   dump, the replica must receive the **pre-write** contents for the snapshot,
+   and later (Valkey) replication catches up.
 
-1. **Bulk close contract**
-   - Sender emits `PS_IOV_CLOSE` with `nr_pages == 0`.
-   - Receiver replies with a 32-bit status ACK.
-   - Sender accepts ACK as success and also accepts clean EOF/close as
-     backward-compatible completion for older peers.
+## Terms (short)
 
-2. **Session ownership**
-   - COW tracking is dump-session scoped.
-   - Task registration is per process in the tree.
-   - Monitor thread starts once (just before resume) and stops once.
+- **PRIMARY / source**: machine running the live workload (e.g. Valkey).
+- **REPLICA / destination**: machine restoring from CRIU images.
+- **VMA**: a virtual memory area (one mapping range in a process).
+- **UFFD WP**: `userfaultfd` write-protect mode; first write generates a fault
+  event (`UFFD_PAGEFAULT_FLAG_WP`).
+- **lazy-pages / page-server**: CRIU mechanism for transferring pages on-demand.
 
-3. **VMA eligibility**
-   - VMAs that failed UFFD WP registration are excluded from COW lazy tracking.
-   - Those VMAs are forced through the standard dump path.
-   - Lazy VMA lookup during transfer is keyed by `dst_id` + address.
-
-### Data Flow Source
-
-
-**Phase 1: Setup via Parasite RPC**
-  - Create userfaultfd in target process
-  - Register VMAs with UFFDIO_REGISTER_MODE_WP
-  - Apply write-protection (UFFDIO_WRITEPROTECT)
-  - Send userfaultfd back to CRIU
-  - Record failed VMA indices (fallback VMAs)
-
-**Phase 2: Base dump and fallback split**
-  - VMAs successfully registered for COW are sent via lazy/COW flow
-  - VMAs that failed registration are dumped via standard non-COW path
-
-**Phase 3: Session Monitor Thread (Background)**
-  - Single monitor thread starts once for the dump session
-  - Polls all tracked task UFFDs
-  - On write fault:
-    1. Read page from /proc/pid/mem (before modification)
-    2. Copy the page and store it in hash table
-    3. Unprotect page
-    4. Wake faulting thread at the source process
-
-**Phase 4: Page Transfer (page_server_get_pages)**
-  - Lookup COW pages in hash table
-  - Fast path: No COW → splice (zero-copy)
-  - Slow path: COW present → buffer + overlay
-  - Bulk unprotect after transfer
-  - End stream with close marker (`nr_pages==0`) and receiver ACK
-
-#### Detailed design source
-
-##### 1. cow-dump.c (CRIU-side Coordinator)
-
-Main coordinator for COW tracking on the CRIU side. Manages the lifecycle of COW dump operations.
-
-*Key Data Structures*
-
-```c
-/* Per-process COW dump state */
-struct cow_dump_info {
-    struct pstree_item *item;
-    int uffd;                      /* userfaultfd from target */
-    int proc_mem_fd;               /* /proc/pid/mem handle */
-    unsigned long total_pages;     /* Total pages tracked */
-    unsigned long dirty_pages;     /* Modified pages count */
-    
-    /* Hash table: 65K buckets for O(1) lookup */
-    struct hlist_head cow_hash[COW_HASH_SIZE];  /* 2^16 buckets */
-    pthread_spinlock_t cow_hash_locks[COW_HASH_SIZE]; //Lock for each hash entry to have fine grain locking.
-};
-
-/* Hash table entry for copied pages */
-struct cow_page {
-    unsigned long vaddr;           /* Virtual address */
-    void *data;                    /* 4KB page content */
-    struct hlist_node hash;        /* Hash linkage */
-};
-
-#define COW_HASH_SIZE (1 << 16)    /* 65536 buckets */
-```
-
-*Key Functions*
-
-**Init- Initialize COW tracking**
-- Opens `/proc/pid/mem` for reading page contents
-- Calls parasite RPC to setup userfaultfd
-- Receives userfaultfd from parasite
-- Initializes hash table and spinlocks
-- Init COW monitoring thread
-
-
-**cow_monitor_thread()** - Background monitoring
-- Continuously reads from userfaultfd
-- Processes write fault events
-
-**cow_handle_write_fault()** - Handle write fault event
-```
-Input: fault address
-1. Allocate cow_page structure
-2. Read page from /proc/pid/mem (BEFORE modification)
-3. Add to hash table (thread-safe)
-4. Unprotect page (UFFDIO_WRITEPROTECT mode=0)
-5. Wake faulting thread (UFFDIO_WAKE)
-```
-
-
-**cow_lookup_and_remove_page()** - Thread-safe page lookup
-- Hash-based O(1) lookup
-- Removes from hash table atomically
-
-##### 2. pie/parasite.c (In-Process Setup)
-
-Runs inside the target process to setup userfaultfd with write-protection.
-
-**Purpose:** The parasite code is injected into the target process and executes in its context to create and configure the userfaultfd.
-
-*Key Function: parasite_cow_dump_init()*
-
-
-**Why Parasite-Based?**
-1. **Context Requirement:** userfaultfd must be created in target process context
-2. **Inheritance:** Automatically inherited by all threads
-3. **Permissions:** Avoids ptrace permission issues
-4. **Atomic Setup:** All VMAs protected before process resumes
-
-
-##### 3. page-xfer.c (Page Server Integration)
-
-Integrates COW tracking with page transfer, overlaying modified pages during transfer.
-
-Key Function: page_server_get_pages()
-
-Step 1: Read pages from page_pipe
-  page_pipe_read(pp, &pipe_read_dest, vaddr, &nr_pages)
-
-Step 2: Check for COW pages at the hash table, recall each modified page is stored in the hash table (single pass)              
- for each page:                                         
-    cow_pages[i] = cow_lookup_and_remove_page(addr)     
-    cow_count = number of non-NULL entries 
-
-Fast path: (cow_count is zero, same as in the current lazy implementation)
-Zero-copy splice: splice(pipe -> sock) 
-No memory copies!
-
-
-Slow path:  (cow_count is above zero)
-1. read(pipe -> buffer)
-2. overlay COW pages 
-
-Step 3: Bulk unprotect         
-wp.range.start = vaddr       
-wp.range.len = len            
-wp.mode = 0                   
-ioctl(uffd, UFFDIO_WRITEPROTECT)
-
-
-### Data Flow Destination
-
-Destination behavior is still lazy-pages based, but this fork also includes COW
-bulk-stream handling changes:
-
-- bulk end-marker handling sends explicit ACK to unblock sender close path,
-- sender side keeps compatibility fallback for peers that close without ACK,
-- bulk completion drops copied ranges from IOV tracking to avoid duplicate faults.
+## Architecture (high level)
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ Traditional: Sequential (1 request at a time)           │
-│                                                         │
-│  Request → Wait → Response → Request → Wait → Response  │
-│                                                         │
-│  Throughput: Limited by RTT                             │
-└─────────────────────────────────────────────────────────┘
+PRIMARY (source)                                    REPLICA (destination)
+──────────────────────────────────────              ─────────────────────────────────────
+Valkey (running)                                     CRIU lazy-pages daemon
+  ↑  writes                                             ↑   receives page stream / faults
+  │                                                      │
+CRIU dump process                                        CRIU restore
+  ├─ parasite RPC: create UFFD + register VMAs (WP)         └─ installs UFFD handlers
+  ├─ apply initial UFFDIO_WRITEPROTECT (parallel)              (faults routed via lazy-pages)
+  ├─ COW monitor thread: snapshot pages on WP fault
+  └─ page server + unified sender thread: stream pages
 
-┌─────────────────────────────────────────────────────────┐
-│ Aggressive: Pipeline (256 requests in-flight)           │
-│                                                         │
-│  Request ─┐                                             │
-│  Request ─┤                                             │
-│  Request ─┤                                             │
-│    ...    ├─► In Flight (256 concurrent)                │
-│  Request ─┤                                             │
-│  Request ─┤                                             │
-│  Request ─┘                                             │
-│                                                         │
-│  Response → IMMEDIATELY refill pipeline                 │
-│                                                         │
-│  Throughput: Near maximum network bandwidth             │
-└─────────────────────────────────────────────────────────┘
+Valkey replication (REPLICAOF) ensures the destination catches up after restore.
+Scripts keep the replica read-only and gated until replication is configured.
 ```
 
+## Implementation contracts (current branch)
 
-## Kernel Requirements
+1. **COW session ownership**
+   - COW state is dump-session scoped (`g_cow_info`).
+   - Each task in the process tree registers its eligible VMAs and contributes a
+     `userfaultfd` to the session.
+   - The COW monitor thread is global and started once. It may start during the
+     first task dump to service parasite-side write faults.
 
-### Minimum Kernel Version
-**Linux 5.7+** (released May 2020)
+2. **VMA eligibility and fallback**
+   - Only VMAs matching the same filters as lazy-pages page generation are
+     eligible for COW tracking (see `criu/cow-dump.c:cow_register_vmas()`).
+   - VMAs that cannot be WP-registered are skipped and dumped via the normal
+     path.
+   - `UFFDIO_REGISTER` is called from the CRIU process (not the parasite);
+     the ioctl operates on the uffd's associated `mm_struct`.
 
-### Required Features
+3. **Bulk stream termination (no ACK)**
+   - The sender ends the bulk page stream with an end marker: `PS_IOV_CLOSE`
+     header with `nr_pages == 0`.
+   - The receiver treats end marker as completion and does not send any ACK back
+     on the same socket.
+   - The sender tolerates receiver close after the marker (`EPIPE`/`ECONNRESET`
+     on send is treated as clean completion).
 
-| Feature | Flag | Purpose | Since |
-|---------|------|---------|-------|
-| WP Flag | `UFFD_FEATURE_PAGEFAULT_FLAG_WP` | Identify write faults | 5.7 |
+4. **Teardown ordering**
+   - `wait_for_page_server_thread()` happens before `cow_dump_fini()` to avoid
+     freeing hash/locks while the sender thread is still running.
 
+## Dump-side flow (PRIMARY)
 
-### System Configuration
+### CLI entry points
 
-**Unprivileged Access:**
+- Option parsing: `criu/config.c` (`--cow-dump` → `opts.cow_dump`)
+- Dump coordinator: `criu/cr-dump.c:cr_dump_tasks()`
+
+### Timeline
+
+1. **Seize/freeze**
+   - CRIU seizes the process tree (stop-the-world) to build a consistent base.
+
+2. **Per-task COW registration (`dump_one_task()` → `cow_dump_init()`)**
+   - File: `criu/cr-dump.c` calls `criu/cow-dump.c:cow_dump_init()`.
+   - `cow_dump_init()`:
+     - calls parasite RPC only to create a `userfaultfd` and negotiate
+       `UFFDIO_API` inside the target process (the parasite sends the fd back
+       via `SCM_RIGHTS` and does no VMA registration),
+     - registers eligible VMAs with `UFFDIO_REGISTER_MODE_WP` directly from
+       the CRIU process (`cow_register_vmas()`); this works because the
+       ioctl operates on the uffd's associated `mm_struct`, not `current->mm`,
+     - applies initial `UFFDIO_WRITEPROTECT` **from the CRIU process** and
+       parallelizes it in 256MB chunks (`COW_WP_CHUNK_SIZE`) using worker threads
+       (`cow_task_apply_writeprotect()`),
+     - adds the task's `userfaultfd` to the global tracked list.
+   - On kernels with `/proc/<pid>/userfaultfd` (6.11+, detected via
+     `kdat.has_uffd_proc`), the parasite RPC is skipped entirely.
+
+3. **Start/keep the COW monitor thread**
+   - Monitor thread: `criu/cow-dump.c:cow_monitor_thread()` (started via
+     `cow_start_monitor_thread()`).
+   - Why it can start early: once WP is armed, parasite code can trigger WP
+     faults (e.g. TLS/rseq writes). The monitor must service those to avoid
+     deadlock in further parasite RPC.
+
+4. **On first write to a protected page**
+   - Path: `cow_process_events()` → `cow_handle_write_fault()`.
+   - Action:
+     1. snapshot the page using `process_vm_readv()` (pre-write contents),
+     2. store it in a per-page hash (`cow_hash[...]`),
+     3. clear WP via `UFFDIO_WRITEPROTECT(mode=0)`,
+     4. wake the faulting thread via `UFFDIO_WAKE`.
+
+5. **Resume early and start page transfer**
+   - After the base dump finishes, `criu/cr-dump.c:cr_dump_tasks()` prints
+     `PAGE SERVER READY TO SERVE`, resumes the process tree, and runs
+     `cr_lazy_mem_dump()` to start lazy transfer with the source running.
+
+6. **Page transfer in bulk mode (page server unified sender thread)**
+   - File: `criu/page-xfer.c` (`unified_page_server_thread()`).
+   - For each destination image (`dst_id`), the sender walks lazy VMAs and sends
+     pages using a 3-tier priority:
+     1. queued COW pages (pages that faulted on write),
+     2. explicit page requests from the destination (fault-driven),
+     3. regular pages (sequential walk of the lazy VMA ranges).
+   - Each page send (`send_lazy_vma_page()`):
+     - re-checks the COW hash after `process_vm_readv()` to preserve dump-time
+       semantics under races,
+     - sends a compressed record (`PS_IOV_ADD_F_COMPRESS`) plus payload.
+
+7. **End of stream**
+   - The sender sends `PS_IOV_CLOSE` with `nr_pages == 0`
+     (`send_image_complete()`), and the receiver closes without ACK.
+
+## Restore-side flow (REPLICA)
+
+The REPLICA runs two processes:
+
+1. `criu lazy-pages --page-server ... --cow-dump`
+2. `criu restore --lazy-pages ... --cow-dump`
+
+The lazy-pages daemon receives the page stream and satisfies faults for the
+restoring process.
+
+Bulk receiver implementation:
+
+- File: `criu/page-xfer.c:page_server_read_bulk_stream()`
+  - reads a continuous stream of `struct page_server_iov` headers + payload,
+  - supports compressed pages (`PS_IOV_ADD_F_COMPRESS`),
+  - treats `nr_pages == 0` as end-of-transfer and stops without sending ACK.
+
+## Threading model (concrete)
+
+Dump process (PRIMARY):
+
+- main thread: orchestrates dump + resumes process + starts lazy transfer
+- `cow-monitor` thread: blocks on `userfaultfd` events and snapshots pages
+- `criu-page-srv` thread: streams pages for all active `dst_id` images
+- `cow-wp` worker threads: apply initial `UFFDIO_WRITEPROTECT` in parallel
+
+Restore side (REPLICA):
+
+- `lazy-pages` process: reads incoming pages and issues `UFFDIO_COPY` into the
+  restoring process as needed
+- `restore` process: executes restorer code path and transitions to the restored
+  workload
+
+## Measurement and artifacts
+
+`scripts/migrate.sh` creates `artifacts/<run_id>/` with:
+
+- `stats-dump(.json)`: CRIU internal dump stats (`freezing_time`, `frozen_time`,
+  pages scanned/written, etc.)
+- `source-ping.log` + `source_markers.log`: source PING latency samples +
+  phase markers
+- `lazy-*.log`: CRIU logs from dump/restore/lazy-pages
+
+Phase analysis:
+
 ```bash
-# Allow unprivileged userfaultfd
-echo 1 > /proc/sys/vm/unprivileged_userfaultfd
-
-# Or require CAP_SYS_PTRACE
+python3 scripts/analyze_phase_latency.py artifacts/<run_id>
 ```
 
+Important nuance: CRIU “frozen time” and client-observed stalls are different
+metrics. A local monitor can also be affected by CPU starvation on the same
+host; use the traffic harness for app-like KPIs.
 
+## Kernel requirements
 
----
+- Linux 5.7+ (needs `UFFD_FEATURE_PAGEFAULT_FLAG_WP`)
+- root, or `vm.unprivileged_userfaultfd=1`
 
-## Future Work
+## Future work (short list)
 
-#### 1. Explore UFFD_FEATURE_WP_ASYNC
-
-We should explore how to use this feature. It should only mark the page as touched and then we can do a second pass to copy only the touched pages. I will dive deeper to see if it is more efficient.
-
-#### 2. Reduce communication overhead between source and destination
-
-Currently the communication is driven by the destination which sends requests. We can improve this by making the source send the data and the destination only asks if there is a read page fault. That way, we reduce the amount of work from the source.
-
-#### 3. Make the source multithreaded
-
-Can we make the source multithreaded to reduce the overall time? Should be explored.
-
-#### 4. Non-Registerable VMAs
-
-**Issue:** Some VMAs cannot be write-protected.
-
-I will be happy to get advice.
-
-
-
-### Next Steps
-
-For maintainers reviewing this code:
-
-1. **Testing:** Extensive testing with various workloads + add regression tests.
-2. **Documentation:** Update user-facing documentation
-3. **Performance Tuning:** Try differnt techniques discussed at the Future Work section.
+- Explore `UFFD_FEATURE_WP_ASYNC` for alternative dirty tracking semantics.
+- Improve fork/remap handling (`UFFD_EVENT_FORK`, `UFFD_EVENT_REMAP`) for
+  process-tree workloads.
+- Reduce overhead in hot paths (hash management, allocations, compression).
 
 
 ### Usage
