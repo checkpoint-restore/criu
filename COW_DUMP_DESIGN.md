@@ -55,9 +55,11 @@ Scripts keep the replica read-only and gated until replication is configured.
 
 2. **VMA eligibility and fallback**
    - Only VMAs matching the same filters as lazy-pages page generation are
-     eligible for COW tracking (see `criu/cow-dump.c:cow_dump_init()`).
-   - VMAs that cannot be WP-registered are explicitly marked as fallback and
-     dumped via the normal path.
+     eligible for COW tracking (see `criu/cow-dump.c:cow_register_vmas()`).
+   - VMAs that cannot be WP-registered are skipped and dumped via the normal
+     path.
+   - `UFFDIO_REGISTER` is called from the CRIU process (not the parasite);
+     the ioctl operates on the uffd's associated `mm_struct`.
 
 3. **Bulk stream termination (no ACK)**
    - The sender ends the bulk page stream with an end marker: `PS_IOV_CLOSE`
@@ -86,14 +88,18 @@ Scripts keep the replica read-only and gated until replication is configured.
 2. **Per-task COW registration (`dump_one_task()` → `cow_dump_init()`)**
    - File: `criu/cr-dump.c` calls `criu/cow-dump.c:cow_dump_init()`.
    - `cow_dump_init()`:
-     - builds a list of eligible VMAs (writable + lazy-eligible filters),
-     - calls parasite RPC to create a `userfaultfd` and `UFFDIO_REGISTER` those
-       VMAs in `UFFDIO_REGISTER_MODE_WP`,
-     - receives the `userfaultfd` back from the parasite,
+     - calls parasite RPC only to create a `userfaultfd` and negotiate
+       `UFFDIO_API` inside the target process (the parasite sends the fd back
+       via `SCM_RIGHTS` and does no VMA registration),
+     - registers eligible VMAs with `UFFDIO_REGISTER_MODE_WP` directly from
+       the CRIU process (`cow_register_vmas()`); this works because the
+       ioctl operates on the uffd's associated `mm_struct`, not `current->mm`,
      - applies initial `UFFDIO_WRITEPROTECT` **from the CRIU process** and
        parallelizes it in 256MB chunks (`COW_WP_CHUNK_SIZE`) using worker threads
        (`cow_task_apply_writeprotect()`),
-     - adds the task’s `userfaultfd` to the global tracked list.
+     - adds the task's `userfaultfd` to the global tracked list.
+   - On kernels with `/proc/<pid>/userfaultfd` (6.11+, detected via
+     `kdat.has_uffd_proc`), the parasite RPC is skipped entirely.
 
 3. **Start/keep the COW monitor thread**
    - Monitor thread: `criu/cow-dump.c:cow_monitor_thread()` (started via

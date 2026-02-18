@@ -43,9 +43,10 @@ Artifacts are written under `artifacts/<run_id>/` on PRIMARY.
 1. **Stop-the-world (short):** CRIU seizes the process tree to build a consistent
    base snapshot.
 2. **Arm COW tracking:**
-   - parasite creates a `userfaultfd` and registers eligible VMAs with
-     `UFFDIO_REGISTER_MODE_WP`,
-   - CRIU applies `UFFDIO_WRITEPROTECT` to those ranges (parallelized),
+   - parasite creates a `userfaultfd` inside the target process and sends it
+     back to CRIU (or CRIU opens `/proc/<pid>/userfaultfd` on kernel 6.11+),
+   - CRIU registers eligible VMAs with `UFFDIO_REGISTER_MODE_WP` and applies
+     `UFFDIO_WRITEPROTECT` to those ranges (parallelized),
    - the COW monitor thread starts (or is kept running) to handle write faults.
 3. **Base dump completes:** CRIU writes images and prints `PAGE SERVER READY TO SERVE`.
 4. **Source resumes:** the source keeps running under WP tracking.

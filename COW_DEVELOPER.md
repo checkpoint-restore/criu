@@ -169,9 +169,11 @@ script kills it at the start of each run. On the **REPLICA**, Valkey must be
 Use this order as the source of truth for debugging:
 
 1. CRIU seizes the process tree (short stop-the-world).
-2. For each task, CRIU registers eligible VMAs for UFFD WP via parasite RPC
-   (`UFFDIO_REGISTER_MODE_WP`); non-registerable VMAs are marked fallback and
-   dumped via the normal path.
+2. For each task, the parasite creates a `userfaultfd` inside the target and
+   sends the fd to CRIU (or CRIU opens `/proc/<pid>/userfaultfd` on 6.11+).
+   CRIU then calls `UFFDIO_REGISTER` with `UFFDIO_REGISTER_MODE_WP` for
+   eligible VMAs directly from its own context; non-registerable VMAs are
+   skipped and dumped via the normal path.
 3. CRIU applies initial `UFFDIO_WRITEPROTECT` to tracked VMAs (parallelized in
    the CRIU process), then starts/keeps a single monitor thread to service WP
    faults.
