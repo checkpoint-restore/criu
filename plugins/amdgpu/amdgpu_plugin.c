@@ -2304,8 +2304,8 @@ void *parallel_restore_bo_contents(void *_thread_data)
 	FILE *bo_contents_fp = NULL;
 	parallel_restore_entry *entry;
 	parallel_restore_cmd *restore_cmd = thread_data->restore_cmd;
+	off_t offset;
 	int ret = 0;
-	int offset = 0;
 	void *buffer = NULL;
 
 	ret = init_dev(thread_data->minor, &h_dev, &max_copy_size);
@@ -2327,7 +2327,12 @@ void *parallel_restore_bo_contents(void *_thread_data)
 		ret = -1;
 		goto err_sdma;
 	}
-	offset = ftell(bo_contents_fp);
+	offset = ftello(bo_contents_fp);
+	if (offset < 0) {
+		ret = -errno;
+		pr_perror("Failed to seek in parallel restore");
+		goto err_sdma;
+	}
 
 	ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
 	if (ret) {
@@ -2338,11 +2343,19 @@ void *parallel_restore_bo_contents(void *_thread_data)
 	}
 
 	for (int i = 0; i < restore_cmd->cmd_head.entry_num; i++) {
+		off_t pos;
+
 		if (restore_cmd->entries[i].gpu_id != thread_data->gpu_id)
 			continue;
 
 		entry = &restore_cmd->entries[i];
-		fseeko(bo_contents_fp, entry->read_offset + offset, SEEK_SET);
+		pos = fseeko(bo_contents_fp, entry->read_offset + offset,
+			     SEEK_SET);
+		if (pos < 0) {
+			ret = -errno;
+			pr_err("Failed to seek for BO using sDMA: bo_buckets[%d]\n", i);
+			goto err_sdma;
+		}
 		ret = sdma_copy_bo(restore_cmd->fds_write[entry->write_id], entry->size, bo_contents_fp,
 				   buffer, buffer_size, h_dev,
 				   max_copy_size, SDMA_OP_VRAM_WRITE, false);
