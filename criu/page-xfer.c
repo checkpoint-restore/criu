@@ -1933,7 +1933,7 @@ static void print_thread_stats(struct unified_thread_stats *stats)
 	clock_gettime(CLOCK_REALTIME, &ts);
 	tm = localtime(&ts.tv_sec);
 
-	pr_debug("[UNIFIED_THREAD_STATS] [%02d:%02d:%02d.%03ld] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu | Compress: %lu->%lu (%.1f%%)\n",
+	pr_err("[UNIFIED_THREAD_STATS] [%02d:%02d:%02d.%03ld] P1(COW)=%lu P2(Req)=%lu P3(Reg)=%lu P3_Skips=%lu pages/sec | COW_Q=%lu Req_Q=%lu | Compress: %lu->%lu (%.1f%%)\n",
 		tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
 		stats->priority1_pages, stats->priority2_pages,
 		stats->priority3_pages, stats->priority3_skips,

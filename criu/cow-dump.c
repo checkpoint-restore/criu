@@ -298,7 +298,7 @@ static void check_and_print_cow_stats(void)
 	time_t now = time(NULL);
 	
 	if (now - cow_stats.last_print_time >= 1) {
-		pr_debug("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu eagain_err=%lu\n",
+		pr_err("[COW_STATS] events: wr=%lu fork=%lu remap=%lu unk=%lu | ops: copied=%lu unprot=%lu woken=%lu | errs: alloc=%lu read=%lu unprot_err=%lu wake_err=%lu read_err=%lu eagain_err=%lu\n",
 			cow_stats.write_faults,
 			cow_stats.fork_events,
 			cow_stats.remap_events,
@@ -810,6 +810,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi,
 	ssize_t ret;
 	unsigned int hash;
 	struct iovec local_iov, remote_iov;
+	struct cow_page_queue_entry* entry;
 
 	pr_debug("Write fault at 0x%lx\n", page_addr);
 
@@ -884,6 +885,20 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi,
 		return -1;
 	}
 	
+	entry = xmalloc(sizeof(*entry));
+	if (entry) {
+		entry->vaddr = page_addr;
+		entry->ppb = NULL;  /* Indicates lazy VMA - no location info needed */
+		entry->seg_idx = 0;
+		entry->page_idx_in_seg = 0;
+		INIT_LIST_HEAD(&entry->list);
+		pthread_spin_lock(&cdi->queue_lock);
+		list_add_tail(&entry->list, &cdi->cow_page_queue);
+		pthread_spin_unlock(&cdi->queue_lock);
+		pr_debug("Added lazy VMA COW page 0x%lx to queue\n", page_addr);
+	} else {
+		pr_warn("Failed to allocate queue entry for page 0x%lx\n", page_addr);
+	}
 	cow_stats.pages_woken++;
 	cdi->total_pages--;
 
