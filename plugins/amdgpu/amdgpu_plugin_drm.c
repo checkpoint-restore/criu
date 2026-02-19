@@ -310,8 +310,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 	for (int i = 0; i < num_bos; i++) {
 		int num_vm_entries = 8;
-		struct drm_amdgpu_gem_vm_entry *vm_info_entries;
-		struct drm_amdgpu_gem_op vm_info_args = { 0 };
+		struct drm_amdgpu_gem_vm_entry *vm_info_entries = NULL;
 		DrmBoEntry *boinfo = rd->bo_entries[i];
 		struct drm_amdgpu_gem_list_handles_entry handle_entry = list_handles_entries[i];
 		union drm_amdgpu_gem_mmap mmap_args = { 0 };
@@ -341,42 +340,37 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 		boinfo->offset = mmap_args.out.addr_ptr;
 
-		vm_info_entries = xzalloc(sizeof(struct drm_amdgpu_gem_vm_entry) * num_vm_entries);
-		if (!vm_info_entries) {
-			ret = -ENOMEM;
-			goto exit;
-		}
-		vm_info_args.handle = handle_entry.gem_handle;
-		vm_info_args.num_entries = num_vm_entries;
-		vm_info_args.value = (uintptr_t)vm_info_entries;
-		vm_info_args.op = AMDGPU_GEM_OP_GET_MAPPING_INFO;
-		ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_OP, &vm_info_args);
-		if (ret) {
-			pr_perror("Failed to call vm info ioctl");
-			xfree(vm_info_entries);
-			goto exit;
-		}
+		while (1) {
+			struct drm_amdgpu_gem_op vm_info_args = {
+				.handle = handle_entry.gem_handle,
+				.num_entries = num_vm_entries,
+				.op = AMDGPU_GEM_OP_GET_MAPPING_INFO,
+			};
 
-		if (vm_info_args.num_entries > num_vm_entries) {
-			num_vm_entries = vm_info_args.num_entries;
-			xfree(vm_info_entries);
-			vm_info_entries = xzalloc(sizeof(struct drm_amdgpu_gem_vm_entry) * num_vm_entries);
+			if (vm_info_entries)
+				xfree(vm_info_entries);
+			vm_info_entries = xzalloc(sizeof(*vm_info_entries) *
+						  num_vm_entries);
 			if (!vm_info_entries) {
 				ret = -ENOMEM;
 				goto exit;
 			}
-			vm_info_args.handle = handle_entry.gem_handle;
-			vm_info_args.num_entries = num_vm_entries;
+
 			vm_info_args.value = (uintptr_t)vm_info_entries;
-			vm_info_args.op = AMDGPU_GEM_OP_GET_MAPPING_INFO;
-			ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_OP, &vm_info_args);
+			ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_OP,
+				       &vm_info_args);
 			if (ret) {
 				pr_perror("Failed to call vm info ioctl");
 				xfree(vm_info_entries);
 				goto exit;
 			}
-		} else {
-			num_vm_entries = vm_info_args.num_entries;
+
+			if (vm_info_args.num_entries <= num_vm_entries) {
+				num_vm_entries = vm_info_args.num_entries;
+				break;
+			} else {
+				num_vm_entries = vm_info_args.num_entries;
+			}
 		}
 
 		boinfo->num_of_vms = num_vm_entries;
