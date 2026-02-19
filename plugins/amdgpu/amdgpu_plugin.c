@@ -54,7 +54,6 @@ struct vma_metadata {
 	uint64_t old_pgoff;
 	uint64_t new_pgoff;
 	uint64_t vma_entry;
-	uint32_t new_minor;
 	int fd;
 };
 
@@ -1725,13 +1724,12 @@ static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKf
 				goto exit;
 			}
 
-			vma_md->new_minor = tp_node->drm_render_minor;
 			vma_md->new_pgoff = bo_bucket->restored_offset;
 			vma_md->fd = node_get_drm_render_device(tp_node);
 
 			plugin_log_msg("adding vma_entry:addr:0x%lx old-off:0x%lx "
 				       "new_off:0x%lx new_minor:%d\n",
-				       vma_md->vma_entry, vma_md->old_pgoff, vma_md->new_pgoff, vma_md->new_minor);
+				       vma_md->vma_entry, vma_md->old_pgoff, vma_md->new_pgoff, tp_node->drm_render_minor);
 
 			list_add_tail(&vma_md->list, &update_vma_info_list);
 		}
