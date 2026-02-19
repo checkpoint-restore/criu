@@ -121,6 +121,7 @@ int amdgpu_plugin_dmabuf_restore(int id)
 	}
 
 	ret = read_fp(img_fp, buf, img_size);
+	fclose(img_fp);
 	if (ret) {
 		pr_perror("Unable to read from %s", path);
 		fclose(img_fp);
