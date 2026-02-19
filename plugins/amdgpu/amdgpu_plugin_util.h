@@ -106,11 +106,11 @@ extern bool kfd_vram_size_check;
 extern bool kfd_numa_check;
 extern bool kfd_capability_check;
 
-int read_fp(FILE *fp, void *buf, const size_t buf_len);
-int write_fp(FILE *fp, const void *buf, const size_t buf_len);
+int img_read(int fd, void *buf, size_t buf_len);
+int img_write(int fd, const void *buf, size_t buf_len);
 int read_file(const char *file_path, void *buf, const size_t buf_len);
 int write_img_file(char *path, const void *buf, const size_t buf_len);
-FILE *open_img_file(char *path, bool write, size_t *size, bool expect_present);
+int open_img_file(char *path, bool write, size_t *size, bool expect_present);
 
 int record_dumped_fd(int fd, bool is_drm);
 struct list_head *get_dumped_fds();
@@ -127,7 +127,7 @@ void clear_restore_state();
 
 void print_kfd_bo_stat(int bo_cnt, struct kfd_criu_bo_bucket *bo_list);
 
-int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
+int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 		 void *buffer, size_t buffer_size, amdgpu_device_handle h_dev,
 		 uint64_t max_copy_size, enum sdma_op_type type, bool do_not_free);
 

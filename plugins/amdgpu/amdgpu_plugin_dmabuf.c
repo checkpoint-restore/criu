@@ -96,39 +96,34 @@ int __amdgpu_plugin_dmabuf_dump(int dmabuf_fd, int id)
 int amdgpu_plugin_dmabuf_restore(int id)
 {
 	char path[PATH_MAX];
+	int fd_id, img_fd;
 	size_t img_size;
-	FILE *img_fp = NULL;
 	int ret = 0;
 	CriuDmabufNode *rd = NULL;
 	unsigned char *buf = NULL;
-	int fd_id;
 
 	snprintf(path, sizeof(path), IMG_DMABUF_FILE, id);
 
 	/* Read serialized metadata */
-	img_fp = open_img_file(path, false, &img_size, true);
-	if (!img_fp) {
+	img_fd = open_img_file(path, false, &img_size, true);
+	if (img_fd < 0) {
 		pr_err("Failed to open dmabuf metadata file: %s\n", path);
-		return -EINVAL;
+		return img_fd;
 	}
 
 	pr_debug("dmabuf Image file size:%ld\n", img_size);
 	buf = xmalloc(img_size);
 	if (!buf) {
 		pr_perror("Failed to allocate memory");
-		fclose(img_fp);
 		return -ENOMEM;
 	}
 
-	ret = read_fp(img_fp, buf, img_size);
-	fclose(img_fp);
+	ret = img_read(img_fd, buf, img_size);
+	close(img_fd);
 	if (ret) {
-		pr_perror("Unable to read from %s", path);
-		fclose(img_fp);
 		xfree(buf);
 		return ret;
 	}
-	fclose(img_fp);
 
 	rd = criu_dmabuf_node__unpack(NULL, img_size, buf);
 	if (rd == NULL) {
