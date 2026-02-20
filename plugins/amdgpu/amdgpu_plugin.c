@@ -570,7 +570,7 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 	src_bo_size = (type == SDMA_OP_VRAM_WRITE) ? buffer_bo_size : size;
 	dst_bo_size = (type == SDMA_OP_VRAM_READ) ? buffer_bo_size : size;
 
-	plugin_log_msg("Enter %s\n", __func__);
+	pr_debug("Enter %s\n", __func__);
 
 	/* prepare src buffer */
 	switch (type) {
@@ -605,7 +605,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 		pr_perror("failed to GPU map the src BO");
 		goto err_src_bo_map;
 	}
-	plugin_log_msg("Source BO: GPU VA: %lx, size: %lx\n", gpu_addr_src, src_bo_size);
+	pr_debug("Source BO: GPU VA: %lx, size: %lx\n",
+		 gpu_addr_src, src_bo_size);
 
 	/* prepare dest buffer */
 	switch (type) {
@@ -640,7 +641,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 		pr_perror("failed to GPU map the dest BO");
 		goto err_dst_bo_map;
 	}
-	plugin_log_msg("Dest BO: GPU VA: %lx, size: %lx\n", gpu_addr_dst, dst_bo_size);
+	pr_debug("Dest BO: GPU VA: %lx, size: %lx\n",
+		 gpu_addr_dst, dst_bo_size);
 
 	/* prepare ring buffer/indirect buffer for command submission
 	 * each copy packet is 7 dwords so we need to alloc 28x size for ib
@@ -651,7 +653,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 		pr_perror("failed to allocate and map ib/rb");
 		goto err_ib_gpu_alloc;
 	}
-	plugin_log_msg("Indirect BO: GPU VA: %lx, size: %lx\n", gpu_addr_ib, packets_per_buffer * 28);
+	pr_debug("Indirect BO: GPU VA: %" PRIx64 ", size: %d\n",
+		 gpu_addr_ib, packets_per_buffer * 28);
 
 	resources[0] = h_bo_src;
 	resources[1] = h_bo_dst;
@@ -794,7 +797,7 @@ err_src_va:
 	err2 = amdgpu_bo_free(h_bo_src);
 	if (err2)
 		pr_perror("src bo free failed");
-	plugin_log_msg("Leaving sdma_copy_bo, err = %d\n", err);
+	pr_debug("Leaving sdma_copy_bo, err = %d\n", err);
 	return err;
 }
 
@@ -820,7 +823,7 @@ void *dump_bo_contents(void *_thread_data)
 		pr_perror("failed to initialize device");
 		goto exit;
 	}
-	plugin_log_msg("libdrm initialized successfully\n");
+	pr_debug("libdrm initialized successfully\n");
 
 	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
 	if (ret) {
@@ -913,7 +916,7 @@ void *restore_bo_contents(void *_thread_data)
 		pr_perror("failed to initialize device");
 		goto exit;
 	}
-	plugin_log_msg("libdrm initialized successfully\n");
+	pr_debug("libdrm initialized successfully\n");
 
 	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
 	if (ret) {
@@ -974,7 +977,8 @@ void *restore_bo_contents(void *_thread_data)
 			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
 			break;
 		}
-		plugin_log_msg("** Successfully filled the BO using sDMA: bo_buckets[%d] **\n", i);
+		pr_debug("** Successfully filled the BO using sDMA: bo_buckets[%d] **\n",
+			 i);
 	}
 
 exit:
@@ -1008,7 +1012,7 @@ int check_hsakmt_shared_mem(uint64_t *shared_mem_size, uint32_t *shared_mem_magi
 	if (ret)
 		pr_perror("Failed to read shared mem magic");
 	else
-		plugin_log_msg("Shared mem magic:0x%x\n", *shared_mem_magic);
+		pr_debug("Shared mem magic:0x%x\n", *shared_mem_magic);
 
 	return 0;
 }
@@ -1676,8 +1680,9 @@ static int restore_bos(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 		bo_bucket->offset = bo_entry->offset;
 		bo_bucket->alloc_flags = bo_entry->alloc_flags;
 
-		plugin_log_msg("BO [%d] gpu_id:%x addr:%llx size:%llx offset:%llx\n", i, bo_bucket->gpu_id,
-			       bo_bucket->addr, bo_bucket->size, bo_bucket->offset);
+		pr_debug("BO [%d] gpu_id:%x addr:%" PRIx64 " size:%" PRIx64 " offset:%" PRIx64 "\n",
+			 i, bo_bucket->gpu_id, bo_bucket->addr, bo_bucket->size,
+			 bo_bucket->offset);
 	}
 
 	pr_info("Restore BOs Ok\n");
@@ -1745,9 +1750,9 @@ static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKf
 			vma_md->new_pgoff = bo_bucket->restored_offset;
 			vma_md->fd = node_get_drm_render_device(tp_node);
 
-			plugin_log_msg("adding vma_entry:addr:0x%lx old-off:0x%lx "
-				       "new_off:0x%lx new_minor:%d\n",
-				       vma_md->vma_entry, vma_md->old_pgoff, vma_md->new_pgoff, tp_node->drm_render_minor);
+			pr_debug("adding vma_entry:addr:0x%lx old-off:0x%lx new_off:0x%lx new_minor:%d\n",
+				 vma_md->vma_entry, vma_md->old_pgoff,
+				 vma_md->new_pgoff, tp_node->drm_render_minor);
 
 			list_add_tail(&vma_md->list, &update_vma_info_list);
 		}
@@ -2019,7 +2024,7 @@ int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 		return -1;
 	}
 
-	plugin_log_msg("read image file data\n");
+	pr_debug("read image file data\n");
 
 	/*
 	 * Initialize fd_next to be 1 greater than the biggest file descriptor in use by the target restore process.
@@ -2126,7 +2131,7 @@ int amdgpu_plugin_update_vmamap(const char *in_path, const uint64_t addr, const 
 	if (plugin_disabled)
 		return -ENOTSUP;
 
-	plugin_log_msg("Enter %s\n", __func__);
+	pr_debug("Enter %s\n", __func__);
 
 	strncpy(path, in_path, sizeof(path));
 
@@ -2169,8 +2174,9 @@ int amdgpu_plugin_update_vmamap(const char *in_path, const uint64_t addr, const 
 				*updated_fd = fd;
 			}
 
-			plugin_log_msg("old_pgoff=0x%lx new_pgoff=0x%lx fd=%d\n", vma_md->old_pgoff, vma_md->new_pgoff,
-				       *updated_fd);
+			pr_debug("old_pgoff=0x%lx new_pgoff=0x%lx fd=%d\n",
+				 vma_md->old_pgoff, vma_md->new_pgoff,
+				 *updated_fd);
 
 			return 1;
 		}

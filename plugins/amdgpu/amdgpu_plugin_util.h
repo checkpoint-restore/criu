@@ -25,15 +25,6 @@
 #endif
 #define LOG_PREFIX "amdgpu_plugin: "
 
-#ifdef DEBUG
-#define plugin_log_msg(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
-#else
-#define plugin_log_msg(fmt, ...) \
-	{                        \
-	}
-#endif
-
-
 /* Path where KFD device is surfaced */
 #define AMDGPU_KFD_DEVICE		"/dev/kfd"
 
