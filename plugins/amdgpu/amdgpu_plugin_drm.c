@@ -489,24 +489,11 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 {
 	int ret = 0;
 	bool retry_needed = false;
-	bool dev_initialized = false;
 	bool bo_restore_called = false;
-	uint32_t major, minor;
-	amdgpu_device_handle h_dev;
-	int device_fd;
 	int *dmabufs = xmalloc(sizeof(int) * rd->num_of_bos);
 	if (!dmabufs)
 		return -ENOMEM;
 	memset(dmabufs, 0xff, sizeof(int) * rd->num_of_bos);
-
-	ret = amdgpu_device_initialize(fd, &major, &minor, &h_dev);
-	if (ret) {
-		pr_info("Error in init amdgpu device\n");
-		goto exit;
-	}
-	dev_initialized = true;
-
-	device_fd = amdgpu_device_get_fd(h_dev);
 
 	for (int i = 0; i < rd->num_of_bos; i++) {
 		DrmBoEntry *boinfo = rd->bo_entries[i];
@@ -535,7 +522,7 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 				retry_needed = true;
 				continue;
 			}
-			ret = drmPrimeFDToHandle(device_fd, dmabuf_fd, &handle);
+			ret = drmPrimeFDToHandle(fd, dmabuf_fd, &handle);
 			if (ret) {
 				pr_perror("Failed to get handle from dmabuf fd");
 				close(dmabuf_fd);
@@ -556,7 +543,7 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 			}
 			handle = create_args.out.handle;
 
-			ret = drmPrimeHandleToFD(device_fd, handle, 0, &dmabuf_fd);
+			ret = drmPrimeHandleToFD(fd, handle, 0, &dmabuf_fd);
 			if (ret) {
 				pr_perror("Failed to get dmabuf fd from handle");
 				goto exit;
@@ -632,8 +619,6 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 	}
 
 exit:
-	if (dev_initialized)
-		amdgpu_device_deinitialize(h_dev);
 	if (ret < 0 && !bo_restore_called) {
 		for (int i = 0; i < rd->num_of_bos; i++) {
 			if (dmabufs[i] != KFD_INVALID_FD)
