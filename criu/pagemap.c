@@ -559,6 +559,12 @@ static int process_async_reads(struct page_read *pr)
 			return -1;
 		}
 
+		if (ret == 0 && piov->end != piov->from) {
+			pr_err("Unexpected EOF reading pages: expected %ju more bytes at offset %ju\n",
+			       piov->end - piov->from, piov->from);
+			return -1;
+		}
+
 		if (opts.auto_dedup && punch_hole(pr, piov->from, ret, false))
 			return -1;
 
