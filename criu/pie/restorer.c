@@ -1915,6 +1915,12 @@ __visible long __export_restore_task(struct task_restore_args *args)
 				goto core_restore_end;
 			}
 
+			if (r == 0) {
+				pr_err("Unexpected EOF reading pages data at offset %ld (%d iovs remaining)\n",
+				       (long)rio->off, nr);
+				goto core_restore_end;
+			}
+
 			pr_debug("`- returned %ld\n", (long)r);
 			/* If the file is open for writing, then it means we should punch holes
 			 * in it. */
