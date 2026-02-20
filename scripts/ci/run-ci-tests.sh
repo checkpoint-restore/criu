@@ -262,6 +262,8 @@ if [ -n "$CIRCLECI" ]; then
 fi
 make -C test/others/criu-ns/ run
 make -C test/others/skip-file-rwx-check/ run
+make -C test/others/truncated-pages/ run
+make -C test/others/truncated-pages/ run-cow
 make -C test/others/rpc/ run
 
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
