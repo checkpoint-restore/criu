@@ -1572,7 +1572,12 @@ static int __restore_task_with_children(void *_arg)
 		/* Wait prepare_userns */
 		if (restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
 			goto err;
+	}
 
+	if (needs_prep_creds(current) && (prepare_userns_creds()))
+		goto err;
+
+	if (current->parent == NULL) {
 		/*
 		 * Since we don't support nesting of cgroup namespaces, let's
 		 * only set up the cgns (if it exists) in the init task.
@@ -1580,9 +1585,6 @@ static int __restore_task_with_children(void *_arg)
 		if (prepare_cgroup_namespace(current) < 0)
 			goto err;
 	}
-
-	if (needs_prep_creds(current) && (prepare_userns_creds()))
-		goto err;
 
 	/*
 	 * Call this _before_ forking to optimize cgroups
