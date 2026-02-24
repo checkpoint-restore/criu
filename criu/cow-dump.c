@@ -28,6 +28,9 @@
 #include "kerndat.h"
 #include "criu-log.h"
 #include "parasite.h"
+#include "atomic-bitmap.h"
+#include "cow-bitmap.h"
+#include "spsc-queue.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "cow-dump: "
@@ -46,15 +49,22 @@ struct cow_tracked_task {
 	struct list_head list;
 };
 
+/* SPSC queue node type for COW page entries */
+DECLARE_SPSC_NODE(cow_page, struct cow_page_queue_entry);
+struct cow_page_queue {
+	struct cow_page_spsc_node *head;
+	char _pad[64 - sizeof(struct cow_page_spsc_node *)];
+	struct cow_page_spsc_node *tail;
+	unsigned long size;
+};
+
 /* COW dump state for one dump session */
 struct cow_dump_info {
 	struct list_head tracked_tasks;
 	unsigned long total_pages;
 	unsigned long iteration;
-	struct hlist_head cow_hash[COW_HASH_SIZE];	/* Hash table for copied pages */
-	pthread_spinlock_t cow_hash_locks[COW_HASH_SIZE];	/* Per-bucket spinlocks */
-	struct list_head cow_page_queue;	/* FIFO queue of COW pages */
-	pthread_spinlock_t queue_lock;		/* Protects the queue */
+
+	struct cow_page_queue page_queue;
 };
 
 /*
@@ -258,13 +268,15 @@ out:
 
 static struct cow_dump_info *g_cow_info = NULL;
 static pthread_t g_monitor_thread;
-static volatile bool g_monitor_thread_running = false;
-static volatile bool g_stop_monitoring = false;
+static _Atomic bool g_monitor_thread_running = false;
+static _Atomic bool g_stop_monitoring = false;
 static pthread_mutex_t g_monitor_state_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t g_tracked_tasks_lock = PTHREAD_MUTEX_INITIALIZER;
 static int g_monitor_eventfd = -1;
 static unsigned long g_tracked_tasks_generation;
 static unsigned long g_monitor_snapshot_generation;
+/* Consumer-side putback list */
+static struct cow_page_queue_entry *g_putback_list = NULL;
 
 #define COW_CONVERGENCE_THRESHOLD 100  /* Stop if < 100 pages dirty per iteration */
 #define COW_FLUSH_THRESHOLD 1000       /* Flush to disk every 1000 pages */
@@ -559,6 +571,13 @@ static int cow_register_vmas(int uffd, struct cow_tracked_task *task,
 	return 0;
 }
 
+static void free_cow_page_entry(struct cow_page_queue_entry *entry)
+{
+	if (entry->data)
+		xfree(entry->data);
+	xfree(entry);
+}
+
 int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, struct parasite_ctl *ctl)
 {
 	struct cow_dump_info *cdi = g_cow_info;
@@ -567,7 +586,6 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	bool created_session = false;
 	int ret;
 	unsigned long args_size;
-	unsigned int i;
 	unsigned long want_generation = 0;
 
 	pr_info("Initializing COW dump for pid %d\n", item->pid->real);
@@ -583,12 +601,14 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 			return -1;
 
 		INIT_LIST_HEAD(&cdi->tracked_tasks);
-		for (i = 0; i < COW_HASH_SIZE; i++) {
-			INIT_HLIST_HEAD(&cdi->cow_hash[i]);
-			pthread_spin_init(&cdi->cow_hash_locks[i], PTHREAD_PROCESS_PRIVATE);
+
+		if (spsc_init(cdi->page_queue.head, cdi->page_queue.tail,
+			      cdi->page_queue.size,
+			      struct cow_page_spsc_node)) {
+			xfree(cdi);
+			return -1;
 		}
-		INIT_LIST_HEAD(&cdi->cow_page_queue);
-		pthread_spin_init(&cdi->queue_lock, PTHREAD_PROCESS_PRIVATE);
+
 		g_cow_info = cdi;
 		created_session = true;
 
@@ -692,7 +712,7 @@ int cow_dump_init(struct pstree_item *item, struct vm_area_list *vma_area_list, 
 	g_tracked_tasks_generation++;
 	want_generation = g_tracked_tasks_generation;
 	pthread_mutex_unlock(&g_tracked_tasks_lock);
-	cdi->total_pages += task->total_pages;
+	__atomic_fetch_add(&cdi->total_pages, task->total_pages, __ATOMIC_RELAXED);
 
 	if (cow_monitor_is_running()) {
 		cow_monitor_wakeup();
@@ -716,9 +736,10 @@ err:
 	}
 
 	if (created_session) {
-		for (i = 0; i < COW_HASH_SIZE; i++)
-			pthread_spin_destroy(&cdi->cow_hash_locks[i]);
-		pthread_spin_destroy(&cdi->queue_lock);
+		if (cdi->page_queue.head) {
+			spsc_drain(cdi->page_queue.head, free_cow_page_entry);
+			cdi->page_queue.tail = NULL;
+		}
 		xfree(cdi);
 		g_cow_info = NULL;
 		if (g_monitor_eventfd >= 0) {
@@ -731,12 +752,10 @@ err:
 }
 
 void cow_dump_fini(void)
-{	
-	struct cow_page *cp;
-	struct cow_page_queue_entry *qe, *qe_tmp;
+{
+	struct cow_page_queue_entry *qe;
 	struct cow_tracked_task *task, *task_tmp;
-	struct hlist_node *n;
-	int i, remaining = 0, queue_remaining = 0;
+	int queue_remaining = 0;
 
 	if (!g_cow_info)
 		return;
@@ -746,7 +765,11 @@ void cow_dump_fini(void)
 		return;
 	}
 
+	/* Wait for unified page server thread to stop before cleaning up */
+	wait_for_page_server_thread();
+
 	pr_info("Cleaning up COW dump\n");
+
 
 	if (g_monitor_eventfd >= 0) {
 		close(g_monitor_eventfd);
@@ -758,34 +781,22 @@ void cow_dump_fini(void)
 	g_monitor_snapshot_generation = 0;
 	pthread_mutex_unlock(&g_tracked_tasks_lock);
 
-	/* Clean up any remaining queue entries */
-	pthread_spin_lock(&g_cow_info->queue_lock);
-	list_for_each_entry_safe(qe, qe_tmp, &g_cow_info->cow_page_queue, list) {
-		list_del(&qe->list);
+	while (g_putback_list) {
+		qe = g_putback_list;
+		g_putback_list = qe->next;
+		if (qe->data)
+			xfree(qe->data);
 		xfree(qe);
 		queue_remaining++;
 	}
-	pthread_spin_unlock(&g_cow_info->queue_lock);
-	pthread_spin_destroy(&g_cow_info->queue_lock);
+
+	if (g_cow_info->page_queue.head) {
+		spsc_drain(g_cow_info->page_queue.head, free_cow_page_entry);
+		g_cow_info->page_queue.tail = NULL;
+	}
 
 	if (queue_remaining > 0)
 		pr_warn("Freed %d remaining queue entries\n", queue_remaining);
-
-	/* Clean up any remaining COW pages */
-	for (i = 0; i < COW_HASH_SIZE; i++) {
-		pthread_spin_lock(&g_cow_info->cow_hash_locks[i]);
-		hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[i], hash) {
-			hlist_del(&cp->hash);
-			xfree(cp->data);
-			xfree(cp);
-			remaining++;
-		}
-		pthread_spin_unlock(&g_cow_info->cow_hash_locks[i]);
-		pthread_spin_destroy(&g_cow_info->cow_hash_locks[i]);
-	}
-
-	if (remaining > 0)
-		pr_warn("Freed %d remaining COW pages\n", remaining);
 
 	list_for_each_entry_safe(task, task_tmp, &g_cow_info->tracked_tasks, list) {
 		list_del(&task->list);
@@ -803,64 +814,41 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi,
 				  struct cow_tracked_task *task,
 				  unsigned long addr)
 {
-	struct cow_page *cp;
 	unsigned long page_addr = addr & ~(PAGE_SIZE - 1);
 	struct uffdio_writeprotect wp;
 	struct uffdio_range range;
 	ssize_t ret;
-	unsigned int hash;
+	struct cow_page_queue_entry *entry;
 	struct iovec local_iov, remote_iov;
-	struct cow_page_queue_entry* entry;
+	void *page_data;
 
 	pr_debug("Write fault at 0x%lx\n", page_addr);
 
-	cow_stats.write_faults++;	
+	cow_stats.write_faults++;
 
-	/* Allocate cow_page structure */
-	cp = xmalloc(sizeof(*cp));
-	if (!cp) {
-		pr_err("Failed to allocate cow_page structure\n");
+	page_data = xmalloc(PAGE_SIZE);
+	if (!page_data) {
+		pr_err("Failed to allocate page data buffer\n");
 		cow_stats.alloc_failures++;
 		return -1;
 	}
-
-	cp->data = xmalloc(PAGE_SIZE);
-	if (!cp->data) {
-		pr_err("Failed to allocate page data\n");
-		xfree(cp);
-		cow_stats.alloc_failures++;
-		return -1;
-	}
-
-	cp->vaddr = page_addr;
-	INIT_HLIST_NODE(&cp->hash);
 
 	/* Read original page content using process_vm_readv */
-	
-	local_iov.iov_base = cp->data;
+	local_iov.iov_base = page_data;
 	local_iov.iov_len = PAGE_SIZE;
 	remote_iov.iov_base = (void *)page_addr;
 	remote_iov.iov_len = PAGE_SIZE;
-	
+
 	ret = process_vm_readv(task->source_pid, &local_iov, 1, &remote_iov, 1, 0);
 	if (ret != PAGE_SIZE) {
-		pr_perror("Failed to read page at 0x%lx from pid %d (read %zd bytes)", 
+		pr_perror("Failed to read page at 0x%lx from pid %d (read %zd bytes)",
 			  page_addr, task->source_pid, ret);
-		xfree(cp->data);
-		xfree(cp);
+		xfree(page_data);
 		cow_stats.read_failures++;
 		return -1;
 	}
 
-	/* Add to hash table (thread-safe with per-bucket spinlock) */
-	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
-	
-	pthread_spin_lock(&cdi->cow_hash_locks[hash]);
-	hlist_add_head(&cp->hash, &cdi->cow_hash[hash]);
-	pthread_spin_unlock(&cdi->cow_hash_locks[hash]);
-
 	cow_stats.pages_copied++;
-	pr_debug("Copied page at 0x%lx to hash bucket %u\n", page_addr, hash);
 
 	/* Unprotect the page so the process can continue */
 	wp.range.start = page_addr;
@@ -869,6 +857,7 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi,
 
 	if (ioctl(task->uffd, UFFDIO_WRITEPROTECT, &wp)) {
 		pr_perror("Failed to unprotect page at 0x%lx", page_addr);
+		xfree(page_data);
 		cow_stats.unprotect_failures++;
 		return -1;
 	}
@@ -878,29 +867,46 @@ static int cow_handle_write_fault(struct cow_dump_info *cdi,
 	/* Wake up the faulting thread */
 	range.start = page_addr;
 	range.len = PAGE_SIZE;
-	
+
 	if (ioctl(task->uffd, UFFDIO_WAKE, &range)) {
 		pr_perror("Failed to wake thread after unprotect");
+		xfree(page_data);
 		cow_stats.wake_failures++;
 		return -1;
 	}
-	
-	entry = xmalloc(sizeof(*entry));
-	if (entry) {
-		entry->vaddr = page_addr;
-		entry->ppb = NULL;  /* Indicates lazy VMA - no location info needed */
-		entry->seg_idx = 0;
-		entry->page_idx_in_seg = 0;
-		INIT_LIST_HEAD(&entry->list);
-		pthread_spin_lock(&cdi->queue_lock);
-		list_add_tail(&entry->list, &cdi->cow_page_queue);
-		pthread_spin_unlock(&cdi->queue_lock);
-		pr_debug("Added lazy VMA COW page 0x%lx to queue\n", page_addr);
-	} else {
-		pr_warn("Failed to allocate queue entry for page 0x%lx\n", page_addr);
-	}
+
 	cow_stats.pages_woken++;
-	cdi->total_pages--;
+	__atomic_fetch_sub(&cdi->total_pages, 1, __ATOMIC_RELAXED);
+
+	/* Allocate queue entry for this page */
+	entry = xmalloc(sizeof(*entry));
+	if (!entry) {
+		pr_err("Failed to allocate queue entry for page 0x%lx, "
+		       "clearing bitmap for P3 fallback\n", page_addr);
+		xfree(page_data);
+		cow_clear_bitmap(page_addr);
+		return 0;
+	}
+
+	entry->vaddr = page_addr;
+	entry->data = page_data;
+	page_data = NULL;
+	entry->ppb = NULL;
+	entry->seg_idx = 0;
+	entry->page_idx_in_seg = 0;
+	entry->next = NULL;
+
+	/* Enqueue the COW page */
+	if (spsc_enqueue(cdi->page_queue.tail, cdi->page_queue.size,
+			 entry, struct cow_page_spsc_node)) {
+		pr_err("FATAL: Failed to enqueue COW page 0x%lx\n", page_addr);
+		pr_err("  Snapshot data will be lost - cannot continue migration\n");
+		xfree(entry->data);
+		xfree(entry);
+		return -1;  /* Fail immediately to prevent corruption */
+	}
+
+	cow_set_bitmap(page_addr);
 
 	return 0;
 }
@@ -1064,12 +1070,13 @@ out:
 static void *cow_monitor_thread(void *arg)
 {
 	struct cow_dump_info *cdi = (struct cow_dump_info *)arg;
+	struct cow_tracked_task *task;
 	bool monitor_error = false;
 
 	pthread_setname_np(pthread_self(), "criu-cow-mon");
 	pr_info("COW monitor thread started\n");
 
-	while (!g_stop_monitoring) {
+	while (!__atomic_load_n(&g_stop_monitoring, __ATOMIC_ACQUIRE)) {
 		int ret;
 
 		ret = cow_wait_for_events(cdi, 500);
@@ -1077,8 +1084,22 @@ static void *cow_monitor_thread(void *arg)
 			monitor_error = true;
 			break;
 		}
+		if (ret == 0)
+			continue;
+
+		list_for_each_entry(task, &cdi->tracked_tasks, list) {
+			if (cow_process_events(cdi, task, false) < 0) {
+				pr_err("Error processing COW events for pid %d\n",
+				       task->source_pid);
+				monitor_error = true;
+				break;
+			}
+		}
+
+		if (monitor_error)
+			break;
 	}
-	
+
 	if (monitor_error)
 		pr_err("COW monitor thread exiting on event-processing error\n");
 
@@ -1121,17 +1142,18 @@ int cow_start_monitor_thread(void)
 		pthread_mutex_unlock(&g_monitor_state_lock);
 		return 0;
 	}
-	
+
 	g_stop_monitoring = false;
-	
+	g_monitor_thread_running = true;  /* Set BEFORE create to prevent race */
+
 	ret = pthread_create(&g_monitor_thread, NULL, cow_monitor_thread, g_cow_info);
 	if (ret) {
+		g_monitor_thread_running = false;  /* Rollback on failure */
 		pthread_mutex_unlock(&g_monitor_state_lock);
 		pr_err("Failed to create COW monitor thread: %s\n", strerror(ret));
 		return -1;
 	}
 
-	g_monitor_thread_running = true;
 	pthread_mutex_unlock(&g_monitor_state_lock);
 	
 	pr_info("COW monitor thread created successfully\n");
@@ -1150,9 +1172,9 @@ int cow_stop_monitor_thread(void)
 		pthread_mutex_unlock(&g_monitor_state_lock);
 		return 0;
 	}
-	
+
 	pr_info("Stopping COW monitor thread\n");
-	g_stop_monitoring = true;
+	__atomic_store_n(&g_stop_monitoring, true, __ATOMIC_RELEASE);
 	monitor_thread = g_monitor_thread;
 	pthread_mutex_unlock(&g_monitor_state_lock);
 
@@ -1172,26 +1194,6 @@ int cow_stop_monitor_thread(void)
 	
 	pr_info("COW monitor thread stopped successfully\n");
 	return 0;
-}
-
-int cow_get_uffd(void)
-{
-	struct cow_tracked_task *task;
-	int uffd;
-
-	if (!g_cow_info)
-		return -1;
-
-	pthread_mutex_lock(&g_tracked_tasks_lock);
-	if (list_empty(&g_cow_info->tracked_tasks)) {
-		pthread_mutex_unlock(&g_tracked_tasks_lock);
-		return -1;
-	}
-	task = list_first_entry(&g_cow_info->tracked_tasks, struct cow_tracked_task, list);
-	uffd = task->uffd;
-	pthread_mutex_unlock(&g_tracked_tasks_lock);
-
-	return uffd;
 }
 
 int cow_get_uffd_for_pid(pid_t source_pid)
@@ -1223,121 +1225,36 @@ bool cow_dump_is_vma_tracked(pid_t source_pid, unsigned long start, unsigned lon
 	return false;
 }
 
-pthread_spinlock_t *cow_get_hash_lock(unsigned long vaddr)
-{
-	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
-	unsigned int hash;
-
-	if (!g_cow_info)
-		return NULL;
-
-	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
-	return &g_cow_info->cow_hash_locks[hash];
-}
-
-struct cow_page *cow_lookup_page(unsigned long vaddr)
-{
-	struct cow_page *cp;
-	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
-	unsigned int hash;
-
-	if (!g_cow_info)
-		return NULL;
-
-	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
-
-	/* NOTE: Caller must hold the lock for this hash bucket */
-	hlist_for_each_entry(cp, &g_cow_info->cow_hash[hash], hash) {
-		if (cp->vaddr == page_addr)
-			return cp;
-	}
-
-	return NULL;
-}
-
-void cow_remove_page(unsigned long vaddr)
-{
-	struct cow_page *cp;
-	struct hlist_node *n;
-	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
-	unsigned int hash;
-
-	if (!g_cow_info)
-		return;
-
-	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
-
-	/* NOTE: Caller must hold the lock for this hash bucket */
-	hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[hash], hash) {
-		if (cp->vaddr == page_addr) {
-			hlist_del(&cp->hash);
-			xfree(cp->data);
-			xfree(cp);
-			pr_debug("Removed COW page at 0x%lx from hash bucket %u\n",
-				 page_addr, hash);
-			return;
-		}
-	}
-}
-
-struct cow_page *cow_lookup_and_remove_page(unsigned long vaddr)
-{
-	struct cow_page *cp;
-	struct hlist_node *n;
-	unsigned int hash;
-	unsigned long page_addr = vaddr & ~(PAGE_SIZE - 1);
-
-	if (!g_cow_info)
-		return NULL;
-
-	hash = (page_addr >> PAGE_SHIFT) & (COW_HASH_SIZE - 1);
-
-	pthread_spin_lock(&g_cow_info->cow_hash_locks[hash]);
-	
-	hlist_for_each_entry_safe(cp, n, &g_cow_info->cow_hash[hash], hash) {
-		if (cp->vaddr == page_addr) {
-			hlist_del(&cp->hash);
-			pthread_spin_unlock(&g_cow_info->cow_hash_locks[hash]);
-			pr_debug("Found and removed COW page at 0x%lx from hash bucket %u\n", 
-				 page_addr, hash);
-			return cp;
-		}
-	}
-	
-	pthread_spin_unlock(&g_cow_info->cow_hash_locks[hash]);
-	return NULL;
-}
-
 struct cow_page_queue_entry *cow_get_next_page(void)
 {
-	struct cow_page_queue_entry *entry = NULL;
+	struct cow_page_queue_entry *entry;
 
 	if (!g_cow_info)
 		return NULL;
 
-	pthread_spin_lock(&g_cow_info->queue_lock);
-	if (!list_empty(&g_cow_info->cow_page_queue)) {
-		entry = list_first_entry(&g_cow_info->cow_page_queue,
-					 struct cow_page_queue_entry, list);
-		list_del(&entry->list);
+	/* Check putback list first - entries here were already decremented from size */
+	if (g_putback_list) {
+		entry = g_putback_list;
+		g_putback_list = entry->next;
+		entry->next = NULL;
+		return entry;
 	}
-	pthread_spin_unlock(&g_cow_info->queue_lock);
 
-	return entry;
+	/* SPSC dequeue will decrement size */
+	return spsc_dequeue(g_cow_info->page_queue.head, g_cow_info->page_queue.size);
 }
 
 bool cow_has_pending_pages(void)
 {
-	bool has_pages;
-
 	if (!g_cow_info)
 		return false;
 
-	pthread_spin_lock(&g_cow_info->queue_lock);
-	has_pages = !list_empty(&g_cow_info->cow_page_queue);
-	pthread_spin_unlock(&g_cow_info->queue_lock);
+	/* Check putback list first (consumer-local, no atomic needed) */
+	if (g_putback_list)
+		return true;
 
-	return has_pages;
+	/* Check SPSC queue */
+	return spsc_peek(g_cow_info->page_queue.head);
 }
 
 void cow_put_back_page(struct cow_page_queue_entry *entry)
@@ -1345,26 +1262,16 @@ void cow_put_back_page(struct cow_page_queue_entry *entry)
 	if (!g_cow_info || !entry)
 		return;
 
-	pthread_spin_lock(&g_cow_info->queue_lock);
-	list_add(&entry->list, &g_cow_info->cow_page_queue);
-	pthread_spin_unlock(&g_cow_info->queue_lock);
+	entry->next = g_putback_list;
+	g_putback_list = entry;
 
-	pr_debug("Re-queued COW page 0x%lx\n", entry->vaddr);
+	pr_debug("Re-queued COW page 0x%lx to putback list\n", entry->vaddr);
 }
 
-unsigned long cow_get_queue_size(void)
+unsigned long cow_get_pages_queue_size(void)
 {
-	unsigned long count = 0;
-	struct cow_page_queue_entry *entry;
-
 	if (!g_cow_info)
 		return 0;
 
-	pthread_spin_lock(&g_cow_info->queue_lock);
-	list_for_each_entry(entry, &g_cow_info->cow_page_queue, list) {
-		count++;
-	}
-	pthread_spin_unlock(&g_cow_info->queue_lock);
-
-	return count;
+	return spsc_size(g_cow_info->page_queue.size);
 }

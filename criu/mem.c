@@ -35,6 +35,7 @@
 #include "prctl.h"
 #include "compel/infect-util.h"
 #include "pidfd-store.h"
+#include "atomic-bitmap.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -42,14 +43,16 @@
 /* Global lazy VMA list for COW dump */
 static LIST_HEAD(global_lazy_vmas);
 static pthread_spinlock_t lazy_vmas_lock;
-static bool lazy_vmas_lock_initialized = false;
+static pthread_once_t lazy_vmas_lock_once = PTHREAD_ONCE_INIT;
+
+static void init_lazy_vmas_lock_once(void)
+{
+	pthread_spin_init(&lazy_vmas_lock, PTHREAD_PROCESS_PRIVATE);
+}
 
 static void init_global_lazy_vmas(void)
 {
-	if (!lazy_vmas_lock_initialized) {
-		pthread_spin_init(&lazy_vmas_lock, PTHREAD_PROCESS_PRIVATE);
-		lazy_vmas_lock_initialized = true;
-	}
+	pthread_once(&lazy_vmas_lock_once, init_lazy_vmas_lock_once);
 }
 
 struct list_head *get_global_lazy_vmas(void)
@@ -61,9 +64,9 @@ struct list_head *get_global_lazy_vmas(void)
 struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 {
 	struct lazy_vma_entry *lve;
-	
-	if (!lazy_vmas_lock_initialized)
-		return NULL;
+
+	/* Ensure lock is initialized (pthread_once guarantees single init) */
+	init_global_lazy_vmas();
 
 	pthread_spin_lock(&lazy_vmas_lock);
 
@@ -77,7 +80,28 @@ struct lazy_vma_entry *find_lazy_vma_for_addr(unsigned long vaddr, u64 dst_id)
 	}
 	pthread_spin_unlock(&lazy_vmas_lock);
 
-	pr_debug("Lazy VMA not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
+	pr_err("Lazy VMA not found for vaddr=0x%lx dst_id=%lu\n", vaddr, dst_id);
+	return NULL;
+}
+
+/* Find lazy VMA entry by address only (no dst_id filter) */
+struct lazy_vma_entry *find_lazy_vma_by_addr(unsigned long vaddr)
+{
+	struct lazy_vma_entry *lve;
+
+	/* Ensure lock is initialized (pthread_once guarantees single init) */
+	init_global_lazy_vmas();
+
+	pthread_spin_lock(&lazy_vmas_lock);
+
+	list_for_each_entry(lve, &global_lazy_vmas, list) {
+		if (vaddr >= lve->start && vaddr < lve->end) {
+			pthread_spin_unlock(&lazy_vmas_lock);
+			return lve;
+		}
+	}
+	pthread_spin_unlock(&lazy_vmas_lock);
+
 	return NULL;
 }
 
@@ -86,10 +110,10 @@ unsigned long count_lazy_vma_pages(u64 dst_id)
 {
 	struct lazy_vma_entry *lve;
 	unsigned long total_pages = 0;
-	
-	if (!lazy_vmas_lock_initialized)
-		return 0;
-	
+
+	/* Ensure lock is initialized (pthread_once guarantees single init) */
+	init_global_lazy_vmas();
+
 	pthread_spin_lock(&lazy_vmas_lock);
 	list_for_each_entry(lve, &global_lazy_vmas, list) {
 		if (lve->dst_id == dst_id)
@@ -344,31 +368,46 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 		lve->vma = vma;
 		nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 		lve->total_pages = nr_pages;
-		
-		/* Store virtual PID to match request_all_remote_pages() which
-		 * sends lpi->pr.img_id (the vpid).
+
+		/*
+		 * Store dst_id to match what the REPLICA sends in
+		 * request_all_remote_pages(img_id).  That img_id is
+		 * vpid(item) — passed to open_page_xfer() at line 791.
+		 *
+		 * NOTE: do NOT use xfer->dst_id here.  In local mode
+		 * (no --page-server) the page_xfer union overlaps
+		 * dst_id with the pmi/pi pointers, so xfer->dst_id
+		 * contains a raw pointer value — garbage.
 		 */
 		lve->dst_id = vpid(item);
 		lve->source_pid = item->pid->real;
-		
-		/* Allocate sent bitmap for this VMA */
-		bitmap_size = (nr_pages + 7) / 8;
+
+		/* Allocate sent bitmap and cow bitmap for this VMA */
+		bitmap_size = BITMAP_ALLOC_SIZE(nr_pages);
 		lve->sent_bitmap = xzalloc(bitmap_size);
 		if (!lve->sent_bitmap) {
+			xfree(lve);
+			return -1;
+		}
+		lve->cow_bitmap = xzalloc(bitmap_size);
+		if (!lve->cow_bitmap) {
+			xfree(lve->sent_bitmap);
 			xfree(lve);
 			return -1;
 		}
 
 		lve->start = vma->e->start;
 		lve->end = vma->e->end;
-		
+
 		/* Add to global list (thread-safe) */
 		pthread_spin_lock(&lazy_vmas_lock);
 		list_add_tail(&lve->list, &global_lazy_vmas);
 		pthread_spin_unlock(&lazy_vmas_lock);
-		
-		pr_debug("Added lazy VMA 0x%llx-0x%llx to global list (%lu pages, %lu byte bitmap, dst_id=%lu, pid=%d)\n",
-			(unsigned long long)vma->e->start, (unsigned long long)vma->e->end, nr_pages, bitmap_size,
+
+		pr_debug("Added lazy VMA 0x%llx-0x%llx to global list "
+			"(%lu pages, dst_id=%lu, pid=%d)\n",
+			(unsigned long long)vma->e->start,
+			(unsigned long long)vma->e->end, nr_pages,
 			(unsigned long)lve->dst_id, lve->source_pid);
 		return 0;
 	}
@@ -1861,15 +1900,21 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 void free_global_lazy_vmas(void)
 {
 	struct lazy_vma_entry *lve, *tmp;
-	
-	if (!lazy_vmas_lock_initialized)
+
+	/* If list is empty, nothing to free and lock may not be initialized */
+	if (list_empty(&global_lazy_vmas))
 		return;
-	
+
+	/* Init ensures lock is ready (pthread_once guarantees single init) */
+	init_global_lazy_vmas();
+
 	pthread_spin_lock(&lazy_vmas_lock);
 	list_for_each_entry_safe(lve, tmp, &global_lazy_vmas, list) {
 		list_del(&lve->list);
 		if (lve->sent_bitmap)
 			xfree(lve->sent_bitmap);
+		if (lve->cow_bitmap)
+			xfree(lve->cow_bitmap);
 		xfree(lve);
 	}
 	pthread_spin_unlock(&lazy_vmas_lock);

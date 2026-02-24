@@ -2238,7 +2238,6 @@ static int cr_dump_finish(int ret)
 
 	/* Resume process early if using COW dump with lazy pages */
 	if (!ret && opts.lazy_pages && opts.cow_dump) {
-		pr_err("PAGE SERVER READY TO SERVE\n");
 		pr_info("Resuming process with COW protection active\n");
 
 		if (cow_start_monitor_thread()) {
