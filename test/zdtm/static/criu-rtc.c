@@ -48,7 +48,7 @@ int cr_plugin_dump_file(int fd, int id)
 	e.irqp = irqp;
 
 	snprintf(img_path, sizeof(img_path), "rtc.%x", id);
-	img_fd = openat(criu_get_image_dir(), img_path, O_WRONLY | O_CREAT);
+	img_fd = openat(criu_get_image_dir(), img_path, O_WRONLY | O_CREAT, 0600);
 	if (img_fd < 0) {
 		pr_perror("Can't open %s", img_path);
 		return -1;
