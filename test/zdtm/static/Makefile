@@ -6,6 +6,7 @@ CPPFLAGS += -I$(LIBDIR)
 TST_NOFILE	:=				\
 		busyloop00			\
 		sleeping00			\
+		posix_sem			\
 		pid00				\
 		caps00				\
 		caps01				\
