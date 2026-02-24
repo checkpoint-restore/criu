@@ -25,7 +25,11 @@ int main(int argc, char **argv)
 
 		test_msg("List: [%s]\n", env);
 		sprintf(sh, "sh /%s.start", env);
-		system(sh);
+
+		sret = system(sh);
+		if (sret != 0) {
+			pr_perror("system() failed");
+		}
 	}
 
 	test_daemon();

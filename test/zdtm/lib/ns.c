@@ -175,12 +175,18 @@ static int prepare_mntns(void)
 
 static int prepare_namespaces(void)
 {
+	int ret;
+
 	if (setuid(0) || setgid(0) || setgroups(0, NULL)) {
 		fprintf(stderr, "set*id failed: %m\n");
 		return -1;
 	}
 
-	system("ip link set up dev lo");
+	ret = system("ip link set up dev lo");
+	if (ret != 0) {
+		fprintf(stderr, "system() failed: %m\n");
+		return -1;
+	}
 
 	if (prepare_mntns())
 		return -1;
@@ -233,7 +239,7 @@ static void ns_sig_hand(int signo)
 	return;
 write_out:
 	/* fprintf can't be used in a sighandler due to glibc locks */
-	write(STDERR_FILENO, buf, MIN(len, sizeof(buf)));
+	if(write(STDERR_FILENO, buf, MIN(len, sizeof(buf)))){};
 }
 
 #ifndef CLONE_NEWTIME
@@ -287,7 +293,11 @@ static int ns_exec(void *_arg)
 		return -1;
 	}
 	close(args->status_pipe[1]);
-	read(STATUS_FD, buf, sizeof(buf));
+	ret = read(STATUS_FD, buf, sizeof(buf));
+	if (ret < 0) {
+		fprintf(stderr, "read() failed: %m\n");
+		return -1;
+	}
 	shutdown(STATUS_FD, SHUT_RD);
 
 	if (prepare_namespaces())
@@ -334,7 +344,7 @@ int ns_init(int argc, char **argv)
 		.sa_handler = ns_sig_hand,
 		.sa_flags = SA_RESTART,
 	};
-	int ret, fd, status_pipe = STATUS_FD;
+	int ret, fd, wstatus, status_pipe = STATUS_FD;
 	char buf[128], *x;
 	pid_t pid;
 	bool reap;
@@ -380,11 +390,11 @@ int ns_init(int argc, char **argv)
 		return 0; /* Continue normal test startup */
 	}
 
-	ret = -1;
-	if (waitpid(pid, &ret, 0) < 0)
+	wstatus = -1;
+	if (waitpid(pid, &wstatus, 0) < 0)
 		fprintf(stderr, "waitpid() failed: %m\n");
-	else if (ret)
-		fprintf(stderr, "The test returned non-zero code %d\n", ret);
+	else if (wstatus)
+		fprintf(stderr, "The test returned non-zero code %d\n", wstatus);
 
 	if (reap && sigaction(SIGCHLD, &sa, NULL)) {
 		fprintf(stderr, "Can't set SIGCHLD handler: %m\n");
@@ -406,10 +416,14 @@ int ns_init(int argc, char **argv)
 	}
 
 	/* Daemonize */
-	write(status_pipe, &ret, sizeof(ret));
+	ret = write(status_pipe, &wstatus, sizeof(wstatus));
 	close(status_pipe);
-	if (ret)
-		exit(ret);
+	if (ret < 0) {
+		fprintf(stderr, "write() failed: %m\n");
+		exit(1);
+	}
+	if (wstatus)
+		exit(wstatus);
 
 	/* suspend/resume */
 	test_waitsig();
