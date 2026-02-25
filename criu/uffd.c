@@ -42,6 +42,7 @@
 #include "util.h"
 #include "namespaces.h"
 #include "pagemap.h"
+#include "pf-tracker.h"
 #undef LOG_PREFIX
 #define LOG_PREFIX "uffd: "
 
@@ -210,7 +211,7 @@ void check_and_print_uffd_stats(void)
 			struct tm *tm;
 			clock_gettime(CLOCK_REALTIME, &ts);
 			tm = localtime(&ts.tv_sec);
-			pr_debug("[UFFD_STATS] [%02d:%02d:%02d.%03ld] reqs=%lu(pf:%lu,bg:%lu) pages=%lu\n",
+			pr_err("[UFFD_STATS] [%02d:%02d:%02d.%03ld] reqs=%lu(pf:%lu,bg:%lu) pages=%lu\n",
 				tm->tm_hour, tm->tm_min, tm->tm_sec, ts.tv_nsec / 1000000,
 				uffd_stats.total_pf_reqs + uffd_stats.total_bg_reqs,
 				uffd_stats.total_pf_reqs,
@@ -238,7 +239,7 @@ void check_and_print_uffd_stats(void)
 
 		/* Print timing stats */
 		if (uffd_stats.io_complete_bulk_count_start > 0) {
-			pr_debug("  TIMING: io_bulk=%lu ns (%lu, %lu ops) copy=%lu ns (%lu ops) drop=%lu ns (%lu ops)\n",
+			pr_err("  TIMING: io_bulk=%lu ns (%lu, %lu ops) copy=%lu ns (%lu ops) drop=%lu ns (%lu ops)\n",
 				uffd_stats.io_complete_bulk_total_ns / uffd_stats.io_complete_bulk_count,
 				uffd_stats.io_complete_bulk_count,
 				uffd_stats.io_complete_bulk_count_start,
@@ -250,7 +251,7 @@ void check_and_print_uffd_stats(void)
 
 		/* Print EAGAIN stats */
 		if (uffd_stats.eagain_processed > 0 || uffd_stats.eagain_skipped > 0 || uffd_stats.eagain_calls > 0) {
-			pr_debug("  EAGAIN: processed=%lu succeeded=%lu blocked=%lu errors=%lu skipped=%lu | time=%lu ns (%lu calls)\n",
+			pr_err("  EAGAIN: processed=%lu succeeded=%lu blocked=%lu errors=%lu skipped=%lu | time=%lu ns (%lu calls)\n",
 				uffd_stats.eagain_processed,
 				uffd_stats.eagain_succeeded,
 				uffd_stats.eagain_blocked,
@@ -259,6 +260,9 @@ void check_and_print_uffd_stats(void)
 				uffd_stats.eagain_calls > 0 ? uffd_stats.eagain_total_ns / uffd_stats.eagain_calls : 0,
 				uffd_stats.eagain_calls);
 		}
+
+		/* Print page fault tracker stats and clean up completed entries */
+		pf_tracker_print_stats();
 
 		/* Reset all counters */
 		memset(&uffd_stats, 0, sizeof(uffd_stats));
@@ -1154,8 +1158,10 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) == -1) {
 		/* In COW dump mode, queue EAGAIN requests instead of blocking */
-		if (errno == EAGAIN && opts.cow_dump)
+		if (errno == EAGAIN && opts.cow_dump) {
+			pf_tracker_set_state(address, PF_STATE_PENDING_EAGAIN);
 			return queue_eagain_request(lpi, address, *nr_pages, lpi->buf, "copy");
+		}
 		
 		/* Non-COW mode or non-EAGAIN: check for other errors */
 		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)) {
@@ -1172,8 +1178,10 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 		errno = -uffdio_copy.copy;
 
 		/* In COW dump mode, queue EAGAIN requests */
-		if (errno == EAGAIN && opts.cow_dump)
+		if (errno == EAGAIN && opts.cow_dump) {
+			pf_tracker_set_state(address, PF_STATE_PENDING_EAGAIN);
 			return queue_eagain_request(lpi, address, *nr_pages, lpi->buf, "copy");
+		}
 
 		if (uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy)) {
 			lp_err(lpi, "UFFDIO_COPY err \n");
@@ -1189,6 +1197,10 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 	}
 
 	lpi->copied_pages += *nr_pages;
+
+	/* Mark as completed in the tracker */
+	pf_tracker_set_state(address, PF_STATE_COMPLETED);
+
 	return 0;
 }
 
@@ -1496,6 +1508,9 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 		return -1;
 	}
 
+	/* Track this background transfer as waiting for server response */
+	pf_tracker_add(iov->start, nr_pages, lpi->pid, false);
+
 	return 0;
 }
 
@@ -1506,7 +1521,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	unreg.start = msg->arg.remove.start;
 	unreg.len = msg->arg.remove.end - msg->arg.remove.start;
 
-	lp_debug(lpi, "%s: %llx(%llx)\n", msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP",
+	lp_err(lpi, "%s: %llx(%llx)\n", msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP",
 		 unreg.start, unreg.len);
 
 	/*
@@ -1529,7 +1544,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		return -1;
 	}
 
-	return drop_iovs(lpi, unreg.start, unreg.len);
+	return 0;//drop_iovs(lpi, unreg.start, unreg.len);
 
 }
 
@@ -1539,7 +1554,7 @@ static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	unsigned long to = msg->arg.remap.to;
 	unsigned long len = msg->arg.remap.len;
 
-	lp_debug(lpi, "REMAP: %lx -> %lx (%ld)\n", from, to, len);
+	lp_err(lpi, "REMAP: %lx -> %lx (%ld)\n", from, to, len);
 
 	return remap_iovs(lpi, from, to, len);
 }
@@ -1549,7 +1564,7 @@ static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
 	struct lazy_pages_info *lpi;
 	int uffd = msg->arg.fork.ufd;
 
-	lp_debug(parent_lpi, "FORK: child with ufd=%d\n", uffd);
+	lp_err(parent_lpi, "FORK: child with ufd=%d\n", uffd);
 
 	lpi = lpi_init();
 	if (!lpi)
@@ -1624,7 +1639,7 @@ static bool is_page_queued(struct lazy_pages_info *lpi, unsigned long addr)
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
 	struct lazy_iov *iov;
-	__u64 address;
+	unsigned long long address;
 	int ret;
 	unsigned long nr_pages;
 	int bucket;
@@ -1632,6 +1647,33 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	/* Align requested address to the next page boundary */
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
 	lp_warn(lpi, "#PF at 0x%llx\n", address);
+
+	if (opts.cow_dump) {
+		/*
+		 * In COW/bulk mode, pages arrive via the bulk stream,
+		 * but we still need to send an urgent request so the
+		 * server prioritizes this page. We do NOT split the IOV
+		 * or move it to the reqs list to avoid fragmenting the
+		 * IOV list.
+		 */
+		unsigned long long img_addr;
+
+		iov = find_iov(lpi, address);
+		if (!iov)
+			return uffd_zero(lpi, address, 1);
+
+		img_addr = iov->img_start + (address - iov->start);
+
+		uffd_stats.total_pf_reqs++;
+		pf_tracker_add(address, 1, lpi->pid, true);
+
+		ret = uffd_handle_pages(lpi, img_addr, 1, PR_ASYNC | PR_ASAP);
+		if (ret < 0) {
+			lp_err(lpi, "Error during COW page fault request\n");
+			return -1;
+		}
+		return 0;
+	}
 
 	if (is_page_queued(lpi, address)) {
 		lp_warn(lpi, "#PF at 0x%llx queued\n", address);
@@ -1667,6 +1709,9 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		lp_err(lpi, "Error during regular page copy\n");
 		return -1;
 	}
+
+	/* Track this page fault as waiting for server response */
+	pf_tracker_add(address, nr_pages, lpi->pid, true);
 
 	return 0;
 }
@@ -1765,6 +1810,7 @@ static int retry_uffd_copy(struct uffd_eagain_request *req)
 
 	/* Success */
 	req->lpi->copied_pages += req->nr_pages;
+	pf_tracker_set_state(req->address, PF_STATE_COMPLETED);
 	lp_debug(req->lpi, "EAGAIN copy retry succeeded for 0x%llx\n", req->address);
 	return 0;
 }
@@ -1854,19 +1900,6 @@ int process_eagain_requests(void)
 
 		/* Success! */
 		uffd_stats.eagain_succeeded++;
-
-		/*
-		 * Mark the range as complete in our tracking lists. Even
-		 * though the original UFFD operation was delayed, the
-		 * destination page is now populated (or zeroed).
-		 */
-		if (drop_iovs(req->lpi, req->address,
-			      req->nr_pages * page_size())) {
-			lp_err(req->lpi,
-			       "Failed to drop IOVs for EAGAIN retry at 0x%llx/%lu\n",
-			       req->address, req->nr_pages);
-			return -1;
-		}
 
 		/* Clean up and remove from queue */
 		list_del(&req->l);
