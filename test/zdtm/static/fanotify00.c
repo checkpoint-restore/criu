@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	del_after = open(fanotify_path, O_CREAT | O_TRUNC);
+	del_after = open(fanotify_path, O_CREAT | O_TRUNC, 0777);
 	if (del_after < 0) {
 		pr_perror("open failed");
 		exit(1);
