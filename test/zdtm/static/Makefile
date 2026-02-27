@@ -366,6 +366,7 @@ TST_FILE	=				\
 		file_lease02			\
 		file_lease03			\
 		file_lease04			\
+		file_lease05			\
 		file_locks00			\
 		file_locks00_fail		\
 		file_locks01			\
