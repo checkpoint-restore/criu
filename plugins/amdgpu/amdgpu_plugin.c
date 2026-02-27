@@ -1555,7 +1555,7 @@ CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_EXT_FILE, amdgpu_plugin_dump_file)
 static int restore_devices(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 {
 	struct kfd_criu_device_bucket *device_buckets;
-	int ret = 0, bucket_index = 0;
+	int ret = 0, bucket_index = 0, drm_fd;
 
 	pr_debug("Restoring %d devices\n", e->num_of_gpus);
 	args->num_devices = e->num_of_gpus;
@@ -1588,12 +1588,13 @@ static int restore_devices(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 			goto exit;
 		}
 
-		device_bucket->drm_fd = node_get_drm_render_device(tp_node);
-		if (device_bucket->drm_fd < 0) {
-			pr_perror("Can't pass NULL drm render fd to driver");
+		drm_fd = node_get_drm_render_device(tp_node);
+		if (drm_fd < 0) {
+			pr_perror("Can't open drm render fd %d\n", tp_node->drm_render_minor);
 			goto exit;
 		} else {
-			pr_info("passing drm render fd = %d to driver\n", device_bucket->drm_fd);
+			pr_info("passing drm render fd = %d to driver\n", drm_fd);
+			device_bucket->drm_fd = drm_fd;
 		}
 	}
 
