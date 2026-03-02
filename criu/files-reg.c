@@ -36,6 +36,7 @@
 #define BUILD_ID_MAP_SIZE 1048576
 #define ST_UNIT		  512
 #define EXTENT_MAX_COUNT  512
+#define SHM_DIR		  "/dev/shm/"
 
 #include "cr_options.h"
 #include "imgset.h"
@@ -1293,6 +1294,53 @@ static inline bool nfs_silly_rename(char *rpath, const struct fd_parms *parms)
 	return (parms->fs_type == NFS_SUPER_MAGIC) && is_sillyrename_name(rpath);
 }
 
+static int shm_recover_new_link(
+	const struct stat *ost,
+	struct stat *pst,
+	char *path_buf,
+	size_t nbuf,
+	int mntns_root,
+	int flags
+) {
+	int ret;
+	DIR *dir;
+	struct dirent *entry;
+	char entry_rpath[PATH_MAX];
+
+	ret = openat(mntns_root, "." SHM_DIR, O_RDONLY | O_DIRECTORY);
+	if (ret < 0) {
+		pr_warn("failed to openat %s", SHM_DIR);
+		return -1;
+	}
+
+	dir = fdopendir(ret);
+	if (!dir) {
+		close(ret);
+		pr_warn("failed to fdopendir %s", SHM_DIR);
+		return -1;
+	}
+
+	while ((entry = readdir(dir)) != NULL) {
+		ret = snprintf(entry_rpath, sizeof(entry_rpath), ".%s%s", SHM_DIR, entry->d_name);
+		if (ret < 0)
+			continue;
+
+		ret = fstatat(mntns_root, entry_rpath, pst, flags);
+		if (ret < 0)
+			continue;
+
+		if (pst->st_dev != ost->st_dev || pst->st_ino != ost->st_ino)
+			continue;
+
+		strncpy(path_buf, entry_rpath, nbuf);
+		closedir(dir);
+		return 0;
+	}
+
+	closedir(dir);
+	return -1;
+}
+
 static int check_path_remap(struct fd_link *link, const struct fd_parms *parms, int lfd, u32 id, struct ns_id *nsid)
 {
 	char *rpath = link->name;
@@ -1411,20 +1459,29 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms, 
 		 */
 
 		if (errno == ENOENT) {
-			link_strip_deleted(link);
-			ret = dump_linked_remap(rpath + 1, plen - 1, parms, lfd, id, nsid, &fallback);
-			if (ret < 0 && fallback) {
-				/* fallback is true only if following conditions are true:
-				 * 1. linkat() inside dump_linked_remap() failed with ENOENT
-				 * 2. parms->fs_type == overlayFS
-				 */
-				return dump_ghost_remap(rpath + 1, ost, lfd, id, nsid);
+			/*
+			 * libc's sem_open() creates a temporary file in /dev/shm with mktemp,
+			 * link() it to the final name "sem.<name>" in the same /dev/shm directory,
+			 * then unlink() the temporary name. the object is put into a "deleted" state
+			 * hence there's a good chance the new link is in /dev/shm with a diffrent name
+			 */
+			if (strncmp(rpath + 1, SHM_DIR, sizeof(SHM_DIR) - 1) ||
+			    shm_recover_new_link(ost, &pst, link->name, sizeof(link->name), mntns_root, flags) < 0) {
+				link_strip_deleted(link);
+				ret = dump_linked_remap(rpath + 1, plen - 1, parms, lfd, id, nsid, &fallback);
+				if (ret < 0 && fallback) {
+					/* fallback is true only if following conditions are true:
+					 * 1. linkat() inside dump_linked_remap() failed with ENOENT
+					 * 2. parms->fs_type == overlayFS
+					 */
+					return dump_ghost_remap(rpath + 1, ost, lfd, id, nsid);
+				}
+				return ret;
 			}
-			return ret;
+		} else {
+			pr_perror("Can't stat path");
+			return -1;
 		}
-
-		pr_perror("Can't stat path");
-		return -1;
 	}
 
 	if ((pst.st_ino != ost->st_ino) || (pst.st_dev != ost->st_dev)) {
