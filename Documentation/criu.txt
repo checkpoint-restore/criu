@@ -403,6 +403,11 @@ mount -t cgroup -o devices,freezer none devices,freezer
     to migrate applications like *top*. If used with *dump* command,
     it must be specified with *restore* as well.
 
+*--orphan-pts-master*::
+    Allow dumping and restoring PTY slave devices whose master is
+    outside the dumped process tree (for example, masters held by
+    container monitors such as LXC/LXD).
+
 *--cpu-cap* ['cap'[,'cap'...]]::
     Specify CPU capabilities to write to an image file. The argument is a
     comma-separated list of:

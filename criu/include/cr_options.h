@@ -205,7 +205,7 @@ struct cr_options {
 	int display_stats;
 	int weak_sysctls;
 	int status_fd;
-	bool orphan_pts_master;
+	int orphan_pts_master;
 	int stream;
 	pid_t tree_id;
 	int log_level;

@@ -457,6 +457,8 @@ usage:
 	       "  --ghost-fiemap        enable dumping of deleted files using fiemap\n"
 	       "  --action-script FILE  add an external action script\n"
 	       "  -j|--" OPT_SHELL_JOB "        allow one to dump and restore shell jobs\n"
+	       "  --orphan-pts-master   allow dumping/restoring PTY devices whose master\n"
+	       "                        is outside the dumped process tree\n"
 	       "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"
 	       "  -L|--libdir           path to a plugin directory (by default " CR_PLUGIN_DEFAULT ")\n"
 	       "  --timeout NUM         a timeout (in seconds) on collecting tasks during dump\n"
