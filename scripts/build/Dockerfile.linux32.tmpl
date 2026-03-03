@@ -1,9 +1,11 @@
 ARG CC=gcc
 
-COPY . /criu
+COPY contrib/dependencies/apt-cross-packages.sh /criu/contrib/dependencies/apt-cross-packages.sh
+COPY contrib/apt-install /criu/contrib/apt-install
 WORKDIR /criu
+RUN /criu/contrib/apt-install "$CC" && /criu/contrib/dependencies/apt-packages.sh
 
-RUN contrib/apt-install "$CC" && contrib/dependencies/apt-packages.sh
+COPY . /criu
 
 RUN uname -m && setarch linux32 uname -m && setarch --list
 

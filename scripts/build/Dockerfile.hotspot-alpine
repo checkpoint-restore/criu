@@ -1,10 +1,11 @@
 FROM docker.io/library/eclipse-temurin:11-alpine
 ARG CC=gcc
 
-COPY . /criu
+COPY contrib/dependencies/apk-packages.sh /criu/contrib/dependencies/apk-packages.sh
 WORKDIR /criu
+RUN apk add --no-cache maven "$CC" && /criu/contrib/dependencies/apk-packages.sh
 
-RUN apk add --no-cache maven "$CC" && contrib/dependencies/apk-packages.sh
+COPY . /criu
 
 RUN make mrproper && make -j $(nproc) CC="$CC"
 

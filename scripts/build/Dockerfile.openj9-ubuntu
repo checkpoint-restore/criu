@@ -1,11 +1,13 @@
 FROM docker.io/library/ibm-semeru-runtimes:open-11-jdk-jammy
 ARG CC=gcc
 
+COPY contrib/dependencies/apt-packages.sh /criu/contrib/dependencies/apt-packages.sh
+COPY contrib/apt-install /criu/contrib/apt-install
+WORKDIR /criu
+RUN /criu/contrib/apt-install maven "$CC" && /criu/contrib/dependencies/apt-packages.sh
+
 RUN mkdir -p /etc/criu && echo 'ghost-limit 16777216' > /etc/criu/default.conf
 COPY . /criu
-WORKDIR /criu
-
-RUN contrib/apt-install maven "$CC" && contrib/dependencies/apt-packages.sh
 
 RUN make mrproper && make -j $(nproc) CC="$CC"
 

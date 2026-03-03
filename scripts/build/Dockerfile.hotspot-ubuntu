@@ -1,10 +1,12 @@
 FROM docker.io/library/eclipse-temurin:11-jammy
 ARG CC=gcc
 
-COPY . /criu
+COPY contrib/dependencies/apt-packages.sh /criu/contrib/dependencies/apt-packages.sh
+COPY contrib/apt-install /criu/contrib/apt-install
 WORKDIR /criu
+RUN /criu/contrib/apt-install maven "$CC" && contrib/dependencies/apt-packages.sh
 
-RUN contrib/apt-install maven "$CC" && contrib/dependencies/apt-packages.sh
+COPY . /criu
 
 RUN make mrproper && make -j $(nproc) CC="$CC"
 

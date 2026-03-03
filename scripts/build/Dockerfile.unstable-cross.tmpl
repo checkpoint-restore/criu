@@ -15,9 +15,11 @@ ENV CROSS_COMPILE=${CROSS_TRIPLET}-				\
 ENV PATH="${PATH}:${CROSS_ROOT}/bin"				\
 	PKG_CONFIG_PATH=/usr/lib/${CROSS_TRIPLET}/pkgconfig
 
-COPY . /criu
+COPY contrib/dependencies/apt-cross-packages.sh /criu/contrib/dependencies/apt-cross-packages.sh
+COPY contrib/apt-install /criu/contrib/apt-install
 WORKDIR /criu
+RUN /criu/contrib/dependencies/apt-cross-packages.sh
 
-RUN contrib/dependencies/apt-cross-packages.sh
+COPY . /criu
 
 RUN make mrproper && date && make -j $(nproc) zdtm && date

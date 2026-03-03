@@ -1,9 +1,12 @@
 ARG CC=gcc
 
-COPY . /criu
+COPY contrib/dependencies/dnf-packages.sh /criu/contrib/dependencies/dnf-packages.sh
+COPY scripts/ci/prepare-for-fedora-rawhide.sh /criu/scripts/ci/prepare-for-fedora-rawhide.sh
+# prepare-for-fedora-rawhide.sh assumes we are in the criu directory
 WORKDIR /criu
+RUN dnf install -y "$CC" && /criu/scripts/ci/prepare-for-fedora-rawhide.sh
 
-RUN dnf install -y "$CC" && scripts/ci/prepare-for-fedora-rawhide.sh
+COPY . /criu
 
 RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 

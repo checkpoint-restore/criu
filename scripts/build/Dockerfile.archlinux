@@ -5,10 +5,11 @@ ARG CC=gcc
 # Initialize machine ID
 RUN systemd-machine-id-setup
 
-COPY . /criu
+COPY contrib/dependencies/pacman-packages.sh /criu/contrib/dependencies/pacman-packages.sh
 WORKDIR /criu
+RUN pacman -Syu --noconfirm "$CC" && /criu/contrib/dependencies/pacman-packages.sh
 
-RUN pacman -Syu --noconfirm "$CC" && contrib/dependencies/pacman-packages.sh
+COPY . /criu
 
 RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
