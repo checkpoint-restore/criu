@@ -37,6 +37,16 @@ struct sk_opt sk_opts_v4[] = {
 struct sk_opt sk_opts_v6[] = {
 	{ SOL_IPV6, IPV6_FREEBIND, IP_OPT_VAL },
 	{ SOL_IPV6, IPV6_RECVPKTINFO, IP_OPT_VAL },
+	{ SOL_IPV6, IPV6_UNICAST_HOPS, 32 },
+	{ SOL_IPV6, IPV6_TCLASS, IPTOS_TOS(IPTOS_THROUGHPUT) },
+};
+
+#ifndef IP_CHECKSUM
+#define IP_CHECKSUM 23
+#endif
+
+struct sk_opt sk_raw_opts_v4[] = {
+	{ SOL_IP, IP_CHECKSUM, 1 },
 };
 
 struct sk_conf {
@@ -81,6 +91,19 @@ int main(int argc, char **argv)
 				goto close;
 			}
 		}
+
+		/* Raw-socket-only IPv4 options */
+		if (sk_confs[i].type == SOCK_RAW && sk_confs[i].domain == AF_INET) {
+			for (j = 0; j < ARRAY_SIZE(sk_raw_opts_v4); j++) {
+				val = sk_raw_opts_v4[j].val;
+				if (setsockopt(sk_confs[i].sk, sk_raw_opts_v4[j].level,
+					       sk_raw_opts_v4[j].opt, &val, sizeof(int)) == -1) {
+					pr_perror("setsockopt(%d, %d) failed",
+						  sk_raw_opts_v4[j].level, sk_raw_opts_v4[j].opt);
+					goto close;
+				}
+			}
+		}
 	}
 
 	test_daemon();
@@ -101,6 +124,27 @@ int main(int argc, char **argv)
 				fail("Unexpected value socket(%d,%d,%d) opts(%d,%d)", sk_confs[i].domain,
 				     sk_confs[i].type, sk_confs[i].protocol, opts[j].level, opts[j].opt);
 				goto close;
+			}
+		}
+
+		/* Raw-socket-only IPv4 options */
+		if (sk_confs[i].type == SOCK_RAW && sk_confs[i].domain == AF_INET) {
+			for (j = 0; j < ARRAY_SIZE(sk_raw_opts_v4); j++) {
+				len = sizeof(int);
+				if (getsockopt(sk_confs[i].sk, sk_raw_opts_v4[j].level,
+					       sk_raw_opts_v4[j].opt, &val, &len) == -1) {
+					pr_perror("getsockopt(%d, %d) failed",
+						  sk_raw_opts_v4[j].level, sk_raw_opts_v4[j].opt);
+					goto close;
+				}
+
+				if (val != sk_raw_opts_v4[j].val) {
+					fail("Unexpected value socket(%d,%d,%d) opts(%d,%d)",
+					     sk_confs[i].domain, sk_confs[i].type,
+					     sk_confs[i].protocol, sk_raw_opts_v4[j].level,
+					     sk_raw_opts_v4[j].opt);
+					goto close;
+				}
 			}
 		}
 	}
