@@ -14,6 +14,16 @@
 
 #include "common/config.h"
 
+/*
+ * If glibc detected that the kernel rseq.h header exists, include
+ * it directly using angle brackets (which bypasses -iquote and finds
+ * the real kernel header).  Otherwise fall back to our own copy of
+ * the definitions.
+ */
+#ifdef __GLIBC_HAVE_KERNEL_RSEQ
+#include <linux/rseq.h>
+#else /* !__GLIBC_HAVE_KERNEL_RSEQ */
+
 #ifdef CONFIG_HAS_NO_LIBC_RSEQ_DEFS
 /*
  * linux/rseq.h
@@ -44,6 +54,8 @@ enum rseq_cs_flags {
 	RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE = (1U << RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE_BIT),
 };
 #endif /* CONFIG_HAS_NO_LIBC_RSEQ_DEFS */
+
+#endif /* !__GLIBC_HAVE_KERNEL_RSEQ */
 
 /*
  * Let's use our own definition of struct rseq_cs because some distros
