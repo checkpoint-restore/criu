@@ -1,7 +1,6 @@
 #!/bin/bash
 
 sudo xbps-install -Sy \
-
     gcc \
     make \
     git \

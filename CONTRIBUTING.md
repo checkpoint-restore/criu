@@ -52,6 +52,18 @@ First, you need to install the required build dependencies. We provide scripts t
 ./contrib/dependencies/dnf-packages.sh
 ```
 
+##### On Arch Linux:
+
+```
+./contrib/dependencies/pacman-packages.sh
+```
+
+##### On Void Linux:
+
+```
+./contrib/dependencies/xbps-packages.sh
+```
+
 ##### Using Nix:
 
 ```
