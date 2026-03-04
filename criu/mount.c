@@ -2606,6 +2606,30 @@ static int set_unbindable(struct mount_info *mi)
 	return 0;
 }
 
+struct tmpfs_restore_req{
+	int mnt_id;
+};
+
+static int tmpfs_userns(void *arg, int fd, pid_t pid) {
+	int rst = -1, err = -1;
+	struct mount_info *mi = NULL;
+	struct tmpfs_restore_req *req = arg;
+
+	if (pid != getpid() && switch_ns(pid, &mnt_ns_desc, &rst))
+		return -1;
+
+	mi = lookup_mnt_id(req->mnt_id);
+	if (mi) {
+		err = do_new_mount(mi);
+	} else {
+		pr_perror("Can not find mount_id %d\n", req->mnt_id);
+		err = -1;
+	}
+	if (rst >= 0 && restore_ns(rst, &mnt_ns_desc))
+		return -1;
+	return err;
+}
+
 static int do_mount_one(struct mount_info *mi)
 {
 	int ret;
@@ -2664,7 +2688,16 @@ static int do_mount_one(struct mount_info *mi)
 		mi->mounted = true;
 		ret = 0;
 	} else if (!mi->bind && !mi->need_plugin && !mnt_is_nodev_external(mi)) {
-		ret = do_new_mount(mi);
+		if (strcmp(mi->ns_mountpoint, "/dev") == 0) {
+			struct tmpfs_restore_req req;
+			req.mnt_id = mi->mnt_id;
+			ret = userns_call(tmpfs_userns, 0, &req, sizeof(req), -1);
+			if (!ret) {
+				mi->mounted = true;
+			}
+		} else {
+			ret = do_new_mount(mi);
+		}
 	} else {
 		ret = do_bind_mount(mi);
 	}

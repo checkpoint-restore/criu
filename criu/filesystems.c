@@ -480,6 +480,11 @@ static int tmpfs_dump(struct mount_info *pm)
 	if (root_ns_mask & CLONE_NEWUSER)
 		userns_pid = root_item->pid->real;
 
+	// We need to dump tmpfs in initial user namespace to save device owner mappings.
+	if (strcmp(pm->mountpoint, "./dev") == 0) {
+		userns_pid = -1;
+	}
+
 	ret = cr_system_userns(fd, img_raw_fd(img), -1, "tar",
 			       (char *[]){ "tar", "--create", "--gzip", "--no-unquote", "--no-wildcards",
 					   "--one-file-system", "--check-links", "--preserve-permissions", "--sparse",

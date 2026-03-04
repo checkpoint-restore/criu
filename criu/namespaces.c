@@ -1869,8 +1869,6 @@ static int read_pid_ns_img(void)
 
 int prepare_namespace_before_tasks(void)
 {
-	if (start_usernsd())
-		goto err_unds;
 
 	if (netns_keep_nsfd())
 		goto err_netns;
@@ -1887,6 +1885,10 @@ int prepare_namespace_before_tasks(void)
 	if (read_pid_ns_img())
 		goto err_img;
 
+	// we need to start usernsd after all mounts are read.
+	if (start_usernsd())
+		goto err_img;
+
 	return 0;
 
 err_img:
@@ -1897,8 +1899,6 @@ err_mnt:
 	 * on criu exit
 	 */
 err_netns:
-	stop_usernsd();
-err_unds:
 	return -1;
 }
 
