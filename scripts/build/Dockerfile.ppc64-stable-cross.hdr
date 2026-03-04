@@ -1,4 +1,4 @@
-FROM dockcross/base:latest
+FROM docker.io/dockcross/base:latest
 
 ENV ARCH=ppc64
 ENV DEBIAN_ARCH=ppc64el

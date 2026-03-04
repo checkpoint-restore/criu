@@ -1,1 +1,1 @@
-FROM arm32v7/ubuntu:bionic
+FROM docker.io/arm32v7/ubuntu:bionic

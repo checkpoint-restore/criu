@@ -1,4 +1,4 @@
-FROM dockcross/base:latest
+FROM docker.io/dockcross/base:latest
 
 ENV ARCH=mips
 ENV SUBARCH=mips

@@ -1,4 +1,4 @@
-FROM rocm/pytorch:latest
+FROM docker.io/rocm/pytorch:latest
 
 ARG CC=gcc
 

@@ -1,4 +1,4 @@
-FROM alpine
+FROM docker.io/library/alpine:latest
 ARG CC=gcc
 
 COPY contrib/dependencies/apk-packages.sh /criu/contrib/dependencies/apk-packages.sh

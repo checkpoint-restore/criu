@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM docker.io/library/ubuntu:24.04
 
 COPY contrib/apt-install /bin/apt-install
 
