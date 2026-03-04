@@ -58,6 +58,14 @@ First, you need to install the required build dependencies. We provide scripts t
 nix develop
 ```
 
+##### Using Arch:
+
+```
+./contrib/dependencies/pacman-packages.sh
+```
+```
+
+
 #### Compiling CRIU
 
 Once the dependencies are installed, you can compile CRIU by running the `make` command from the root of the source directory:
