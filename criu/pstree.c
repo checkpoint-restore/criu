@@ -15,6 +15,10 @@
 #include "dump.h"
 #include "util.h"
 #include "net.h"
+#include "uts_ns.h"
+#include "ipc_ns.h"
+#include "cgroup.h"
+#include "timens.h"
 
 #include "protobuf.h"
 #include "images/pstree.pb-c.h"
@@ -542,6 +546,22 @@ static int read_pstree_ids(struct pstree_item *pi)
 	}
 	if (pi->ids->has_user_ns_id) {
 		if (rst_add_ns_id(pi->ids->user_ns_id, pi, &user_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_uts_ns_id) {
+		if (rst_add_ns_id(pi->ids->uts_ns_id, pi, &uts_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_ipc_ns_id) {
+		if (rst_add_ns_id(pi->ids->ipc_ns_id, pi, &ipc_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_cgroup_ns_id) {
+		if (rst_add_ns_id(pi->ids->cgroup_ns_id, pi, &cgroup_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_time_ns_id) {
+		if (rst_add_ns_id(pi->ids->time_ns_id, pi, &time_ns_desc))
 			return -1;
 	}
 
