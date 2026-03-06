@@ -32,4 +32,17 @@ message mm_entry {
 	optional int32	dumpable	= 15;
 	repeated aio_ring_entry	aios	= 16;
 	optional bool thp_disabled	= 17;
+
+	/*
+	 * User-visible pkey allocation bitmap snapshot for this mm. If absent,
+	 * old images are treated as carrying no explicit pkey allocations.
+	 */
+	optional uint32 mm_pkey_allocation_map	= 18 [(criu).hex = true];
+
+	/*
+	 * x86 execute-only pkey recorded at dump time. This key is mm-visible but
+	 * not explicitly restorable through pkey_alloc()/pkey_mprotect(), so it is
+	 * tracked separately from mm_pkey_allocation_map.
+	 */
+	optional int32 execute_only_pkey	= 19;
 }

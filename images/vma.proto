@@ -24,4 +24,10 @@ message vma_entry {
 
 	/* file status flags */
 	optional uint32		fdflags	= 10 [(criu).hex = true];
+
+	/*
+	 * x86 protection key bound to this VMA. If absent, treat as the
+	 * default key 0 for backward compatibility with old images.
+	 */
+	optional int32		pkey	= 11;
 }

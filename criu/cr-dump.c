@@ -567,6 +567,12 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat, const struc
 	mme.thp_disabled = misc->thp_disabled;
 	mme.has_thp_disabled = true;
 
+	mme.mm_pkey_allocation_map = misc->mm_pkey_allocation_map;
+	mme.has_mm_pkey_allocation_map = misc->has_mm_pkey_allocation_map;
+
+	mme.execute_only_pkey = misc->execute_only_pkey;
+	mme.has_execute_only_pkey = misc->has_execute_only_pkey;
+
 	mme.n_mm_saved_auxv = AT_VECTOR_SIZE;
 	mme.mm_saved_auxv = xmalloc(pb_repeated_size(&mme, mm_saved_auxv));
 	if (!mme.mm_saved_auxv)

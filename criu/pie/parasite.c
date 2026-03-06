@@ -26,6 +26,7 @@
 #include "asm/parasite.h"
 #include "restorer.h"
 #include "infect-pie.h"
+#include "x86-pkey.h"
 
 /*
  * PARASITE_CMD_DUMPPAGES is called many times and the parasite args contains
@@ -272,6 +273,11 @@ static int dump_misc(struct parasite_dump_misc *args)
 {
 	int ret;
 
+	args->has_mm_pkey_allocation_map = false;
+	args->mm_pkey_allocation_map = 0;
+	args->has_execute_only_pkey = false;
+	args->execute_only_pkey = 0;
+
 	args->brk = sys_brk(0);
 
 	args->pid = sys_getpid();
@@ -294,6 +300,18 @@ static int dump_misc(struct parasite_dump_misc *args)
 		if (ret)
 			return ret;
 	}
+
+#if defined(CONFIG_X86_64)
+	if (x86_pkeys_enabled()) {
+		ret = probe_mm_pkey_allocation_map(&args->execute_only_pkey, &args->has_execute_only_pkey,
+						   &args->mm_pkey_allocation_map,
+						   &args->has_mm_pkey_allocation_map);
+		if (ret == -ENOSYS)
+			ret = 0;
+		if (ret)
+			return ret;
+	}
+#endif
 
 	ret = sys_prctl(PR_GET_CHILD_SUBREAPER, (unsigned long)&args->child_subreaper, 0, 0, 0);
 	if (ret)

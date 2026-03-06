@@ -229,6 +229,24 @@ static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
 		vma_area->e->flags &= ~MAP_PRIVATE;
 }
 
+static void parse_vma_pkey(char *buf, struct vma_area *vma_area)
+{
+	int pkey;
+
+	if (sscanf(buf, "%d", &pkey) != 1) {
+		pr_warn("Can't parse VMA ProtectionKey: %s\n", buf);
+		return;
+	}
+
+	if (pkey < 0) {
+		pr_warn("Ignoring negative VMA ProtectionKey: %d\n", pkey);
+		return;
+	}
+
+	vma_area->e->pkey = pkey;
+	vma_area->e->has_pkey = true;
+}
+
 static inline int is_anon_shmem_map(dev_t dev)
 {
 	return kdat.shmem_dev == dev;
@@ -844,6 +862,10 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t du
 			if (!strncmp(str, "VmFlags: ", 9)) {
 				BUG_ON(!vma_area);
 				parse_vma_vmflags(&str[9], vma_area);
+				continue;
+			} else if (!strncmp(str, "ProtectionKey:", 14)) {
+				BUG_ON(!vma_area);
+				parse_vma_pkey(&str[14], vma_area);
 				continue;
 			} else
 				continue;

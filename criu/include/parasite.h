@@ -119,6 +119,8 @@ static inline int posix_timers_dump_size(int timer_n)
 
 struct parasite_dump_misc {
 	bool has_membarrier_get_registrations; /* this is sent from criu to parasite. */
+	bool has_mm_pkey_allocation_map;
+	bool has_execute_only_pkey;
 
 	unsigned long brk;
 
@@ -126,6 +128,8 @@ struct parasite_dump_misc {
 	u32 sid;
 	u32 pgid;
 	u32 umask;
+	u32 mm_pkey_allocation_map;
+	int execute_only_pkey;
 
 	int dumpable;
 	int thp_disabled;
