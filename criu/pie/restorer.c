@@ -50,6 +50,7 @@
 #include "images/inventory.pb-c.h"
 
 #include "shmem.h"
+#include "x86-pkey.h"
 
 /*
  * sys_getgroups() buffer size. Not too much, to avoid stack overflow.
@@ -106,6 +107,356 @@ bool fault_injected(enum faults f)
 {
 	return __fault_injected(f, fi_strategy);
 }
+
+#if defined(CONFIG_X86_64)
+static bool vma_uses_execute_only_pkey(struct task_restore_args *args, VmaEntry *vma_entry)
+{
+	return args->mm.has_execute_only_pkey && vma_entry->has_pkey &&
+	       vma_entry->pkey == args->mm.execute_only_pkey;
+}
+
+static int get_requested_user_pkey_map(struct task_restore_args *args, u32 *requested_user_pkey_map)
+{
+	u32 requested_pkey_map;
+	u32 execute_only_pkey_bit = 0;
+
+	requested_pkey_map = args->mm.mm_pkey_allocation_map;
+	if (requested_pkey_map & ~X86_USER_PKEY_MASK) {
+		pr_warn("Ignoring unsupported pkeys from image bitmap: %#x\n",
+			requested_pkey_map & ~X86_USER_PKEY_MASK);
+		requested_pkey_map &= X86_USER_PKEY_MASK;
+	}
+
+	if (args->mm.has_execute_only_pkey) {
+		if (args->mm.execute_only_pkey <= 0 || args->mm.execute_only_pkey >= X86_NR_PKEYS) {
+			pr_err("Unsupported execute_only_pkey %d in image\n", args->mm.execute_only_pkey);
+			return -1;
+		}
+
+		execute_only_pkey_bit = 1U << args->mm.execute_only_pkey;
+		if (!(requested_pkey_map & execute_only_pkey_bit)) {
+			pr_err("execute_only_pkey %d missing from mm_pkey_allocation_map %#x\n",
+			       args->mm.execute_only_pkey, requested_pkey_map);
+			return -1;
+		}
+
+		requested_pkey_map &= ~execute_only_pkey_bit;
+	}
+
+	*requested_user_pkey_map = requested_pkey_map;
+	return 0;
+}
+
+/*
+ * Rebuild the user-visible mm pkey allocation state in a fresh restore task.
+ *
+ * The new task starts with only key 0 allocated. There is no syscall to set
+ * mm_pkey_allocation_map directly, so restore has to rebuild it indirectly by
+ * allocating keys until the wanted key numbers are held again.
+ *
+ * requested_pkey_map:
+ *   user-restorable subset of the mm-level bitmap from image. Any x86
+ *   execute-only pkey is filtered out by the caller and restored later via
+ *   plain mprotect(PROT_EXEC).
+ *
+ * VMA-bound keys are validated later, when restore_vma_pkeys() walks the VMA
+ * list and applies pkey_mprotect(). That keeps the mm-level rebuild path driven
+ * only by mm_pkey_allocation_map, which is the image field meant to carry the
+ * authoritative allocation state.
+ */
+static int rebuild_mm_pkey_allocation_map(u32 requested_pkey_map)
+{
+	int allocated_pkeys[X86_NR_PKEYS];
+	int nr_allocated = 0;
+	u32 held_pkey_map = 0;
+	u32 keep_pkey_map = 0;
+	u32 remaining_pkey_map;
+	int ret = 0;
+
+	remaining_pkey_map = requested_pkey_map;
+
+	if (!requested_pkey_map)
+		return 0;
+
+	/*
+	 * pkey_alloc() returns the lowest currently free user pkey. Walk that
+	 * allocation order once, holding every key we get on the way. Keys not in
+	 * requested_pkey_map are temporary stepping stones needed to reach higher
+	 * requested keys and will be freed in the cleanup path below.
+	 *
+	 * Example:
+	 *   requested_pkey_map = {3, 5}
+	 *   pkey_alloc() returns: 1, 2, 4, 5
+	 *
+	 * Keys 1, 2, and 4 are just stepping stones; key 5 is kept because it is
+	 * part of the requested mm allocation state.
+	 *
+	 * If the loop stops while some requested bits are still left in
+	 * remaining_pkey_map, they likely correspond to keys that are present in
+	 * the mm allocation bitmap but are not available through the userspace pkey
+	 * interfaces. For example the "execute-only pkey":
+	 * https://github.com/torvalds/linux/blob/651690480a965ca196ce42d4562543f3e61cb226/arch/x86/mm/pkeys.c#L14
+	 * Continue with the subset that can be rebuilt explicitly.
+	 */
+	while (remaining_pkey_map) {
+		ret = sys_pkey_alloc(0, 0);
+		if (ret >= 0) {
+			u32 pkey_bit;
+
+			if (ret <= 0 || ret >= X86_NR_PKEYS) {
+				pr_err("Unexpected pkey_alloc result %d during restore\n", ret);
+				ret = -1;
+				goto out;
+			}
+
+			pkey_bit = 1U << ret;
+			allocated_pkeys[nr_allocated++] = ret;
+			held_pkey_map |= pkey_bit;
+			remaining_pkey_map &= ~pkey_bit;
+
+			/*
+			 * Allocation order is monotonic. Once we have moved past all still
+			 * missing requested keys, they can never appear later.
+			 */
+			if (!(remaining_pkey_map & ~((1U << ret) - 1U)))
+				break;
+
+			continue;
+		}
+
+		if (ret == -ENOSYS) {
+			pr_err("Cannot rebuild mm_pkey_allocation_map: pkey syscalls are unavailable on this kernel\n");
+			ret = -1;
+			goto out;
+		}
+
+		if (ret == -ENOSPC)
+			break;
+
+		pr_err("pkey_alloc during restore failed: %d\n", ret);
+		goto out;
+	}
+
+	ret = 0;
+
+out:
+	if (!ret)
+		keep_pkey_map = held_pkey_map & requested_pkey_map;
+
+	/*
+	 * On success we keep only the requested keys that were actually rebuilt.
+	 * Everything else acquired on the way was only a temporary stepping stone
+	 * and must be freed.
+	 *
+	 * On error we free everything we managed to allocate in this helper.
+	 */
+	while (nr_allocated > 0) {
+		int pkey = allocated_pkeys[--nr_allocated];
+		int free_ret;
+
+		if (!(keep_pkey_map & (1U << pkey))) {
+			free_ret = sys_pkey_free(pkey);
+			if (free_ret < 0) {
+				pr_err("pkey_free(%d) failed during restore: %d\n", pkey, free_ret);
+				if (!ret)
+					ret = free_ret;
+			}
+		}
+	}
+
+	return ret;
+}
+
+static int restore_vma_pkeys(struct task_restore_args *args)
+{
+	int i, ret;
+	u32 requested_user_pkey_map;
+
+	/*
+	 * Old images do not carry mm_pkey_allocation_map, and VMA.pkey alone is
+	 * not enough to reconstruct mm allocation state. A task may allocate a
+	 * pkey before binding it to any VMA, so restore must treat the mm-level
+	 * bitmap as the authoritative source and skip pkey restore when it is
+	 * absent.
+	 */
+	if (!args->mm.has_mm_pkey_allocation_map)
+		return 0;
+
+	ret = get_requested_user_pkey_map(args, &requested_user_pkey_map);
+	if (ret)
+		return ret;
+
+	ret = rebuild_mm_pkey_allocation_map(requested_user_pkey_map);
+	if (ret)
+		return ret;
+
+	/*
+	 * The mm allocation state has been rebuilt above. This final VMA walk does
+	 * not "discover" pkeys anymore; it only verifies that each VMA-bound pkey
+	 * is consistent with the image mm bitmap before calling pkey_mprotect().
+	 */
+	for (i = 0; i < args->vmas_n; i++) {
+		VmaEntry *vma_entry = args->vmas + i;
+		u32 pkey_bit;
+
+		if (!vma_entry->has_pkey || vma_entry->pkey <= 0)
+			continue;
+
+		if (vma_uses_execute_only_pkey(args, vma_entry)) {
+			if (vma_entry->prot != PROT_EXEC) {
+				pr_err("VMA %" PRIx64 "-%" PRIx64
+				       " uses execute_only_pkey %d with prot %#x flags %#x status %#x\n",
+				       vma_entry->start, vma_entry->end, vma_entry->pkey,
+				       vma_entry->prot, vma_entry->flags, vma_entry->status);
+				return -1;
+			}
+
+			continue;
+		}
+
+		if (vma_entry->pkey >= X86_NR_PKEYS) {
+			pr_err("Unsupported pkey %d for VMA %" PRIx64 "-%" PRIx64 "\n",
+			       vma_entry->pkey, vma_entry->start, vma_entry->end);
+			return -1;
+		}
+
+		pkey_bit = 1U << vma_entry->pkey;
+		if (!(requested_user_pkey_map & pkey_bit)) {
+			pr_err("VMA %" PRIx64 "-%" PRIx64 " references pkey %d missing from mm_pkey_allocation_map\n",
+			       vma_entry->start, vma_entry->end, vma_entry->pkey);
+			return -1;
+		}
+
+		ret = sys_pkey_mprotect(decode_pointer(vma_entry->start), vma_entry_len(vma_entry),
+					vma_entry->prot, vma_entry->pkey);
+		if (ret) {
+			pr_err("pkey_mprotect(%" PRIx64 ", %" PRIu64 ", %x, %d) failed: %d, "
+			       "VMA %" PRIx64 "-%" PRIx64 " prot %#x flags %#x status %#x\n",
+			       vma_entry->start, vma_entry_len(vma_entry), vma_entry->prot,
+			       vma_entry->pkey, ret, vma_entry->start, vma_entry->end,
+			       vma_entry->prot, vma_entry->flags, vma_entry->status);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * restore_execute_only_vmas() lets the kernel allocate or reuse the execute-only
+ * pkey for this fresh mm. That slot can differ from the slot number stored in
+ * the image. Before any thread reaches sigreturn, patch every prebuilt
+ * rt_sigframe so the final PKRU/xstate restore preserves execute-only semantics
+ * for the restore-time slot instead of replaying the dump-time slot layout.
+ */
+static int patch_execute_only_pkru_sigframes(struct task_restore_args *args)
+{
+	bool has_runtime_execute_only_pkey = false;
+	bool has_runtime_mm_pkey_allocation_map = false;
+	u32 runtime_mm_pkey_allocation_map = 0;
+	int runtime_execute_only_pkey = -1;
+	int i, ret;
+
+	if (!args->mm.has_execute_only_pkey)
+		return 0;
+
+	if (!x86_pkeys_enabled()) {
+		pr_err("Cannot patch execute_only PKRU: pkeys are unavailable at restore time\n");
+		return -1;
+	}
+
+	ret = probe_mm_pkey_allocation_map(&runtime_execute_only_pkey, &has_runtime_execute_only_pkey,
+					   &runtime_mm_pkey_allocation_map, &has_runtime_mm_pkey_allocation_map);
+	if (ret)
+		return ret;
+
+	if (!has_runtime_mm_pkey_allocation_map || !has_runtime_execute_only_pkey) {
+		pr_err("Cannot patch execute_only PKRU: execute_only_pkey not found in runtime map %#x\n",
+		       runtime_mm_pkey_allocation_map);
+		return -1;
+	}
+
+	if (runtime_execute_only_pkey == args->mm.execute_only_pkey)
+		return 0;
+
+	for (i = 0; i < args->nr_threads; i++) {
+		struct rt_sigframe *sigframe = (void *)&args->thread_args[i].mz->rt_sigframe;
+		u32 *pkru;
+
+		ret = x86_sigframe_get_pkru(sigframe, &pkru);
+		if (ret) {
+			pr_err("Cannot patch execute_only PKRU for thread %d\n", args->thread_args[i].pid);
+			return ret;
+		}
+
+		x86_pkru_move_execute_only_slot(pkru, args->mm.execute_only_pkey, runtime_execute_only_pkey);
+	}
+
+	pr_info("Patched sigreturn PKRU execute-only slot %d -> %d\n",
+		args->mm.execute_only_pkey, runtime_execute_only_pkey);
+	return 0;
+}
+
+static int restore_execute_only_vmas(struct task_restore_args *args)
+{
+	int i, ret;
+
+	if (!args->mm.has_execute_only_pkey)
+		return 0;
+
+	for (i = 0; i < args->vmas_n; i++) {
+		VmaEntry *vma_entry = args->vmas + i;
+
+		if (!vma_uses_execute_only_pkey(args, vma_entry))
+			continue;
+
+		if (vma_entry->prot != PROT_EXEC) {
+			pr_err("VMA %" PRIx64 "-%" PRIx64
+			       " uses execute_only_pkey %d with prot %#x flags %#x status %#x\n",
+			       vma_entry->start, vma_entry->end, vma_entry->pkey,
+			       vma_entry->prot, vma_entry->flags, vma_entry->status);
+			return -1;
+		}
+
+		ret = sys_mprotect(decode_pointer(vma_entry->start), vma_entry_len(vma_entry), PROT_EXEC);
+		if (ret) {
+			pr_err("mprotect(%" PRIx64 ", %" PRIu64 ", %x) failed: %d, "
+			       "VMA %" PRIx64 "-%" PRIx64 " pkey %d prot %#x flags %#x status %#x\n",
+			       vma_entry->start, vma_entry_len(vma_entry), PROT_EXEC, ret,
+			       vma_entry->start, vma_entry->end, vma_entry->pkey,
+			       vma_entry->prot, vma_entry->flags, vma_entry->status);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+#else
+static int restore_vma_pkeys(struct task_restore_args *args)
+{
+	(void)args;
+	return 0;
+}
+
+static int restore_execute_only_vmas(struct task_restore_args *args)
+{
+	(void)args;
+	return 0;
+}
+
+static bool vma_uses_execute_only_pkey(struct task_restore_args *args, VmaEntry *vma_entry)
+{
+	(void)args;
+	(void)vma_entry;
+	return false;
+}
+
+static int patch_execute_only_pkru_sigframes(struct task_restore_args *args)
+{
+	(void)args;
+	return 0;
+}
+#endif
 
 #ifdef ARCH_HAS_LONG_PAGES
 /*
@@ -1979,13 +2330,17 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		vdso_rt_size = 0;
 
 	/*
-	 * Walk though all VMAs again to drop PROT_WRITE
-	 * if it was not there.
+	 * Walk though all VMAs again to drop PROT_WRITE if it was not there.
+	 * Execute-only VMAs are skipped here and restored later with a dedicated
+	 * mprotect(PROT_EXEC) pass.
 	 */
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
 
 		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
+			continue;
+
+		if (vma_uses_execute_only_pkey(args, vma_entry) && vma_entry->prot == PROT_EXEC)
 			continue;
 
 		if ((vma_entry->prot & PROT_WRITE) || (vma_entry->status & VMA_NO_PROT_WRITE))
@@ -2033,6 +2388,24 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	 * Restore madvise(MADV_GUARD_INSTALL)
 	 */
 	ret = restore_madv_guard_regions(args);
+	if (ret)
+		goto core_restore_end;
+
+	/*
+	 * Rebuild user-restorable mm pkey allocation state, apply pkey_mprotect(),
+	 * then restore execute-only VMAs with plain mprotect(PROT_EXEC). After that,
+	 * patch the prebuilt sigframes so the final sigreturn restores PKRU/xstate
+	 * with the restore-time execute-only slot, not the dump-time slot number.
+	 */
+	ret = restore_vma_pkeys(args);
+	if (ret)
+		goto core_restore_end;
+
+	ret = restore_execute_only_vmas(args);
+	if (ret)
+		goto core_restore_end;
+
+	ret = patch_execute_only_pkru_sigframes(args);
 	if (ret)
 		goto core_restore_end;
 
