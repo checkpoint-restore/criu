@@ -78,6 +78,7 @@ vagrant-fedora-non-root: setup-vagrant
 .PHONY: setup-vagrant vagrant-fedora-no-vdso vagrant-fedora-rawhide vagrant-fedora-non-root
 
 check-commit:
+	(cd ../.. && git clean -dfx)
 	($(MAKE) -j $$(nproc) -C ../.. && \
 		echo "Commit $$(git rev-parse --short HEAD) built successfully") || \
 		(echo "Build failed for $$(git rev-list -n 1 --pretty HEAD)" && \
