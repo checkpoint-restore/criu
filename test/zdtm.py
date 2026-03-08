@@ -656,7 +656,7 @@ class zdtm_test:
         for postfix in ['.out', '.out.inprogress']:
             if os.access(self.__name + postfix, os.R_OK):
                 print("Test output: " + "=" * 32)
-                with open(self.__name + postfix) as output:
+                with open(self.__name + postfix, errors='ignore') as output:
                     print(output.read())
                 print(" <<< " + "=" * 32)
 

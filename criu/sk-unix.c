@@ -785,6 +785,7 @@ static int unix_collect_one(const struct unix_diag_msg *m, struct nlattr **tb, s
 
 	if (tb[UNIX_DIAG_ICONS]) {
 		unsigned int len = nla_len(tb[UNIX_DIAG_ICONS]);
+		struct unix_sk_listen_icon *icon_head = NULL;
 		unsigned int i;
 
 		d->icons = xmalloc(len);
@@ -795,6 +796,25 @@ static int unix_collect_one(const struct unix_diag_msg *m, struct nlattr **tb, s
 		d->nr_icons = len / sizeof(uint32_t);
 
 		/*
+		 * Pre-allocate all icon structures first.
+		 */
+		for (i = 0; i < d->nr_icons; i++) {
+			struct unix_sk_listen_icon *e;
+
+			e = xzalloc(sizeof(*e));
+			if (!e) {
+				while (icon_head) {
+					e = icon_head;
+					icon_head = e->next;
+					xfree(e);
+				}
+				goto err;
+			}
+			e->next = icon_head;
+			icon_head = e;
+		}
+
+		/*
 		 * Remember these sockets, we will need them
 		 * to fix up in-flight sockets peers.
 		 */
@@ -802,9 +822,8 @@ static int unix_collect_one(const struct unix_diag_msg *m, struct nlattr **tb, s
 			struct unix_sk_listen_icon *e, **chain;
 			unsigned int n;
 
-			e = xzalloc(sizeof(*e));
-			if (!e)
-				goto err;
+			e = icon_head;
+			icon_head = e->next;
 
 			n = d->icons[i];
 			chain = &unix_listen_icons[n % SK_HASH_SIZE];

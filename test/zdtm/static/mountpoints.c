@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 		fail("Can't mount tmpfs");
 		return 1;
 	}
-	tmpfs_fd = open(MPTS_ROOT "/dev/test", O_WRONLY | O_CREAT);
+	tmpfs_fd = open(MPTS_ROOT "/dev/test", O_WRONLY | O_CREAT, 0777);
 	if (write(tmpfs_fd, "hello", 5) <= 0) {
 		pr_perror("write() failed");
 		return 1;
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
 
 	/* Check that over-mounted files are restored on tmpfs */
 	mkdir(MPTS_ROOT "/dev/overmount", 0600);
-	fd = open(MPTS_ROOT "/dev/overmount/test.over", O_WRONLY | O_CREAT);
+	fd = open(MPTS_ROOT "/dev/overmount/test.over", O_WRONLY | O_CREAT, 0777);
 	if (fd == -1) {
 		pr_perror("Unable to open " MPTS_ROOT "/dev/overmount");
 		return -1;
@@ -190,14 +190,14 @@ int main(int argc, char **argv)
 	}
 	mkdir(MPTS_ROOT "/dev/slave/test.mnt.slave/test.slave", 0600);
 
-	fd = open(MPTS_ROOT "/dev/bmfile", O_CREAT | O_WRONLY);
+	fd = open(MPTS_ROOT "/dev/bmfile", O_CREAT | O_WRONLY, 0777);
 	if (fd < 0) {
 		pr_perror("Can't create " MPTS_ROOT "/dev/share-1/bmfile");
 		return 1;
 	}
 	close(fd);
 
-	fd = open(MPTS_ROOT "/dev/bmfile-mount", O_CREAT | O_WRONLY);
+	fd = open(MPTS_ROOT "/dev/bmfile-mount", O_CREAT | O_WRONLY, 0777);
 	if (fd < 0) {
 		pr_perror("Can't create " MPTS_ROOT "/dev/share-1/bmfile");
 		return 1;

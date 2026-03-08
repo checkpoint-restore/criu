@@ -250,9 +250,6 @@ static int crtools_prepare_shared(void)
 	if (!files_collected() && collect_image(&inet_sk_cinfo))
 		return -1;
 
-	if (collect_binfmt_misc())
-		return -1;
-
 	if (tty_prep_fds())
 		return -1;
 
@@ -1575,7 +1572,12 @@ static int __restore_task_with_children(void *_arg)
 		/* Wait prepare_userns */
 		if (restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
 			goto err;
+	}
 
+	if (needs_prep_creds(current) && (prepare_userns_creds()))
+		goto err;
+
+	if (current->parent == NULL) {
 		/*
 		 * Since we don't support nesting of cgroup namespaces, let's
 		 * only set up the cgns (if it exists) in the init task.
@@ -1583,9 +1585,6 @@ static int __restore_task_with_children(void *_arg)
 		if (prepare_cgroup_namespace(current) < 0)
 			goto err;
 	}
-
-	if (needs_prep_creds(current) && (prepare_userns_creds()))
-		goto err;
 
 	/*
 	 * Call this _before_ forking to optimize cgroups
@@ -1670,6 +1669,11 @@ static int __restore_task_with_children(void *_arg)
 	restore_pgid();
 
 	if (current->parent == NULL) {
+		if (root_ns_mask & CLONE_NEWUSER)
+			/* Do this after user ns and mnt ns have been set up */
+			if (restore_userns_binfmt_misc(current))
+				goto err;
+
 		/*
 		 * Wait when all tasks passed the CR_STATE_FORKING stage.
 		 * The stage was started by criu, but now it waits for

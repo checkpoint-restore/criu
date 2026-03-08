@@ -518,23 +518,33 @@ static char *get_mark_path(const char *who, struct file_remap *remap, FhEntry *f
 		int mntns_root;
 
 		mntns_root = mntns_get_root_by_mnt_id(remap->rmnt_id);
+		if (mntns_root < 0) {
+			pr_err("Failed to get mount namespace root for remap (mnt_id %#x path %s)\n",
+			       remap->rmnt_id, remap->rpath);
+			goto err;
+		}
 
 		pr_debug("\t\tRestore %s watch for %#08x:%#016lx (via %s)\n", who, s_dev, i_ino, remap->rpath);
 		*target = openat(mntns_root, remap->rpath, O_PATH);
 	} else if (f_handle->path) {
 		int mntns_root;
-		char *path = ".";
-		uint32_t mnt_id = f_handle->has_mnt_id ? f_handle->mnt_id : -1;
+		char *fpath = ".";
+		int mnt_id = f_handle->has_mnt_id ? (int)f_handle->mnt_id : -1;
 
 		/* irmap cache is collected in the root namespaces. */
 		mntns_root = mntns_get_root_by_mnt_id(mnt_id);
+		if (mntns_root < 0) {
+			pr_err("Failed to get mount namespace root for path hint (mnt_id %d path %s)\n",
+			       mnt_id, f_handle->path);
+			goto err;
+		}
 
 		/* change "/foo" into "foo" and "/" into "." */
 		if (f_handle->path[1] != '\0')
-			path = f_handle->path + 1;
+			fpath = f_handle->path + 1;
 
-		pr_debug("\t\tRestore with path hint %d:%s\n", mnt_id, path);
-		*target = openat(mntns_root, path, O_PATH);
+		pr_debug("\t\tRestore with path hint %d:%s\n", mnt_id, fpath);
+		*target = openat(mntns_root, fpath, O_PATH);
 	} else
 		*target = open_handle(s_dev, i_ino, f_handle);
 

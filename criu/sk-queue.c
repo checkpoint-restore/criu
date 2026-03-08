@@ -53,6 +53,13 @@ static int collect_one_packet(void *obj, ProtobufCMessage *msg, struct cr_img *i
 	 */
 	if (pkt->entry->n_scm > 1) {
 		pr_err("More than 1 SCM is not possible\n");
+		xfree(pkt->data);
+		return -1;
+	}
+
+	if (read_img_buf(img, pkt->data, pkt->entry->length) != 1) {
+		xfree(pkt->data);
+		pr_perror("Unable to read packet data");
 		return -1;
 	}
 
@@ -61,12 +68,6 @@ static int collect_one_packet(void *obj, ProtobufCMessage *msg, struct cr_img *i
 	 * will be broken.
 	 */
 	list_add_tail(&pkt->list, &packets_list);
-
-	if (read_img_buf(img, pkt->data, pkt->entry->length) != 1) {
-		xfree(pkt->data);
-		pr_perror("Unable to read packet data");
-		return -1;
-	}
 
 	return 0;
 }
@@ -100,13 +101,17 @@ static int dump_scm_rights(struct cmsghdr *ch, SkPacketEntry *pe)
 	for (i = 0; i < nr_fds; i++) {
 		int ftyp;
 
-		if (dump_my_file(fds[i], &scme->rights[i], &ftyp))
+		if (dump_my_file(fds[i], &scme->rights[i], &ftyp)) {
+			xfree(scme);
 			return -1;
+		}
 	}
 
 	i = pe->n_scm++;
-	if (xrealloc_safe(&pe->scm, pe->n_scm * sizeof(ScmEntry *)))
+	if (xrealloc_safe(&pe->scm, pe->n_scm * sizeof(ScmEntry *))) {
+		xfree(scme);
 		return -1;
+	}
 
 	pe->scm[i] = scme;
 	return 0;
@@ -244,6 +249,17 @@ int dump_sk_queue(int sock_fd, int sock_id)
 			ret = -E2BIG;
 			goto err_set_sock;
 		}
+		if (msg.msg_flags & MSG_CTRUNC) {
+			/*
+			 * Control data truncated. This means the cmsg
+			 * buffer was too small and SCM data (such as
+			 * passed file descriptors) has been silently
+			 * discarded by the kernel.
+			 */
+			pr_err("sys_recvmsg failed: control data truncated\n");
+			ret = -E2BIG;
+			goto err_set_sock;
+		}
 
 		if (dump_packet_cmsg(&msg, &pe))
 			goto err_set_sock;
@@ -307,6 +323,7 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 
 	ret = sendmsg(fd, &mh, 0);
 	xfree(pkt->data);
+	xfree(pkt->scm);
 	if (ret < 0) {
 		pr_perror("Failed to send packet");
 		return -1;

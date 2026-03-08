@@ -14,12 +14,11 @@ source "${MAIN_DIR}/../env.sh" || exit 1
 
 echo "== Clean"
 make clean
-make libcriu
 
 rm -rf "${OUTPUT_DIR}"
 
 echo "== Run tests"
-export LD_LIBRARY_PATH=.
+export LD_LIBRARY_PATH=${MAIN_DIR}/.install/lib
 export PATH="${MAIN_DIR}/../../../criu:${PATH}"
 
 RESULT=0
@@ -76,6 +75,5 @@ fi
 run_test test_feature_check
 
 echo "== Tests done"
-make libcriu_clean
 [ "${RESULT}" -eq 0 ] && echo "Success" || echo "FAIL"
 exit "${RESULT}"

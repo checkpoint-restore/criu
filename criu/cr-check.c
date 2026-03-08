@@ -1810,6 +1810,16 @@ static int check_external_net_ns(void)
 	return 0;
 }
 
+static int check_binfmt_misc_sandboxing(void)
+{
+	if (!kdat.has_binfmt_misc_sandboxing) {
+		pr_info("binfmt_misc sandboxing isn't supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 struct feature_list {
 	char *name;
 	int (*func)(void);
@@ -1861,6 +1871,7 @@ static struct feature_list feature_list[] = {
 	{ "overlayfs_maps", check_overlayfs_maps },
 	{ "breakpoints", check_breakpoints },
 	{ "pagemap_scan_guard_pages", check_pagemap_scan_guard_pages },
+	{ "binfmt_misc_sandboxing", check_binfmt_misc_sandboxing },
 	{ NULL, NULL },
 };
 

@@ -181,9 +181,6 @@ struct cr_options {
 	bool aufs; /* auto-detected, not via cli */
 	bool overlayfs;
 	int ghost_fiemap;
-#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
-	bool has_binfmt_misc; /* auto-detected */
-#endif
 	size_t ghost_limit;
 	struct list_head irmap_scan_paths;
 	bool lsm_supplied;

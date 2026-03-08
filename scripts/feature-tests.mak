@@ -165,8 +165,7 @@ define FEATURE_TEST_NO_LIBC_RSEQ_DEFS
 #endif
 
 enum rseq_cpu_id_state {
-	RSEQ_CPU_ID_UNINITIALIZED = -1,
-	RSEQ_CPU_ID_REGISTRATION_FAILED = -2,
+	RSEQ_CPU_CRIU_TEST = -1,
 };
 
 int main(void)

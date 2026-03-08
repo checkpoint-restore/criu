@@ -18,7 +18,7 @@ export UNAME
 CONTAINER_RUNTIME := docker
 export CONTAINER_RUNTIME
 
-alpine: ZDTM_OPTS=-x zdtm/static/binfmt_misc -x zdtm/static/sched_policy00
+alpine: ZDTM_OPTS=-x zdtm/static/sched_policy00
 
 ifeq ($(GITHUB_ACTIONS),true)
 	# GitHub Actions does not give us a real TTY and errors out with

@@ -2233,7 +2233,6 @@ static int cr_dump_finish(int ret)
 		unsuspend_lsm();
 		network_unlock();
 		delete_link_remaps();
-		clean_cr_time_mounts();
 	}
 
 	/* Resume process early if using COW dump with lazy pages */
@@ -2285,7 +2284,7 @@ out_release_cow:
 	free_file_locks();
 	free_link_remaps();
 	free_aufs_branches();
-	free_userns_maps();
+	free_userns_data();
 
 	close_service_fd(CR_PROC_FD_OFF);
 	close_image_dir();

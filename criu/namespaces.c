@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <sched.h>
 #include <sys/capability.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <limits.h>
 #include <errno.h>
@@ -28,6 +29,7 @@
 #include "fdstore.h"
 #include "kerndat.h"
 #include "util-caps.h"
+#include "filesystems.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -1010,8 +1012,9 @@ int dump_user_ns(pid_t pid, int ns_id)
 	ret = parse_id_map(pid, "uid_map", &e->uid_map);
 	if (ret < 0)
 		/*
-		 * The uid_map and gid_map is clean up in free_userns_maps
-		 * later, so we don't need to clean these up in error cases.
+		 * The uid_map, gid_map and binfmt_misc are cleaned up in
+		 * free_userns_data later, so we don't need to clean these up in error
+		 * cases.
 		 */
 		return -1;
 
@@ -1025,6 +1028,11 @@ int dump_user_ns(pid_t pid, int ns_id)
 	if (check_user_ns(pid))
 		return -1;
 
+	ret = binfmt_misc_dump_sandboxed(pid, &e->binfmt_misc);
+	if (ret < 0)
+		return -1;
+	e->n_binfmt_misc = ret;
+
 	img = open_image(CR_FD_USERNS, O_DUMP, ns_id);
 	if (!img)
 		return -1;
@@ -1036,7 +1044,7 @@ int dump_user_ns(pid_t pid, int ns_id)
 	return 0;
 }
 
-void free_userns_maps(void)
+void free_userns_data(void)
 {
 	if (userns_entry.n_uid_map > 0) {
 		xfree(userns_entry.uid_map[0]);
@@ -1046,6 +1054,8 @@ void free_userns_maps(void)
 		xfree(userns_entry.gid_map[0]);
 		xfree(userns_entry.gid_map);
 	}
+	if (userns_entry.n_binfmt_misc > 0)
+		free_pb_binfmt_misc_entries(userns_entry.binfmt_misc, userns_entry.n_binfmt_misc);
 }
 
 static int do_dump_namespaces(struct ns_id *ns)
@@ -1571,19 +1581,49 @@ int stop_usernsd(void)
 	return ret;
 }
 
-int prepare_userns(struct pstree_item *item)
+static int read_user_ns_img(void)
 {
+	struct ns_id *ns;
 	struct cr_img *img;
-	UsernsEntry *e;
 	int ret;
 
-	img = open_image(CR_FD_USERNS, O_RSTR, item->ids->user_ns_id);
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+
+	ns = lookup_ns_by_id(root_item->ids->user_ns_id, &user_ns_desc);
+	if (!ns) {
+		pr_err("Can not find user ns\n");
+		return -1;
+	}
+
+	img = open_image(CR_FD_USERNS, O_RSTR, root_item->ids->user_ns_id);
 	if (!img)
 		return -1;
-	ret = pb_read_one(img, &e, PB_USERNS);
+	ret = pb_read_one(img, &ns->user.e, PB_USERNS);
 	close_image(img);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("Can not read userns object\n");
 		return -1;
+	}
+
+	return 0;
+}
+
+int prepare_userns(struct pstree_item *item)
+{
+	struct ns_id *ns;
+	UsernsEntry *e;
+
+	ns = lookup_ns_by_id(item->ids->user_ns_id, &user_ns_desc);
+	if (!ns) {
+		pr_err("Can not find user ns\n");
+		return -1;
+	}
+	e = ns->user.e;
+	if (!e) {
+		pr_err("userns image was not pre-read\n");
+		return -1;
+	}
 
 	if (write_id_map(item->pid->real, e->uid_map, e->n_uid_map, "uid_map"))
 		return -1;
@@ -1592,6 +1632,31 @@ int prepare_userns(struct pstree_item *item)
 		return -1;
 
 	return 0;
+}
+
+int restore_userns_binfmt_misc(struct pstree_item *item)
+{
+	struct ns_id *ns;
+	UsernsEntry *e;
+	int ret;
+
+	ns = lookup_ns_by_id(item->ids->user_ns_id, &user_ns_desc);
+	if (!ns) {
+		pr_err("Can not find user ns\n");
+		return -1;
+	}
+	e = ns->user.e;
+	if (!e) {
+		pr_err("userns image was not pre-read\n");
+		return -1;
+	}
+
+	ret = binfmt_misc_restore_sandboxed(item->pid->real, e->binfmt_misc, e->n_binfmt_misc);
+
+	userns_entry__free_unpacked(ns->user.e, NULL);
+	ns->user.e = NULL;
+
+	return ret ? -1 : 0;
 }
 
 int collect_namespaces(bool for_dump)
@@ -1853,6 +1918,9 @@ int prepare_namespace_before_tasks(void)
 		goto err_img;
 
 	if (read_pid_ns_img())
+		goto err_img;
+
+	if (read_user_ns_img())
 		goto err_img;
 
 	return 0;
