@@ -527,6 +527,7 @@ class zdtm_test:
                 criu_dir_r = "%s%s" % (self.__flavor.root, criu_dir)
 
                 env['ZDTM_CRIU'] = os.path.dirname(os.getcwd())
+                env['ZDTM_CRIU_TREE'] = os.path.join(os.path.dirname(os.getcwd()), "criu.tree")
                 subprocess.check_call(["mkdir", "-p", criu_dir_r])
 
         self.__make_action('pid', env, self.__flavor.root)
@@ -1552,7 +1553,7 @@ class criu:
         criu_dir = os.path.dirname(os.getcwd())
         if os.getenv("GCOV"):
             r_opts.append('--external')
-            r_opts.append('mnt[zdtm]:%s' % criu_dir)
+            r_opts.append('mnt[zdtm]:%s' % os.path.join(criu_dir, "criu.tree"))
 
         if self.__lazy_pages or self.__lazy_migrate:
             lp_opts = []
@@ -2009,6 +2010,18 @@ def pstree_signal(root_pid, signal):
 
 
 def do_run_test(tname, tdesc, flavs, opts):
+    if os.getenv("GCOV"):
+        # With GCOV=1 the CRIU workspace parent is bind-mounted into the
+        # test namespace (ZDTM_CRIU / ZDTM_CRIU_TREE in ns.c).  We use a
+        # private bind-mount of ".." as the mount source so that cgroupfs
+        # submounts CRIU creates later (cg_yard via mkdtemp) are invisible
+        # to it.  Without this, those mounts propagate into the source and
+        # become MNT_LOCKED inside the user namespace, causing
+        # open_tree(OPEN_TREE_CLONE) to return EINVAL on restore.
+        if not os.access("../criu.tree", os.F_OK):
+            os.mkdir("../criu.tree")
+            os.chmod("../criu.tree", 0o700)
+        subprocess.check_call(["mount", "--bind", "--make-private", "..", "../criu.tree"])
     tcname = tname.split('/')[0]
     tclass = test_classes.get(tcname, None)
     if not tclass:

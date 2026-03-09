@@ -83,8 +83,9 @@ static int prepare_mntns(void)
 
 	criu_path = getenv("ZDTM_CRIU");
 	if (criu_path) {
+		char *criu_tree = getenv("ZDTM_CRIU_TREE");
 		snprintf(path, sizeof(path), "%s%s", root, criu_path);
-		if (mount(criu_path, path, NULL, MS_BIND, NULL) || mount(NULL, path, NULL, MS_PRIVATE, NULL)) {
+		if (mount(criu_tree, path, NULL, MS_BIND, NULL) || mount(NULL, path, NULL, MS_PRIVATE, NULL)) {
 			pr_perror("Unable to mount %s", path);
 			return -1;
 		}
