@@ -81,6 +81,7 @@
 #include "bpfmap.h"
 #include "apparmor.h"
 #include "pidfd.h"
+#include "luo.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -2403,6 +2404,11 @@ int cr_restore_tasks(void)
 	if (fdstore_init())
 		return -1;
 
+	if (opts.use_luo && opts.luo_session) {
+		if (luo_session_open(opts.luo_session))
+			return -1;
+	}
+
 	/*
 	 * For the AMDGPU plugin, its parallel restore feature needs to use fdstore to store
 	 * its socket file descriptor. This allows the main process and the target process to
@@ -2431,6 +2437,10 @@ int cr_restore_tasks(void)
 clean_cgroup:
 	fini_cgroup();
 err:
+	if (opts.use_luo) {
+		luo_session_finish();
+	}
+
 	cr_plugin_fini(CR_PLUGIN_STAGE__RESTORE, ret);
 	return ret;
 }

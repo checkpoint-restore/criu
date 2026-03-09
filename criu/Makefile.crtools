@@ -38,6 +38,7 @@ obj-y			+= kerndat.o
 obj-y			+= libnetlink.o
 obj-y			+= log.o
 obj-y			+= lsm.o
+obj-y			+= luo.o
 obj-y			+= mem.o
 obj-y			+= memfd.o
 obj-y			+= mount.o

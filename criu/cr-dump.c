@@ -88,6 +88,7 @@
 #include "asm/dump.h"
 #include "timer.h"
 #include "sigact.h"
+#include "luo.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -2125,11 +2126,21 @@ static int cr_dump_finish(int ret)
 			pr_info("fault: CRIU dump crashed!\n");
 			abort();
 		}
+		if (opts.use_luo && opts.luo_session)
+			luo_session_finish();
 		pr_err("Dumping FAILED.\n");
 	} else {
 		write_stats(DUMP_STATS);
 		pr_info("Dumping finished successfully\n");
+		/*
+		 * LUO will only preserve session file descriptors that were open
+		 * when kexec occurs, so we literally freeze in place.
+		 */
+		if (opts.use_luo && opts.luo_session)
+			luo_session_hang();
 	}
+
+
 	return post_dump_ret ?: (ret != 0);
 }
 
@@ -2193,6 +2204,11 @@ int cr_dump_tasks(pid_t pid)
 
 	if (opts.cpu_cap & CPU_CAP_IMAGE) {
 		if (cpu_dump_cpuinfo())
+			goto err;
+	}
+
+	if (opts.use_luo && opts.luo_session) {
+		if (luo_session_init(opts.luo_session))
 			goto err;
 	}
 

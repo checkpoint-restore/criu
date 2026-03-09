@@ -85,6 +85,15 @@ The following levels are available:
     Use 'path' as a parent directory where to look for sets of image files.
     This option makes sense in case of incremental dumps.
 
+*--luo-session* 'id'::
+    Create a Live Update Orchestrator session named 'id', and use it to store
+    images.
+    This will disable writing images to files.
+
+*--luo-session-fd* 'fd'::
+    Use 'fd' as the Live Update Orchestrator session to store images into.
+    This will disable writing images to files.
+
 *-W*, *--work-dir* 'dir'::
     Use directory 'dir' for putting logs, pidfiles and statistics. If not
     specified, 'path' from *-D* option is taken.

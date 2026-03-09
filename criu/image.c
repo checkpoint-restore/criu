@@ -19,6 +19,7 @@
 #include "proc_parse.h"
 #include "img-streamer.h"
 #include "namespaces.h"
+#include "luo.h"
 
 bool ns_per_id = false;
 bool img_common_magic = true;
@@ -608,6 +609,9 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 	if (opts.stream && !(oflags & O_FORCE_LOCAL)) {
 		ret = img_streamer_open(path, flags);
 		errno = EIO; /* errno value is meaningless, only the ret value is meaningful */
+	} else if (opts.use_luo && !(oflags & O_FORCE_LOCAL)) {
+		img->path = xstrdup(path);
+		ret = luo_image_open(img, flags);
 	} else if (root_ns_mask & CLONE_NEWUSER && type == CR_FD_PAGES && oflags & O_RDWR) {
 		/*
 		 * For pages images dedup we need to open images read-write on
@@ -692,6 +696,9 @@ void close_image(struct cr_img *img)
 		 * data from it.
 		 */
 		unlinkat(get_service_fd(IMG_FD_OFF), img->path, 0);
+		xfree(img->path);
+	} else if (opts.use_luo && (img->oflags & O_WRONLY) && !(img->oflags & O_FORCE_LOCAL)) {
+		luo_image_close(img);
 		xfree(img->path);
 	} else if (!empty_image(img))
 		bclose(&img->_x);

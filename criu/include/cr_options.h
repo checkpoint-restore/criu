@@ -195,6 +195,10 @@ struct cr_options {
 	int skip_file_rwx_check;
 	int allow_uprobes;
 
+	bool use_luo;
+	char *luo_session;
+	int luo_session_fd;
+
 	/*
 	 * When we scheduler for removal some functionality we first
 	 * deprecate it and it sits in criu for some time. By default
