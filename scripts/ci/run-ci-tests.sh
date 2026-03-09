@@ -244,6 +244,7 @@ if [ "$UNAME_M" == "x86_64" ]; then
 	# This fails on aarch64 (aws-graviton2) with:
 	# 33: ERR: thread-bomb.c:49: pthread_attr_setstacksize(): 22
 	bash -x ./test/jenkins/criu-fcg.sh
+	bash -x ./test/jenkins/criu-pkey.sh
 fi
 bash -x ./test/jenkins/criu-inhfd.sh
 

@@ -23,6 +23,11 @@ TST_NOFILE	:=				\
 		sse00				\
 		sse20				\
 		mprotect00			\
+		pkey_basic			\
+		pkey_execute_only		\
+		pkey_sparse_keys		\
+		pkey_pkru_persist		\
+		pkey_execute_only_mix		\
 		timers				\
 		timers01			\
 		timerfd				\
