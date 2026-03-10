@@ -137,9 +137,9 @@ int amdgpu_plugin_drm_handle_device_vma(int fd, const struct stat *st)
 
 	snprintf(path, sizeof(path), AMDGPU_DRM_DEVICE, DRM_FIRST_RENDER_NODE);
 	ret = stat(path, &drm);
-	if (ret == -1) {
+	if (ret) {
 		pr_err("Error in getting stat for: %s\n", path);
-		return ret;
+		return -errno;
 	}
 
 	if ((major(st->st_rdev) != major(drm.st_rdev)) ||
@@ -170,13 +170,14 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 
 	ret = amdgpu_device_initialize(drm_fd, &major, &minor, &h_dev);
 	if (ret) {
-		pr_perror("failed to initialize device");
+		pr_err("failed to initialize device - %s\n", strerror(-ret));
 		goto exit;
 	}
 
 	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
 	if (ret) {
-		pr_perror("failed to query gpuinfo via libdrm");
+		pr_err("failed to query gpuinfo via libdrm - %s\n",
+		       strerror(-ret));
 		goto exit;
 	}
 
@@ -389,7 +390,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 		ret = amdgpu_device_initialize(fd, &major, &minor, &h_dev);
 		if (ret) {
-			pr_perror("Failed to initialize amdgpu device");
+			pr_err("Failed to initialize amdgpu device - %s\n", strerror(-ret));
 			xfree(vm_info_entries);
 			goto exit;
 		}

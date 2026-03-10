@@ -479,7 +479,8 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 	/* Determine if input is a DRM device and therefore is supported */
 	ret = amdgpu_plugin_drm_handle_device_vma(fd, st_buf);
 	if (ret)
-		pr_perror("%s(), Can't handle VMAs of input device", __func__);
+		pr_err("Can't handle VMAs of input device - %s\n",
+		       strerror(-ret));
 
 	if (!ret)
 		ret = amdgpu_add_to_inventory();
@@ -505,23 +506,23 @@ int alloc_and_map(amdgpu_device_handle h_dev, uint64_t size, uint32_t domain, am
 	alloc_req.flags = 0;
 	err = amdgpu_bo_alloc(h_dev, &alloc_req, &h_bo);
 	if (err) {
-		pr_perror("failed to alloc BO");
+		pr_err("failed to alloc BO - %s\n", strerror(-err));
 		return err;
 	}
 	err = amdgpu_va_range_alloc(h_dev, amdgpu_gpu_va_range_general, size, 0x1000, 0, &gpu_addr, &h_va, 0);
 	if (err) {
-		pr_perror("failed to alloc VA");
+		pr_err("failed to alloc VA - %s\n", strerror(-err));
 		goto err_va;
 	}
 	err = amdgpu_bo_va_op(h_bo, 0, size, gpu_addr, 0, AMDGPU_VA_OP_MAP);
 	if (err) {
-		pr_perror("failed to GPU map BO");
+		pr_err("failed to GPU map BO - %s\n", strerror(-err));
 		goto err_gpu_map;
 	}
 	if (p_cpu_addr) {
 		err = amdgpu_bo_cpu_map(h_bo, &cpu_addr);
 		if (err) {
-			pr_perror("failed to CPU map BO");
+			pr_err("failed to CPU map BO - %s\n", strerror(-err));
 			goto err_cpu_map;
 		}
 		*p_cpu_addr = cpu_addr;
@@ -585,14 +586,16 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 	case SDMA_OP_VRAM_WRITE:
 		err = amdgpu_create_bo_from_user_mem(h_dev, buffer, src_bo_size, &h_bo_src);
 		if (err) {
-			pr_perror("failed to create userptr for sdma");
+			pr_err("failed to create userptr for sdma - %s\n",
+			       strerror(-err));
 			return -EFAULT;
 		}
 		break;
 	case SDMA_OP_VRAM_READ:
 		err = amdgpu_bo_import(h_dev, amdgpu_bo_handle_type_dma_buf_fd, shared_fd, &res);
 		if (err) {
-			pr_perror("failed to import dmabuf handle from libdrm");
+			pr_err("failed to import dmabuf handle from libdrm - %s\n",
+			       strerror(-err));
 			return -EFAULT;
 		}
 		h_bo_src = res.buf_handle;
@@ -602,12 +605,12 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 	err = amdgpu_va_range_alloc(h_dev, amdgpu_gpu_va_range_general, src_bo_size, 0x1000, 0, &gpu_addr_src,
 				    &h_va_src, 0);
 	if (err) {
-		pr_perror("failed to alloc VA for src bo");
+		pr_err("failed to alloc VA for src bo - %s\n", strerror(-err));
 		goto err_src_va;
 	}
 	err = amdgpu_bo_va_op(h_bo_src, 0, src_bo_size, gpu_addr_src, 0, AMDGPU_VA_OP_MAP);
 	if (err) {
-		pr_err("failed to GPU map the source BO (VA: %lx, size: %lx) - %s",
+		pr_err("failed to GPU map the source BO (VA: %lx, size: %lx) - %s\n",
 		       gpu_addr_src, src_bo_size, strerror(-err));
 		goto err_src_bo_map;
 	}
@@ -617,7 +620,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 	case SDMA_OP_VRAM_WRITE:
 		err = amdgpu_bo_import(h_dev, amdgpu_bo_handle_type_dma_buf_fd, shared_fd, &res);
 		if (err) {
-			pr_perror("failed to import dmabuf handle from libdrm");
+			pr_err("failed to import dmabuf handle from libdrm - %s\n",
+			       strerror(-err));
 			goto err_dst_bo_prep;
 		}
 		h_bo_dst = res.buf_handle;
@@ -625,7 +629,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 	case SDMA_OP_VRAM_READ:
 		err = amdgpu_create_bo_from_user_mem(h_dev, buffer, dst_bo_size, &h_bo_dst);
 		if (err) {
-			pr_perror("failed to create userptr for sdma");
+			pr_err("failed to create userptr for sdma - %s\n",
+			       strerror(-err));
 			goto err_dst_bo_prep;
 		}
 		break;
@@ -634,12 +639,13 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 	err = amdgpu_va_range_alloc(h_dev, amdgpu_gpu_va_range_general, dst_bo_size, 0x1000, 0, &gpu_addr_dst,
 				    &h_va_dst, 0);
 	if (err) {
-		pr_perror("failed to alloc VA for dest bo");
+		pr_err("failed to alloc VA for dest bo - %s\n",
+		       strerror(-err));
 		goto err_dst_va;
 	}
 	err = amdgpu_bo_va_op(h_bo_dst, 0, dst_bo_size, gpu_addr_dst, 0, AMDGPU_VA_OP_MAP);
 	if (err) {
-		pr_err("failed to GPU map the destination BO (VA: %lx, size: %lx) - %s",
+		pr_err("failed to GPU map the destination BO (VA: %lx, size: %lx) - %s\n",
 		       gpu_addr_dst, dst_bo_size, strerror(-err));
 		goto err_dst_bo_map;
 	}
@@ -650,7 +656,7 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 	err = alloc_and_map(h_dev, packets_per_buffer * 28, AMDGPU_GEM_DOMAIN_GTT, &h_bo_ib, &h_va_ib, &gpu_addr_ib,
 			    (void **)&ib);
 	if (err) {
-		pr_perror("failed to allocate and map ib/rb");
+		pr_err("failed to allocate and map ib/rb - %s\n", strerror(-err));
 		goto err_ib_gpu_alloc;
 	}
 
@@ -659,7 +665,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 	resources[2] = h_bo_ib;
 	err = amdgpu_bo_list_create(h_dev, 3, resources, NULL, &h_bo_list);
 	if (err) {
-		pr_perror("failed to create BO resources list");
+		pr_err("failed to create BO resources list - %s\n",
+		       strerror(-err));
 		goto err_bo_list;
 	}
 
@@ -679,7 +686,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 			err = img_read(storage_fd, buffer,
 				       min(bytes_remain, buffer_bo_size));
 			if (err) {
-				pr_perror("failed to read from storage");
+				pr_err("failed to read from storage - %s\n",
+				       strerror(-err));
 				goto err_bo_list;
 			}
 		}
@@ -726,13 +734,15 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 
 		err = amdgpu_cs_ctx_create(h_dev, &h_ctx);
 		if (err) {
-			pr_perror("failed to create context for SDMA command submission");
+			pr_err("failed to create context for SDMA command submission - %s\n",
+			       strerror(-err));
 			goto err_ctx;
 		}
 		err = amdgpu_cs_submit(h_ctx, 0, &cs_req, 1);
 		if (err) {
-			pr_perror("failed to submit command for SDMA IB GPU VA: %" PRIx64 ", size: %d",
-				  gpu_addr_ib, packets_per_buffer * 28);
+			pr_err("failed to submit command for SDMA IB GPU VA: %" PRIx64 ", size: %d - %s\n",
+				  gpu_addr_ib, packets_per_buffer * 28,
+				  strerror(-err));
 			goto err_cs_submit_ib;
 		}
 
@@ -743,7 +753,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 		fence.fence = cs_req.seq_no;
 		err = amdgpu_cs_query_fence_status(&fence, AMDGPU_TIMEOUT_INFINITE, 0, &expired);
 		if (err) {
-			pr_perror("failed to query fence status");
+			pr_err("failed to query fence status - %s\n",
+			       strerror(-err));
 			goto err_cs_submit_ib;
 		}
 		if (!expired) {
@@ -756,7 +767,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, int storage_fd,
 			err = img_write(storage_fd, buffer,
 					buffer_bo_size - buffer_space_remain);
 			if (err) {
-				pr_perror("failed to write out to storage");
+				pr_err("failed to write out to storage - %s\n",
+				       strerror(-err));
 				goto err_cs_submit_ib;
 			}
 		}
@@ -773,31 +785,31 @@ err_bo_list:
 err_ib_gpu_alloc:
 	err2 = amdgpu_bo_va_op(h_bo_dst, 0, dst_bo_size, gpu_addr_dst, 0, AMDGPU_VA_OP_UNMAP);
 	if (err2)
-		pr_perror("failed to GPU unmap the dest BO %lx, size = %lx",
-			  gpu_addr_dst, dst_bo_size);
+		pr_err("failed to GPU unmap the dest BO %lx, size = %lx - %s\n",
+		       gpu_addr_dst, dst_bo_size, strerror(-err2));
 err_dst_bo_map:
 	err2 = amdgpu_va_range_free(h_va_dst);
 	if (err2)
-		pr_perror("dest range free failed");
+		pr_err("dest range free failed - %s\n", strerror(-err2));
 err_dst_va:
 	if (!do_not_free) {
 		err2 = amdgpu_bo_free(h_bo_dst);
 		if (err2)
-			pr_perror("dest bo free failed");
+			pr_err("dest bo free failed - %s\n", strerror(-err2));
 	}
 err_dst_bo_prep:
 	err2 = amdgpu_bo_va_op(h_bo_src, 0, src_bo_size, gpu_addr_src, 0, AMDGPU_VA_OP_UNMAP);
 	if (err2)
-		pr_perror("failed to GPU unmap the src BO %lx, size = %lx",
-			  gpu_addr_src, src_bo_size);
+		pr_err("failed to GPU unmap the src BO %lx, size = %lx - %s\n",
+		       gpu_addr_src, src_bo_size, strerror(-err2));
 err_src_bo_map:
 	err2 = amdgpu_va_range_free(h_va_src);
 	if (err2)
-		pr_perror("src range free failed");
+		pr_err("src range free failed - %s\n", strerror(-err2));
 err_src_va:
 	err2 = amdgpu_bo_free(h_bo_src);
 	if (err2)
-		pr_perror("src bo free failed");
+		pr_err("src bo free failed - %s\n", strerror(-err2));
 	return err;
 }
 
@@ -820,13 +832,14 @@ void *dump_bo_contents(void *_thread_data)
 
 	ret = amdgpu_device_initialize(thread_data->drm_fd, &major, &minor, &h_dev);
 	if (ret) {
-		pr_perror("failed to initialize device");
+		pr_err("failed to initialize device - %s\n", strerror(-ret));
 		goto exit;
 	}
 
 	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
 	if (ret) {
-		pr_perror("failed to query gpuinfo via libdrm");
+		pr_err("failed to query gpuinfo via libdrm - %s\n",
+		       strerror(-ret));
 		goto exit;
 	}
 
@@ -912,13 +925,14 @@ void *restore_bo_contents(void *_thread_data)
 
 	ret = amdgpu_device_initialize(thread_data->drm_fd, &major, &minor, &h_dev);
 	if (ret) {
-		pr_perror("failed to initialize device");
+		pr_err("failed to initialize device - %s\n", strerror(-ret));
 		goto exit;
 	}
 
 	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
 	if (ret) {
-		pr_perror("failed to query gpuinfo via libdrm");
+		pr_err("failed to query gpuinfo via libdrm - %s\n",
+		       strerror(-ret));
 		goto exit;
 	}
 
@@ -1478,7 +1492,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	/* Check whether this plugin was called for kfd, dmabuf or render nodes */
 	ret = get_dmabuf_info(fd, &st);
 	if (ret < 0) {
-		pr_perror("Failed to get dmabuf info");
+		pr_err("Failed to get dmabuf info!\n");
 		return -1;
 	}
 
@@ -1568,7 +1582,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	buf = xmalloc(len);
 	if (!buf) {
-		pr_perror("Failed to allocate memory to store protobuf");
+		pr_err("Failed to allocate memory to store protobuf!\n");
 		ret = -ENOMEM;
 		goto exit;
 	}
@@ -1638,7 +1652,7 @@ static int restore_devices(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 
 		drm_fd = node_get_drm_render_device(tp_node);
 		if (drm_fd < 0) {
-			pr_err("Can't open drm render fd for minor %d - %s",
+			pr_err("Can't open drm render fd for minor %d - %s\n",
 			       tp_node->drm_render_minor, strerror(-drm_fd));
 			goto exit;
 		} else {
@@ -1886,7 +1900,7 @@ static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
 
 	rd = criu_render_node__unpack(NULL, img_size, buf);
 	if (rd == NULL) {
-		pr_perror("Unable to parse the RenderD image %d", id);
+		pr_err("Unable to parse the RenderD image %d\n", id);
 		xfree(buf);
 		return -1;
 	}
@@ -1993,7 +2007,7 @@ int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 	ret = img_read(img_fd, buf, img_size);
 	close(img_fd);
 	if (ret) {
-		pr_perror("Unable to read from %s", img_path);
+		pr_err("Unable to read from %s\n", img_path);
 		xfree(buf);
 		return ret;
 	}
