@@ -559,6 +559,11 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 	uint32_t *ib = NULL;
 	int j, err, err2, packets_per_buffer;
 
+	if (type != SDMA_OP_VRAM_READ && type != SDMA_OP_VRAM_WRITE) {
+		pr_err("Invalid sdma operation!\n");
+		return -EINVAL;
+	}
+
 	buffer_bo_size = min(size, buffer_size);
 	packets_per_buffer = ((buffer_bo_size - 1) / max_copy_size) + 1;
 	src_bo_size = (type == SDMA_OP_VRAM_WRITE) ? buffer_bo_size : size;
@@ -581,9 +586,6 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 		}
 		h_bo_src = res.buf_handle;
 		break;
-	default:
-		pr_perror("Invalid sdma operation");
-		return -EINVAL;
 	}
 
 	err = amdgpu_va_range_alloc(h_dev, amdgpu_gpu_va_range_general, src_bo_size, 0x1000, 0, &gpu_addr_src,
@@ -616,9 +618,6 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 			goto err_dst_bo_prep;
 		}
 		break;
-	default:
-		pr_perror("Invalid sdma operation");
-		goto err_dst_bo_prep;
 	}
 
 	err = amdgpu_va_range_alloc(h_dev, amdgpu_gpu_va_range_general, dst_bo_size, 0x1000, 0, &gpu_addr_dst,
