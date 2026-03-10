@@ -102,11 +102,6 @@ int kmtIoctl(int fd, unsigned long request, void *arg)
 		ret = ioctl(fd, request, arg);
 	} while (ret == -1 && max_retries-- > 0 && (errno == EINTR || errno == EAGAIN));
 
-	if (ret == -1 && errno == EBADF)
-		/* In case pthread_atfork didn't catch it, this will
-		 * make any subsequent hsaKmt calls fail in CHECK_KFD_OPEN.
-		 */
-		pr_perror("KFD file descriptor not valid in this process");
 	return ret;
 }
 
