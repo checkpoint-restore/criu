@@ -71,7 +71,10 @@
         devShells.default = devShell;
 
         # Build CRIU package as well
-        packages.default = pkgs.criu.overrideAttrs { src = ./.; };
+        packages.default = pkgs.criu.overrideAttrs {
+          src = ./.;
+          postPatch = "";
+        };
       }
     );
 }
