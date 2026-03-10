@@ -173,7 +173,6 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 		pr_perror("failed to initialize device");
 		goto exit;
 	}
-	pr_debug("libdrm initialized successfully\n");
 
 	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
 	if (ret) {
@@ -222,8 +221,6 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
 			break;
 		}
-		pr_debug("** Successfully filled the BO using sDMA: bo_buckets[%d] **\n",
-			 i);
 
 		if (bo_contents_fp)
 			fclose(bo_contents_fp);

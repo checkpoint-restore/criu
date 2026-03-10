@@ -453,7 +453,6 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 	struct stat st_kfd;
 	int ret = 0;
 
-	pr_debug("Enter %s\n", __func__);
 	ret = stat(AMDGPU_KFD_DEVICE, &st_kfd);
 	if (ret == -1) {
 		pr_perror("stat error for /dev/kfd");
@@ -570,8 +569,6 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 	src_bo_size = (type == SDMA_OP_VRAM_WRITE) ? buffer_bo_size : size;
 	dst_bo_size = (type == SDMA_OP_VRAM_READ) ? buffer_bo_size : size;
 
-	pr_debug("Enter %s\n", __func__);
-
 	/* prepare src buffer */
 	switch (type) {
 	case SDMA_OP_VRAM_WRITE:
@@ -602,11 +599,10 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 	}
 	err = amdgpu_bo_va_op(h_bo_src, 0, src_bo_size, gpu_addr_src, 0, AMDGPU_VA_OP_MAP);
 	if (err) {
-		pr_perror("failed to GPU map the src BO");
+		pr_err("failed to GPU map the source BO (VA: %lx, size: %lx) - %s",
+		       gpu_addr_src, src_bo_size, strerror(-err));
 		goto err_src_bo_map;
 	}
-	pr_debug("Source BO: GPU VA: %lx, size: %lx\n",
-		 gpu_addr_src, src_bo_size);
 
 	/* prepare dest buffer */
 	switch (type) {
@@ -638,11 +634,10 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 	}
 	err = amdgpu_bo_va_op(h_bo_dst, 0, dst_bo_size, gpu_addr_dst, 0, AMDGPU_VA_OP_MAP);
 	if (err) {
-		pr_perror("failed to GPU map the dest BO");
+		pr_err("failed to GPU map the destination BO (VA: %lx, size: %lx) - %s",
+		       gpu_addr_dst, dst_bo_size, strerror(-err));
 		goto err_dst_bo_map;
 	}
-	pr_debug("Dest BO: GPU VA: %lx, size: %lx\n",
-		 gpu_addr_dst, dst_bo_size);
 
 	/* prepare ring buffer/indirect buffer for command submission
 	 * each copy packet is 7 dwords so we need to alloc 28x size for ib
@@ -653,8 +648,6 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 		pr_perror("failed to allocate and map ib/rb");
 		goto err_ib_gpu_alloc;
 	}
-	pr_debug("Indirect BO: GPU VA: %" PRIx64 ", size: %d\n",
-		 gpu_addr_ib, packets_per_buffer * 28);
 
 	resources[0] = h_bo_src;
 	resources[1] = h_bo_dst;
@@ -732,7 +725,8 @@ int sdma_copy_bo(int shared_fd, uint64_t size, FILE *storage_fp,
 		}
 		err = amdgpu_cs_submit(h_ctx, 0, &cs_req, 1);
 		if (err) {
-			pr_perror("failed to submit command for SDMA IB");
+			pr_perror("failed to submit command for SDMA IB GPU VA: %" PRIx64 ", size: %d",
+				  gpu_addr_ib, packets_per_buffer * 28);
 			goto err_cs_submit_ib;
 		}
 
@@ -797,7 +791,6 @@ err_src_va:
 	err2 = amdgpu_bo_free(h_bo_src);
 	if (err2)
 		pr_perror("src bo free failed");
-	pr_debug("Leaving sdma_copy_bo, err = %d\n", err);
 	return err;
 }
 
@@ -823,7 +816,6 @@ void *dump_bo_contents(void *_thread_data)
 		pr_perror("failed to initialize device");
 		goto exit;
 	}
-	pr_debug("libdrm initialized successfully\n");
 
 	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
 	if (ret) {
@@ -916,7 +908,6 @@ void *restore_bo_contents(void *_thread_data)
 		pr_perror("failed to initialize device");
 		goto exit;
 	}
-	pr_debug("libdrm initialized successfully\n");
 
 	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
 	if (ret) {
@@ -977,8 +968,6 @@ void *restore_bo_contents(void *_thread_data)
 			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
 			break;
 		}
-		pr_debug("** Successfully filled the BO using sDMA: bo_buckets[%d] **\n",
-			 i);
 	}
 
 exit:
@@ -2024,8 +2013,6 @@ int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 		return -1;
 	}
 
-	pr_debug("read image file data\n");
-
 	/*
 	 * Initialize fd_next to be 1 greater than the biggest file descriptor in use by the target restore process.
 	 * This way, we know that the file descriptors we store will not conflict with file descriptors inside core
@@ -2130,8 +2117,6 @@ int amdgpu_plugin_update_vmamap(const char *in_path, const uint64_t addr, const 
 
 	if (plugin_disabled)
 		return -ENOTSUP;
-
-	pr_debug("Enter %s\n", __func__);
 
 	strncpy(path, in_path, sizeof(path));
 
