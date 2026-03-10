@@ -51,30 +51,29 @@ int open_drm_render_device(int minor)
 	int fd, ret_fd;
 
 	if (minor < DRM_FIRST_RENDER_NODE || minor > DRM_LAST_RENDER_NODE) {
-		pr_perror("DRM render minor %d out of range [%d, %d]", minor, DRM_FIRST_RENDER_NODE,
-			  DRM_LAST_RENDER_NODE);
+		pr_err("DRM render minor %d out of range [%d, %d]\n",
+			   minor, DRM_FIRST_RENDER_NODE, DRM_LAST_RENDER_NODE);
 		return -EINVAL;
 	}
 
 	snprintf(path, sizeof(path), "/dev/dri/renderD%d", minor);
 	fd = open(path, O_RDWR | O_CLOEXEC);
 	if (fd < 0) {
-		if (errno != ENOENT && errno != EPERM) {
-			pr_err("Failed to open %s: %s\n", path, strerror(errno));
-			if (errno == EACCES)
-				pr_err("Check user is in \"video\" group\n");
-		}
-		return -EBADFD;
+		fd = -errno;
+		pr_perror("Failed to open %s", path);
+		return fd;
 	}
 
 	if (fd_next < 0)
 		return fd;
 
 	ret_fd = fcntl(fd, F_DUPFD, fd_next++);
+	if (ret_fd < 0) {
+		ret_fd = -errno;
+		pr_perror("Failed to duplicate fd for minor:%d (fd_next:%d)",
+				  minor, fd_next);
+	}
 	close(fd);
-
-	if (ret_fd < 0)
-		pr_perror("Failed to duplicate fd for minor:%d (fd_next:%d)", minor, fd_next);
 
 	return ret_fd;
 }
