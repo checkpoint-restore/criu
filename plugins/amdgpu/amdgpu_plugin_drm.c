@@ -209,7 +209,7 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 
 		snprintf(img_path, sizeof(img_path), IMG_DRM_PAGES_FILE, rd->id, drm_render_minor, i);
 
-		bo_contents_fp = open_img_file(img_path, false, &image_size);
+		bo_contents_fp = open_img_file(img_path, false, &image_size, true);
 		if (!bo_contents_fp) {
 			ret = -EINVAL;
 			break;
@@ -382,7 +382,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		drmPrimeHandleToFD(device_fd, boinfo->handle, 0, &dmabuf_fd);
 
 		snprintf(img_path, sizeof(img_path), IMG_DRM_PAGES_FILE, rd->id, rd->drm_render_minor, i);
-		bo_contents_fp = open_img_file(img_path, true, &image_size);
+		bo_contents_fp = open_img_file(img_path, true, &image_size, true);
 
 		posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), handle_entry.size);
 

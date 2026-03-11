@@ -106,7 +106,7 @@ int amdgpu_plugin_dmabuf_restore(int id)
 	snprintf(path, sizeof(path), IMG_DMABUF_FILE, id);
 
 	/* Read serialized metadata */
-	img_fp = open_img_file(path, false, &img_size);
+	img_fp = open_img_file(path, false, &img_size, true);
 	if (!img_fp) {
 		pr_err("Failed to open dmabuf metadata file: %s\n", path);
 		return -EINVAL;

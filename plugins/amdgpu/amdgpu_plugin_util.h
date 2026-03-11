@@ -119,7 +119,7 @@ int read_fp(FILE *fp, void *buf, const size_t buf_len);
 int write_fp(FILE *fp, const void *buf, const size_t buf_len);
 int read_file(const char *file_path, void *buf, const size_t buf_len);
 int write_img_file(char *path, const void *buf, const size_t buf_len);
-FILE *open_img_file(char *path, bool write, size_t *size);
+FILE *open_img_file(char *path, bool write, size_t *size, bool expect_present);
 
 int record_dumped_fd(int fd, bool is_drm);
 struct list_head *get_dumped_fds();

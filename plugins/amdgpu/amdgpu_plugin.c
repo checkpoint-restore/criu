@@ -849,7 +849,7 @@ void *dump_bo_contents(void *_thread_data)
 	}
 
 	snprintf(img_path, sizeof(img_path), IMG_KFD_PAGES_FILE, thread_data->id, thread_data->gpu_id);
-	bo_contents_fp = open_img_file(img_path, true, &image_size);
+	bo_contents_fp = open_img_file(img_path, true, &image_size, true);
 	if (!bo_contents_fp) {
 		pr_perror("Cannot fopen %s", img_path);
 		ret = -EIO;
@@ -923,7 +923,7 @@ void *restore_bo_contents(void *_thread_data)
 								   SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
 	snprintf(img_path, sizeof(img_path), IMG_KFD_PAGES_FILE, thread_data->id, thread_data->gpu_id);
-	bo_contents_fp = open_img_file(img_path, false, &image_size);
+	bo_contents_fp = open_img_file(img_path, false, &image_size, true);
 	if (!bo_contents_fp) {
 		pr_perror("Cannot fopen %s", img_path);
 		ret = -errno;
@@ -1140,7 +1140,7 @@ int amdgpu_restore_init(void)
 		if (d) {
 			while ((dir = readdir(d)) != NULL) {
 				if (strncmp("amdgpu-kfd-", dir->d_name, strlen("amdgpu-kfd-")) == 0) {
-					img_fp = open_img_file(dir->d_name, false, &img_size);
+					img_fp = open_img_file(dir->d_name, false, &img_size, true);
 					if (!img_fp)
 						return -EINVAL;
 
@@ -1165,7 +1165,7 @@ int amdgpu_restore_init(void)
 					xfree(buf);
 				}
 				if (strncmp("amdgpu-renderD-", dir->d_name, strlen("amdgpu-renderD-")) == 0) {
-					img_fp = open_img_file(dir->d_name, false, &img_size);
+					img_fp = open_img_file(dir->d_name, false, &img_size, true);
 					if (!img_fp)
 						return -EINVAL;
 
@@ -1837,7 +1837,7 @@ int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 
 	snprintf(img_path, sizeof(img_path), IMG_KFD_FILE, id);
 
-	img_fp = open_img_file(img_path, false, &img_size);
+	img_fp = open_img_file(img_path, false, &img_size, false);
 	if (!img_fp) {
 		struct tp_node *tp_node;
 		uint32_t target_gpu_id;
@@ -1849,7 +1849,7 @@ int amdgpu_plugin_restore_file(int id, bool *retry_needed)
 		 */
 		snprintf(img_path, sizeof(img_path), IMG_DRM_FILE, id);
 
-		img_fp = open_img_file(img_path, false, &img_size);
+		img_fp = open_img_file(img_path, false, &img_size, true);
 		if (!img_fp) {
 			ret = amdgpu_plugin_dmabuf_restore(id);
 			if (ret == 1) {
@@ -2231,7 +2231,7 @@ FILE *get_bo_contents_fp(int id, int gpu_id, size_t tot_size)
 	FILE *bo_contents_fp = NULL;
 
 	snprintf(img_path, sizeof(img_path), IMG_KFD_PAGES_FILE, id, gpu_id);
-	bo_contents_fp = open_img_file(img_path, false, &image_size);
+	bo_contents_fp = open_img_file(img_path, false, &image_size, true);
 	if (!bo_contents_fp) {
 		pr_perror("Cannot fopen %s", img_path);
 		return NULL;

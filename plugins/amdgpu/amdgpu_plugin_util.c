@@ -228,9 +228,10 @@ int write_fp(FILE *fp, const void *buf, const size_t buf_len)
  * @param path The file path
  * @param write False for read, true for write
  * @param size Size of actual contents
+ * @param expect_present If true, the file not existing is an error
  * @return FILE *if successful, NULL if failed
  */
-FILE *open_img_file(char *path, bool write, size_t *size)
+FILE *open_img_file(char *path, bool write, size_t *size, bool expect_present)
 {
 	FILE *fp = NULL;
 	int fd, ret;
@@ -241,7 +242,8 @@ FILE *open_img_file(char *path, bool write, size_t *size)
 		fd = openat(criu_get_image_dir(), path, write ? (O_WRONLY | O_CREAT) : O_RDONLY, 0600);
 
 	if (fd < 0) {
-		pr_err("%s: Failed to open for %s\n", path, write ? "write" : "read");
+		if (expect_present)
+			pr_err("%s: Failed to open for %s\n", path, write ? "write" : "read");
 		return NULL;
 	}
 
@@ -300,7 +302,7 @@ int write_img_file(char *path, const void *buf, const size_t buf_len)
 	FILE *fp;
 	size_t len = buf_len;
 
-	fp = open_img_file(path, true, &len);
+	fp = open_img_file(path, true, &len, true);
 	if (!fp)
 		return -errno;
 
