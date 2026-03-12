@@ -839,6 +839,17 @@ static int check_posix_timers(void)
 	return -1;
 }
 
+static int check_posix_mqueue(void)
+{
+	if (access("/proc/sys/fs/mqueue", F_OK)) {
+		pr_err("POSIX mqueue sysctl interface is missing.\n"
+		       "Kernel must be built with CONFIG_POSIX_MQUEUE.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static unsigned long get_ring_len(unsigned long addr)
 {
 	FILE *maps;
@@ -1688,6 +1699,7 @@ int cr_check(void)
 		ret |= check_ptrace_dump_seccomp_filters();
 		ret |= check_mem_dirty_track();
 		ret |= check_posix_timers();
+		ret |= check_posix_mqueue();
 		ret |= check_tun_cr(0);
 		ret |= check_timerfd();
 		ret |= check_mnt_id();
@@ -1819,6 +1831,7 @@ static struct feature_list feature_list[] = {
 	{ "mem_dirty_track", check_mem_dirty_track },
 	{ "aio_remap", check_aio_remap },
 	{ "timerfd", check_timerfd },
+	{ "posix_mqueue", check_posix_mqueue },
 	{ "tun", check_tun },
 	{ "tun_ns", check_tun_netns },
 	{ "userns", check_userns },
