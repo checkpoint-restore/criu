@@ -495,9 +495,9 @@ static int break_lease(int lease_type, struct file_desc *desc)
 	return open_path(desc, open_break_cb, (void *)&break_flags);
 }
 
-static int set_file_lease(int fd, int type)
+static int set_file_lease(int fd, int type, bool can_fail)
 {
-	int old_fsuid, ret;
+	int saved_errno, old_fsuid, ret;
 	struct stat st;
 
 	if (fstat(fd, &st)) {
@@ -512,19 +512,31 @@ static int set_file_lease(int fd, int type)
 	old_fsuid = setfsuid(st.st_uid);
 
 	ret = fcntl(fd, F_SETLEASE, type);
-	if (ret < 0)
-		pr_perror("Can't set lease");
+	saved_errno = errno;
+	if (ret < 0) {
+		if (!can_fail || errno != EWOULDBLOCK)
+			pr_perror("Can't set lease");
+		else
+			pr_debug("The requested lease isn't available");
+	}
 
 	setfsuid(old_fsuid);
+	errno = saved_errno;
 	return ret;
 }
 
-static int restore_lease_prebreaking_state(int fd, int fd_type)
+static int restore_lease_prebreaking_state(int fd, int target_lease_type)
 {
-	int access_flags = fd_type & O_ACCMODE;
-	int lease_type = (access_flags == O_RDONLY) ? F_RDLCK : F_WRLCK;
+	int lease_type = (target_lease_type == F_UNLCK) ? F_RDLCK : F_WRLCK;
 
-	return set_file_lease(fd, lease_type);
+	/*
+	 * The origin lease type is unknown. Let's try the read one
+	 * then the write one.
+	 */
+	if (set_file_lease(fd, lease_type, /* can_fail = */ true)) {
+		return set_file_lease(fd, F_WRLCK, false);
+	}
+	return 0;
 }
 
 static struct fdinfo_list_entry *find_fd_unordered(struct pstree_item *task, int fd)
@@ -550,7 +562,7 @@ static int restore_breaking_file_lease(FileLockEntry *fle)
 		return -1;
 	}
 
-	ret = restore_lease_prebreaking_state(fle->fd, fdle->desc->ops->type);
+	ret = restore_lease_prebreaking_state(fle->fd, fle->type  & (~LEASE_BREAKING));
 	if (ret)
 		return ret;
 
@@ -594,7 +606,7 @@ static int restore_file_lease(FileLockEntry *fle)
 		}
 		return ret;
 	} else {
-		ret = set_file_lease(fle->fd, fle->type);
+		ret = set_file_lease(fle->fd, fle->type, /* can_fail = */ false);
 		if (ret < 0)
 			pr_perror("Can't restore non breaking lease");
 		return ret;
