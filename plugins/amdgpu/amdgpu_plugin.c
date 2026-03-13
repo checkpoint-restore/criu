@@ -1141,6 +1141,9 @@ int amdgpu_restore_init(void)
 			while ((dir = readdir(d)) != NULL) {
 				if (strncmp("amdgpu-kfd-", dir->d_name, strlen("amdgpu-kfd-")) == 0) {
 					img_fp = open_img_file(dir->d_name, false, &img_size);
+					if (!img_fp)
+						return -EINVAL;
+
 					buf = xmalloc(img_size);
 					if (!buf) {
 						fclose(img_fp);
@@ -1163,6 +1166,9 @@ int amdgpu_restore_init(void)
 				}
 				if (strncmp("amdgpu-renderD-", dir->d_name, strlen("amdgpu-renderD-")) == 0) {
 					img_fp = open_img_file(dir->d_name, false, &img_size);
+					if (!img_fp)
+						return -EINVAL;
+
 					buf = xmalloc(img_size);
 					if (!buf) {
 						fclose(img_fp);

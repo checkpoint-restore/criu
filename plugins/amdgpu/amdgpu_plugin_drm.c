@@ -210,6 +210,10 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 		snprintf(img_path, sizeof(img_path), IMG_DRM_PAGES_FILE, rd->id, drm_render_minor, i);
 
 		bo_contents_fp = open_img_file(img_path, false, &image_size);
+		if (!bo_contents_fp) {
+			ret = -EINVAL;
+			break;
+		}
 
 		ret = sdma_copy_bo(dmabufs[i], rd->bo_entries[i]->size, bo_contents_fp, buffer, buffer_size, h_dev, max_copy_size,
 				   SDMA_OP_VRAM_WRITE, true);
