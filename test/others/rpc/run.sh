@@ -73,6 +73,13 @@ function test_ps {
 	setsid ./ps_test.py build/criu_service.socket build/imgs_ps < /dev/null &>> build/output_ps
 }
 
+function test_ps_addr {
+	title_print "Run page server address test"
+	# Reuse the dump images from test_c — the page server in
+	# lazy-pages mode needs pstree.img and inventory.img.
+	setsid ./test-ps-addr build/criu_service.socket build/imgs_c < /dev/null &>> build/output_ps_addr
+}
+
 function test_errno {
 	mkdir -p build/imgs_errno
 
@@ -86,6 +93,7 @@ test_c
 test_py
 test_restore_loop
 test_ps
+test_ps_addr
 test_errno
 
 FAIL=0

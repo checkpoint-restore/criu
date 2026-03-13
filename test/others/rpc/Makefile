@@ -1,4 +1,4 @@
-all: test-c rpc_pb2.py criu
+all: test-c test-ps-addr rpc_pb2.py criu
 .PHONY: all
 
 CFLAGS += -g -Werror -Wall -I.
@@ -44,6 +44,10 @@ test-c: rpc.pb-c.o test-c.o
 
 test-c.o: test-c.c rpc.pb-c.c
 
+test-ps-addr: rpc.pb-c.o test-ps-addr.o
+
+test-ps-addr.o: test-ps-addr.c rpc.pb-c.c
+
 rpc_pb2.py: rpc.proto
 	protoc --proto_path=. --python_out=. rpc.proto
 
@@ -51,5 +55,5 @@ rpc.pb-c.c: rpc.proto
 	protoc --proto_path=. --c_out=. rpc.proto
 
 clean:
-	rm -rf build rpc.pb-c.o test-c.o test-c rpc.pb-c.c rpc.pb-c.h rpc_pb2.py rpc_pb2.pyc criu
+	rm -rf build rpc.pb-c.o test-c.o test-c test-ps-addr.o test-ps-addr rpc.pb-c.c rpc.pb-c.h rpc_pb2.py rpc_pb2.pyc criu
 .PHONY: clean
