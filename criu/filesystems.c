@@ -786,6 +786,7 @@ static struct fstype fstypes[] = {
 		.name = "mqueue",
 		.dump = dump_empty_fs,
 		.code = FSTYPE__MQUEUE,
+		.magic = MQUEUE_MAGIC,
 	},
 	{
 		.name = "securityfs",
