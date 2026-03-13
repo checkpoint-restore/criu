@@ -75,8 +75,8 @@ function test_ps {
 
 function test_ps_addr {
 	title_print "Run page server address test"
-	# Reuse the dump images from test_c — the page server in
-	# lazy-pages mode needs pstree.img and inventory.img.
+	# Reuse dump images from test_c (page server needs pstree.img
+	# and inventory.img).
 	setsid ./test-ps-addr build/criu_service.socket build/imgs_c < /dev/null &>> build/output_ps_addr
 }
 
