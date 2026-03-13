@@ -1,0 +1,6 @@
+criu-service-client
+*.o
+.install/
+criu-service.socket
+criu-service.log
+criu-service.pid
