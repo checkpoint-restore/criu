@@ -463,7 +463,8 @@ ruff:
 		crit/crit/*.py \
 		scripts/uninstall_module.py \
 		coredump/ coredump/coredump \
-		scripts/github-indent-warnings.py
+		scripts/github-indent-warnings.py \
+		contrib/criu-service-client/test/*.py
 
 shellcheck:
 	shellcheck --version
@@ -475,6 +476,7 @@ shellcheck:
 	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh
 	shellcheck -x test/others/config-file/*.sh
 	shellcheck -x test/others/action-script/*.sh
+	shellcheck -x contrib/criu-service-client/test/*.sh
 
 codespell:
 	codespell

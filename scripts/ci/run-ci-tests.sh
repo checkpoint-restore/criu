@@ -344,6 +344,9 @@ make -C test/others/criu-coredump run
 # libcriu testing
 make -C test/others/libcriu run
 
+# criu-service-client testing
+make -C contrib/criu-service-client/test run
+
 # external namespace testing
 make -C test/others/ns_ext run
 

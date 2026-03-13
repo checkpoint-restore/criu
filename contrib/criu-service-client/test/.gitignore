@@ -1,0 +1,9 @@
+loop
+imgs/
+imgs-shell-job/
+imgs-service/
+# Marker file used by run-shell-job.py to keep the child process alive.
+keep-running
+criu-service.socket
+criu-service.pid
+criu-service.log

@@ -69,8 +69,13 @@ stop-service:
 	fi
 .PHONY: stop-service
 
+test: $(TARGET)
+	$(MAKE) -C test run LOCAL=$(LOCAL)
+.PHONY: test
+
 clean:
 	rm -f $(TARGET) $(OBJ)
+	$(MAKE) -C test clean
 .PHONY: clean
 
 distclean: clean
