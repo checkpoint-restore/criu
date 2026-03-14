@@ -262,6 +262,7 @@ FILE *open_img_file(char *path, bool write, size_t *size, bool expect_present)
 	if (ret) {
 		pr_err("%s:Failed to access file size\n", path);
 		fclose(fp);
+		errno = EIO;
 		return NULL;
 	}
 
