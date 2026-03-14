@@ -42,6 +42,7 @@ ifeq ($(CONTAINER_RUNTIME),podman)
 	# Podman limits the number of processes in a container using cgroups.
 	# Disable it as it breaks the thread-bomb test
 	CONTAINER_OPTS += --pids-limit=-1
+	CONTAINER_OPTS += --ulimit nproc=-1:-1
 endif
 
 export ZDTM_OPTS

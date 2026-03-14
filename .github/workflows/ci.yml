@@ -131,6 +131,41 @@ jobs:
       # FIXME: https://github.com/containers/podman/issues/14920
       run: sudo -E XDG_RUNTIME_DIR= make -C scripts/ci fedora-rawhide CONTAINER_RUNTIME=podman BUILD_OPTIONS="--security-opt seccomp=unconfined"
 
+  vagrant-fedora-rawhide-test:
+    name: Vagrant Fedora Rawhide based test
+    needs: [alpine-test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Lima
+      uses: lima-vm/lima-actions/setup@v1
+    - name: Cache Lima images
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/lima
+        key: lima-fedora-${{ github.sha }}
+        restore-keys: lima-fedora-
+    - name: Start Fedora VM
+      run: limactl start --plain --name=default --cpus=4 --memory=12 template://fedora
+    - name: Copy source into VM
+      run: |
+        lima sudo mkdir -p /home/criu
+        lima sudo chown "$(lima whoami)" /home/criu
+        limactl copy -r . default:/home/criu
+    - name: Setup VM
+      run: lima sudo /home/criu/scripts/ci/lima.sh fedora-rawhide-setup
+    - name: Reboot VM to activate new kernel
+      run: |
+        limactl stop default
+        limactl start default
+    - name: Show VM info
+      run: |
+        lima uname -a
+        lima cat /proc/cmdline
+    - name: Run tests
+      run: ssh -tt lima-default sudo -i /home/criu/scripts/ci/lima.sh fedora-rawhide-test
+
   gcov-test:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
