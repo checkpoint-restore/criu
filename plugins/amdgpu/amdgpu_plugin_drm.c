@@ -268,6 +268,10 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 	num_bos = 8;
 	list_handles_entries = xzalloc(sizeof(struct drm_amdgpu_gem_list_handles_entry) * num_bos);
+	if (!list_handles_entries) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 	list_handles_args.num_entries = num_bos;
 	list_handles_args.entries = (uintptr_t)list_handles_entries;
 
@@ -284,6 +288,10 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		num_bos = list_handles_args.num_entries;
 		xfree(list_handles_entries);
 		list_handles_entries = xzalloc(sizeof(struct drm_amdgpu_gem_list_handles_entry) * num_bos);
+		if (!list_handles_entries) {
+			ret = -ENOMEM;
+			goto exit;
+		}
 		list_handles_args.num_entries = num_bos;
 		list_handles_args.entries = (uintptr_t)list_handles_entries;
 		ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_LIST_HANDLES, &list_handles_args);
@@ -334,6 +342,10 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		boinfo->offset = mmap_args.out.addr_ptr;
 
 		vm_info_entries = xzalloc(sizeof(struct drm_amdgpu_gem_vm_entry) * num_vm_entries);
+		if (!vm_info_entries) {
+			ret = -ENOMEM;
+			goto exit;
+		}
 		vm_info_args.handle = handle_entry.gem_handle;
 		vm_info_args.num_entries = num_vm_entries;
 		vm_info_args.value = (uintptr_t)vm_info_entries;
@@ -348,6 +360,10 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			num_vm_entries = vm_info_args.num_entries;
 			xfree(vm_info_entries);
 			vm_info_entries = xzalloc(sizeof(struct drm_amdgpu_gem_vm_entry) * num_vm_entries);
+			if (!vm_info_entries) {
+				ret = -ENOMEM;
+				goto exit;
+			}
 			vm_info_args.handle = handle_entry.gem_handle;
 			vm_info_args.num_entries = num_vm_entries;
 			vm_info_args.value = (uintptr_t)vm_info_entries;
@@ -467,6 +483,8 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 	amdgpu_device_handle h_dev;
 	int device_fd;
 	int *dmabufs = xzalloc(sizeof(int) * rd->num_of_bos);
+	if (!dmabufs)
+		return -ENOMEM;
 
 	ret = amdgpu_device_initialize(fd, &major, &minor, &h_dev);
 	if (ret) {
