@@ -139,12 +139,16 @@ int amdgpu_plugin_dmabuf_restore(int id)
 	fd_id = amdgpu_id_for_handle(rd->gem_handle);
 	if (fd_id == -1) {
 		pr_err("Failed to find dmabuf_fd for GEM handle = %d\n", rd->gem_handle);
+		criu_dmabuf_node__free_unpacked(rd, NULL);
+		xfree(buf);
 		return 1;
 	}
 
 	int dmabuf_fd = fdstore_get(fd_id);
 	if (dmabuf_fd == -1) {
 		pr_err("Failed to find dmabuf_fd for GEM handle = %d\n", rd->gem_handle);
+		criu_dmabuf_node__free_unpacked(rd, NULL);
+		xfree(buf);
 		return 1; /* Retry needed */
 	}
 
