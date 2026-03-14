@@ -211,7 +211,7 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 
 		bo_contents_fp = open_img_file(img_path, false, &image_size, true);
 		if (!bo_contents_fp) {
-			ret = -EINVAL;
+			ret = -errno;
 			break;
 		}
 
@@ -379,12 +379,25 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 		device_fd = amdgpu_device_get_fd(h_dev);
 
-		drmPrimeHandleToFD(device_fd, boinfo->handle, 0, &dmabuf_fd);
+		ret = drmPrimeHandleToFD(device_fd, boinfo->handle, 0, &dmabuf_fd);
+		if (ret) {
+			pr_perror("Failed to get dmabuf fd from handle");
+			break;
+		}
 
 		snprintf(img_path, sizeof(img_path), IMG_DRM_PAGES_FILE, rd->id, rd->drm_render_minor, i);
 		bo_contents_fp = open_img_file(img_path, true, &image_size, true);
+		if (!bo_contents_fp) {
+			ret = -errno;
+			break;
+		}
 
-		posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), handle_entry.size);
+		ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), handle_entry.size);
+		if (ret) {
+			pr_perror("Failed to allocate buffer");
+			fclose(bo_contents_fp);
+			break;
+		}
 
 		ret = sdma_copy_bo(dmabuf_fd, handle_entry.size, bo_contents_fp, buffer, handle_entry.size, h_dev, 0x1000,
 				   SDMA_OP_VRAM_READ, false);
@@ -480,7 +493,11 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 		}
 
 		if (boinfo->is_import) {
-			drmPrimeFDToHandle(device_fd, dmabuf_fd, &handle);
+			ret = drmPrimeFDToHandle(device_fd, dmabuf_fd, &handle);
+			if (ret) {
+				pr_perror("Failed to get handle from dmabuf fd");
+				goto exit;
+			}
 		} else {
 			union drm_amdgpu_gem_create create_args = { 0 };
 
@@ -496,7 +513,11 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 			}
 			handle = create_args.out.handle;
 
-			drmPrimeHandleToFD(device_fd, handle, 0, &dmabuf_fd);
+			ret = drmPrimeHandleToFD(device_fd, handle, 0, &dmabuf_fd);
+			if (ret) {
+				pr_perror("Failed to get dmabuf fd from handle");
+				goto exit;
+			}
 		}
 
 		change_args.handle = handle;
