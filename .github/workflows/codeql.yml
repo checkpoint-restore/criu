@@ -36,15 +36,15 @@ jobs:
         run: |
           sudo contrib/apt-install protobuf-c-compiler libprotobuf-c-dev libprotobuf-dev build-essential libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnet-dev pkg-config libnl-3-dev libbsd0 libbsd-dev iproute2 libcap-dev libaio-dev libbsd-dev python3-yaml libnl-route-3-dev gnutls-dev
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           queries: +security-and-quality
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
