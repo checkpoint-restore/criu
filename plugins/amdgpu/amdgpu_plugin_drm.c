@@ -538,6 +538,10 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 		}
 
 		if (boinfo->is_import) {
+			if (dmabuf_fd == -1) {
+				retry_needed = true;
+				continue;
+			}
 			ret = drmPrimeFDToHandle(device_fd, dmabuf_fd, &handle);
 			if (ret) {
 				pr_perror("Failed to get handle from dmabuf fd");
@@ -618,6 +622,9 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 		pr_info("Error in deinit amdgpu device\n");
 		goto exit;
 	}
+
+	if (retry_needed)
+		goto exit;
 
 	ret = record_completed_work(-1, rd->drm_render_minor);
 	if (ret)
