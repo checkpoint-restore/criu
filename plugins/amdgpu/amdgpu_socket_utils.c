@@ -162,6 +162,9 @@ int init_parallel_restore_cmd(int num, int id, int gpu_num, parallel_restore_cmd
 	restore_cmd->cmd_head.fd_write_num = 0;
 	restore_cmd->cmd_head.entry_num = 0;
 	restore_cmd->cmd_head.gpu_num = 0;
+	restore_cmd->gpu_ids = NULL;
+	restore_cmd->fds_write = NULL;
+	restore_cmd->entries = NULL;
 
 	restore_cmd->gpu_ids = xzalloc(gpu_num * sizeof(parallel_gpu_info));
 	if (!restore_cmd->gpu_ids)
@@ -187,6 +190,10 @@ void free_parallel_restore_cmd(parallel_restore_cmd *restore_cmd)
 
 static int init_parallel_restore_cmd_by_head(parallel_restore_cmd *restore_cmd)
 {
+	restore_cmd->gpu_ids = NULL;
+	restore_cmd->fds_write = NULL;
+	restore_cmd->entries = NULL;
+
 	restore_cmd->gpu_ids = xzalloc(restore_cmd->cmd_head.gpu_num * sizeof(parallel_gpu_info));
 	if (!restore_cmd->gpu_ids)
 		return -ENOMEM;
