@@ -132,12 +132,16 @@ int handle_for_shared_bo_fd(int fd)
 		}
 
 		trial_handle = get_gem_handle(h_dev, fd);
-		if (trial_handle < 0)
+		if (trial_handle < 0) {
+			amdgpu_device_deinitialize(h_dev);
 			continue;
+		}
 
 		list_for_each_entry(bo, &shared_bos, l) {
-			if (bo->handle == trial_handle)
+			if (bo->handle == trial_handle) {
+				amdgpu_device_deinitialize(h_dev);
 				return trial_handle;
+			}
 		}
 
 		amdgpu_device_deinitialize(h_dev);
