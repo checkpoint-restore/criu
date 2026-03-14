@@ -841,10 +841,11 @@ void *dump_bo_contents(void *_thread_data)
 
 	buffer_size = kfd_max_buffer_size > 0 ? min(kfd_max_buffer_size, max_bo_size) : max_bo_size;
 
-	posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
-	if (!buffer) {
+	ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
+	if (ret) {
+		errno = ret;
 		pr_perror("Failed to alloc aligned memory. Consider setting KFD_MAX_BUFFER_SIZE.");
-		ret = -ENOMEM;
+		ret = -ret;
 		goto exit;
 	}
 
@@ -949,10 +950,11 @@ void *restore_bo_contents(void *_thread_data)
 
 	buffer_size = kfd_max_buffer_size > 0 ? min(kfd_max_buffer_size, max_bo_size) : max_bo_size;
 
-	posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
-	if (!buffer) {
+	ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
+	if (ret) {
+		errno = ret;
 		pr_perror("Failed to alloc aligned memory. Consider setting KFD_MAX_BUFFER_SIZE.");
-		ret = -ENOMEM;
+		ret = -ret;
 		goto exit;
 	}
 
@@ -2287,10 +2289,11 @@ void *parallel_restore_bo_contents(void *_thread_data)
 	}
 	offset = ftell(bo_contents_fp);
 
-	posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
-	if (!buffer) {
+	ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
+	if (ret) {
+		errno = ret;
 		pr_perror("Failed to alloc aligned memory. Consider setting KFD_MAX_BUFFER_SIZE.");
-		ret = -ENOMEM;
+		ret = -ret;
 		goto err_sdma;
 	}
 

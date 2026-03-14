@@ -193,10 +193,11 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 
 	buffer_size = max_bo_size;
 
-	posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
-	if (!buffer) {
+	ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
+	if (ret) {
+		errno = ret;
 		pr_perror("Failed to alloc aligned memory. Consider setting KFD_MAX_BUFFER_SIZE.");
-		ret = -ENOMEM;
+		ret = -ret;
 		goto exit;
 	}
 
@@ -394,9 +395,14 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 		ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), handle_entry.size);
 		if (ret) {
+			errno = ret;
 			pr_perror("Failed to allocate buffer");
+			ret = -ret;
 			fclose(bo_contents_fp);
-			break;
+			close(dmabuf_fd);
+			amdgpu_device_deinitialize(h_dev);
+			xfree(vm_info_entries);
+			goto exit;
 		}
 
 		ret = sdma_copy_bo(dmabuf_fd, handle_entry.size, bo_contents_fp, buffer, handle_entry.size, h_dev, 0x1000,
