@@ -88,8 +88,21 @@ test_stream() {
 	# restorer and eventually close the page read. However, image-streamer expects the
 	# whole image to be read and the image is not reopened, sent twice. These MAP_HUGETLB
 	# test cases will result in EPIPE error at the moment.
-	STREAM_TEST_EXCLUDE=(-x maps09 -x maps10)
+	# Region compression (--compress-region) is incompatible with the
+	# per-page image-streamer wire format, so exclude those tests from
+	# the streamed run (they are covered by the local -a runs).
+	STREAM_TEST_EXCLUDE=(-x maps09 -x maps10
+		-x compress_pages_region00
+		-x compress_pages_region01
+		-x compress_pages_region02
+		-x compress_pages_region03)
 	./test/zdtm.py run --stream -p 2 --keep-going -a "${STREAM_TEST_EXCLUDE[@]}" "${ZDTM_OPTS[@]}"
+	if criu/criu check --feature compress; then
+		./test/zdtm.py run --stream --compress -t zdtm/static/maps00 -t zdtm/static/env00
+		./test/zdtm.py run --stream -t zdtm/static/compress_pages00 -t zdtm/static/compress_pages01 -t zdtm/static/compress_pages02
+	else
+		echo "Skipping streamed compression tests"
+	fi
 }
 
 print_header() {
@@ -259,6 +272,12 @@ run_non_shardable_tests() {
 	./test/zdtm.py run "${LAZY_OPTS[@]}" --lazy-pages
 	./test/zdtm.py run "${LAZY_OPTS[@]}" --remote-lazy-pages
 	./test/zdtm.py run "${LAZY_OPTS[@]}" --remote-lazy-pages --tls
+	if criu/criu check --feature compress; then
+		./test/zdtm.py run -t zdtm/static/maps00 --lazy-pages --compress
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --remote-lazy-pages --compress
+	else
+		echo "Skipping lazy-pages compression tests"
+	fi
 
 	bash -x ./test/jenkins/criu-fault.sh
 	if [ "$UNAME_M" == "x86_64" ]; then
@@ -300,6 +319,46 @@ run_non_shardable_tests() {
 
 	./test/zdtm.py run -t zdtm/static/maps04 --image-io-mode direct
 	./test/zdtm.py run -t zdtm/static/maps00 --image-io-mode direct --rpc
+
+	if criu/criu check --feature compress; then
+		# The ZDTM runner deliberately starts the page server without
+		# compression options, so these cover a compressed client with a
+		# default server.
+		./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --compress
+		./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --compress --dedup
+		./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --compress --page-server
+		./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --compress --page-server --dedup
+
+		# Compression page content integrity across different modes.
+		./test/zdtm.py run -t zdtm/static/compress_pages00 -t zdtm/static/compress_pages01 -t zdtm/static/compress_pages02
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --pre 2
+		./test/zdtm.py run -t zdtm/static/compress_pages01 --pre 2
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --page-server
+		./test/zdtm.py run -t zdtm/static/compress_pages01 --page-server
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --dedup
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --lazy-pages
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --image-io-mode direct
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --compress-acceleration 2
+		./test/zdtm.py run -t zdtm/static/compress_pages00 -t zdtm/static/compress_pages01 --rpc
+
+		# Add parent-chain and dedup coverage for region compression.
+		./test/zdtm.py run -t zdtm/static/compress_pages_region00 --pre 2
+		./test/zdtm.py run -t zdtm/static/compress_pages_region00 --dedup
+		./test/zdtm.py run -t zdtm/static/compress_pages_region03 --pre 2
+	else
+		echo "Skipping memory compression ZDTM tests"
+	fi
+
+	if criu/criu check --feature compress; then
+		# Hugetlb mappings are not premapped. Their blocks must remain
+		# self-contained raw/zero fallbacks for PIE restore.
+		./test/zdtm.py run -t zdtm/static/maps09 --pre 2 --compress
+		./test/zdtm.py run -t zdtm/static/maps09 --pre 2 --compress-region 256K
+		./test/zdtm.py run -t zdtm/static/maps10 --pre 2 --compress
+		./test/zdtm.py run -t zdtm/static/maps10 --pre 2 --compress-region 256K
+	else
+		echo "Skipping hugetlb compression tests"
+	fi
 
 	./test/zdtm.py run -t zdtm/transition/pid_reuse --pre 2 # start time based pid reuse detection
 	./test/zdtm.py run -t zdtm/transition/pidfd_store_sk --rpc --pre 2 # pidfd based pid reuse detection

@@ -1,0 +1,1 @@
+{'feature': 'compress', 'opts': '--compress', 'ropts': '--decompress-threads 1'}

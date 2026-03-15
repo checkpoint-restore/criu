@@ -52,6 +52,22 @@ uuid = uuid.uuid4()
 NON_ROOT_UID = 65534
 
 
+def parse_size_str(s):
+    """Parse a SIZE string with optional K/M/G suffix into bytes,
+    matching parse_size() in criu/config.c."""
+    s = str(s).strip()
+    if not s:
+        raise ValueError("empty size string")
+    mult = 1
+    if s[-1] in ('K', 'k'):
+        mult, s = 1024, s[:-1]
+    elif s[-1] in ('M', 'm'):
+        mult, s = 1024 * 1024, s[:-1]
+    elif s[-1] in ('G', 'g'):
+        mult, s = 1024 * 1024 * 1024, s[:-1]
+    return int(s) * mult
+
+
 def alarm(*args):
     print("==== ALARM ====")
 
@@ -1050,8 +1066,35 @@ class criu_rpc:
                 criu.opts.pidfd_store_sk = criu_rpc.pidfd_store_socket.fileno()
             elif "--mntns-compat-mode" == arg:
                 criu.opts.mntns_compat_mode = True
+            elif arg in ("-c", "--compress"):
+                criu.opts.compress = 1  # COMPRESS_PER_PAGE
+            elif "--compress-acceleration" == arg:
+                criu.opts.compress_acceleration = int(args.pop(0))
+                if criu.opts.compress == 0:
+                    criu.opts.compress = 1
+            elif arg == "--compress-region" or \
+                    arg.startswith("--compress-region="):
+                # Accept K/M/G suffixes and both '--compress-region SIZE'
+                # and '--compress-region=SIZE' forms.
+                if "=" in arg:
+                    val = arg.split("=", 1)[1]
+                else:
+                    val = args.pop(0)
+                criu.opts.compress_region_size = parse_size_str(val)
+                criu.opts.compress = 2  # COMPRESS_REGION
+            elif arg == "--decompress-threads" or \
+                    arg.startswith("--decompress-threads="):
+                if "=" in arg:
+                    val = arg.split("=", 1)[1]
+                else:
+                    if not args:
+                        raise test_fail_exc(
+                            "--decompress-threads requires a value")
+                    val = args.pop(0)
+                criu.opts.decompress_threads = int(val)
             else:
-                raise test_fail_exc('RPC for %s(%s) required' % (arg, args.pop(0)))
+                raise test_fail_exc(
+                    'RPC for %s(%s) required' % (arg, args))
 
     @staticmethod
     def run(action,
@@ -1174,6 +1217,9 @@ class criu:
         self.__image_io_mode = opts['image_io_mode']
         self.__preload_libfault = bool(opts['preload_libfault'])
         self.__mntns_compat_mode = bool(opts['mntns_compat_mode'])
+        self.__compress = bool(opts['compress'])
+        self.__compress_acceleration = opts.get('compress_acceleration', 0)
+        self.__compress_region = opts.get('compress_region', None)
         self.__cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'])
 
         if opts['rpc']:
@@ -1363,6 +1409,80 @@ class criu:
         subprocess.Popen([self.__crit_bin, "show",
                           self.__stats_file(action)]).wait()
 
+    def __compressed_pages_layout(self):
+        """Return the exact page and byte counts described by pagemap files."""
+        layouts = {}
+
+        for name in sorted(os.listdir(self.__ddir())):
+            if not (name.startswith("pagemap-") and name.endswith(".img")):
+                continue
+
+            path = os.path.join(self.__ddir(), name)
+            with open(path, "rb") as image:
+                entries = crpc.images.load(image).get("entries", [])
+            if not entries or "pages_id" not in entries[0]:
+                raise test_fail_exc("%s has no pages_id" % name)
+
+            pages_id = int(entries[0]["pages_id"])
+            if pages_id in layouts:
+                raise test_fail_exc("duplicate pages_id %d" % pages_id)
+
+            offset = 0
+            page_count = 0
+            for entry in entries[1:]:
+                has_flags = "flags" in entry
+                flags = int(entry.get("flags", 0))
+                if entry.get("in_parent"):
+                    flags |= 1  # PE_PARENT
+                elif not has_flags:
+                    flags = 4  # Legacy entries without flags are present.
+                if not flags & 4:  # PE_PRESENT
+                    continue
+
+                nr_pages = int(entry.get(
+                    "nr_pages", entry.get("compat_nr_pages", 0)))
+                if nr_pages <= 0:
+                    raise test_fail_exc("%s has a present empty entry" % name)
+                if flags & 8:  # PE_PAYLOAD_ALIGNED
+                    offset = ((offset + mmap.PAGESIZE - 1) //
+                              mmap.PAGESIZE * mmap.PAGESIZE)
+
+                compressed_sizes = entry.get("compressed_size", [])
+                if compressed_sizes:
+                    offset += sum(int(size) for size in compressed_sizes)
+                else:
+                    offset += nr_pages * mmap.PAGESIZE
+                page_count += nr_pages
+
+            layouts[pages_id] = (offset, page_count, name)
+
+        page_files = {}
+        for name in os.listdir(self.__ddir()):
+            match = re.fullmatch(r"pages-([0-9]+)\.img", name)
+            if match:
+                page_files[int(match.group(1))] = name
+
+        if set(layouts) != set(page_files):
+            missing_pages = sorted(set(layouts) - set(page_files))
+            missing_pagemaps = sorted(set(page_files) - set(layouts))
+            raise test_fail_exc(
+                "pages/pagemap id mismatch: missing pages=%s, "
+                "missing pagemaps=%s" % (missing_pages, missing_pagemaps))
+
+        total_bytes = 0
+        total_pages = 0
+        for pages_id, (expected, page_count, pagemap_name) in layouts.items():
+            pages_name = page_files[pages_id]
+            actual = os.path.getsize(os.path.join(self.__ddir(), pages_name))
+            if actual != expected:
+                print("ERROR: %s describes %d bytes for %s, file has %d" %
+                      (pagemap_name, expected, pages_name, actual))
+                raise test_fail_exc("compressed pages size mismatch")
+            total_bytes += actual
+            total_pages += page_count
+
+        return total_pages, total_bytes
+
     def check_pages_counts(self):
         if not os.access(self.__stats_file("dump"), os.R_OK):
             return
@@ -1381,7 +1501,7 @@ class criu:
 
         real_written = 0
         for f in os.listdir(self.__ddir()):
-            if f.startswith('pages-'):
+            if re.fullmatch(r"pages-[0-9]+\.img", f):
                 real_written += os.path.getsize(os.path.join(self.__ddir(), f))
 
         if self.__stream:
@@ -1390,7 +1510,28 @@ class criu:
 
         r_pages = real_written / mmap.PAGESIZE
         r_off = real_written % mmap.PAGESIZE
-        if (stats_written != r_pages) or (r_off != 0):
+        # Detect compression: from CLI (--compress / --compress-region)
+        # or from the test's dump options when -c / --compress /
+        # --compress-region is in .desc opts.
+        compress = (self.__compress or bool(self.__compress_region) or
+                    bool(self.__compress_acceleration))
+        if not compress and self.__test is not None:
+            dopts = self.__test.getdopts()
+            compress = ('-c' in dopts or
+                        any(a == '--compress' or
+                            a.startswith('--compress-region')
+                            for a in dopts))
+        if compress:
+            metadata_pages, metadata_bytes = self.__compressed_pages_layout()
+            if (stats_written != metadata_pages or
+                    real_written != metadata_bytes):
+                print("ERROR: compressed page counts mismatch "
+                      "(stats = %d, metadata = %d, real = %d, "
+                      "metadata bytes = %d)" %
+                      (stats_written, metadata_pages, real_written,
+                       metadata_bytes))
+                raise test_fail_exc("page counts mismatch")
+        elif (stats_written != r_pages) or (r_off != 0):
             print("ERROR: bad page counts, stats = %d real = %d(%d)" %
                   (stats_written, r_pages, r_off))
             raise test_fail_exc("page counts mismatch")
@@ -1478,6 +1619,10 @@ class criu:
             if self.__dedup:
                 ps_opts += ["--auto-dedup"]
 
+            # The dump-side wire command declares whether each payload is
+            # compressed. Keep the server deliberately unconfigured so
+            # page-server tests also exercise asymmetric client/server options.
+
             self.__page_server_p = self.__criu_act("page-server",
                                                    opts=ps_opts,
                                                    nowait=True)
@@ -1510,6 +1655,12 @@ class criu:
             a_opts += ['--empty-ns', 'net']
         if self.__pre_dump_mode:
             a_opts += ["--pre-dump-mode", "%s" % self.__pre_dump_mode]
+        if self.__compress:
+            a_opts += ["-c"]
+        if self.__compress_region:
+            a_opts += ["--compress-region", str(self.__compress_region)]
+        if self.__compress_acceleration:
+            a_opts += ["--compress-acceleration", "%d" % self.__compress_acceleration]
 
         nowait = False
         if self.__lazy_migrate and action == "dump":
@@ -2200,6 +2351,7 @@ class Launcher:
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'image_io_mode', 'mntns_compat_mode',
               'rootless', 'preload_libfault', 'mocked_cuda_checkpoint',
+              'compress', 'compress_acceleration', 'compress_region',
               'pycriu_search_path')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
@@ -2918,6 +3070,16 @@ def get_cli_args():
                     choices=['amdgpu', 'cuda', 'inventory_test_enabled', 'inventory_test_disabled'],
                     nargs='+',
                     default=None)
+    rp.add_argument("--compress",
+                    help="Enable LZ4 per-page compression of memory pages",
+                    action='store_true')
+    rp.add_argument("--compress-region",
+                    help="Enable LZ4 region compression with the given region "
+                         "size (K/M/G suffix accepted, e.g. 256K, 1M)",
+                    default=None)
+    rp.add_argument("--compress-acceleration",
+                    help="LZ4 acceleration (1=default, higher=faster)",
+                    type=int, default=0)
     rp.add_argument("--mocked-cuda-checkpoint",
                     action="store_true",
                     help="Run criu with the cuda plugin and the mocked cuda-checkpoint tool")

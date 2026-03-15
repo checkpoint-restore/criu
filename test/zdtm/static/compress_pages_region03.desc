@@ -1,0 +1,1 @@
+{'feature': 'compress', 'flags': 'pre-dump-notify', 'opts': '--compress-region=1M', 'ropts': '--decompress-threads=0'}

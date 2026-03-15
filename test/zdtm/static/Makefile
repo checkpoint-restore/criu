@@ -4,6 +4,11 @@ LDLIBS	+= $(LIB)
 CPPFLAGS += -I$(LIBDIR)
 
 TST_NOFILE	:=				\
+		pages_content01			\
+		pages_content03			\
+		compress_pages01			\
+		compress_pages_region01			\
+		compress_pages_region03			\
 		busyloop00			\
 		sleeping00			\
 		pid00				\
@@ -320,6 +325,12 @@ ifeq ($(ARCH),s390)
 endif
 
 TST_FILE	=				\
+			pages_content00		\
+			pages_content02		\
+			compress_pages00		\
+			compress_pages02		\
+			compress_pages_region00		\
+			compress_pages_region02		\
 		maps06				\
 		write_read00			\
 		write_read01			\
