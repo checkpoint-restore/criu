@@ -70,6 +70,17 @@ int main(int argc, char **argv)
 	criu_set_log_level(CRIU_LOG_DEBUG);
 	fd = open(argv[2], O_DIRECTORY);
 	criu_set_images_dir_fd(fd);
+	if (getenv("CRIU_FEATURE_COMPRESS")) {
+		if (criu_set_compress_region_size(64 * 1024 + 1) != -EINVAL ||
+		    criu_set_compress_region_size(64 * 1024) ||
+		    criu_set_compress(CRIU_COMPRESS_PER_PAGE) ||
+		    criu_set_compress_acceleration(2) ||
+		    criu_set_compress_region_size(64 * 1024)) {
+			fprintf(stderr, "Failed to configure memory compression\n");
+			kill(pid, SIGKILL);
+			goto err;
+		}
+	}
 
 	ret = criu_dump();
 	if (ret < 0) {
@@ -83,9 +94,15 @@ int main(int argc, char **argv)
 
 	printf("--- Restore loop ---\n");
 	criu_init_opts();
+	criu_set_service_binary(argv[1]);
 	criu_set_log_level(CRIU_LOG_DEBUG);
 	criu_set_log_file("restore.log");
 	criu_set_images_dir_fd(fd);
+	if (getenv("CRIU_FEATURE_COMPRESS") &&
+	    criu_set_decompress_threads(2)) {
+		fprintf(stderr, "Failed to configure decompression threads\n");
+		goto err;
+	}
 
 	pid = criu_restore_child();
 	if (pid <= 0) {

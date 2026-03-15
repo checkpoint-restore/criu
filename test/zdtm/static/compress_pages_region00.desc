@@ -1,0 +1,1 @@
+{'feature': 'compress', 'opts': '--compress-region=256K', 'ropts': '--decompress-threads=0'}
