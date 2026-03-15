@@ -1,0 +1,35 @@
+name: 'Lima VM Setup'
+description: 'Install Lima, enable KVM, start a VM and copy the CRIU source into it'
+
+inputs:
+  template:
+    description: 'Lima VM template name (e.g. fedora, centos-stream-9)'
+    required: true
+  cache-key-prefix:
+    description: 'Prefix for the Lima image cache key'
+    required: true
+
+runs:
+  using: composite
+  steps:
+  - name: Install Lima
+    uses: lima-vm/lima-actions/setup@v1
+  - name: Cache Lima images
+    uses: actions/cache@v4
+    with:
+      path: ~/.cache/lima
+      key: ${{ inputs.cache-key-prefix }}-${{ github.sha }}
+      restore-keys: ${{ inputs.cache-key-prefix }}-
+  - name: Start VM
+    shell: bash
+    # Enable VNC display so QEMU attaches a VGA device instead of
+    # passing -vga none.  Without it the kernel only registers a CGA
+    # text console and VT ioctls (TIOCSLCKTRMIOS, TIOCSWINSZ) fail,
+    # which breaks the zdtm/static/vt test on restore.
+    run: limactl start --plain --name=default --cpus=4 --memory=12 --set '.video.display = "vnc"' template://${{ inputs.template }}
+  - name: Copy source into VM
+    shell: bash
+    run: |
+      lima sudo mkdir -p /home/criu
+      lima sudo chown "$(lima whoami)" /home/criu
+      limactl copy -r . default:/home/criu

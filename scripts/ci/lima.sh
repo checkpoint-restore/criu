@@ -1,19 +1,48 @@
 #!/bin/bash
 
-# This script runs inside a Lima Fedora VM to set up and run
-# the Fedora Rawhide based CI tests with a vanilla kernel.
-# It mirrors the logic from vagrant.sh's setup() and fedora-rawhide().
-#
+# This script runs inside Lima VMs to set up and run CI tests.
+# It is invoked with a command name, e.g.:
+#   lima.sh centos-stream-setup
+#   lima.sh centos-stream-test
 #   lima.sh fedora-stable-setup
 #   lima.sh fedora-stable-test
 #   lima.sh fedora-next-setup
 #   lima.sh fedora-next-test
 
-
 set -e
 set -x
 
 CRIU_DIR="${CRIU_DIR:-/home/criu}"
+
+centos-stream-setup() {
+	# Enable CRB repository
+	dnf config-manager --set-enabled crb
+	# Install EPEL
+	dnf -y install epel-release
+	# Install build/test dependencies
+	"${CRIU_DIR}"/contrib/dependencies/dnf-packages.sh
+	# Disable sssd to avoid zdtm test failures in pty04
+	systemctl stop sssd || true
+	# Set SELinux to permissive mode; selinux tests still run but
+	# are not blocked by the restricted service context of CI.
+	setenforce 0
+	# The rpc test cases are running as user #1000
+	adduser -u 1000 test
+}
+
+centos-stream-test() {
+	# Increase the max thread limit for the thread-bomb test
+	sysctl -w kernel.threads-max=100000
+
+	# Newer systemd versions limit the number of tasks per user via
+	# cgroup pids controller. Remove the limit for the root user.
+	systemctl set-property user-0.slice TasksMax=infinity
+
+	cd "${CRIU_DIR}"
+	make -C scripts/ci local \
+		SKIP_CI_PREP=1 CC=gcc CD_TO_TOP=1 \
+		ZDTM_OPTS="-x zdtm/static/socket-raw"
+}
 
 _common_setup() {
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket

@@ -95,6 +95,31 @@ jobs:
         ZDTM_SHARD_INDEX=${{ matrix.shard }}
         ZDTM_SHARD_COUNT=4
 
+  centos-stream-test:
+    name: CentOS Stream ${{ matrix.version }}
+    # aarch64 is not supported by lima-vm/lima-actions
+    # https://github.com/lima-vm/lima-actions/pull/1
+    needs: [alpine-test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        version: [9, 10]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/lima-vm-setup
+      with:
+        template: centos-stream-${{ matrix.version }}
+        cache-key-prefix: lima-centos-stream-${{ matrix.version }}
+    - name: Setup VM
+      run: lima sudo /home/criu/scripts/ci/lima.sh centos-stream-setup
+    - name: Show VM info
+      run: |
+        lima uname -a
+        lima cat /proc/cmdline
+    - name: Run tests
+      run: ssh -tt lima-default sudo -i /home/criu/scripts/ci/lima.sh centos-stream-test
+
   compat-test:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
@@ -187,21 +212,10 @@ jobs:
             name: Next
     steps:
     - uses: actions/checkout@v4
-    - name: Install Lima
-      uses: lima-vm/lima-actions/setup@v1
-    - name: Cache Lima images
-      uses: actions/cache@v4
+    - uses: ./.github/actions/lima-vm-setup
       with:
-        path: ~/.cache/lima
-        key: lima-fedora-${{ github.sha }}
-        restore-keys: lima-fedora-
-    - name: Start Fedora VM
-      run: limactl start --plain --name=default --cpus=4 --memory=12 template://fedora
-    - name: Copy source into VM
-      run: |
-        lima sudo mkdir -p /home/criu
-        lima sudo chown "$(lima whoami)" /home/criu
-        limactl copy -r . default:/home/criu
+        template: fedora
+        cache-key-prefix: lima-fedora
     - name: Setup VM
       run: lima sudo /home/criu/scripts/ci/lima.sh ${{ matrix.variant }}-setup
     - name: Reboot VM to activate new kernel
