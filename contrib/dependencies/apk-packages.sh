@@ -19,6 +19,7 @@ apk add --no-cache \
 	libcap-dev \
 	libcap-utils \
 	libdrm-dev \
+	lz4-dev \
 	libnet-dev \
 	libnl3-dev \
 	libtraceevent-dev \

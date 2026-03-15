@@ -17,6 +17,7 @@ dnf install -y \
 	libbsd-devel \
 	libcap-devel \
 	libdrm-devel \
+	lz4-devel \
 	libnet-devel \
 	libnl3-devel \
 	libselinux-devel \
