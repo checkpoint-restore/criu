@@ -261,7 +261,7 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 	if (ppb_resize_pipe(ppb) == 1)
 		return 1;
 
-	if (ppb->nr_segs && iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
+	if (!pp->break_iov && ppb->nr_segs && iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
 		goto out;
 
 	pr_debug("Add iov to page pipe (%u iovs, %u/%u total)\n", ppb->nr_segs, pp->free_iov, pp->nr_iovs);
@@ -269,6 +269,8 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 	pp->free_iov++;
 	BUG_ON(pp->free_iov > pp->nr_iovs);
 out:
+	/* Consume the one-shot iov break once a page has been added. */
+	pp->break_iov = false;
 	ppb->pages_in++;
 	return 0;
 }

@@ -38,6 +38,8 @@ struct page_xfer {
 	 * O_DIRECT set and clears this if the filesystem rejects direct I/O.
 	 */
 	bool pi_use_direct;
+	/* Bytes already emitted to the pages image, including alignment padding. */
+	uint64_t pages_image_offset;
 
 	/* private data for every page-xfer engine */
 	union {
@@ -53,6 +55,33 @@ struct page_xfer {
 	};
 
 	struct page_read *parent;
+
+	/*
+	 * Pending pagemap entry for compressed writes.
+	 * write_pagemap saves the entry here because the
+	 * compressed_size array is not known until write_pages
+	 * compresses all pages. Once done, write_pages writes
+	 * the complete pagemap entry.
+	 *
+	 * In region mode (region_pages > 0) the compressed_size[]
+	 * array holds one element per region (length n_compressed
+	 * == ceil(nr_pages / region_pages)).
+	 */
+	struct {
+		unsigned long vaddr;
+		unsigned long nr_pages;
+		u32 flags;
+		uint32_t *compressed_size;
+		uint64_t total_compressed_size;
+		/* Number of compressed blocks emitted so far. */
+		size_t n_compressed;
+		/* Total expected blocks (nr_pages for per-page, regions for region). */
+		size_t total_blocks;
+		/* 0 = per-page mode; >0 = region mode region size in pages. */
+		unsigned int region_pages;
+		/* Whether this entry has emitted its first non-zero payload. */
+		bool payload_started;
+	} pending_pe;
 };
 
 extern int open_page_xfer(struct page_xfer *xfer, int fd_type, unsigned long id);

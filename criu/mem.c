@@ -35,6 +35,7 @@
 #include "prctl.h"
 #include "compel/infect-util.h"
 #include "pidfd-store.h"
+#include "compression.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -231,6 +232,18 @@ static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct 
 	int ret = 0;
 
 	dump_all_pages = should_dump_entire_vma(vma->e);
+
+	/*
+	 * In region-compression mode, force the first page of this VMA to
+	 * start a new iov so a pagemap entry -- and therefore an LZ4
+	 * region -- never spans a VMA boundary by coalescing with a
+	 * contiguous neighbour. The per-VMA restore reader clamps reads at
+	 * the VMA boundary and cannot split a region there. Only at the
+	 * true VMA start (*pvaddr == vma start), not on a mid-VMA re-entry
+	 * after the page pipe filled up.
+	 */
+	if (opts.compress_mode == COMPRESS_REGION && *pvaddr == vma->e->start)
+		pp->break_iov = true;
 
 	nr_scanned = 0;
 	for (vaddr = *pvaddr; vaddr < vma->e->end; vaddr += PAGE_SIZE, nr_scanned++) {

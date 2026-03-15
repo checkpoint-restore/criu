@@ -152,6 +152,7 @@ static inline bool page_read_has_parent(struct page_read *pr)
 #define PE_PARENT  (1 << 0) /* pages are in parent snapshot */
 #define PE_LAZY	   (1 << 1) /* pages can be lazily restored */
 #define PE_PRESENT (1 << 2) /* pages are present in pages*img */
+#define PE_PAYLOAD_ALIGNED (1 << 3) /* payload starts at a page boundary */
 
 static inline bool pagemap_in_parent(PagemapEntry *pe)
 {
@@ -166,6 +167,11 @@ static inline bool pagemap_lazy(PagemapEntry *pe)
 static inline bool pagemap_present(PagemapEntry *pe)
 {
 	return !!(pe->flags & PE_PRESENT);
+}
+
+static inline bool pagemap_payload_aligned(PagemapEntry *pe)
+{
+	return !!(pe->flags & PE_PAYLOAD_ALIGNED);
 }
 
 #endif /* __CR_PAGE_READ_H__ */
