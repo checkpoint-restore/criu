@@ -45,17 +45,32 @@
 struct page_read {
 	/* reads page from current pagemap */
 	int (*read_pages)(struct page_read *, unsigned long vaddr, unsigned long nr, void *, unsigned flags);
+
 	/* Advance page_read to the next entry */
 	int (*advance)(struct page_read *pr);
+
+	/* Close all images: pagemap, pages (both local & parent) */
 	void (*close)(struct page_read *);
+
+	/* Advance virtual and pages-image cursors without copying data */
 	void (*skip_pages)(struct page_read *, unsigned long len);
+
+	/* Process and drain queued asynchronous page reads */
 	int (*sync)(struct page_read *pr);
+
+	/* Reposition read file offset for specific vaddr */
 	int (*seek_pagemap)(struct page_read *pr, unsigned long vaddr);
+
+	/* Reset read cursors and current entries, including parent readers */
 	void (*reset)(struct page_read *pr);
+
+	/* Used only for lazy restore (= uffd_io_complete) */
 	int (*io_complete)(struct page_read *, unsigned long vaddr, unsigned long nr);
+
+	/* Read from the selected remote, streamed, or local backing image */
 	int (*maybe_read_page)(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags);
 
-	/* Whether or not pages can be read in PIE code */
+	/* Whether or not pages can be read in PIE code (restorer context) */
 	bool pieok;
 
 	/* Whether or not disable image deduplication*/
@@ -71,15 +86,27 @@ struct page_read {
 	struct cr_img *pi;
 	u32 pages_img_id;
 
-	PagemapEntry *pe;	  /* current pagemap we are on */
-	struct page_read *parent; /* parent pagemap (if ->in_parent pagemap is met in image,
-				   * then go to this guy for page, see read_pagemap_page */
-	unsigned long cvaddr;	  /* vaddr we are on */
-	off_t pi_off;		  /* current offset in pages file */
+	/* Current pagemap we are on */
+	PagemapEntry *pe;
 
-	struct iovec bunch;   /* record consequent neighbour iovecs to punch together */
-	unsigned id;	      /* for logging */
-	unsigned long img_id; /* pagemap image file ID */
+	/* Parent pagemap (if ->in_parent pagemap is met in image,
+	 * then go to this guy for page, see read_pagemap_page) */
+	struct page_read *parent;
+
+	/* Current virtual address we are on */
+	unsigned long cvaddr;
+
+	/* Current offset in pages file */
+	off_t pi_off;
+
+	/* Record consequent neighbour iov-ecs to punch together */
+	struct iovec bunch;
+
+	/* For logging */
+	unsigned id;
+
+	/* Pagemap image file ID */
+	unsigned long img_id;
 
 	PagemapEntry **pmes;
 	int nr_pmes;
