@@ -12,6 +12,41 @@ message pagemap_entry {
 	required uint64 vaddr		= 1 [(criu).hex = true];
 	required uint32 compat_nr_pages	= 2;
 	optional bool	in_parent	= 3;
+	/*
+	 * PE_PAYLOAD_ALIGNED means that payload bytes for this present entry
+	 * begin at the next host-page boundary in pages-*.img. Readers must skip
+	 * the padding before applying compressed_size[] or the ordinary raw size.
+	 */
 	optional uint32	flags		= 4 [(criu).flags = "pmap.flags" ];
 	optional uint64 nr_pages = 5;
+	/*
+	 * Size in bytes of each compressed block stored in the pages image.
+	 * One element per block: per page in per-page mode, per region in
+	 * region mode (see region_pages). Two values are special:
+	 *   0 = all-zero block, no payload is stored in the image.
+	 *   N = stored raw (incompressible), where N is the block's
+	 *       uncompressed byte size: PAGE_SIZE in per-page mode, or
+	 *       block_pages * PAGE_SIZE in region mode (the last region
+	 *       of an entry may hold fewer than region_pages pages).
+	 * Any other value is the length of the LZ4-compressed payload.
+	 *
+	 * Packed encoding avoids one protobuf tag per memory page.
+	 */
+	repeated uint32 compressed_size		= 6 [packed = true];
+	/*
+	 * Sum of all compressed_size[] entries: the total number of payload
+	 * bytes this entry occupies in the pages image. On restore it is an
+	 * O(1) shortcut to advance the read offset past a whole entry (see
+	 * skip_pagemap_pages()) instead of summing compressed_size[] block by
+	 * block. Offsets into the interior of an entry are still derived by
+	 * walking compressed_size[], since a single total cannot locate an
+	 * individual page.
+	 */
+	optional uint64	total_compressed_size	= 7;
+	/*
+	 * If set and > 0, compressed_size[] holds one element per region of
+	 * region_pages pages (the last region may be shorter than nr_pages %
+	 * region_pages). If unset or 0, compressed_size[] is per-page.
+	 */
+	optional uint32 region_pages		= 8;
 }
