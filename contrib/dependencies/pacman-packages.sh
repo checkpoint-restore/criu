@@ -15,6 +15,7 @@ pacman -Syu --noconfirm \
 	libbsd \
 	libcap \
 	libdrm \
+	lz4 \
 	libelf \
 	libnet \
 	libnl \

@@ -19,7 +19,7 @@ jobs:
         # Checkout pull request HEAD commit instead of merge commit
         ref: ${{ github.event.pull_request.head.sha }}
     - name: Install dependencies
-      run: sudo contrib/apt-install libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnl-3-dev libnet-dev libcap-dev uuid-dev
+      run: sudo contrib/apt-install libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-protobuf libnl-3-dev libnet-dev libcap-dev uuid-dev liblz4-dev
     - name: Configure git user details
       run: |
         git config --global user.email "checkpoint-restore@users.noreply.github.com"
@@ -28,3 +28,8 @@ jobs:
       run: git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
     - name: Build each commit
       run: git rebase ${{ github.base_ref }} -x "make -C scripts/ci check-commit"
+    - name: Build without LZ4
+      run: |
+        make mrproper
+        make -j "$(nproc)" NO_LZ4=1
+        make unittest NO_LZ4=1

@@ -237,6 +237,7 @@ else
 export CONFIG_COMPAT := y
 export CONFIG_GNUTLS := y
 export CONFIG_HAS_LIBBPF := y
+export CONFIG_LZ4 := y
 endif
 
 #

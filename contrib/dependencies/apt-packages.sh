@@ -23,6 +23,7 @@ fi
 	libelf-dev \
 	libgnutls28-dev \
 	libgnutls30 \
+	liblz4-dev \
 	libnet-dev \
 	libnl-3-dev \
 	libnl-route-3-dev \

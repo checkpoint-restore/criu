@@ -18,6 +18,7 @@ fi
 	libelf-dev:"${DEBIAN_ARCH}" \
 	libexpat1-dev:"${DEBIAN_ARCH}" \
 	libgnutls28-dev:"${DEBIAN_ARCH}" \
+	liblz4-dev:"${DEBIAN_ARCH}" \
 	libnet-dev:"${DEBIAN_ARCH}" \
 	libnftables-dev:"${DEBIAN_ARCH}" \
 	libnl-3-dev:"${DEBIAN_ARCH}" \
