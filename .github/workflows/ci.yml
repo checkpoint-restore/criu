@@ -9,16 +9,31 @@ concurrency:
 
 jobs:
   alpine-test:
-    name: Alpine Test
+    name: Alpine Test (${{ matrix.target }}, ${{ matrix.shard_name }})
     strategy:
       matrix:
         os: [ubuntu-22.04]
         target: [GCC=1, CLANG=1]
+        shard: [0, 1, 2, 3, 4]
+        include:
+          - shard: 0
+            shard_name: zdtm 1/4
+          - shard: 1
+            shard_name: zdtm 2/4
+          - shard: 2
+            shard_name: zdtm 3/4
+          - shard: 3
+            shard_name: zdtm 4/4
+          - shard: 4
+            shard_name: non-zdtm
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
-    - name: Run Alpine ${{ matrix.target }} Test
-      run: sudo -E make -C scripts/ci alpine ${{ matrix.target }}
+    - name: Run Alpine ${{ matrix.target }} ${{ matrix.shard_name }} Test
+      run: >
+        sudo -E make -C scripts/ci alpine ${{ matrix.target }}
+        ZDTM_SHARD_INDEX=${{ matrix.shard }}
+        ZDTM_SHARD_COUNT=4
 
   alpine-test-arm64:
     name: Alpine Test ARM64
