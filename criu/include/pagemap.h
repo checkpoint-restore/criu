@@ -98,6 +98,23 @@ struct page_read {
 
 	/* Current offset in pages file */
 	off_t pi_off;
+	/* Alignment bytes a sequential image-streamer reader must discard. */
+	size_t stream_padding;
+
+	/*
+	 * Index into pe->compressed_size[] for the current pagemap
+	 * entry. Tracks which compressed block (page in per-page mode,
+	 * region in region mode) we are on when reading or skipping
+	 * compressed pages. Reset to 0 on advance().
+	 */
+	size_t compressed_size_index;
+
+	/*
+	 * In region mode: pages already consumed (read or skipped) from
+	 * the current block. Always 0 in per-page mode. Reset to 0 on
+	 * advance() and whenever the reader crosses a block boundary.
+	 */
+	unsigned int region_block_offset;
 
 	/* Record consequent neighbour iov-ecs to punch together */
 	struct iovec bunch;
@@ -199,6 +216,14 @@ static inline bool pagemap_present(PagemapEntry *pe)
 static inline bool pagemap_payload_aligned(PagemapEntry *pe)
 {
 	return !!(pe->flags & PE_PAYLOAD_ALIGNED);
+}
+
+/* Keep the mask as wide as off_t so offsets above 4 GiB remain intact. */
+static inline off_t pagemap_page_align_offset(off_t offset)
+{
+	off_t mask = ~((off_t)PAGE_SIZE - 1);
+
+	return (offset + (off_t)PAGE_SIZE - 1) & mask;
 }
 
 #endif /* __CR_PAGE_READ_H__ */
