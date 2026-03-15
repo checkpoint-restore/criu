@@ -138,6 +138,20 @@ typedef long (*thread_restore_fcall_t)(struct thread_restore_args *args);
 struct restore_vma_io {
 	int nr_iovs;
 	loff_t off;
+	uint32_t *compressed_size;
+	uint64_t total_compressed_size;
+	int n_compressed_size;
+	/*
+	 * Region compression metadata. region_pages == 0 means per-page
+	 * compression and block_pages is unused. When region_pages > 0,
+	 * compressed_size[] holds n_compressed_size (== n_blocks) entries
+	 * and block_pages is a parallel uint16_t-per-block array giving
+	 * each block's page count (the last block of any pagemap entry
+	 * spanning this iov may be shorter than region_pages).
+	 */
+	uint32_t region_pages;
+	int n_pages;
+	uint16_t *block_pages;
 	struct iovec iovs[0];
 };
 
