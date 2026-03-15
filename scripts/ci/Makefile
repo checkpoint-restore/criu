@@ -46,10 +46,19 @@ ifeq ($(CONTAINER_RUNTIME),podman)
 endif
 
 export ZDTM_OPTS
+export ZDTM_SHARD_INDEX
+export ZDTM_SHARD_COUNT
 
 $(TARGETS):
 	$(MAKE) -C ../build $@$(target-suffix)
-	$(CONTAINER_RUNTIME) run --env-file docker.env -v `pwd`/../../:/criu $(if $(ZDTM_OPTS),-e ZDTM_OPTS) $(CONTAINER_OPTS) criu-$@ scripts/ci/run-ci-tests.sh
+	$(CONTAINER_RUNTIME) run \
+		--env-file docker.env \
+		-v `pwd`/../../:/criu \
+		$(if $(ZDTM_OPTS),-e ZDTM_OPTS) \
+		$(if $(ZDTM_SHARD_INDEX),-e ZDTM_SHARD_INDEX) \
+		$(if $(ZDTM_SHARD_COUNT),-e ZDTM_SHARD_COUNT) \
+		$(CONTAINER_OPTS) \
+		criu-$@ scripts/ci/run-ci-tests.sh
 
 fedora-asan:
 	$(MAKE) -C ../build $@$(target-suffix)
