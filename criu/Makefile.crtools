@@ -11,6 +11,7 @@ obj-y			+= bitmap.o
 obj-y			+= cgroup.o
 obj-y			+= cgroup-props.o
 obj-y			+= clone-noasan.o
+obj-$(CONFIG_LZ4)	+= compression.o
 obj-y			+= cr-check.o
 obj-y			+= cr-dedup.o
 obj-y			+= cr-dump.o
