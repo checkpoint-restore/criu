@@ -1115,7 +1115,7 @@ struct parasite_thread_ctl *compel_prepare_thread(struct parasite_ctl *ctl, int 
 {
 	struct parasite_thread_ctl *tctl;
 
-	tctl = xmalloc(sizeof(*tctl));
+	tctl = xmemalign(__alignof__(*tctl), sizeof(*tctl));
 	if (tctl) {
 		if (prepare_thread(pid, &tctl->th)) {
 			xfree(tctl);
@@ -1160,11 +1160,12 @@ struct parasite_ctl *compel_prepare_noctx(int pid)
 	/*
 	 * Control block early setup.
 	 */
-	ctl = xzalloc(sizeof(*ctl));
+	ctl = xmemalign(__alignof__(*ctl), sizeof(*ctl));
 	if (!ctl) {
 		pr_err("Parasite control block allocation failed (pid: %d)\n", pid);
 		goto err;
 	}
+	memset(ctl, 0, sizeof(*ctl));
 
 	ctl->tsock = -1;
 	ctl->ictx.log_fd = -1;
@@ -1363,7 +1364,8 @@ struct parasite_ctl *compel_prepare(int pid)
 
 	ictx->save_regs = save_regs_plain;
 	ictx->make_sigframe = make_sigframe_plain;
-	ictx->regs_arg = xmalloc(sizeof(struct plain_regs_struct));
+	ictx->regs_arg = xmemalign(__alignof__(struct plain_regs_struct),
+				   sizeof(struct plain_regs_struct));
 	if (ictx->regs_arg == NULL)
 		goto err;
 

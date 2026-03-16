@@ -21,6 +21,16 @@
 #define xzalloc(size)	  __xalloc(calloc, size, 1, size)
 #define xrealloc(p, size) __xalloc(realloc, size, p, size)
 
+#define xmemalign(align, size)                                                            \
+	({                                                                                \
+		void *___p = NULL;                                                        \
+		int ___err = posix_memalign(&___p, align, size);                          \
+		if (___err)                                                               \
+			pr_err("%s: Can't allocate %li bytes aligned to %li\n",           \
+				__func__, (long)(size), (long)(align));                    \
+		___p;                                                                     \
+	})
+
 #define xfree(p) free(p)
 
 #define xrealloc_safe(pptr, size)                  \
