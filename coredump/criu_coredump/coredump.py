@@ -141,6 +141,7 @@ class coredump_generator:
     thread_info_key = {
         "aarch64": "ti_aarch64",
         "armv7l": "ti_arm",
+        "riscv64": "ti_riscv64",
         "x86_64": "thread_info",
     }
 
@@ -259,6 +260,7 @@ class coredump_generator:
         e_machine_dict = {
             "aarch64": elf.EM_AARCH64,
             "armv7l": elf.EM_ARM,
+            "riscv64": elf.EM_RISCV,
             "x86_64": elf.EM_X86_64,
         }
         return e_machine_dict[self.machine]
@@ -463,6 +465,39 @@ class coredump_generator:
             pr_reg.es = regs["es"]
             pr_reg.fs = regs["fs"]
             pr_reg.gs = regs["gs"]
+        elif self.machine == "riscv64":
+            pr_reg.pc = regs["pc"]
+            pr_reg.ra = regs["ra"]
+            pr_reg.sp = regs["sp"]
+            pr_reg.gp = regs["gp"]
+            pr_reg.tp = regs["tp"]
+            pr_reg.t0 = regs["t0"]
+            pr_reg.t1 = regs["t1"]
+            pr_reg.t2 = regs["t2"]
+            pr_reg.s0 = regs["s0"]
+            pr_reg.s1 = regs["s1"]
+            pr_reg.a0 = regs["a0"]
+            pr_reg.a1 = regs["a1"]
+            pr_reg.a2 = regs["a2"]
+            pr_reg.a3 = regs["a3"]
+            pr_reg.a4 = regs["a4"]
+            pr_reg.a5 = regs["a5"]
+            pr_reg.a6 = regs["a6"]
+            pr_reg.a7 = regs["a7"]
+            pr_reg.s2 = regs["s2"]
+            pr_reg.s3 = regs["s3"]
+            pr_reg.s4 = regs["s4"]
+            pr_reg.s5 = regs["s5"]
+            pr_reg.s6 = regs["s6"]
+            pr_reg.s7 = regs["s7"]
+            pr_reg.s8 = regs["s8"]
+            pr_reg.s9 = regs["s9"]
+            pr_reg.s10 = regs["s10"]
+            pr_reg.s11 = regs["s11"]
+            pr_reg.t3 = regs["t3"]
+            pr_reg.t4 = regs["t4"]
+            pr_reg.t5 = regs["t5"]
+            pr_reg.t6 = regs["t6"]
 
     def _gen_fpregset(self, pid, tid):
         """
@@ -492,7 +527,7 @@ class coredump_generator:
         """
         Get the floating point register dictionary based on the current architecture.
         """
-        fpregs_key_dict = {"aarch64": "fpsimd", "x86_64": "fpregs"}
+        fpregs_key_dict = {"aarch64": "fpsimd", "riscv64": "fpsimd", "x86_64": "fpregs"}
         fpregs_key = fpregs_key_dict[self.machine]
 
         thread_info_key = self.thread_info_key[self.machine]
@@ -507,6 +542,9 @@ class coredump_generator:
             fpregset.vregs = (ctypes.c_ulonglong * len(regs["vregs"]))(*regs["vregs"])
             fpregset.fpsr = regs["fpsr"]
             fpregset.fpcr = regs["fpcr"]
+        elif self.machine == "riscv64":
+            fpregset.f = (ctypes.c_ulonglong * len(regs["f"]))(*regs["f"])
+            fpregset.fcsr = regs["fcsr"]
         elif self.machine == "x86_64":
             fpregset.cwd = regs["cwd"]
             fpregset.swd = regs["swd"]

@@ -53,6 +53,7 @@ ET_CORE = 4  # #define ET_CORE         4               /* Core file */
 EM_ARM = 40  # #define EM_ARM		40	/* ARM */
 EM_X86_64 = 62  # #define EM_X86_64       62              /* AMD x86-64 architecture */
 EM_AARCH64 = 183  # #define EM_AARCH64	183	/* ARM AARCH64 */
+EM_RISCV = 243  # #define EM_RISCV        243             /* RISC-V */
 
 # Legal values for e_version (version).
 EV_CURRENT = 1  # #define EV_CURRENT      1               /* Current version */
@@ -461,12 +462,50 @@ class arm_user_regs_struct(ctypes.Structure):  # struct arm_user_regs_struct
     ]
 
 
+class riscv64_user_regs_struct(ctypes.Structure):  # struct user_regs_struct
+    _fields_ = [
+        ("pc", ctypes.c_ulonglong),
+        ("ra", ctypes.c_ulonglong),
+        ("sp", ctypes.c_ulonglong),
+        ("gp", ctypes.c_ulonglong),
+        ("tp", ctypes.c_ulonglong),
+        ("t0", ctypes.c_ulonglong),
+        ("t1", ctypes.c_ulonglong),
+        ("t2", ctypes.c_ulonglong),
+        ("s0", ctypes.c_ulonglong),
+        ("s1", ctypes.c_ulonglong),
+        ("a0", ctypes.c_ulonglong),
+        ("a1", ctypes.c_ulonglong),
+        ("a2", ctypes.c_ulonglong),
+        ("a3", ctypes.c_ulonglong),
+        ("a4", ctypes.c_ulonglong),
+        ("a5", ctypes.c_ulonglong),
+        ("a6", ctypes.c_ulonglong),
+        ("a7", ctypes.c_ulonglong),
+        ("s2", ctypes.c_ulonglong),
+        ("s3", ctypes.c_ulonglong),
+        ("s4", ctypes.c_ulonglong),
+        ("s5", ctypes.c_ulonglong),
+        ("s6", ctypes.c_ulonglong),
+        ("s7", ctypes.c_ulonglong),
+        ("s8", ctypes.c_ulonglong),
+        ("s9", ctypes.c_ulonglong),
+        ("s10", ctypes.c_ulonglong),
+        ("s11", ctypes.c_ulonglong),
+        ("t3", ctypes.c_ulonglong),
+        ("t4", ctypes.c_ulonglong),
+        ("t5", ctypes.c_ulonglong),
+        ("t6", ctypes.c_ulonglong),
+    ]
+
+
 # elf_greg_t    = ctypes.c_ulonglong
 # ELF_NGREG = ctypes.sizeof(user_regs_struct)/ctypes.sizeof(elf_greg_t)
 # elf_gregset_t = elf_greg_t*ELF_NGREG
 user_regs_dict = {
         "aarch64": aarch64_user_regs_struct,
         "armv7l": arm_user_regs_struct,
+        "riscv64": riscv64_user_regs_struct,
         "x86_64": x86_64_user_regs_struct,
 }
 
@@ -653,9 +692,17 @@ class aarch64_user_fpregs_struct(ctypes.Structure):  # struct aarch64_user_fpreg
     ]
 
 
+class riscv64_user_fpregs_struct(ctypes.Structure):  # struct __riscv_d_ext_state
+    _fields_ = [
+        ("f", ctypes.c_ulonglong * 32),
+        ("fcsr", ctypes.c_uint),
+    ]
+
+
 user_fpregs_dict = {
         "aarch64": aarch64_user_fpregs_struct,
         "armv7l": None,
+        "riscv64": riscv64_user_fpregs_struct,
         "x86_64": x86_64_user_fpregs_struct,
 }
 
