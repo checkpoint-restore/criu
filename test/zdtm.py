@@ -2018,9 +2018,7 @@ def do_run_test(tname, tdesc, flavs, opts):
         # to it.  Without this, those mounts propagate into the source and
         # become MNT_LOCKED inside the user namespace, causing
         # open_tree(OPEN_TREE_CLONE) to return EINVAL on restore.
-        if not os.access("../criu.tree", os.F_OK):
-            os.mkdir("../criu.tree")
-            os.chmod("../criu.tree", 0o700)
+        os.makedirs("../criu.tree", mode=0o700, exist_ok=True)
         subprocess.check_call(["mount", "--bind", "--make-private", "..", "../criu.tree"])
     tcname = tname.split('/')[0]
     tclass = test_classes.get(tcname, None)
