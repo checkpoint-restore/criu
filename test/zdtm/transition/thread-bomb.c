@@ -14,6 +14,29 @@ static pthread_attr_t attr;
 /* Having in mind setup with 64 Kb large pages */
 static const size_t stack_size = 64 * 1024;
 
+#define EAGAIN_RETRIES	50
+#define EAGAIN_DELAY_US	10000
+
+/*
+ * Wrapper around pthread_create() that retries on EAGAIN.  The test
+ * creates ~2048 threads in a burst and clone() can transiently fail
+ * with EAGAIN due to kernel resource pressure (VMA allocator
+ * contention, memory fragmentation, etc.) even when hard limits
+ * are not reached.
+ */
+static int pthread_create_retry(pthread_t *t, const pthread_attr_t *a,
+				void *(*fn)(void *), void *arg)
+{
+	int err, retries = 0;
+
+	while (1) {
+		err = pthread_create(t, a, fn, arg);
+		if (err != EAGAIN || ++retries > EAGAIN_RETRIES)
+			return err;
+		usleep(EAGAIN_DELAY_US);
+	}
+}
+
 static void *thread_fn(void *arg)
 {
 	pthread_t t, p, *self;
@@ -37,7 +60,7 @@ static void *thread_fn(void *arg)
 
 	*self = pthread_self();
 
-	err = pthread_create(&t, &attr, thread_fn, self);
+	err = pthread_create_retry(&t, &attr, thread_fn, self);
 	if (err) {
 		pr_err("pthread_create(): %d\n", err);
 		free(self);
@@ -73,7 +96,7 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < max_nr; i++) {
 		pthread_t p;
-		err = pthread_create(&p, &attr, thread_fn, NULL);
+		err = pthread_create_retry(&p, &attr, thread_fn, NULL);
 		if (err) {
 			pr_err("pthread_create(): %d\n", err);
 			exit(1);
