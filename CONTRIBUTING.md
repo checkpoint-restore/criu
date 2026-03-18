@@ -304,6 +304,38 @@ Signed-off-by: Random J Developer <random at developer.example.org>
 Patch body here
 ```
 
+## AI-assisted contributions
+
+Use this tag when AI tools meaningfully contribute to the code,
+design, or commit message. Trivial use (e.g. basic autocomplete)
+does not require attribution. Following the
+[Linux kernel guidance on coding assistants](https://docs.kernel.org/process/coding-assistants.html),
+the tag format is:
+
+```
+Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]
+```
+
+Where `AGENT_NAME` identifies the AI tool or framework, `MODEL_VERSION`
+specifies which model was used, and the optional `[TOOL1] [TOOL2]`
+fields list any specialized analysis tools (e.g. coccinelle, sparse,
+smatch, clang-tidy) that were used alongside the AI assistant. Basic
+development tools (git, gcc, make, editors) should not be listed.
+
+For example:
+
+```
+Assisted-by: Claude:claude-3-opus coccinelle sparse
+```
+
+The `Assisted-by` tag should be placed after the commit message body
+and before the `Signed-off-by` line.
+
+Note that AI agents should not add `Signed-off-by` tags. Only human
+developers can certify the Developer's Certificate of Origin. The
+submitter is responsible for reviewing all AI-generated code and
+ensuring its correctness and license compliance.
+
 ## Submit your work upstream
 
 We accept GitHub pull requests and this is the preferred way to contribute to CRIU.

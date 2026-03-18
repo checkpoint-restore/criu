@@ -134,3 +134,14 @@ Each ZDTM test has three stages: preparation, C/R, and results checks. During
 the test, a process calls `test_daemon()` to signal it is ready for C/R, then
 calls `test_waitsig()` to wait for the C/R stage to complete. After being
 restored, the test checks that all its resources are still in a valid state.
+
+## AI-assisted contributions
+
+Add an `Assisted-by` tag to each commit message, placed after the
+commit message body and before the `Signed-off-by` line:
+
+```
+Assisted-by: AGENT_NAME:MODEL_VERSION
+```
+
+Do not add `Signed-off-by` tags on behalf of the user.
