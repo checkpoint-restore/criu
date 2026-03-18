@@ -2216,6 +2216,7 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 			rfi->path = path;
 			goto ext;
 		}
+		pr_warn("External file %s has no --inherit-fd mapping on restore\n", rfi->rfe->name);
 	}
 
 	if (rfi->remap) {
