@@ -19,7 +19,11 @@ SECTIONS
 		. = ALIGN(32);
 		*(.toc*)
 		. = ALIGN(32);
-	} =0x00000000,
+	} =0x00000000
+
+	.shstrtab : { *(.shstrtab) }
+	.strtab   : { *(.strtab) }
+	.symtab   : { *(.symtab) }
 
 	/DISCARD/ : {
 		*(.debug*)
