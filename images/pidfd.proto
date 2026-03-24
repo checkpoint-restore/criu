@@ -5,9 +5,9 @@ syntax = "proto2";
 import "fown.proto";
 
 message pidfd_entry {
-	required uint32		id		= 1;
-	required uint32		ino		= 2;
-	required uint32		flags		= 3;
-	required int32		nspid		= 4;
-	required fown_entry	fown		= 5;
+	required uint32		id	= 1;
+	required uint32		ino	= 2;
+	required uint32		flags	= 3;
+	required int32		nspid	= 4;
+	required fown_entry	fown	= 5;
 }
