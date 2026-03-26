@@ -43,6 +43,7 @@
 #include "images/ipc-shm.pb-c.h"
 #include "images/ipc-msg.pb-c.h"
 #include "images/ipc-sem.pb-c.h"
+#include "images/posix-mqueue.pb-c.h"
 #include "images/fs.pb-c.h"
 #include "images/remap-file-path.pb-c.h"
 #include "images/ghost-file.pb-c.h"

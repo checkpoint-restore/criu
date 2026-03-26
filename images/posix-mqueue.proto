@@ -1,0 +1,23 @@
+syntax = "proto2";
+
+import "fown.proto";
+
+message posix_mqueue_msg_entry {
+    required uint32 msg_prio = 1;
+    required uint32 msg_len  = 2;
+    required bytes  msg_data = 3;
+}
+
+message ipcns_pmq_data_entry {
+    required uint32 id          = 1;
+    required string name        = 2;
+
+    required uint32 mq_maxmsg   = 3;
+    required uint32 mq_msgsize  = 4;
+    required uint32 mq_curmsgs  = 5;
+
+    repeated posix_mqueue_msg_entry messages = 6;
+
+    required uint32    flags = 7;
+    required fown_entry fown = 8;
+}

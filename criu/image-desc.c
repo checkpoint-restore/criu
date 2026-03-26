@@ -63,6 +63,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY_F(IPCNS_SHM,	"ipcns-shm-%u", O_NOBUF), /* writes segments of data */
 	FD_ENTRY(IPCNS_MSG,	"ipcns-msg-%u"),
 	FD_ENTRY(IPCNS_SEM,	"ipcns-sem-%u"),
+	FD_ENTRY(IPCNS_PMQ_DATA, "ipcns-pmq-%u"),
 	FD_ENTRY(FS,		"fs-%u"),
 	FD_ENTRY(REMAP_FPATH,	"remap-fpath"),
 	FD_ENTRY_F(GHOST_FILE,	"ghost-file-%x", O_NOBUF),
