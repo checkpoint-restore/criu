@@ -289,6 +289,7 @@ TST_NOFILE	:=				\
 		sigtrap01			\
 		change_mnt_context		\
 		fd_offset			\
+		posix-mqueue			\
 #		jobctl00			\
 
 PKG_CONFIG ?= pkg-config
@@ -739,6 +740,8 @@ cgroupv2_01:		LDLIBS += -pthread
 
 uprobes:		CFLAGS += $(call pkg-cflags, libtracefs libtraceevent)
 uprobes:		LDLIBS += $(call pkg-libs, libtracefs libelf)
+
+posix-mqueue:		LDLIBS += -lrt
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
