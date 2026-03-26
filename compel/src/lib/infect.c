@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
+#include <time.h>
 
 #include "log.h"
 #include "common/bug.h"
@@ -170,13 +171,26 @@ static int skip_sigstop(int pid, int nr_signals)
 	 * immediately, because we sent PTRACE_INTERRUPT to it.
 	 */
 	for (i = 0; i < nr_signals; i++) {
+		int wait_retries = 1000;
+
 		ret = ptrace(PTRACE_CONT, pid, 0, 0);
 		if (ret) {
 			pr_perror("Unable to start process");
 			return -1;
 		}
 
-		ret = wait4(pid, &status, __WALL, NULL);
+		while (wait_retries-- > 0) {
+			ret = wait4(pid, &status, WNOHANG | __WALL, NULL);
+			if (ret != 0)
+				break;
+			struct timespec ts = { .tv_sec = 0, .tv_nsec = 1000000 };
+			nanosleep(&ts, NULL);
+		}
+		if (ret == 0) {
+			pr_err("SEIZE %d: timeout waiting for task\n", pid);
+			errno = ESRCH;
+			return -1;
+		}
 		if (ret < 0) {
 			pr_perror("SEIZE %d: can't wait task", pid);
 			return -1;
@@ -227,6 +241,7 @@ int compel_wait_task(int pid, int ppid, int (*get_status)(int pid, struct seize_
 	siginfo_t si;
 	int status, nr_stopsig;
 	int ret = 0, ret2, wait_errno = 0;
+	int wait_retries;
 
 	/*
 	 * It's ugly, but the ptrace API doesn't allow to distinguish
@@ -236,8 +251,20 @@ int compel_wait_task(int pid, int ppid, int (*get_status)(int pid, struct seize_
 	 */
 
 try_again:
+	wait_retries = 1000;
+	while (wait_retries-- > 0) {
+		ret = wait4(pid, &status, WNOHANG | __WALL, NULL);
+		if (ret != 0)
+			break;
+		struct timespec ts = { .tv_sec = 0, .tv_nsec = 1000000 };
+		nanosleep(&ts, NULL);
+	}
+	if (ret == 0) {
+		pr_err("SEIZE %d: timeout waiting for task to stop\n", pid);
+		ret = -1;
+		errno = ESRCH;
+	}
 
-	ret = wait4(pid, &status, __WALL, NULL);
 	if (ret < 0) {
 		/*
 		 * wait4() can expectedly fail only in a first time
