@@ -32,9 +32,10 @@ struct seize_task_status {
 	int vpid;
 	int ppid;
 	int seccomp_mode;
+	unsigned long long start_time;
 };
 
-extern int __must_check compel_wait_task(int pid, int ppid,
+extern int __must_check compel_wait_task(int pid, int ppid, unsigned long long start_time,
 					 int (*get_status)(int pid, struct seize_task_status *, void *data),
 					 void (*free_status)(int pid, struct seize_task_status *, void *data),
 					 struct seize_task_status *st, void *data);

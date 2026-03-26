@@ -99,6 +99,30 @@ static int parse_pid_status(int pid, struct seize_task_status *ss, void *data)
 	}
 
 	fclose(f);
+
+	sprintf(aux, "/proc/%d/stat", pid);
+	f = fopen(aux, "r");
+	ss->start_time = 0;
+	if (f) {
+		char buf[1024];
+		if (fgets(buf, sizeof(buf), f)) {
+			char *p = strrchr(buf, ')');
+			if (p) {
+				unsigned long long start_time = 0;
+				int i;
+				p++;
+				for (i = 0; i < 19; i++) {
+					while (*p == ' ') p++;
+					while (*p && *p != ' ') p++;
+				}
+				while (*p == ' ') p++;
+				if (sscanf(p, "%llu", &start_time) == 1)
+					ss->start_time = start_time;
+			}
+		}
+		fclose(f);
+	}
+
 	return 0;
 
 err_parse:
@@ -113,7 +137,7 @@ int compel_stop_task(int pid)
 
 	ret = compel_interrupt_task(pid);
 	if (ret == 0)
-		ret = compel_wait_task(pid, -1, parse_pid_status, NULL, &ss, NULL);
+		ret = compel_wait_task(pid, -1, 0, parse_pid_status, NULL, &ss, NULL);
 	return ret;
 }
 
@@ -220,7 +244,7 @@ int compel_parse_stop_signo(int pid)
  * of it so the task would not know if it was saddled
  * up with someone else.
  */
-int compel_wait_task(int pid, int ppid, int (*get_status)(int pid, struct seize_task_status *, void *),
+int compel_wait_task(int pid, int ppid, unsigned long long start_time, int (*get_status)(int pid, struct seize_task_status *, void *),
 		     void (*free_status)(int pid, struct seize_task_status *, void *), struct seize_task_status *ss,
 		     void *data)
 {
@@ -271,6 +295,12 @@ try_again:
 
 	if ((ppid != -1) && (ss->ppid != ppid)) {
 		pr_err("Task pid reused while suspending (%d: %d -> %d)\n", pid, ppid, ss->ppid);
+		goto err;
+	}
+
+	if (start_time != 0 && ss->start_time != start_time) {
+		pr_err("Task pid reused (start_time mismatch) while suspending (%d: %llu -> %llu)\n",
+		       pid, start_time, ss->start_time);
 		goto err;
 	}
 

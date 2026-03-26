@@ -718,11 +718,16 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
+		struct proc_pid_stat stat;
+		unsigned long long expected_st = 0;
+		if (parse_pid_stat(pid, &stat) == 0)
+			expected_st = stat.start_time;
+
 		if (!opts.freeze_cgroup || compel_interrupt_only_mode)
 			/* fails when meets a zombie */
 			__ignore_value(compel_interrupt_task(pid));
 
-		ret = compel_wait_task(pid, item->pid->real, parse_pid_status, NULL, &creds.s, NULL);
+		ret = compel_wait_task(pid, item->pid->real, expected_st, parse_pid_status, NULL, &creds.s, NULL);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_children() and seize(),
@@ -908,11 +913,16 @@ static int collect_threads(struct pstree_item *item)
 
 		pr_info("\tSeizing %d's %d thread\n", item->pid->real, pid);
 
+		struct proc_pid_stat stat;
+		unsigned long long expected_st = 0;
+		if (parse_pid_stat(pid, &stat) == 0)
+			expected_st = stat.start_time;
+
 		if ((!opts.freeze_cgroup || compel_interrupt_only_mode) &&
 		    compel_interrupt_task(pid))
 			continue;
 
-		ret = compel_wait_task(pid, item_ppid(item), parse_pid_status, NULL, &t_creds.s, NULL);
+		ret = compel_wait_task(pid, item_ppid(item), expected_st, parse_pid_status, NULL, &t_creds.s, NULL);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_threads() and seize(),
@@ -1065,6 +1075,11 @@ int collect_pstree(void)
 
 	pr_debug("Detected cgroup V%d freezer\n", cgroup_v2 ? 2 : 1);
 
+	struct proc_pid_stat stat;
+	unsigned long long expected_st = 0;
+	if (parse_pid_stat(pid, &stat) == 0)
+		expected_st = stat.start_time;
+
 	if (opts.freeze_cgroup && !compel_interrupt_only_mode) {
 		ret = run_plugins(PAUSE_DEVICES, pid);
 		if (ret < 0 && ret != -ENOTSUP) {
@@ -1092,7 +1107,7 @@ int collect_pstree(void)
 		}
 	}
 
-	ret = compel_wait_task(pid, -1, parse_pid_status, NULL, &creds.s, NULL);
+	ret = compel_wait_task(pid, -1, expected_st, parse_pid_status, NULL, &creds.s, NULL);
 	if (ret < 0)
 		goto err;
 

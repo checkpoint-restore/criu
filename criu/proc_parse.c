@@ -1243,8 +1243,14 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 	expected_done = (parsed_seccomp ? 13 : 12);
 	if (kdat.has_nspid)
 		expected_done++;
-	if (done == expected_done)
+	if (done == expected_done) {
+		struct proc_pid_stat stat;
+		if (parse_pid_stat(pid, &stat) == 0)
+			cr->s.start_time = stat.start_time;
+		else
+			cr->s.start_time = 0;
 		ret = 0;
+	}
 
 err_parse:
 	if (ret)

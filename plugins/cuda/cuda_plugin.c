@@ -288,7 +288,7 @@ static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigse
 	}
 
 	struct proc_status_creds creds;
-	if (compel_wait_task(restore_tid, -1, parse_pid_status, NULL, &creds.s, NULL) != COMPEL_TASK_ALIVE) {
+	if (compel_wait_task(restore_tid, -1, 0, parse_pid_status, NULL, &creds.s, NULL) != COMPEL_TASK_ALIVE) {
 		pr_err("compel_wait_task failed after interrupt\n");
 		return -1;
 	}
