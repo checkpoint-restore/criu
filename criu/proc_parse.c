@@ -1547,7 +1547,13 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 
 	new->fstype = find_fstype_by_name(*fsname);
 
-	new->options = xmalloc(strlen(opt) + 1);
+	/*
+	 * sb_opt_cb() may translate uid=/gid= values via userns mappings,
+	 * producing longer decimal strings than the original. Let's
+	 * reserve extra space for the worst-case expansion of both a uid=
+	 * and a gid= value to 10-digit numbers.
+	 */
+	new->options = xmalloc(strlen(opt) + 1 + 2 * (sizeof("4294967295") - 1));
 	if (!new->options)
 		goto err;
 
