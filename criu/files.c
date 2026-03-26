@@ -4,6 +4,7 @@
 
 #include <linux/limits.h>
 #include <linux/major.h>
+#include <linux/magic.h>
 
 #include <sys/types.h>
 #include <sys/prctl.h>
@@ -50,6 +51,7 @@
 #include "fdstore.h"
 #include "bpfmap.h"
 #include "pidfd.h"
+#include "posix-mqueue.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -59,6 +61,11 @@
 #include "plugin.h"
 
 #define FDESC_HASH_SIZE 64
+
+#ifndef MQUEUE_MAGIC
+#define MQUEUE_MAGIC 0x19800202
+#endif
+
 static struct hlist_head file_desc_hash[FDESC_HASH_SIZE];
 /* file_desc's, which fle is not owned by a process, that is able to open them */
 static LIST_HEAD(fake_master_head);
@@ -561,6 +568,9 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 		ops = &pidfd_dump_ops;
 		return do_dump_gen_file(&p, lfd, ops, e);
 	}
+
+	if (p.fs_type == MQUEUE_MAGIC)
+		return do_dump_gen_file(&p, lfd, &pmq_dump_ops, e);
 
 	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode) || S_ISLNK(p.stat.st_mode)) {
 		if (fill_fdlink(lfd, &p, &link))
@@ -1793,6 +1803,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 		ret = collect_one_file_entry(fe, fe->bpf->id, &fe->bpf->base, &bpfmap_cinfo);
 		break;
 #endif
+	case FD_TYPES__PQEFD:
+		ret = collect_one_file_entry(fe, fe->pqmfd->id, &fe->pqmfd->base, &pmqfd_cinfo);
+		break;
 	}
 
 	return ret;

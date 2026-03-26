@@ -2,6 +2,7 @@
 #define __CR_FILES_H__
 
 #include <sys/stat.h>
+#include <linux/magic.h>
 
 #include "int.h"
 #include "common/compiler.h"
