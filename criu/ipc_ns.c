@@ -6,6 +6,10 @@
 #include <sys/msg.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <limits.h>
+#include <mqueue.h>
 #include <sched.h>
 
 #include "util.h"
@@ -22,6 +26,8 @@
 #include "images/ipc-shm.pb-c.h"
 #include "images/ipc-sem.pb-c.h"
 #include "images/ipc-msg.pb-c.h"
+#include "images/mqueue.pb-c.h"
+#include "mqueue.h"
 
 #if defined(__GLIBC__) && __GLIBC__ >= 2
 #define KEY __key
@@ -500,6 +506,97 @@ err:
 	return ret;
 }
 
+static int dump_ipc_pmq(struct cr_img *img)
+{
+	int ret = 0;
+	DIR *dir;
+	struct dirent *dent;
+
+	pr_info("Dumping POSIX message queues\n");
+
+	dir = opendir("/dev/mqueue");
+	if (!dir) {
+		if (errno == ENOENT) {
+			pr_info("No POSIX message queues to dump\n");
+			return 0;
+		}
+		pr_perror("Failed to open /dev/mqueue");
+		return -errno;
+	}
+
+	while ((dent = readdir(dir))) {
+		PmqDataEntry pmd = PMQ_DATA_ENTRY__INIT;
+		struct stat st;
+		struct mq_attr attr;
+		char path[PATH_MAX];
+		char mqname[NAME_MAX + 2];
+		mqd_t mqdes;
+
+		if (dent->d_name[0] == '.')
+			continue;
+
+		snprintf(path, sizeof(path),
+			 "/dev/mqueue/%s", dent->d_name);
+		snprintf(mqname, sizeof(mqname), "/%s", dent->d_name);
+
+		if (stat(path, &st) < 0) {
+			pr_perror("stat %s", path);
+			ret = -errno;
+			goto close_dir;
+		}
+
+		mqdes = mq_open(mqname, O_RDWR);
+		if (mqdes == (mqd_t)-1) {
+			pr_perror("mq_open %s", mqname);
+			ret = -errno;
+			goto close_dir;
+		}
+
+		if (mq_getattr(mqdes, &attr) < 0) {
+			pr_perror("mq_getattr %s", mqname);
+			mq_close(mqdes);
+			ret = -errno;
+			goto close_dir;
+		}
+
+		pmd.id       = st.st_ino;
+		pmd.ino      = st.st_ino;
+		pmd.mode     = st.st_mode & 0777;
+		pmd.name     = mqname;
+		pmd.maxmsg   = attr.mq_maxmsg;
+		pmd.msgsize  = attr.mq_msgsize;
+		pmd.curmsgs  = attr.mq_curmsgs;
+		pmd.mq_flags = attr.mq_flags;
+
+		pr_info("Dumping POSIX mqueue: %s "
+			"(curmsgs=%ld maxmsg=%ld msgsize=%ld)\n",
+			mqname, (long)attr.mq_curmsgs,
+			(long)attr.mq_maxmsg, (long)attr.mq_msgsize);
+
+		ret = pb_write_one(img, &pmd, PB_IPCNS_PMQ_DATA);
+		if (ret < 0) {
+			pr_err("Failed to write mqueue entry\n");
+			mq_close(mqdes);
+			goto close_dir;
+		}
+
+		ret = intrusive_mq_peek_all(mqdes, img,
+					    attr.mq_curmsgs,
+					    attr.mq_msgsize);
+		if (ret < 0) {
+			pr_err("Failed to dump messages for %s\n", mqname);
+			mq_close(mqdes);
+			goto close_dir;
+		}
+
+		mq_close(mqdes);
+	}
+
+close_dir:
+	closedir(dir);
+	return ret;
+}
+
 static int dump_ipc_data(const struct cr_imgset *imgset)
 {
 	int ret;
@@ -514,6 +611,9 @@ static int dump_ipc_data(const struct cr_imgset *imgset)
 	if (ret < 0)
 		return ret;
 	ret = dump_ipc_sem(img_from_set(imgset, CR_FD_IPCNS_SEM));
+	if (ret < 0)
+		return ret;
+	ret = dump_ipc_pmq(img_from_set(imgset, CR_FD_IPCNS_PMQ));
 	if (ret < 0)
 		return ret;
 	return 0;
@@ -965,6 +1065,77 @@ static int prepare_ipc_var(int pid)
 	return 0;
 }
 
+static int prepare_ipc_pmq(int pid)
+{
+	struct cr_img *img;
+	int ret = 0;
+
+	pr_info("Restoring POSIX message queues\n");
+
+	img = open_image(CR_FD_IPCNS_PMQ, O_RSTR, pid);
+	if (!img)
+		return -1;
+
+	while (1) {
+		PmqDataEntry *pmd;
+
+		ret = pb_read_one_eof(img, &pmd, PB_IPCNS_PMQ_DATA);
+		if (ret < 0) {
+			pr_err("Failed to read POSIX mqueue entry\n");
+			ret = -EIO;
+			goto err;
+		}
+		if (ret == 0)
+			break;
+
+		pr_info("Restoring POSIX mqueue: %s "
+			"(curmsgs=%ld maxmsg=%ld msgsize=%ld)\n",
+			pmd->name, (long)pmd->curmsgs,
+			(long)pmd->maxmsg, (long)pmd->msgsize);
+
+		{
+			struct mq_attr attr;
+			mqd_t mqdes;
+
+			attr.mq_maxmsg  = pmd->maxmsg;
+			attr.mq_msgsize = pmd->msgsize;
+			attr.mq_flags   = 0;
+
+			/* unlink first so we always start clean */
+			mq_unlink(pmd->name);
+
+			mqdes = mq_open(pmd->name,
+					O_CREAT | O_RDWR,
+					pmd->mode, &attr);
+			if (mqdes == (mqd_t)-1) {
+				pr_perror("mq_open %s", pmd->name);
+				ret = -errno;
+				pmq_data_entry__free_unpacked(pmd, NULL);
+				goto err;
+			}
+
+			mq_close(mqdes);
+		}
+
+		ret = restore_pmq_messages(img, pmd);
+		if (ret < 0) {
+			pr_err("Failed to restore messages for %s\n",
+			       pmd->name);
+			pmq_data_entry__free_unpacked(pmd, NULL);
+			goto err;
+		}
+
+		pmq_data_entry__free_unpacked(pmd, NULL);
+	}
+
+	close_image(img);
+	return 0;
+
+err:
+	close_image(img);
+	return ret;
+}
+
 int prepare_ipc_ns(int pid)
 {
 	int ret;
@@ -980,6 +1151,9 @@ int prepare_ipc_ns(int pid)
 	if (ret < 0)
 		return ret;
 	ret = prepare_ipc_sem(pid);
+	if (ret < 0)
+		return ret;
+	ret = prepare_ipc_pmq(pid);
 	if (ret < 0)
 		return ret;
 	return 0;

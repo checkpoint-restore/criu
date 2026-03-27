@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+import "fown.proto";
+
+/* A single message stored in a POSIX message queue */
+message mqueue_message {
+	required uint32	priority	= 1;
+	required bytes	body		= 2;
+}
+
+/* Per-namespace POSIX mqueue entry: attributes + messages */
+message pmq_data_entry {
+	required uint32	id		= 1;
+	required uint32	ino		= 2;
+	required uint32	mode		= 3;
+	required string	name		= 4;
+	required int64	maxmsg		= 5;
+	required int64	msgsize		= 6;
+	required int64	curmsgs		= 7;
+	required uint32	mq_flags	= 8;
+}
+
+/* Open mqueue file descriptor */
+message pmqfd_entry {
+	required uint32		id		= 1;
+	required uint32		open_flags	= 2;
+	required uint32		mq_flags	= 3;
+	required fown_entry	fown		= 4;
+	required string		name		= 5;
+}

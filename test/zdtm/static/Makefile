@@ -53,6 +53,7 @@ TST_NOFILE	:=				\
 		sock_filter00			\
 		sock_filter01			\
 		msgque				\
+		posix_mqueue			\
 		inotify_system			\
 		inotify_system_nodel		\
 		shm				\
@@ -625,6 +626,7 @@ seccomp_filter_threads:	LDLIBS += -pthread
 timerslack_ns:		LDLIBS += -pthread
 shm:			CFLAGS += -DNEW_IPC_NS
 msgque:			CFLAGS += -DNEW_IPC_NS
+posix_mqueue:		LDFLAGS += -lrt
 sem:			CFLAGS += -DNEW_IPC_NS
 posix_timers:		LDLIBS += -lrt -pthread
 remap_dead_pid_root:	CFLAGS += -DREMAP_PID_ROOT

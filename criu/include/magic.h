@@ -52,12 +52,15 @@
 #define ITIMERS_MAGIC	     0x57464056 /* Kostroma */
 #define POSIX_TIMERS_MAGIC   0x52603957 /* Lipetsk */
 #define SK_QUEUES_MAGIC	     0x56264026 /* Suzdal */
+#define PMQFD_MAGIC	     0x57313938
+#define PMQ_DATA_MAGIC	     0x57313939
 #define UTSNS_MAGIC	     0x54473203 /* Smolensk */
 #define CREDS_MAGIC	     0x54023547 /* Kozelsk */
 #define IPC_VAR_MAGIC	     0x53115007 /* Samara */
 #define IPCNS_SHM_MAGIC	     0x46283044 /* Odessa */
 #define IPCNS_MSG_MAGIC	     0x55453737 /* Moscow */
 #define IPCNS_SEM_MAGIC	     0x59573019 /* St. Petersburg */
+#define IPCNS_PMQ_MAGIC	     0x57463938
 #define REG_FILES_MAGIC	     0x50363636 /* Belgorod */
 #define EXT_FILES_MAGIC	     0x59255641 /* Usolye */
 #define FS_MAGIC	     0x51403912 /* Voronezh */
