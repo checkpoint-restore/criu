@@ -120,8 +120,16 @@ jobs:
       run: sudo -E make -C scripts/ci fedora-asan
 
   fedora-rawhide-test:
+    name: ${{ matrix.name }}
     needs: [alpine-test]
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: x86_64 Fedora Rawhide
+          - os: ubuntu-24.04-arm
+            name: aarch64 Fedora Rawhide
     steps:
     - uses: actions/checkout@v4
     - name: Run Fedora Rawhide Test
