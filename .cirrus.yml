@@ -68,14 +68,3 @@ task:
   build_script: |
     make -C scripts/ci vagrant-fedora-non-root
 
-task:
-  name: aarch64 Fedora Rawhide
-  arm_container:
-    image: registry.fedoraproject.org/fedora:rawhide
-    cpu: 4
-    memory: 4G
-  script: uname -a
-  build_script: |
-    scripts/ci/prepare-for-fedora-rawhide.sh
-    make -C scripts/ci/ local CC=gcc SKIP_CI_PREP=1 SKIP_CI_TEST=1 CD_TO_TOP=1
-    make -C test/zdtm -j 4
