@@ -554,12 +554,15 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->ps) {
 		opts.port = (short)req->ps->port;
 
+		if (req->ps->address) {
+			SET_CHAR_OPTS(addr, req->ps->address);
+		} else {
+			xfree(opts.addr);
+			opts.addr = NULL;
+		}
+
 		if (!opts.lazy_pages) {
 			opts.use_page_server = true;
-			if (req->ps->address)
-				SET_CHAR_OPTS(addr, req->ps->address);
-			else
-				opts.addr = NULL;
 
 			if (req->ps->has_fd) {
 				if (!opts.swrk_restore)
