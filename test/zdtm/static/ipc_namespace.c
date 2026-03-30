@@ -221,8 +221,13 @@ static int rand_ipc_sysctl(char *name, unsigned int val)
 		pr_perror("Can't open %s", name);
 		return -1;
 	}
-	sprintf(buf, "%d\n", val);
-	ret = write(fd, buf, strlen(buf));
+	ret = snprintf(buf, sizeof(buf), "%u\n", val);
+	if (ret < 0 || ret >= sizeof(buf)) {
+		pr_err("Can't format %u for %s\n", val, name);
+		close(fd);
+		return -1;
+	}
+	ret = write(fd, buf, ret);
 	if (ret < 0) {
 		pr_perror("Can't write %u into %s", val, name);
 		close(fd);
@@ -246,9 +251,14 @@ static int rand_ipc_sem(void)
 		pr_perror("Can't open %s", name);
 		return -1;
 	}
-	sprintf(buf, "%d %d %d %d\n", (unsigned)lrand48(), (unsigned)lrand48(), (unsigned)lrand48(),
-		(unsigned)lrand48() % MAX_MNI);
-	ret = write(fd, buf, 128);
+	ret = snprintf(buf, sizeof(buf), "%u %u %u %u\n", (unsigned)lrand48(), (unsigned)lrand48(),
+		       (unsigned)lrand48(), (unsigned)lrand48() % MAX_MNI);
+	if (ret < 0 || ret >= sizeof(buf)) {
+		pr_err("Can't format semaphore sysctl payload for %s\n", name);
+		close(fd);
+		return -1;
+	}
+	ret = write(fd, buf, ret);
 	if (ret < 0) {
 		pr_perror("Can't write %s", name);
 		close(fd);
