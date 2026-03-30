@@ -219,13 +219,14 @@ static int rand_ipc_sysctl(char *name, unsigned int val)
 	fd = open(name, O_WRONLY);
 	if (fd < 0) {
 		pr_perror("Can't open %s", name);
-		return fd;
+		return -1;
 	}
 	sprintf(buf, "%d\n", val);
 	ret = write(fd, buf, strlen(buf));
 	if (ret < 0) {
 		pr_perror("Can't write %u into %s", val, name);
-		return -errno;
+		close(fd);
+		return -1;
 	}
 	close(fd);
 	return 0;
@@ -243,14 +244,15 @@ static int rand_ipc_sem(void)
 	fd = open(name, O_WRONLY);
 	if (fd < 0) {
 		pr_perror("Can't open %s", name);
-		return fd;
+		return -1;
 	}
 	sprintf(buf, "%d %d %d %d\n", (unsigned)lrand48(), (unsigned)lrand48(), (unsigned)lrand48(),
 		(unsigned)lrand48() % MAX_MNI);
 	ret = write(fd, buf, 128);
 	if (ret < 0) {
 		pr_perror("Can't write %s", name);
-		return -errno;
+		close(fd);
+		return -1;
 	}
 	close(fd);
 	return 0;
