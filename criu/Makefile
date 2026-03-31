@@ -88,6 +88,7 @@ $(obj)/criu: $(PROGRAM-BUILTINS)
 	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) $(LIBS) $(WRAPFLAGS) $(GMONLDOPT) -rdynamic -o $@
 
 UNIT-BUILTINS		+= $(obj)/util.o
+UNIT-BUILTINS		+= $(obj)/bfd.o
 UNIT-BUILTINS		+= $(obj)/config.o
 UNIT-BUILTINS		+= $(obj)/log.o
 UNIT-BUILTINS		+= $(obj)/string.o

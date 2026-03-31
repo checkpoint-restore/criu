@@ -25,6 +25,8 @@
  */
 #define BUFSIZE (PAGE_SIZE)
 
+#define BFD_MAX_DYNAMIC_SIZE (2 * 1024 * 1024)
+
 struct bfd_buf {
 	char *mem;
 	struct list_head l;
@@ -70,6 +72,7 @@ static int buf_get(struct xbuf *xb)
 
 	xb->mem = b->mem;
 	xb->data = xb->mem;
+	xb->bsize = BUFSIZE;
 	xb->sz = 0;
 	xb->buf = b;
 	return 0;
@@ -77,11 +80,16 @@ static int buf_get(struct xbuf *xb)
 
 static void buf_put(struct xbuf *xb)
 {
-	/*
-	 * Don't unmap buffer back, it will get reused
-	 * by next bfdopen call
-	 */
-	list_add(&xb->buf->l, &bufs);
+	if (xb->buf) {
+		/*
+		 * Don't unmap standard buffer back, it will get reused
+		 * by next bfdopen call
+		 */
+		list_add(&xb->buf->l, &bufs);
+	} else {
+		/* This buffer was dynamically extended, unmap it */
+		munmap(xb->mem, xb->bsize);
+	}
 	xb->buf = NULL;
 	xb->mem = NULL;
 	xb->data = NULL;
@@ -144,7 +152,7 @@ static int brefill(struct bfd *f)
 	memmove(b->mem, b->data, b->sz);
 	b->data = b->mem;
 
-	ret = read_all(f->fd, b->mem + b->sz, BUFSIZE - b->sz);
+	ret = read_all(f->fd, b->mem + b->sz, b->bsize - b->sz);
 	if (ret < 0) {
 		pr_perror("Error reading file");
 		return -1;
@@ -172,6 +180,40 @@ char *breadline(struct bfd *f)
 	return breadchr(f, '\n');
 }
 
+static int bextend(struct bfd *f)
+{
+	struct xbuf *b = &f->b;
+	void *newbuf;
+	long newsize = b->bsize * 2;
+
+	if (newsize > BFD_MAX_DYNAMIC_SIZE) {
+		pr_err("Line too long to fit in BFD_MAX_DYNAMIC_SIZE\n");
+		return -1;
+	}
+
+	if (b->buf) {
+		newbuf = mmap(NULL, newsize, PROT_READ | PROT_WRITE,
+					     MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+		if (newbuf == MAP_FAILED) {
+			pr_perror("Error allocating buffer");
+			return -1;
+		}
+		memcpy(newbuf, b->mem, b->sz);
+		list_add(&b->buf->l, &bufs);
+		b->buf = NULL;
+	} else {
+		newbuf = mremap(b->mem, b->bsize, newsize, MREMAP_MAYMOVE);
+		if (newbuf == MAP_FAILED) {
+			pr_perror("Error allocating buffer");
+			return -1;
+		}
+	}
+	b->mem = newbuf;
+	b->data = newbuf;
+	b->bsize = newsize;
+	return 0;
+}
+
 char *breadchr(struct bfd *f, char c)
 {
 	struct xbuf *b = &f->b;
@@ -195,9 +237,12 @@ again:
 		if (!b->sz)
 			return NULL;
 
-		if (b->sz == BUFSIZE) {
-			pr_err("The bfd buffer is too small\n");
-			return ERR_PTR(-EIO);
+		if (b->sz == b->bsize) {
+			if (bextend(f)) {
+				pr_err("The bfd buffer is too small\n");
+				return ERR_PTR(-EIO);
+			}
+			goto refill;
 		}
 		/*
 		 * Last bytes may lack the \n at the
@@ -216,6 +261,7 @@ again:
 		return b->data;
 	}
 
+refill:
 	/*
 	 * small optimization -- we've scanned b->sz
 	 * symbols already, no need to re-scan them after
@@ -252,14 +298,14 @@ static int __bwrite(struct bfd *bfd, const void *buf, int size)
 {
 	struct xbuf *b = &bfd->b;
 
-	if (b->sz + size > BUFSIZE) {
+	if (b->sz + size > b->bsize) {
 		int ret;
 		ret = bflush(bfd);
 		if (ret < 0)
 			return ret;
 	}
 
-	if (size > BUFSIZE)
+	if (size > b->bsize)
 		return write_all(bfd->fd, buf, size);
 
 	memcpy(b->data + b->sz, buf, size);

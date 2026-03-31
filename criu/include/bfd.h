@@ -8,6 +8,7 @@ struct xbuf {
 	char *mem;	 /* buffer */
 	char *data;	 /* position we see bytes at */
 	unsigned int sz; /* bytes sitting after b->pos */
+	unsigned int bsize;
 	struct bfd_buf *buf;
 };
 
