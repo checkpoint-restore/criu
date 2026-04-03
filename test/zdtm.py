@@ -511,6 +511,10 @@ class zdtm_test:
         else:
             print("Test is SUID")
 
+        if test_flag(self.__desc, 'ext-uid-map'):
+            env['ZDTM_UID_MAP'] = "0 0 4294967295"
+            env['ZDTM_GID_MAP'] = "0 0 4294967295"
+
         if self.__flavor.ns:
             env['ZDTM_NEWNS'] = "1"
             env['ZDTM_ROOT'] = self.__flavor.root

@@ -1,1 +1,1 @@
-{'flavor': 'h ns', 'flags': 'suid'}
+{'flags': 'suid ext-uid-map'}
