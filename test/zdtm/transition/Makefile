@@ -21,6 +21,7 @@ TST_NOFILE	=	\
 		socket-tcp6     \
 		shmem		\
 		lazy-thp	\
+		maps_newpage	\
 		pid_reuse	\
 		pidfd_store_sk \
 		rseq01		\
