@@ -341,9 +341,39 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 		if (xfer->parent != NULL) {
 			ret = check_pagehole_in_parent(xfer->parent, iov);
 			if (ret) {
-				pr_err("Hole %p - %p not found in parent\n",
-				       iov->iov_base, iov->iov_base + iov->iov_len);
-				return -1;
+				/*
+				 * Page not found in parent. This can happen
+				 * when a page was allocated between pre-dumps
+				 * and the soft-dirty bit is clear (kernel
+				 * zero-fills new pages without setting it).
+				 * Write zero pages instead of a broken parent
+				 * reference that would fail on restore.
+				 */
+				unsigned long i, nr = iov->iov_len / PAGE_SIZE;
+				static const char zero_page[PAGE_SIZE];
+
+				pr_warn("Hole %p - %p not found in parent, "
+					"writing %lu zero page(s)\n",
+					iov->iov_base,
+					iov->iov_base + iov->iov_len, nr);
+
+				pe.flags = PE_PRESENT;
+				flags = PE_PRESENT;
+
+				if (pb_write_one(xfer->pmi, &pe, PB_PAGEMAP) < 0)
+					return -1;
+
+				for (i = 0; i < nr; i++) {
+					ret = write(img_raw_fd(xfer->pi),
+						    zero_page, PAGE_SIZE);
+					if (ret != PAGE_SIZE) {
+						pr_perror("Can't write zero page");
+						return -1;
+					}
+				}
+
+				cnt_add(CNT_PAGES_WRITTEN, nr);
+				return 0;
 			}
 		}
 	}
