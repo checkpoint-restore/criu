@@ -30,6 +30,11 @@
 
 #define MAX_BUNCH_SIZE 256
 #define PAGE_PADDING_CHUNK 4096
+/* Bound encoded payload, metadata, and destination working-set per batch. */
+#define ASYNC_BATCH_MAX_BYTES (32UL << 20)
+#define ASYNC_BATCH_MAX_PAGES (ASYNC_BATCH_MAX_BYTES / PAGE_SIZE)
+#define ASYNC_READAHEAD_MAX_GAP (1UL << 20)
+#define ASYNC_READAHEAD_MAX_BYTES (256UL << 20)
 
 #define OFF_MAX (sizeof(off_t) == sizeof(long long) ? LLONG_MAX : sizeof(off_t) == sizeof(int) ? INT_MAX : -999999)
 #define OFF_MIN (sizeof(off_t) == sizeof(long long) ? LLONG_MIN : sizeof(off_t) == sizeof(int) ? INT_MIN : -999999)
@@ -46,6 +51,7 @@ struct page_read_iov {
 	size_t n_compressed_size; /* Number of compressed blocks (pages or regions) */
 	uint32_t *compressed_size; /* Per-block compressed sizes */
 	uint64_t total_compressed_size; /* Sum of all compressed sizes */
+	unsigned long n_pages; /* Total uncompressed pages in this batch (cap input) */
 	/*
 	 * Region size in pages when this iov holds region-compressed data.
 	 * 0 means per-page compression (or no compression).
@@ -544,6 +550,7 @@ static int enqueue_async_iov(struct page_read *pr, void *buf, unsigned long len,
 
 	pr_iov->to = iov;
 	pr_iov->nr = 1;
+	pr_iov->n_pages = len / PAGE_SIZE;
 
 	/*
 	 * For uncompressed entries, the end offset is simply
@@ -677,7 +684,65 @@ int pagemap_render_iovec(struct list_head *from, struct task_restore_args *ta)
 	return 0;
 }
 
-int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, struct list_head *to)
+static int advance_compressed_offsets(struct page_read *pr, unsigned long nr)
+{
+	unsigned int region_pages = 0;
+	unsigned long n_blocks, i;
+
+	if (pr->pe && pr->pe->has_region_pages && pr->pe->region_pages)
+		region_pages = pr->pe->region_pages;
+
+	/*
+	 * Whole-entry skip from its start: advance by total_compressed_size
+	 * in one step instead of summing every block. The caller guarantees
+	 * region_block_offset is 0 here, so compressed_size_index == 0 means
+	 * we are at the start.
+	 */
+	if (pr->compressed_size_index == 0 && pr->pe->has_total_compressed_size &&
+	    (uint64_t)nr == pr->pe->nr_pages) {
+		pr->pi_off += pr->pe->total_compressed_size;
+		pr->compressed_size_index = pr->pe->n_compressed_size;
+		return 0;
+	}
+
+	if (region_pages)
+		n_blocks = (nr + region_pages - 1) / region_pages;
+	else
+		n_blocks = nr;
+
+	if (pr->compressed_size_index + n_blocks > pr->pe->n_compressed_size) {
+		pr_err("advance_compressed_offsets: index out of bounds: %zu + %lu > %zu\n",
+		       pr->compressed_size_index, n_blocks, pr->pe->n_compressed_size);
+		return -1;
+	}
+
+	for (i = 0; i < n_blocks; i++)
+		pr->pi_off += pr->pe->compressed_size[pr->compressed_size_index + i];
+	pr->compressed_size_index += n_blocks;
+
+	return 0;
+}
+
+static unsigned long compressed_async_chunk_pages(struct page_read *pr, unsigned long pages_left)
+{
+	unsigned int region_pages = 0;
+	unsigned long chunk = pages_left;
+
+	if (pr->pe && pr->pe->has_region_pages && pr->pe->region_pages)
+		region_pages = pr->pe->region_pages;
+	if (chunk > ASYNC_BATCH_MAX_PAGES)
+		chunk = ASYNC_BATCH_MAX_PAGES;
+
+	if (region_pages && chunk < pages_left) {
+		chunk -= chunk % region_pages;
+		if (!chunk)
+			chunk = region_pages;
+	}
+
+	return chunk;
+}
+
+static int pagemap_enqueue_iovec_one(struct page_read *pr, void *buf, unsigned long len, struct list_head *to)
 {
 	struct page_read_iov *cur_async = NULL;
 	struct iovec *iov;
@@ -705,6 +770,22 @@ int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, st
 	 * decompressed with a single algorithm.
 	 */
 	if (cur_async->region_pages != new_region_pages)
+		return enqueue_async_iov(pr, buf, len, to);
+
+	/*
+	 * Cap a compressed async batch by its UNCOMPRESSED page count.
+	 * process_async_reads() stages the whole batch's compressed payload in
+	 * one buffer, while the decompressed destination spans
+	 * n_pages * PAGE_SIZE. Bounding pages bounds both because compressed
+	 * payload never exceeds its decoded size. A compressed-byte cap alone
+	 * would not bound the destination for highly compressible data (or
+	 * all-zero pages, whose compressed size is 0 and never trips a byte
+	 * cap), so a batch could grow to many GiB and exhaust host RAM.
+	 * The check is gated on compression; uncompressed async reads go
+	 * straight into their destination iovecs and need no cap.
+	 */
+	if (pr->pe && pr->pe->n_compressed_size &&
+	    cur_async->n_pages + len / PAGE_SIZE > ASYNC_BATCH_MAX_PAGES)
 		return enqueue_async_iov(pr, buf, len, to);
 
 	/*
@@ -737,6 +818,14 @@ int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, st
 		added_iov = true;
 	}
 
+	/*
+	 * Count the pages only once the read is actually appended to this
+	 * batch -- after the IOV_MAX spill (which redirects to a fresh
+	 * piov) so the cap input is not inflated by pages that landed
+	 * elsewhere.
+	 */
+	cur_async->n_pages += len / PAGE_SIZE;
+
 	/* Extend the end offset. For compressed entries, append
 	 * per-block sizes and advance by compressed bytes. */
 	if (!pr->pe || !pr->pe->n_compressed_size) {
@@ -748,11 +837,92 @@ int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, st
 	return 0;
 
 rollback_iov:
+	cur_async->n_pages -= len / PAGE_SIZE;
 	if (extended_iov)
 		cur_async->to[cur_async->nr - 1].iov_len -= len;
 	else if (added_iov)
 		cur_async->nr--;
 	return -1;
+}
+
+int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, struct list_head *to)
+{
+	struct page_read_iov *original_tail = NULL;
+	off_t original_end = 0;
+	size_t original_n_compressed_size = 0;
+	uint64_t original_total_compressed_size = 0;
+	unsigned long original_n_pages = 0;
+	unsigned int original_nr = 0;
+	size_t original_last_iov_len = 0;
+	unsigned long nr_pages = len / PAGE_SIZE;
+	off_t pi_off;
+	size_t compressed_size_index;
+	unsigned int region_block_offset;
+	unsigned long done = 0;
+	int ret = 0;
+
+	if (!pr->pe || !pr->pe->n_compressed_size ||
+	    nr_pages <= ASYNC_BATCH_MAX_PAGES)
+		return pagemap_enqueue_iovec_one(pr, buf, len, to);
+
+	pi_off = pr->pi_off;
+	compressed_size_index = pr->compressed_size_index;
+	region_block_offset = pr->region_block_offset;
+	if (!list_empty(to)) {
+		original_tail = list_entry(to->prev, struct page_read_iov, l);
+		original_end = original_tail->end;
+		original_n_compressed_size = original_tail->n_compressed_size;
+		original_total_compressed_size = original_tail->total_compressed_size;
+		original_n_pages = original_tail->n_pages;
+		original_nr = original_tail->nr;
+		original_last_iov_len = original_tail->to[original_nr - 1].iov_len;
+	}
+
+	while (done < nr_pages) {
+		unsigned long chunk = compressed_async_chunk_pages(pr, nr_pages - done);
+
+		ret = pagemap_enqueue_iovec_one(pr, (char *)buf + done * PAGE_SIZE,
+						chunk * PAGE_SIZE, to);
+		if (ret)
+			break;
+
+		ret = advance_compressed_offsets(pr, chunk);
+		if (ret)
+			break;
+
+		done += chunk;
+	}
+
+	pr->pi_off = pi_off;
+	pr->compressed_size_index = compressed_size_index;
+	pr->region_block_offset = region_block_offset;
+	if (ret) {
+		/*
+		 * One logical request may span several batches. If a later
+		 * allocation or metadata check fails, remove each new piov and
+		 * restore any pre-existing tail extended by an earlier chunk.
+		 */
+		while (!list_empty(to) &&
+		       (!original_tail || to->prev != &original_tail->l)) {
+			struct page_read_iov *piov = list_entry(to->prev, struct page_read_iov, l);
+
+			list_del(&piov->l);
+			xfree(piov->compressed_size);
+			xfree(piov->block_pages);
+			xfree(piov->to);
+			xfree(piov);
+		}
+		if (original_tail) {
+			original_tail->end = original_end;
+			original_tail->n_compressed_size = original_n_compressed_size;
+			original_tail->total_compressed_size = original_total_compressed_size;
+			original_tail->n_pages = original_n_pages;
+			original_tail->nr = original_nr;
+			original_tail->to[original_nr - 1].iov_len = original_last_iov_len;
+		}
+	}
+
+	return ret;
 }
 
 static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf, unsigned flags)
@@ -812,39 +982,8 @@ static int pread_full(int fd, void *buf, size_t count, off_t offset)
  */
 static void skip_compressed_offsets(struct page_read *pr, unsigned long nr)
 {
-	unsigned int region_pages = 0;
-	unsigned long n_blocks, i;
-
-	if (pr->pe && pr->pe->has_region_pages && pr->pe->region_pages)
-		region_pages = pr->pe->region_pages;
-
-	/*
-	 * Whole-entry skip from its start: advance by total_compressed_size
-	 * in one step (same fast path as skip_pagemap_pages()) instead of
-	 * summing every block. The caller guarantees region_block_offset is
-	 * 0 here, so compressed_size_index == 0 means we are at the start.
-	 */
-	if (pr->compressed_size_index == 0 && pr->pe->has_total_compressed_size &&
-	    (uint64_t)nr == pr->pe->nr_pages) {
-		pr->pi_off += pr->pe->total_compressed_size;
-		pr->compressed_size_index = pr->pe->n_compressed_size;
-		return;
-	}
-
-	if (region_pages)
-		n_blocks = (nr + region_pages - 1) / region_pages;
-	else
-		n_blocks = nr;
-
-	if (pr->compressed_size_index + n_blocks > pr->pe->n_compressed_size) {
-		pr_err("skip_compressed_offsets: index out of bounds: %zu + %lu > %zu\n",
-		       pr->compressed_size_index, n_blocks, pr->pe->n_compressed_size);
+	if (advance_compressed_offsets(pr, nr))
 		BUG();
-	}
-
-	for (i = 0; i < n_blocks; i++)
-		pr->pi_off += pr->pe->compressed_size[pr->compressed_size_index + i];
-	pr->compressed_size_index += n_blocks;
 }
 
 /*
@@ -1656,11 +1795,26 @@ static int process_async_reads(struct page_read *pr)
 	fd = img_raw_fd(pr->pi);
 	if (!pr->use_direct) {
 		list_for_each_entry(piov, &pr->async, l) {
-			first_off = min(piov->from, first_off);
-			last_end = max(piov->end, last_end);
+			bool merge = first_off != OFF_MAX &&
+				     piov->from >= last_end &&
+				     piov->from - last_end <= ASYNC_READAHEAD_MAX_GAP &&
+				     piov->end - first_off <= ASYNC_READAHEAD_MAX_BYTES;
+
+			if (!merge && last_end > first_off) {
+				if (posix_fadvise(fd, first_off, last_end - first_off, POSIX_FADV_WILLNEED) != 0)
+					pr_debug("posix_fadvise(WILLNEED) failed for async range\n");
+				first_off = OFF_MAX;
+				last_end = OFF_MIN;
+			}
+			if (first_off == OFF_MAX) {
+				first_off = piov->from;
+				last_end = piov->end;
+			} else {
+				last_end = max(piov->end, last_end);
+			}
 		}
 		if (last_end > first_off) {
-			if (posix_fadvise(fd, first_off, (off_t)(last_end - first_off), POSIX_FADV_WILLNEED) != 0)
+			if (posix_fadvise(fd, first_off, last_end - first_off, POSIX_FADV_WILLNEED) != 0)
 				pr_debug("posix_fadvise(WILLNEED) failed for async range\n");
 		}
 	}
