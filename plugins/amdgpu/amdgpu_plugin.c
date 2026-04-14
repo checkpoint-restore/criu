@@ -1164,6 +1164,11 @@ int amdgpu_restore_init(void)
 
 					fclose(img_fp);
 					e = criu_kfd__unpack(NULL, img_size, buf);
+					if (!e) {
+						pr_err("Unable to unpack %s!\n", img_path);
+						xfree(buf);
+						return -EINVAL;
+					}
 					num_handles += e->num_of_bos;
 					criu_kfd__free_unpacked(e, NULL);
 					xfree(buf);
@@ -1189,6 +1194,11 @@ int amdgpu_restore_init(void)
 
 					fclose(img_fp);
 					rd = criu_render_node__unpack(NULL, img_size, buf);
+					if (!rd) {
+						pr_err("Unable to unpack %s!\n", img_path);
+						xfree(buf);
+						return -EINVAL;
+					}
 					num_handles += rd->num_of_bos;
 					criu_render_node__free_unpacked(rd, NULL);
 					xfree(buf);
