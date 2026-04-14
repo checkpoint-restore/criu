@@ -1198,19 +1198,33 @@ int amdgpu_restore_init(void)
 		}
 
 		if (num_handles > 0) {
-			shared_memory = mmap(NULL, sizeof(shared_memory), protection, visibility, -1, 0);
+			shared_memory = mmap(NULL, sizeof(*shared_memory), protection, visibility, -1, 0);
+			if (shared_memory == MAP_FAILED) {
+				pr_perror("Failed to allocate shared memory!");
+				shared_memory = NULL;
+				return -1;
+			}
 			shared_memory->num_handles = num_handles;
 			shared_memory->handles = mmap(NULL, sizeof(struct handle_id) * num_handles, protection, visibility, -1, 0);
-
-			for (int i = 0; i < num_handles; i++) {
-				shared_memory->handles[i].handle = -1;
-				shared_memory->handles[i].fdstore_id = -1;
+			if (shared_memory->handles == MAP_FAILED) {
+				pr_perror("Failed to allocate shared handles memory!");
+				munmap(shared_memory, sizeof(*shared_memory));
+				shared_memory = NULL;
+				return -1;
 			}
 
 			shared_memory_mutex = shmalloc(sizeof(*shared_memory_mutex));
 			if (!shared_memory_mutex) {
 				pr_err("Can't create amdgpu mutex\n");
+				munmap(shared_memory->handles, sizeof(struct handle_id) * num_handles);
+				munmap(shared_memory, sizeof(*shared_memory));
+				shared_memory = NULL;
 				return -1;
+			}
+
+			for (int i = 0; i < num_handles; i++) {
+				shared_memory->handles[i].handle = -1;
+				shared_memory->handles[i].fdstore_id = -1;
 			}
 			mutex_init(shared_memory_mutex);
 		}
