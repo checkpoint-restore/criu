@@ -116,24 +116,25 @@ int amdgpu_plugin_dmabuf_restore(int id)
 	buf = xmalloc(img_size);
 	if (!buf) {
 		pr_perror("Failed to allocate memory");
+		fclose(img_fp);
 		return -ENOMEM;
 	}
 
 	ret = read_fp(img_fp, buf, img_size);
 	if (ret) {
 		pr_perror("Unable to read from %s", path);
+		fclose(img_fp);
 		xfree(buf);
 		return ret;
 	}
+	fclose(img_fp);
 
 	rd = criu_dmabuf_node__unpack(NULL, img_size, buf);
 	if (rd == NULL) {
 		pr_perror("Unable to parse the dmabuf message %d", id);
 		xfree(buf);
-		fclose(img_fp);
 		return -1;
 	}
-	fclose(img_fp);
 
 	/* Match GEM handle with shared_dmabuf list */
 	fd_id = amdgpu_id_for_handle(rd->gem_handle);
