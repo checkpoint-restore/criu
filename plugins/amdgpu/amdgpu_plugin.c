@@ -2196,34 +2196,33 @@ CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, amdgpu_plugin_resum
 
 int init_dev(int dev_minor, amdgpu_device_handle *h_dev, uint64_t *max_copy_size)
 {
-	int ret = 0;
-	int drm_fd = -1;
+	struct amdgpu_gpu_info gpu_info = { };
 	uint32_t major, minor;
-
-	struct amdgpu_gpu_info gpu_info = { 0 };
+	int drm_fd, ret;
 
 	drm_fd = open_drm_render_device(dev_minor);
-	if (drm_fd < 0) {
+	if (drm_fd < 0)
 		return drm_fd;
-	}
 
 	ret = amdgpu_device_initialize(drm_fd, &major, &minor, h_dev);
+	close(drm_fd);
 	if (ret) {
-		pr_perror("Failed to initialize device");
-		goto err;
+		pr_err("Failed to initialize device - %s\n", strerror(-ret));
+		return ret;
 	}
 
 	ret = amdgpu_query_gpu_info(*h_dev, &gpu_info);
 	if (ret) {
-		pr_perror("failed to query gpuinfo via libdrm");
-		goto err;
+		pr_err("failed to query gpuinfo via libdrm - %s\n",
+		       strerror(-ret));
+		amdgpu_device_deinitialize(*h_dev);
+		return ret;
 	}
-	*max_copy_size = (gpu_info.family_id >= AMDGPU_FAMILY_AI) ? SDMA_LINEAR_COPY_MAX_SIZE :
-								    SDMA_LINEAR_COPY_MAX_SIZE - 1;
+
+	*max_copy_size = (gpu_info.family_id >= AMDGPU_FAMILY_AI) ?
+			 SDMA_LINEAR_COPY_MAX_SIZE : SDMA_LINEAR_COPY_MAX_SIZE - 1;
+
 	return 0;
-err:
-	amdgpu_device_deinitialize(*h_dev);
-	return ret;
 }
 
 FILE *get_bo_contents_fp(int id, int gpu_id, size_t tot_size)
