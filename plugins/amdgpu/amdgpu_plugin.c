@@ -769,9 +769,10 @@ err_ctx:
 err_bo_list:
 	free_and_unmap(packets_per_buffer * 28, h_bo_ib, h_va_ib, gpu_addr_ib, ib);
 err_ib_gpu_alloc:
-	err = amdgpu_bo_va_op(h_bo_dst, 0, size, gpu_addr_dst, 0, AMDGPU_VA_OP_UNMAP);
+	err = amdgpu_bo_va_op(h_bo_dst, 0, dst_bo_size, gpu_addr_dst, 0, AMDGPU_VA_OP_UNMAP);
 	if (err)
-		pr_perror("failed to GPU unmap the dest BO %lx, size = %lx", gpu_addr_dst, size);
+		pr_perror("failed to GPU unmap the dest BO %lx, size = %lx",
+			  gpu_addr_dst, dst_bo_size);
 err_dst_bo_map:
 	err = amdgpu_va_range_free(h_va_dst);
 	if (err)
@@ -782,9 +783,10 @@ err_dst_va:
 	if (err)
 		pr_perror("dest bo free failed");
 err_dst_bo_prep:
-	err = amdgpu_bo_va_op(h_bo_src, 0, size, gpu_addr_src, 0, AMDGPU_VA_OP_UNMAP);
+	err = amdgpu_bo_va_op(h_bo_src, 0, src_bo_size, gpu_addr_src, 0, AMDGPU_VA_OP_UNMAP);
 	if (err)
-		pr_perror("failed to GPU unmap the src BO %lx, size = %lx", gpu_addr_src, size);
+		pr_perror("failed to GPU unmap the src BO %lx, size = %lx",
+			  gpu_addr_src, src_bo_size);
 err_src_bo_map:
 	err = amdgpu_va_range_free(h_va_src);
 	if (err)
