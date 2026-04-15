@@ -223,11 +223,11 @@ int write_fp(FILE *fp, const void *buf, const size_t buf_len)
 /**
  * @brief Open an image file
  *
- * We store the size of the actual contents in the first 8-bytes of
- * the file. This allows us to determine the file size when using
- * criu_image_streamer when fseek and fstat are not available. The
- * FILE * returned is already at the location of the first actual
- * contents.
+ * We store the size of the actual contents at the start of the file. (Note that
+ * the size of this field is architecture dependent!). This allows us to
+ * determine the file size when using criu_image_streamer when fseek and fstat
+ * are not available. The FILE * returned is already at the location of the
+ * first actual contents.
  *
  * @param path The file path
  * @param write False for read, true for write
