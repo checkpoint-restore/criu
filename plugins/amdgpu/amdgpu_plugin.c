@@ -1878,7 +1878,8 @@ static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
 	snprintf(img_path, sizeof(img_path), IMG_DRM_FILE, id);
 	ret = load_img(img_path, &buf, &img_size);
 	if (ret < 0) {
-		ret = amdgpu_plugin_dmabuf_restore(id);
+		if (ret == -ENOENT)
+			ret = amdgpu_plugin_dmabuf_restore(id);
 		if (ret == 1) {
 			/* This is a dmabuf fd, but the corresponding buffer object that was
 			 * exported to make it has not yet been restored. Need to try again
