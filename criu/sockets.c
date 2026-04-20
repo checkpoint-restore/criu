@@ -827,16 +827,20 @@ static int collect_err(int err, struct ns_id *ns, void *arg)
 	if (err == -ENOENT) {
 		pr_debug("%s: %d\n", msg, err);
 		/*
-		 * Unlike other modules RAW sockets are
-		 * always optional and not commonly used.
+		 * Unlike other modules RAW and UDPLITE sockets
+		 * are always optional and not commonly used.
 		 * Currently we warn user about lack of
 		 * a particular module support in "check"
 		 * procedure. Thus don't fail on lack of
-		 * RAW diags in a regular dump. If we meet
-		 * a raw socket we will simply fail on dump
+		 * these diags in a regular dump. If we meet
+		 * such a socket we will simply fail on dump
 		 * procedure because it won't be resolved.
+		 *
+		 * Note: IPPROTO_UDPLITE support was removed
+		 * from the kernel starting with v7.1.
 		 */
-		if (gr->protocol == IPPROTO_RAW)
+		if (gr->protocol == IPPROTO_RAW ||
+		    gr->protocol == IPPROTO_UDPLITE)
 			return 0;
 		return -ENOENT;
 	}
