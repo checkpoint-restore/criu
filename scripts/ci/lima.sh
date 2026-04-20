@@ -4,8 +4,10 @@
 # the Fedora Rawhide based CI tests with a vanilla kernel.
 # It mirrors the logic from vagrant.sh's setup() and fedora-rawhide().
 #
-#   lima.sh fedora-rawhide-setup
-#   lima.sh fedora-rawhide-test
+#   lima.sh fedora-stable-setup
+#   lima.sh fedora-stable-test
+#   lima.sh fedora-next-setup
+#   lima.sh fedora-next-test
 
 
 set -e
@@ -13,18 +15,16 @@ set -x
 
 CRIU_DIR="${CRIU_DIR:-/home/criu}"
 
-fedora-rawhide-setup() {
+_common_setup() {
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	systemctl mask sssd
 
-	# Upgrade the kernel to the latest vanilla one
-	dnf -y copr enable @kernel-vanilla/stable
 	# The shellcheck tool misunderstands the "do" to be from a loop
 	# shellcheck disable=SC1010
 	dnf -y do --action=upgrade \* --action=install make podman
 }
 
-fedora-rawhide-test() {
+_common_test() {
 	# Increase the max thread limit for the thread-bomb test
 	sysctl -w kernel.threads-max=100000
 
@@ -58,6 +58,26 @@ fedora-rawhide-test() {
 		CONTAINER_RUNTIME=podman \
 		BUILD_OPTIONS="--security-opt seccomp=unconfined" \
 		ZDTM_OPTS="-x zdtm/static/socket-tcpbuf-local"
+}
+
+fedora-stable-setup() {
+	# Upgrade the kernel to the latest vanilla stable one
+	dnf -y copr enable @kernel-vanilla/stable
+	_common_setup
+}
+
+fedora-stable-test() {
+	_common_test
+}
+
+fedora-next-setup() {
+	# Upgrade the kernel to the latest vanilla next one
+	dnf -y copr enable @kernel-vanilla/next
+	_common_setup
+}
+
+fedora-next-test() {
+	_common_test
 }
 
 "$@"

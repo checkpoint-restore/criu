@@ -140,10 +140,18 @@ jobs:
       run: sudo -E XDG_RUNTIME_DIR= make -C scripts/ci fedora-rawhide CONTAINER_RUNTIME=podman BUILD_OPTIONS="--security-opt seccomp=unconfined"
 
   vagrant-fedora-rawhide-test:
-    name: Vagrant Fedora Rawhide based test
+    name: Vagrant Fedora ${{ matrix.name }} based test
     needs: [alpine-test]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: fedora-stable
+            name: Stable
+          - variant: fedora-next
+            name: Next
     steps:
     - uses: actions/checkout@v4
     - name: Install Lima
@@ -162,7 +170,7 @@ jobs:
         lima sudo chown "$(lima whoami)" /home/criu
         limactl copy -r . default:/home/criu
     - name: Setup VM
-      run: lima sudo /home/criu/scripts/ci/lima.sh fedora-rawhide-setup
+      run: lima sudo /home/criu/scripts/ci/lima.sh ${{ matrix.variant }}-setup
     - name: Reboot VM to activate new kernel
       run: |
         limactl stop default
@@ -172,7 +180,7 @@ jobs:
         lima uname -a
         lima cat /proc/cmdline
     - name: Run tests
-      run: ssh -tt lima-default sudo -i /home/criu/scripts/ci/lima.sh fedora-rawhide-test
+      run: ssh -tt lima-default sudo -i /home/criu/scripts/ci/lima.sh ${{ matrix.variant }}-test
 
   gcov-test:
     needs: [alpine-test]
