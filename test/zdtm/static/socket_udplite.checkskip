@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+# IPPROTO_UDPLITE was removed in kernel 7.1, skip the test if the
+# protocol is not available.
+import socket
+import errno
+
+try:
+	socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDPLITE).close()
+except OSError as e:
+	if e.errno == errno.EPROTONOSUPPORT:
+		print("UDPLITE is not supported by this kernel.")
+		exit(1)
+	raise
+
+exit(0)
