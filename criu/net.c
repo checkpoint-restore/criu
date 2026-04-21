@@ -1653,6 +1653,94 @@ out:
 	return ret;
 }
 
+/*
+ * Simplified veth_link_info for the usernsd path: builds the veth peer
+ * info without adding IFLA_NET_NS_FD for the peer, since the netlink
+ * request will be sent from usernsd's namespace (the root/peer namespace)
+ * and the peer should remain there.
+ */
+static int veth_link_info_userns(struct ns_id *ns, struct net_link *link, struct newlink_req *req)
+{
+	NetDeviceEntry *nde = link->nde;
+	struct rtattr *veth_data, *peer_data;
+	struct ifinfomsg ifm;
+	char key[100], *val;
+
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_KIND, "veth", 4);
+
+	veth_data = NLMSG_TAIL(&req->h);
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_DATA, NULL, 0);
+	peer_data = NLMSG_TAIL(&req->h);
+	memset(&ifm, 0, sizeof(ifm));
+
+	if (nde->has_peer_nsid)
+		ifm.ifi_index = nde->peer_ifindex;
+	addattr_l(&req->h, sizeof(*req), VETH_INFO_PEER, &ifm, sizeof(ifm));
+
+	/* Set peer name from external mapping if available */
+	snprintf(key, sizeof(key), "veth[%s]", nde->name);
+	val = external_lookup_by_key(key);
+	if (!IS_ERR_OR_NULL(val)) {
+		char *aux = strchrnul(val, '@');
+
+		addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, val, aux - val);
+	}
+
+	/*
+	 * No IFLA_NET_NS_FD for the peer -- the request is sent from
+	 * usernsd's namespace (the root network namespace) and the
+	 * peer stays there.  userns_restore_one_link() adds a top-level
+	 * IFLA_NET_NS_FD to move the main device into the child netns.
+	 */
+
+	peer_data->rta_len = (char *)NLMSG_TAIL(&req->h) - (char *)peer_data;
+	veth_data->rta_len = (char *)NLMSG_TAIL(&req->h) - (char *)veth_data;
+
+	link->created = true;
+
+	return 0;
+}
+
+/*
+ * When running in user namespaces with a cross-namespace veth peer,
+ * CAP_NET_ADMIN is required in both namespaces for veth creation
+ * (kernel >= 7.0, commit 7b735ef81286). Route the request through
+ * usernsd which runs with real root privileges, similar to
+ * restore_one_macvlan().
+ *
+ * The netlink request is sent from usernsd's namespace (the root
+ * network namespace), so the veth peer stays there. The main device
+ * is moved to the child namespace via a top-level IFLA_NET_NS_FD
+ * added by userns_restore_one_link().
+ */
+static int restore_one_veth_userns(struct ns_id *ns, struct net_link *link)
+{
+	struct newlink_req req;
+	int my_netns, ret;
+
+	my_netns = open_proc(PROC_SELF, "ns/net");
+	if (my_netns < 0)
+		return -1;
+
+	if (populate_newlink_req(ns, &req, RTM_NEWLINK, link,
+				veth_link_info_userns, NULL) < 0) {
+		close(my_netns);
+		return -1;
+	}
+
+	pr_info("Restoring netdev %s idx %d via usernsd\n",
+		link->nde->name, link->nde->ifindex);
+
+	ret = userns_call(userns_restore_one_link, 0,
+			  &req, sizeof(req), my_netns);
+	if (ret < 0)
+		pr_err("couldn't restore veth interface %s via usernsd\n",
+		       link->nde->name);
+
+	close(my_netns);
+	return ret;
+}
+
 static int sit_link_info(struct ns_id *ns, struct net_link *link, struct newlink_req *req)
 {
 	NetDeviceEntry *nde = link->nde;
@@ -1761,6 +1849,22 @@ static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 		val = external_lookup_by_key(key);
 		if (!IS_ERR_OR_NULL(val))
 			return move_veth(val, ns, link, nlsk);
+
+		/*
+		 * Creating a veth with a cross-namespace peer requires
+		 * CAP_NET_ADMIN in both namespaces (kernel >= 7.0).
+		 * In user namespace mode, route through usernsd which
+		 * has real root when the peer lives in an external
+		 * (host) namespace specified via --external veth[name].
+		 */
+		if (root_ns_mask & CLONE_NEWUSER) {
+			char vkey[100];
+
+			snprintf(vkey, sizeof(vkey), "veth[%s]", nde->name);
+			val = external_lookup_by_key(vkey);
+			if (!IS_ERR_OR_NULL(val))
+				return restore_one_veth_userns(ns, link);
+		}
 
 		return restore_one_link(ns, link, nlsk, veth_link_info, NULL);
 	case ND_TYPE__TUN:
