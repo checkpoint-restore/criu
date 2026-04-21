@@ -7,7 +7,7 @@ HOSTLD		?= ld
 ifeq ($(origin LD), default)
 LD		:= $(CROSS_COMPILE)$(HOSTLD)
 endif
-HOSTCC		?= gcc
+HOSTCC		?= cc
 ifeq ($(origin CC), default)
 CC		:= $(CROSS_COMPILE)$(HOSTCC)
 endif
