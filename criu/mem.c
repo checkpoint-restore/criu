@@ -951,15 +951,25 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		}
 
 		/*
-		 * All mappings here get PROT_WRITE regardless of whether we
-		 * put any data into it or not, because this area will get
-		 * mremap()-ed (branch below) so we MIGHT need to have WRITE
-		 * bits there. Ideally we'd check for the whole COW-chain
-		 * having any data in.
+		 * For VMAs that have PROT_NONE and are not accountable
+		 * (did not have the "ac" flag in /proc/pid/smaps), we
+		 * can safely mmap them with PROT_NONE because we know
+		 * we will never need to write any bits to them.
 		 */
-		addr = mmap(*tgt_addr, size, vma->e->prot | PROT_WRITE, vma->e->flags | MAP_FIXED | flag, vma->e->fd,
-			    vma->e->pgoff);
-
+		if (vma->e->prot == PROT_NONE && vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE)) {
+			addr = mmap(*tgt_addr, size, PROT_NONE, vma->e->flags | MAP_FIXED | flag, vma->e->fd,
+				    vma->e->pgoff);
+		} else {
+			/*
+			 * All mappings here get PROT_WRITE regardless of whether we
+			 * put any data into it or not, because this area will get
+			 * mremap()-ed (branch below) so we MIGHT need to have WRITE
+			 * bits there. Ideally we'd check for the whole COW-chain
+			 * having any data in.
+			 */
+			addr = mmap(*tgt_addr, size, vma->e->prot | PROT_WRITE, vma->e->flags | MAP_FIXED | flag, vma->e->fd,
+				    vma->e->pgoff);
+		}
 		if (addr == MAP_FAILED) {
 			pr_perror("Unable to map ANON_VMA");
 			return -1;

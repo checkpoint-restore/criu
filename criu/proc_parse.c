@@ -123,10 +123,11 @@ bool handle_vma_plugin(int *fd, struct stat *stat)
 }
 
 static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf,
-			    int *shstk)
+			    int *shstk, bool *no_ac)
 {
 	char *tok;
 
+	*no_ac = true;
 	if (!buf[0])
 		return;
 
@@ -174,6 +175,9 @@ static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf,
 		if (_vmflag_match(tok, "ss"))
 			*shstk = 1;
 
+		if (_vmflag_match(tok, "ac"))
+			*no_ac = false;
+
 		/*
 		 * Anything else is just ignored.
 		 */
@@ -185,20 +189,25 @@ static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf,
 void parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
 {
 	int shstk = 0;
+	bool no_ac = false;
 
-	__parse_vmflags(buf, flags, madv, io_pf, &shstk);
+	__parse_vmflags(buf, flags, madv, io_pf, &shstk, &no_ac);
 }
 
 static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
 {
 	int io_pf = 0;
 	int shstk = 0;
+	bool no_ac = false;
 
 	__parse_vmflags(buf, &vma_area->e->flags, &vma_area->e->madv, &io_pf,
-			&shstk);
+			&shstk, &no_ac);
 
 	if (shstk)
 		vma_area->e->status |= VMA_AREA_SHSTK;
+
+	if (no_ac)
+		vma_area->e->status |= VMA_AREA_NOT_ACCOUNTABLE;
 
 	/*
 	 * vmsplice doesn't work for VM_IO and VM_PFNMAP mappings, the
