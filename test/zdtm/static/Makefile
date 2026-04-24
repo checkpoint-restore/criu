@@ -215,6 +215,7 @@ TST_NOFILE	:=				\
 		dumpable02			\
 		remap_dead_pid			\
 		remap_dead_pid_root			\
+		reservation_mmaps		\
 		scm00				\
 		scm01				\
 		scm02				\
@@ -663,6 +664,7 @@ mntns_root_bind02:	CFLAGS += -DROOT_BIND02
 maps02: get_smaps_bits.o
 mlock_setuid: get_smaps_bits.o
 thp_disable: get_smaps_bits.o
+reservation_mmaps: get_smaps_bits.o
 inotify01:		CFLAGS += -DINOTIFY01
 unlink_fstat01+:	CFLAGS += -DUNLINK_OVER
 unlink_fstat04:		CFLAGS += -DUNLINK_FSTAT04

@@ -80,7 +80,7 @@ static void parse_vmflags(char *buf, unsigned long *flags, unsigned long *madv)
 
 #define is_hex_digit(c) (((c) >= '0' && (c) <= '9') || ((c) >= 'a' && (c) <= 'f') || ((c) >= 'A' && (c) <= 'F'))
 
-static int is_vma_range_fmt(char *line, unsigned long *start, unsigned long *end)
+int is_vma_range_fmt(char *line, unsigned long *start, unsigned long *end)
 {
 	char *p = line;
 	while (*line && is_hex_digit(*line))
