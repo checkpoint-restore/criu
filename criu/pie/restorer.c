@@ -1258,9 +1258,9 @@ static int timerfd_arm(struct task_restore_args *args)
 
 			/*
 			 * We might need to adjust value because the checkpoint
-			 * and restore procedure takes some time itself. Note
-			 * we don't adjust nanoseconds, since the result may
-			 * overflow the limit NSEC_PER_SEC FIXME
+			 * and restore procedure takes some time itself. We also
+			 * accumulate tv_nsec and propagate any carry into tv_sec
+			 * to keep the itimerspec value normalized.
 			 */
 			if (sys_clock_gettime(t->clockid, &ts)) {
 				pr_err("Can't get current time\n");
@@ -1268,6 +1268,11 @@ static int timerfd_arm(struct task_restore_args *args)
 			}
 
 			t->val.it_value.tv_sec += (time_t)ts.tv_sec;
+			t->val.it_value.tv_nsec += ts.tv_nsec;
+			if (t->val.it_value.tv_nsec >= NSEC_PER_SEC) {
+				t->val.it_value.tv_nsec -= NSEC_PER_SEC;
+				t->val.it_value.tv_sec++;
+			}
 
 			pr_debug("Adjust id %x it_value(%llu, %llu) -> it_value(%llu, %llu)\n", t->id,
 				 (unsigned long long)ts.tv_sec, (unsigned long long)ts.tv_nsec,
