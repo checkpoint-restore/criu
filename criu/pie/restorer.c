@@ -1856,8 +1856,30 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	/* Map vdso that wasn't parked */
-	if (args->can_map_vdso && (map_vdso(args, args->compatible_mode) < 0))
-		goto core_restore_end;
+	if (args->can_map_vdso) {
+		/*
+		 * The runtime vDSO area is appended to the bootstrap mapping
+		 * so the restorer can either park CRIU's own vDSO there or ask
+		 * the kernel to map a fresh one there. When ARCH_MAP_VDSO is
+		 * available, unmap that tail first. Otherwise the address is
+		 * still occupied and the kernel may place the vDSO elsewhere,
+		 * while map_vdso() still records vdso_rt_parked_at as the
+		 * runtime vDSO location.
+		 */
+		if (args->vdso_rt_size) {
+			ret = sys_munmap((void *)args->vdso_rt_parked_at,
+					 args->vdso_rt_size);
+			if (ret) {
+				pr_err("Failed to unmap vDSO parking area %lx-%lx: %ld\n",
+				       args->vdso_rt_parked_at,
+				       args->vdso_rt_parked_at + args->vdso_rt_size,
+				       ret);
+				goto core_restore_end;
+			}
+		}
+		if (map_vdso(args, args->compatible_mode) < 0)
+			goto core_restore_end;
+	}
 
 	vdso_update_gtod_addr(&args->vdso_maps_rt);
 
