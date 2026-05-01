@@ -497,7 +497,6 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 		uint32_t handle;
 		struct drm_gem_change_handle change_args = { 0 };
 		union drm_amdgpu_gem_mmap mmap_args = { 0 };
-		struct drm_amdgpu_gem_va va_args = { 0 };
 		int fd_id;
 
 		if (work_already_completed(boinfo->handle, rd->drm_render_minor)) {
@@ -572,23 +571,6 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 			goto exit;
 		}
 
-		for (int j = 0; j < boinfo->num_of_vms; j++) {
-			DrmVmEntry *vminfo = boinfo->vm_entries[j];
-
-			va_args.handle = boinfo->handle;
-			va_args.operation = AMDGPU_VA_OP_MAP;
-			va_args.flags = vminfo->flags;
-			va_args.va_address = vminfo->addr;
-			va_args.offset_in_bo = vminfo->offset;
-			va_args.map_size = vminfo->size;
-
-			if (drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_VA, &va_args) == -1) {
-				pr_perror("Error Failed to call gem va ioctl");
-				ret = -1;
-				goto exit;
-			}
-		}
-
 		ret = save_vma_updates(boinfo->offset, boinfo->addr,
 				       mmap_args.out.addr_ptr, fd);
 		if (ret < 0)
@@ -612,6 +594,28 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 		ret = restore_bo_contents_drm(rd->drm_render_minor, rd, fd, dmabufs);
 		if (ret)
 			goto exit;
+	}
+
+	for (int i = 0; i < rd->num_of_bos; i++) {
+		DrmBoEntry *boinfo = rd->bo_entries[i];
+
+		for (int j = 0; j < boinfo->num_of_vms; j++) {
+			DrmVmEntry *vminfo = boinfo->vm_entries[j];
+			struct drm_amdgpu_gem_va va_args = { };
+
+			va_args.handle = boinfo->handle;
+			va_args.operation = AMDGPU_VA_OP_MAP;
+			va_args.flags = vminfo->flags;
+			va_args.va_address = vminfo->addr;
+			va_args.offset_in_bo = vminfo->offset;
+			va_args.map_size = vminfo->size;
+
+			if (drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_VA, &va_args) == -1) {
+				ret = -errno;
+				pr_perror("Failed to map bo %u/%u!", i, j);
+				goto exit;
+			}
+		}
 	}
 
 exit:
