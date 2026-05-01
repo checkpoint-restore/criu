@@ -61,11 +61,11 @@ struct vma_metadata {
 
 static LIST_HEAD(update_vma_info_list);
 
-size_t kfd_max_buffer_size;
+static size_t kfd_max_buffer_size;
 
-bool plugin_added_to_inventory = false;
+static bool plugin_added_to_inventory = false;
 
-bool plugin_disabled = false;
+static bool plugin_disabled = false;
 
 struct handle_id {
 	int handle;
@@ -75,7 +75,7 @@ struct shared_handle_ids {
 	int num_handles;
 	struct handle_id *handles;
 };
-struct shared_handle_ids *shared_memory = NULL;
+static struct shared_handle_ids *shared_memory = NULL;
 
 static mutex_t *shared_memory_mutex;
 
@@ -87,10 +87,10 @@ static mutex_t *shared_memory_mutex;
  * in this case. The flag, parallel_disabled, is used to control whether the
  * optimization is enabled or disabled.
  */
-bool parallel_disabled = false;
+static bool parallel_disabled = false;
 
-pthread_t parallel_thread = 0;
-int parallel_thread_result = 0;
+static pthread_t parallel_thread = 0;
+static int parallel_thread_result = 0;
 /**************************************************************************************************/
 
 /* Call ioctl, restarting if it is interrupted */
