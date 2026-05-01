@@ -62,6 +62,7 @@ struct vma_metadata {
 static LIST_HEAD(update_vma_info_list);
 
 static size_t kfd_max_buffer_size;
+static bool amdgpu_ignore_single_gpuid;
 
 static bool plugin_added_to_inventory = false;
 
@@ -403,6 +404,8 @@ int amdgpu_plugin_init(int stage)
 		kfd_vram_size_check = getenv_bool("KFD_VRAM_SIZE_CHECK", true);
 		kfd_numa_check = getenv_bool("KFD_NUMA_CHECK", true);
 		kfd_capability_check = getenv_bool("KFD_CAPABILITY_CHECK", true);
+
+		amdgpu_ignore_single_gpuid = getenv_bool("AMDGPU_IGNORE_SINGLE_GPUID", false);
 	}
 
 	kfd_max_buffer_size = getenv_size_t("KFD_MAX_BUFFER_SIZE", 0);
@@ -1949,7 +1952,8 @@ static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
 			pr_err("Unexpectedly found %u GPUs!\n", num_gpus);
 			fd = -EINVAL;
 			goto fail;
-		} else if (target_gpu_id != rd->gpu_id) {
+		} else if (target_gpu_id != rd->gpu_id &&
+			   !amdgpu_ignore_single_gpuid) {
 			pr_err("Unexpectedly found gpu_id 0x%04x (expected 0x%04x)!\n",
 			       target_gpu_id, rd->gpu_id);
 			fd = -EINVAL;
@@ -1958,7 +1962,16 @@ static int amdgpu_plugin_restore_drm_file(int id, bool *retry_needed)
 	}
 
 	tp_node = sys_get_node_by_gpu_id(&dest_topology, target_gpu_id);
-	if (!tp_node) {
+	if (!tp_node && amdgpu_ignore_single_gpuid) {
+		tp_node = sys_get_node_by_index(&dest_topology, 0);
+		if (!NODE_IS_GPU(tp_node)) {
+			pr_err("Cannot find the GPU node!\n");
+			fd = -ENODEV;
+			goto fail;
+		}
+		target_gpu_id = tp_node->gpu_id;
+		pr_warn("Forcing restore on gpu_id=0x%04x\n", target_gpu_id);
+	} else if (!tp_node) {
 		pr_err("Unable to find target gpu_id=0x%04x!\n", target_gpu_id);
 		fd = -ENODEV;
 		goto fail;
