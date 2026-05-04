@@ -378,9 +378,21 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 		if (!libdrm_initialized) {
 			uint32_t major, minor;
+			char *drm_path;
+			int drm_fd;
 
-			ret = amdgpu_device_initialize(fd, &major, &minor,
+			/* Re-open device to avoid VA conflicts in sdma_copy_bo. */
+			drm_path = drmGetRenderDeviceNameFromFd(fd);
+			drm_fd = open(drm_path, O_RDWR | O_CLOEXEC);
+			if (drm_fd < 0) {
+				ret = -errno;
+				pr_perror("Failed to re-open %s", drm_path);
+				goto exit;
+			}
+
+			ret = amdgpu_device_initialize(drm_fd, &major, &minor,
 						       &h_dev);
+			close(drm_fd);
 			if (ret) {
 				pr_err("Failed to initialize amdgpu device - %s\n",
 				       strerror(-ret));
