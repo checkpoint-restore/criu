@@ -243,9 +243,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	char path[PATH_MAX];
 	CriuRenderNode *rd;
 	unsigned char *buf;
-	int minor;
-	int len;
-	int ret;
+	int len, ret;
 	size_t image_size;
 	struct tp_node *tp_node;
 	struct drm_amdgpu_gem_list_handles list_handles_args = { 0 };
@@ -259,8 +257,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	criu_render_node__init(rd);
 
 	/* Get the topology node of the DRM device */
-	minor = minor(drm->st_rdev);
-	rd->drm_render_minor = minor;
+	rd->drm_render_minor = minor(drm->st_rdev);
 	rd->id = id;
 
 	num_bos = 8;
@@ -454,9 +451,10 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			goto exit;
 	}
 
-	tp_node = sys_get_node_by_render_minor(&src_topology, minor);
+	tp_node = sys_get_node_by_render_minor(&src_topology, rd->drm_render_minor);
 	if (!tp_node) {
-		pr_err("Failed to find a device with minor number = %d\n", minor);
+		pr_err("Failed to find a device with minor number = %d\n",
+		       rd->drm_render_minor);
 		return -ENODEV;
 	}
 
