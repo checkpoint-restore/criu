@@ -306,7 +306,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		uint32_t major, minor;
 		amdgpu_device_handle h_dev;
 		void *buffer = NULL;
-		char img_path[40];
 		int device_fd;
 
 		boinfo->size = entry->size;
@@ -393,9 +392,9 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			goto exit;
 		}
 
-		snprintf(img_path, sizeof(img_path), IMG_DRM_PAGES_FILE, rd->id, rd->drm_render_minor, i);
+		snprintf(path, sizeof(path), IMG_DRM_PAGES_FILE, rd->id, rd->drm_render_minor, i);
 		image_size = entry->size;
-		bo_contents_fd = open_img_file(img_path, true, &image_size, true);
+		bo_contents_fd = open_img_file(path, true, &image_size, true);
 		if (bo_contents_fd < 0) {
 			ret = bo_contents_fd;
 			close(dmabuf_fd);
