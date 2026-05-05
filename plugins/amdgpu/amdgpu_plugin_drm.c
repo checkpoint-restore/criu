@@ -375,6 +375,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			vminfo->offset = vm_info_entries[j].offset;
 			vminfo->flags = vm_info_entries[j].flags;
 		}
+		xfree(vm_info_entries);
 
 		if (!libdrm_initialized) {
 			uint32_t major, minor;
@@ -384,7 +385,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			if (ret) {
 				pr_err("Failed to initialize amdgpu device - %s\n",
 				       strerror(-ret));
-				xfree(vm_info_entries);
 				goto exit;
 			}
 
@@ -396,7 +396,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		ret = drmPrimeHandleToFD(device_fd, boinfo->handle, 0, &dmabuf_fd);
 		if (ret) {
 			pr_perror("Failed to get dmabuf fd from handle");
-			xfree(vm_info_entries);
 			goto exit;
 		}
 
@@ -406,7 +405,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		if (bo_contents_fd < 0) {
 			ret = bo_contents_fd;
 			close(dmabuf_fd);
-			xfree(vm_info_entries);
 			goto exit;
 		}
 
@@ -424,7 +422,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 				ret = -ret;
 				close(bo_contents_fd);
 				close(dmabuf_fd);
-				xfree(vm_info_entries);
 				goto exit;
 			}
 
@@ -440,8 +437,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 		if (dmabuf_fd != KFD_INVALID_FD)
 			close(dmabuf_fd);
-
-		xfree(vm_info_entries);
 	}
 
 	for (int i = 0; i < handles.num_entries; i++) {
