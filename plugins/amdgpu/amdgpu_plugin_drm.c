@@ -244,7 +244,9 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	struct drm_amdgpu_gem_list_handles handles = {
 		.num_entries = 8,
 	};
+	bool libdrm_initialized = false;
 	unsigned long buffer_size = 0;
+	amdgpu_device_handle h_dev;
 	char path[PATH_MAX];
 	CriuRenderNode *rd;
 	unsigned char *buf;
@@ -305,8 +307,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		union drm_amdgpu_gem_mmap mmap_args = { 0 };
 		int bo_contents_fd;
 		int dmabuf_fd;
-		uint32_t major, minor;
-		amdgpu_device_handle h_dev;
 		int device_fd;
 
 		boinfo->size = entry->size;
@@ -376,11 +376,19 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			vminfo->flags = vm_info_entries[j].flags;
 		}
 
-		ret = amdgpu_device_initialize(fd, &major, &minor, &h_dev);
-		if (ret) {
-			pr_err("Failed to initialize amdgpu device - %s\n", strerror(-ret));
-			xfree(vm_info_entries);
-			goto exit;
+		if (!libdrm_initialized) {
+			uint32_t major, minor;
+
+			ret = amdgpu_device_initialize(fd, &major, &minor,
+						       &h_dev);
+			if (ret) {
+				pr_err("Failed to initialize amdgpu device - %s\n",
+				       strerror(-ret));
+				xfree(vm_info_entries);
+				goto exit;
+			}
+
+			libdrm_initialized = true;
 		}
 
 		device_fd = amdgpu_device_get_fd(h_dev);
@@ -388,7 +396,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		ret = drmPrimeHandleToFD(device_fd, boinfo->handle, 0, &dmabuf_fd);
 		if (ret) {
 			pr_perror("Failed to get dmabuf fd from handle");
-			amdgpu_device_deinitialize(h_dev);
 			xfree(vm_info_entries);
 			goto exit;
 		}
@@ -399,7 +406,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		if (bo_contents_fd < 0) {
 			ret = bo_contents_fd;
 			close(dmabuf_fd);
-			amdgpu_device_deinitialize(h_dev);
 			xfree(vm_info_entries);
 			goto exit;
 		}
@@ -418,7 +424,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 				ret = -ret;
 				close(bo_contents_fd);
 				close(dmabuf_fd);
-				amdgpu_device_deinitialize(h_dev);
 				xfree(vm_info_entries);
 				goto exit;
 			}
@@ -435,10 +440,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 		if (dmabuf_fd != KFD_INVALID_FD)
 			close(dmabuf_fd);
-
-		ret = amdgpu_device_deinitialize(h_dev);
-		if (ret)
-			goto exit;
 
 		xfree(vm_info_entries);
 	}
@@ -480,6 +481,8 @@ exit:
 	free(buffer);
 	xfree(entries);
 	free_e(rd);
+	if (libdrm_initialized)
+		amdgpu_device_deinitialize(h_dev);
 	return ret;
 }
 
