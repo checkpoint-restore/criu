@@ -244,9 +244,11 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	struct drm_amdgpu_gem_list_handles handles = {
 		.num_entries = 8,
 	};
+	unsigned long buffer_size = 0;
 	char path[PATH_MAX];
 	CriuRenderNode *rd;
 	unsigned char *buf;
+	void *buffer = NULL;
 	int len, ret;
 	size_t image_size;
 	struct tp_node *tp_node;
@@ -305,7 +307,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		int dmabuf_fd;
 		uint32_t major, minor;
 		amdgpu_device_handle h_dev;
-		void *buffer = NULL;
 		int device_fd;
 
 		boinfo->size = entry->size;
@@ -403,16 +404,26 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			goto exit;
 		}
 
-		ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), entry->size);
-		if (ret) {
-			errno = ret;
-			pr_perror("Failed to allocate buffer");
-			ret = -ret;
-			close(bo_contents_fd);
-			close(dmabuf_fd);
-			amdgpu_device_deinitialize(h_dev);
-			xfree(vm_info_entries);
-			goto exit;
+		if (buffer_size < entry->size) {
+			if (buffer_size) {
+				free(buffer);
+				buffer = NULL;
+			}
+
+			ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE),
+					     entry->size);
+			if (ret) {
+				errno = ret;
+				pr_perror("Failed to allocate userptr buffer");
+				ret = -ret;
+				close(bo_contents_fd);
+				close(dmabuf_fd);
+				amdgpu_device_deinitialize(h_dev);
+				xfree(vm_info_entries);
+				goto exit;
+			}
+
+			buffer_size = entry->size;
 		}
 
 		ret = sdma_copy_bo(dmabuf_fd, entry->size, bo_contents_fd,
@@ -421,8 +432,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		close(bo_contents_fd);
 		if (ret)
 			goto exit;
-
-		xfree(buffer);
 
 		if (dmabuf_fd != KFD_INVALID_FD)
 			close(dmabuf_fd);
@@ -468,6 +477,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 
 	xfree(buf);
 exit:
+	free(buffer);
 	xfree(entries);
 	free_e(rd);
 	return ret;
