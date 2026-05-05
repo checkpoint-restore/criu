@@ -240,8 +240,8 @@ exit:
 
 int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 {
-	CriuRenderNode *rd = NULL;
 	char path[PATH_MAX];
+	CriuRenderNode *rd;
 	unsigned char *buf;
 	int minor;
 	int len;
@@ -253,10 +253,9 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	int num_bos;
 
 	rd = xmalloc(sizeof(*rd));
-	if (!rd) {
-		ret = -ENOMEM;
-		goto exit;
-	}
+	if (!rd)
+		return -ENOMEM;
+
 	criu_render_node__init(rd);
 
 	/* Get the topology node of the DRM device */
@@ -481,8 +480,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	xfree(buf);
 exit:
 	xfree(list_handles_entries);
-	if (rd)
-		free_e(rd);
+	free_e(rd);
 	return ret;
 }
 
