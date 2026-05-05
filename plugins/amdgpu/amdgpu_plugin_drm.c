@@ -307,7 +307,6 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		union drm_amdgpu_gem_mmap mmap_args = { 0 };
 		int bo_contents_fd;
 		int dmabuf_fd;
-		int device_fd;
 
 		boinfo->size = entry->size;
 		boinfo->alloc_flags = entry->alloc_flags;
@@ -391,9 +390,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			libdrm_initialized = true;
 		}
 
-		device_fd = amdgpu_device_get_fd(h_dev);
-
-		ret = drmPrimeHandleToFD(device_fd, boinfo->handle, 0, &dmabuf_fd);
+		ret = drmPrimeHandleToFD(fd, boinfo->handle, 0, &dmabuf_fd);
 		if (ret) {
 			pr_perror("Failed to get dmabuf fd from handle");
 			goto exit;
