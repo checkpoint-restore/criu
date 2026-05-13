@@ -158,8 +158,8 @@ int amdgpu_plugin_drm_handle_device_vma(int fd, const struct stat *st)
 
 static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int drm_fd, int *dmabufs)
 {
-	size_t image_size = 0, max_bo_size = 0, buffer_size;
-	struct amdgpu_gpu_info gpu_info = { 0 };
+	size_t image_size = 0, buffer_size = 0;
+	struct amdgpu_gpu_info gpu_info = {};
 	amdgpu_device_handle h_dev;
 	uint64_t max_copy_size;
 	uint32_t major, minor;
@@ -185,13 +185,18 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 								   SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
 	for (i = 0; i < rd->num_of_bos; i++) {
-		if (rd->bo_entries[i]->preferred_domains & (AMDGPU_GEM_DOMAIN_VRAM | AMDGPU_GEM_DOMAIN_GTT)) {
-			if (rd->bo_entries[i]->size > max_bo_size)
-				max_bo_size = rd->bo_entries[i]->size;
+		DrmBoEntry *entry = rd->bo_entries[i];
+
+		if ((entry->preferred_domains &
+		     (AMDGPU_GEM_DOMAIN_VRAM | AMDGPU_GEM_DOMAIN_GTT)) &&
+		    !entry->is_userptr) {
+			if (entry->size > buffer_size)
+				buffer_size = entry->size;
 		}
 	}
 
-	buffer_size = max_bo_size;
+	if (!buffer_size)
+		goto exit;
 
 	ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), buffer_size);
 	if (ret) {
@@ -202,6 +207,9 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 	}
 
 	for (i = 0; i < rd->num_of_bos; i++) {
+		if (rd->bo_entries[i]->is_userptr)
+			continue;
+
 		if (!(rd->bo_entries[i]->preferred_domains & (AMDGPU_GEM_DOMAIN_VRAM | AMDGPU_GEM_DOMAIN_GTT)))
 			continue;
 
@@ -304,26 +312,31 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		struct drm_amdgpu_gem_vm_entry *vm_info_entries = NULL;
 		DrmBoEntry *boinfo = rd->bo_entries[i];
 		struct drm_amdgpu_gem_list_handles_entry *entry = &entries[i];
-		union drm_amdgpu_gem_mmap mmap_args = { 0 };
 		int bo_contents_fd;
 		int dmabuf_fd;
 
 		boinfo->size = entry->size;
 		boinfo->alloc_flags = entry->alloc_flags;
 		boinfo->preferred_domains = entry->preferred_domains;
-		boinfo->alignment = entry->alignment;
+		boinfo->alignment = entry->alignment; /* Also sets userptr address. */
 		boinfo->handle = entry->gem_handle;
 		boinfo->is_import = (entry->flags & AMDGPU_GEM_LIST_HANDLES_FLAG_IS_IMPORT) || shared_bo_has_exporter(boinfo->handle);
+		if (entry->flags & AMDGPU_GEM_LIST_HANDLES_FLAG_IS_USERPTR)
+			boinfo->is_userptr = boinfo->has_is_userptr = true;
 
-		mmap_args.in.handle = boinfo->handle;
+		if (!boinfo->is_userptr) {
+			union drm_amdgpu_gem_mmap mmap_args = { 0 };
 
-		if (drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_MMAP, &mmap_args) == -1) {
-			pr_perror("Error Failed to call mmap ioctl");
-			ret = -1;
-			goto exit;
+			mmap_args.in.handle = boinfo->handle;
+
+			if (drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_MMAP, &mmap_args) == -1) {
+				pr_perror("Error Failed to call mmap ioctl");
+				ret = -1;
+				goto exit;
+			}
+
+			boinfo->offset = mmap_args.out.addr_ptr;
 		}
-
-		boinfo->offset = mmap_args.out.addr_ptr;
 
 		while (1) {
 			struct drm_amdgpu_gem_op vm_info_args = {
@@ -402,47 +415,50 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			libdrm_initialized = true;
 		}
 
-		ret = drmPrimeHandleToFD(fd, boinfo->handle, 0, &dmabuf_fd);
-		if (ret) {
-			pr_perror("Failed to get dmabuf fd from handle");
-			goto exit;
-		}
-
-		snprintf(path, sizeof(path), IMG_DRM_PAGES_FILE, rd->id, rd->drm_render_minor, i);
-		image_size = entry->size;
-		bo_contents_fd = open_img_file(path, true, &image_size, true);
-		if (bo_contents_fd < 0) {
-			ret = bo_contents_fd;
-			close(dmabuf_fd);
-			goto exit;
-		}
-
-		if (buffer_size < entry->size) {
-			if (buffer_size) {
-				free(buffer);
-				buffer = NULL;
+		if (!boinfo->is_userptr) {
+			ret = drmPrimeHandleToFD(fd, boinfo->handle, 0, &dmabuf_fd);
+			if (ret) {
+				pr_perror("Failed to get dmabuf fd from handle");
+				goto exit;
 			}
 
-			ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE),
-					     entry->size);
-			if (ret) {
-				errno = ret;
-				pr_perror("Failed to allocate userptr buffer");
-				ret = -ret;
-				close(bo_contents_fd);
+			snprintf(path, sizeof(path), IMG_DRM_PAGES_FILE, rd->id, rd->drm_render_minor, i);
+			image_size = entry->size;
+			bo_contents_fd = open_img_file(path, true, &image_size, true);
+			if (bo_contents_fd < 0) {
+				ret = bo_contents_fd;
 				close(dmabuf_fd);
 				goto exit;
 			}
 
-			buffer_size = entry->size;
-		}
+			if (buffer_size < entry->size) {
+				if (buffer_size) {
+					free(buffer);
+					buffer = NULL;
+				}
 
-		ret = sdma_copy_bo(dmabuf_fd, entry->size, bo_contents_fd,
-				   buffer, entry->size, h_dev, 0x1000,
-				   SDMA_OP_VRAM_READ, false);
-		close(bo_contents_fd);
-		if (ret)
-			goto exit;
+				ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE),
+						     entry->size);
+				if (ret) {
+					errno = ret;
+					pr_perror("Failed to allocate userptr buffer");
+					ret = -ret;
+					close(bo_contents_fd);
+					close(dmabuf_fd);
+					goto exit;
+				}
+
+				buffer_size = entry->size;
+			}
+
+			ret = sdma_copy_bo(dmabuf_fd, entry->size,
+					   bo_contents_fd, buffer, entry->size,
+					   h_dev, 0x1000, SDMA_OP_VRAM_READ,
+					   false);
+			close(bo_contents_fd);
+			if (ret)
+				goto exit;
+		}
 
 		if (dmabuf_fd != KFD_INVALID_FD)
 			close(dmabuf_fd);
@@ -508,7 +524,6 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 		int dmabuf_fd = -1;
 		uint32_t handle;
 		struct drm_gem_change_handle change_args = { 0 };
-		union drm_amdgpu_gem_mmap mmap_args = { 0 };
 		int fd_id;
 
 		if (work_already_completed(boinfo->handle, rd->drm_render_minor)) {
@@ -535,8 +550,23 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 				close(dmabuf_fd);
 				goto exit;
 			}
+		} else if (boinfo->is_userptr) {
+			struct drm_amdgpu_gem_userptr userptr_args = {
+				.size = boinfo->size,
+				.addr = boinfo->alignment,
+				.flags = boinfo->alloc_flags & ~AMDGPU_GEM_USERPTR_VALIDATE,
+			};
+
+			ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_USERPTR,
+				       &userptr_args);
+			if (ret < 0) {
+				ret = -errno;
+				pr_perror("Failed to create userptr object");
+				goto exit;
+			}
+			handle = userptr_args.handle;
 		} else {
-			union drm_amdgpu_gem_create create_args = { 0 };
+			union drm_amdgpu_gem_create create_args = {};
 
 			create_args.in.bo_size = boinfo->size;
 			create_args.in.alignment = boinfo->alignment;
@@ -575,18 +605,22 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 		if (ret)
 			goto exit;
 
-		mmap_args.in.handle = boinfo->handle;
+		if (!boinfo->is_userptr) {
+			union drm_amdgpu_gem_mmap mmap_args = {};
 
-		if (drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_MMAP, &mmap_args) == -1) {
-			pr_perror("Error Failed to call mmap ioctl");
-			ret = -1;
-			goto exit;
+			mmap_args.in.handle = boinfo->handle;
+
+			if (drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_MMAP, &mmap_args) == -1) {
+				pr_perror("Error Failed to call mmap ioctl");
+				ret = -1;
+				goto exit;
+			}
+
+			ret = save_vma_updates(boinfo->offset, boinfo->addr,
+					       mmap_args.out.addr_ptr, fd);
+			if (ret < 0)
+				goto exit;
 		}
-
-		ret = save_vma_updates(boinfo->offset, boinfo->addr,
-				       mmap_args.out.addr_ptr, fd);
-		if (ret < 0)
-			goto exit;
 	}
 
 	if (ret) {

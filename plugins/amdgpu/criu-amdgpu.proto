@@ -73,6 +73,7 @@ message drm_bo_entry {
 	required uint32 is_import = 8;
 	required uint32 num_of_vms = 9;
 	repeated drm_vm_entry vm_entries = 10;
+	optional bool is_userptr = 11 [default = false];
 }
 
 message drm_vm_entry {
