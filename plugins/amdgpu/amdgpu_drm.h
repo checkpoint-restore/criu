@@ -898,6 +898,7 @@ struct drm_amdgpu_gem_op {
 };
 
 #define AMDGPU_GEM_LIST_HANDLES_FLAG_IS_IMPORT	(1 << 0)
+#define AMDGPU_GEM_LIST_HANDLES_FLAG_IS_USERPTR	(1 << 1)
 
 struct drm_amdgpu_gem_list_handles {
 	/* User pointer to array of drm_amdgpu_gem_bo_info_entry */
@@ -913,7 +914,7 @@ struct drm_amdgpu_gem_list_handles_entry {
 	/* gem handle of buffer object */
 	__u32 gem_handle;
 
-	/* Currently just one flag: IS_IMPORT */
+	/* AMDGPU_GEM_LIST_HANDLES_FLAG_* */
 	__u32 flags;
 
 	/* Size of bo */
@@ -922,11 +923,16 @@ struct drm_amdgpu_gem_list_handles_entry {
 	/* Preferred domains for GEM_CREATE */
 	__u64 preferred_domains;
 
-	/* GEM_CREATE flags for re-creation of buffer */
+	/* GEM_CREATE flags for re-creation of buffer or drm_amdgpu_gem_userptr.flags */
 	__u64 alloc_flags;
 
-	/* physical start_addr alignment in bytes for some HW requirements */
-	__u64 alignment;
+	union {
+		/* physical start_addr alignment in bytes for some HW requirements */
+		__u64 alignment;
+
+		/* drm_amdgpu_gem_userptr.addr for userptr objects */
+		__u64 userptr;
+	};
 };
 
 #define AMDGPU_VA_OP_MAP			1
