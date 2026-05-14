@@ -95,6 +95,30 @@ static int allocate_bo_entries(CriuRenderNode *e, int num_bos)
 	return 0;
 }
 
+static int allocate_context_entries(CriuRenderNode *e, unsigned long num_contexts)
+{
+	e->contexts = xmalloc(sizeof(DrmContextEntry *) * num_contexts);
+	if (!e->contexts) {
+		pr_err("Failed to allocate context list\n");
+		return -ENOMEM;
+	}
+
+	for (int i = 0; i < num_contexts; i++) {
+		DrmContextEntry *context = xzalloc(sizeof(*context));
+
+		if (!context) {
+			pr_err("Failed to allocate context info\n");
+			return -ENOMEM;
+		}
+
+		drm_context_entry__init(context);
+
+		e->contexts[i] = context;
+		e->n_contexts++;
+	}
+	return 0;
+}
+
 static int allocate_vm_entries(DrmBoEntry *e, int num_vms)
 {
 	e->vm_entries = xmalloc(sizeof(DrmVmEntry *) * num_vms);
@@ -126,6 +150,12 @@ static void free_e(CriuRenderNode *e)
 			xfree(e->bo_entries[i]);
 	}
 	xfree(e->bo_entries);
+
+	for (int i = 0; i < e->n_contexts; i++) {
+		if (e->contexts[i])
+			xfree(e->contexts[i]);
+	}
+	xfree(e->contexts);
 
 	xfree(e);
 }
@@ -253,6 +283,10 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	struct drm_amdgpu_gem_list_handles handles = {
 		.num_entries = 8,
 	};
+	struct drm_amdgpu_gem_list_contexts_entry *contexts = NULL;
+	struct drm_amdgpu_gem_list_contexts contexts_query = {
+		.num_contexts = 8,
+	};
 	bool libdrm_initialized = false;
 	unsigned long buffer_size = 0;
 	amdgpu_device_handle h_dev;
@@ -303,10 +337,66 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			break;
 	} while (true);
 
+	do {
+		unsigned int num_contexts = contexts_query.num_contexts;
+
+		if (contexts) {
+			xfree(contexts);
+			contexts = NULL;
+		}
+
+		contexts = xzalloc(sizeof(*contexts) * contexts_query.num_contexts);
+		if (!contexts) {
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		contexts_query.contexts = (uintptr_t)contexts;
+		ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_LIST_CONTEXTS, &contexts_query);
+		if (ret) {
+			ret = -errno;
+			if (errno == EINVAL) {
+				pr_info("This kernel appears not to have AMDGPU_GEM_LIST_CONTEXTS ioctl. Consider updating your kernel.\n");
+				contexts_query.num_contexts = 0;
+				break;
+			} else {
+				pr_perror("Failed to call bo info ioctl");
+				goto exit;
+			}
+		}
+
+		if (contexts_query.num_contexts <= num_contexts)
+			break;
+	} while (true);
+
 	rd->num_of_bos = handles.num_entries;
 	ret = allocate_bo_entries(rd, handles.num_entries);
 	if (ret)
 		goto exit;
+
+	if (contexts_query.num_contexts) {
+		rd->num_of_contexts = contexts_query.num_contexts;
+		ret = allocate_context_entries(rd, contexts_query.num_contexts);
+		if (ret)
+			goto exit;
+		rd->has_num_of_contexts = true;
+	}
+
+	for (unsigned int i = 0; i < contexts_query.num_contexts; i++) {
+		struct drm_amdgpu_gem_list_contexts_entry *entry = &contexts[i];
+		DrmContextEntry *context = rd->contexts[i];
+
+		context->handle = entry->handle;
+		context->flags = entry->flags;
+		context->init_priority = entry->init_priority;
+		context->override_priority = entry->override_priority;
+		context->pstate_flags = entry->pstate_flags;
+
+		pr_info("Saving context %u/%u: %u %x %d/%d %x\n",
+			i, contexts_query.num_contexts,
+			context->handle, context->flags, context->init_priority,
+			context->override_priority, context->pstate_flags);
+	}
 
 	for (int i = 0; i < handles.num_entries; i++) {
 		int num_vm_entries = 8;
@@ -504,6 +594,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 exit:
 	free(buffer);
 	xfree(entries);
+	xfree(contexts);
 	free_e(rd);
 	if (libdrm_initialized)
 		amdgpu_device_deinitialize(h_dev);
@@ -519,6 +610,59 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 	if (!dmabufs)
 		return -ENOMEM;
 	memset(dmabufs, 0xff, sizeof(int) * rd->num_of_bos);
+
+	for (unsigned int i = 0; i < rd->num_of_contexts; i++) {
+		DrmContextEntry *context = rd->contexts[i];
+		union drm_amdgpu_ctx args = {};
+
+		args.in.op = AMDGPU_CTX_OP_ALLOC_CTX;
+		args.in.priority = context->init_priority;
+		ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_CTX, &args);
+		if (ret < 0) {
+			ret = -errno;
+			pr_perror("Failed to create context");
+			goto exit;
+		}
+
+		if (args.out.alloc.ctx_id != context->handle) {
+			// FIXME
+			pr_err("Handle mismatch!\n");
+			goto exit;
+		}
+
+		if (context->override_priority != AMDGPU_CTX_PRIORITY_UNSET) {
+			union drm_amdgpu_sched sched = {};
+
+			sched.in.op = AMDGPU_SCHED_OP_CONTEXT_PRIORITY_OVERRIDE;
+			sched.in.ctx_id = args.out.alloc.ctx_id;
+			sched.in.priority = context->override_priority;
+			ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_SCHED, &sched);
+			if (ret < 0) {
+				ret = -errno;
+				pr_perror("Failed to override context priority");
+				goto exit;
+			}
+		}
+
+		if (context->pstate_flags != AMDGPU_CTX_STABLE_PSTATE_NONE) {
+			union drm_amdgpu_ctx pstate = {};
+
+			pstate.in.op = AMDGPU_CTX_OP_SET_STABLE_PSTATE;
+			pstate.in.ctx_id = args.out.alloc.ctx_id;
+			pstate.in.flags = context->pstate_flags;
+			ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_CTX, &pstate);
+			if (ret < 0) {
+				ret = -errno;
+				pr_perror("Failed to set context pstate");
+				goto exit;
+			}
+		}
+
+		pr_info("Restored context %u/%" PRIu64 ": %u %x %d/%d %x\n",
+			i, rd->num_of_contexts,
+			context->handle, context->flags, context->init_priority,
+			context->override_priority, context->pstate_flags);
+	}
 
 	for (int i = 0; i < rd->num_of_bos; i++) {
 		DrmBoEntry *boinfo = rd->bo_entries[i];
