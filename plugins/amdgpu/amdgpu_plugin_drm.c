@@ -625,16 +625,24 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 		}
 
 		if (args.out.alloc.ctx_id != context->handle) {
-			// FIXME
-			pr_err("Handle mismatch!\n");
-			goto exit;
+			uint32_t id = args.out.alloc.ctx_id;
+
+			args.in.op = AMDGPU_CTX_OP_CHANGE_HANDLE;
+			args.in.ctx_id = id;
+			args.in.flags = context->handle;
+			ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_CTX, &args);
+			if (ret < 0) {
+				ret = -errno;
+				pr_perror("Failed to rename context");
+				goto exit;
+			}
 		}
 
 		if (context->override_priority != AMDGPU_CTX_PRIORITY_UNSET) {
 			union drm_amdgpu_sched sched = {};
 
 			sched.in.op = AMDGPU_SCHED_OP_CONTEXT_PRIORITY_OVERRIDE;
-			sched.in.ctx_id = args.out.alloc.ctx_id;
+			sched.in.ctx_id = context->handle;
 			sched.in.priority = context->override_priority;
 			ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_SCHED, &sched);
 			if (ret < 0) {
@@ -648,7 +656,7 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 			union drm_amdgpu_ctx pstate = {};
 
 			pstate.in.op = AMDGPU_CTX_OP_SET_STABLE_PSTATE;
-			pstate.in.ctx_id = args.out.alloc.ctx_id;
+			pstate.in.ctx_id = context->handle;
 			pstate.in.flags = context->pstate_flags;
 			ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_CTX, &pstate);
 			if (ret < 0) {
