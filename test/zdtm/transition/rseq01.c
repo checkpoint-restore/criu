@@ -252,6 +252,7 @@ void *thread_routine(void *args)
 	int cpu;
 
 	rseq_ptr = rseq_area();
+	unregister_old_rseq();
 	memset((void *)rseq_ptr, 0, rseq_reg_size());
 	register_thread();
 	task_waiter_complete(&waiter, 1);
@@ -277,6 +278,7 @@ int main(int argc, char *argv[])
 	pthread_t thread;
 
 	rseq_ptr = rseq_area();
+	unregister_old_rseq();
 	memset((void *)rseq_ptr, 0, rseq_reg_size());
 
 	test_init(argc, argv);
