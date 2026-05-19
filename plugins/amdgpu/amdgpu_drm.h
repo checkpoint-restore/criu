@@ -59,6 +59,7 @@ extern "C" {
 #define DRM_AMDGPU_USERQ_WAIT		0x18
 #define DRM_AMDGPU_GEM_LIST_HANDLES	0x19
 #define DRM_AMDGPU_GEM_LIST_CONTEXTS	0x1B
+#define DRM_AMDGPU_GEM_COPY_BUFFER	0x1C
 /* not upstream */
 #define DRM_AMDGPU_GEM_DGMA		0x5c
 
@@ -86,6 +87,7 @@ extern "C" {
 #define DRM_IOCTL_AMDGPU_USERQ_WAIT	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_USERQ_WAIT, struct drm_amdgpu_userq_wait)
 #define DRM_IOCTL_AMDGPU_GEM_LIST_HANDLES DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_LIST_HANDLES, struct drm_amdgpu_gem_list_handles)
 #define DRM_IOCTL_AMDGPU_GEM_LIST_CONTEXTS DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_LIST_CONTEXTS, struct drm_amdgpu_gem_list_contexts)
+#define DRM_IOCTL_AMDGPU_GEM_COPY_BUFFER DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_COPY_BUFFER, struct drm_amdgpu_gem_copy_buffer)
 
 #define DRM_IOCTL_AMDGPU_GEM_DGMA	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_DGMA, struct drm_amdgpu_gem_dgma)
 
@@ -231,6 +233,17 @@ struct drm_amdgpu_gem_create_out  {
 union drm_amdgpu_gem_create {
 	struct drm_amdgpu_gem_create_in		in;
 	struct drm_amdgpu_gem_create_out	out;
+};
+
+struct drm_amdgpu_gem_copy_buffer {
+	__u32	src_handle;
+	__u32	dst_handle;
+	__u64	src_offset;
+	__u64	dst_offset;
+	__u64	copy_size;
+	__u32	syncobj_handle;
+	__u32   mbz;
+	__u64   timeline_point;
 };
 
 /** Opcode to create new residency list.  */

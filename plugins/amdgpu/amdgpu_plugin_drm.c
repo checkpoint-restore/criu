@@ -187,11 +187,77 @@ int amdgpu_plugin_drm_handle_device_vma(int fd, const struct stat *st)
 	return 0;
 }
 
+static int
+amdgpu_copy_buffer(int drm_fd, uint32_t src_handle, uint32_t dst_handle,
+		   uint64_t size)
+{
+	struct drm_amdgpu_gem_copy_buffer copy_args = {
+		.src_handle = src_handle,
+		.dst_handle = dst_handle,
+		.copy_size = size,
+		.timeline_point = 1,
+	};
+	struct drm_syncobj_create syncobj_args = {
+		.flags = DRM_SYNCOBJ_CREATE_SIGNALED,
+	};
+	const uint64_t timeline_point = 1;
+	struct drm_syncobj_timeline_wait wait_args = {
+		.handles = (uintptr_t)&syncobj_args.handle,
+		.points = (uintptr_t)&timeline_point,
+		.timeout_nsec = 10000000000ULL,
+		.count_handles = 1,
+		.flags = DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL,
+	};
+	struct drm_syncobj_destroy destroy_args = {};
+	struct timespec now;
+	int ret, ret2;
+
+	ret = drmIoctl(drm_fd, DRM_IOCTL_SYNCOBJ_CREATE, &syncobj_args);
+	if (ret < 0) {
+		ret = -errno;
+		pr_perror("Failed to create syncobj");
+		return ret;
+	}
+
+	copy_args.syncobj_handle = syncobj_args.handle;
+	ret = drmIoctl(drm_fd, DRM_IOCTL_AMDGPU_GEM_COPY_BUFFER, &copy_args);
+	if (ret) {
+		ret = -errno;
+		pr_perror("Failed to copy buffer object");
+		goto out_destroy;
+	}
+
+	ret = clock_gettime(CLOCK_MONOTONIC, &now);
+	if (ret < 0) {
+		ret = -errno;
+		pr_perror("Failed to get current time");
+		goto out_destroy;
+	}
+
+	wait_args.timeout_nsec = (uint64_t)(now.tv_sec + 10) * NSEC_PER_SEC +
+				 now.tv_nsec;
+	ret = drmIoctl(drm_fd, DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT, &wait_args);
+	if (ret < 0) {
+		ret = -errno;
+		pr_perror("Failed to wait for buffer copy");
+		goto out_destroy;
+	}
+
+out_destroy:
+	destroy_args.handle = syncobj_args.handle;
+	ret2 = drmIoctl(drm_fd, DRM_IOCTL_SYNCOBJ_DESTROY, &destroy_args);
+	if (ret2 < 0)
+		pr_perror("Failed to destroy syncobj");
+
+	return ret;
+}
+
 static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int drm_fd, int *dmabufs)
 {
 	size_t image_size = 0, buffer_size = 0;
 	struct amdgpu_gpu_info gpu_info = {};
 	amdgpu_device_handle h_dev;
+	int has_copy_buffer = -1;
 	uint64_t max_copy_size;
 	uint32_t major, minor;
 	void *buffer = NULL;
@@ -238,30 +304,86 @@ static int restore_bo_contents_drm(int drm_render_minor, CriuRenderNode *rd, int
 	}
 
 	for (i = 0; i < rd->num_of_bos; i++) {
-		if (rd->bo_entries[i]->is_userptr)
+		DrmBoEntry *entry = rd->bo_entries[i];
+
+		if (entry->is_userptr ||
+		    !(entry->preferred_domains &
+		      (AMDGPU_GEM_DOMAIN_VRAM | AMDGPU_GEM_DOMAIN_GTT)) ||
+		    entry->num_of_vms == 0)
 			continue;
 
-		if (!(rd->bo_entries[i]->preferred_domains & (AMDGPU_GEM_DOMAIN_VRAM | AMDGPU_GEM_DOMAIN_GTT)))
-			continue;
+		snprintf(img_path, sizeof(img_path), IMG_DRM_PAGES_FILE, rd->id,
+			 drm_render_minor, i);
 
-		if (rd->bo_entries[i]->num_of_vms == 0)
-			continue;
+		/* Try AMDGPU_GEM_COPY_BUFFER first */
+		if ((has_copy_buffer < 0 || has_copy_buffer == 1)) {
+			struct drm_amdgpu_gem_userptr userptr_args = {
+				.addr = (uintptr_t)buffer,
+				.size = entry->size,
+			};
 
-		snprintf(img_path, sizeof(img_path), IMG_DRM_PAGES_FILE, rd->id, drm_render_minor, i);
+			bo_contents_fd = open_img_file(img_path, false,
+						       &image_size, true);
+			if (bo_contents_fd < 0) {
+				ret = bo_contents_fd;
+				break;
+			}
 
-		bo_contents_fd = open_img_file(img_path, false, &image_size, true);
-		if (bo_contents_fd < 0) {
-			ret = bo_contents_fd;
-			break;
+			if (image_size != entry->size) {
+				pr_err("Image size mismatch!\n");
+				ret = -ENXIO;
+				break;
+			}
+
+			ret = img_read(bo_contents_fd, buffer, image_size);
+			close(bo_contents_fd);
+			if (ret)
+				break;
+
+			ret = drmIoctl(drm_fd, DRM_IOCTL_AMDGPU_GEM_USERPTR,
+				       &userptr_args);
+			if (ret) {
+				ret = -errno;
+				pr_perror("Failed to create userptr object");
+				break;
+			} else {
+				struct drm_gem_close close_args = {
+					.handle = userptr_args.handle,
+				};
+
+				ret = amdgpu_copy_buffer(drm_fd,
+							 userptr_args.handle,
+							 entry->handle,
+							 entry->size);
+				has_copy_buffer = ret == 0;
+
+				ret = drmIoctl(drm_fd, DRM_IOCTL_GEM_CLOSE,
+					       &close_args);
+				if (ret) {
+					ret = -errno;
+					pr_perror("Failed to close userptr object");
+				}
+			}
 		}
 
-		ret = sdma_copy_bo(dmabufs[i], rd->bo_entries[i]->size,
-				   bo_contents_fd, buffer, buffer_size, h_dev,
-				   max_copy_size, SDMA_OP_VRAM_WRITE, true);
-		close(bo_contents_fd);
-		if (ret) {
-			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
-			break;
+		if (!has_copy_buffer) {
+			bo_contents_fd = open_img_file(img_path, false,
+						       &image_size, true);
+			if (bo_contents_fd < 0) {
+				ret = bo_contents_fd;
+				break;
+			}
+
+			ret = sdma_copy_bo(dmabufs[i], entry->size,
+					   bo_contents_fd, buffer, buffer_size,
+					   h_dev, max_copy_size,
+					   SDMA_OP_VRAM_WRITE, true);
+			close(bo_contents_fd);
+			if (ret) {
+				pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n",
+				       i);
+				break;
+			}
 		}
 	}
 
@@ -277,6 +399,30 @@ exit:
 	return ret;
 }
 
+static int
+prepare_buffer(unsigned long size, void **buf, unsigned long *bufsize)
+{
+	int ret;
+
+	if (*bufsize >= size)
+		return 0;
+
+	if (*bufsize) {
+		free(*buf);
+		*buf = NULL;
+	}
+
+	ret = posix_memalign(buf, sysconf(_SC_PAGE_SIZE), size);
+	if (ret) {
+		errno = ret;
+		pr_perror("Failed to allocate userptr buffer");
+	} else {
+		*bufsize = size;
+	}
+
+	return -ret;
+}
+
 int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 {
 	struct drm_amdgpu_gem_list_handles_entry *entries = NULL;
@@ -290,6 +436,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 	bool libdrm_initialized = false;
 	unsigned long buffer_size = 0;
 	amdgpu_device_handle h_dev;
+	int has_copy_buffer = -1;
 	char path[PATH_MAX];
 	CriuRenderNode *rd;
 	unsigned char *buf;
@@ -403,8 +550,8 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		struct drm_amdgpu_gem_vm_entry *vm_info_entries = NULL;
 		DrmBoEntry *boinfo = rd->bo_entries[i];
 		struct drm_amdgpu_gem_list_handles_entry *entry = &entries[i];
+		int dmabuf_fd = KFD_INVALID_FD;
 		int bo_contents_fd;
-		int dmabuf_fd;
 
 		boinfo->size = entry->size;
 		boinfo->alloc_flags = entry->alloc_flags;
@@ -480,7 +627,57 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 		}
 		xfree(vm_info_entries);
 
-		if (!libdrm_initialized) {
+		/* Try AMDGPU_GEM_COPY_BUFFER first */
+		if ((has_copy_buffer < 0 || has_copy_buffer == 1) &&
+		    !boinfo->is_userptr) {
+			struct drm_amdgpu_gem_userptr userptr_args = {
+				.size = entry->size,
+			};
+
+			ret = prepare_buffer(entry->size, &buffer,
+					     &buffer_size);
+			if (ret)
+				goto exit;
+
+			userptr_args.addr = (uintptr_t)buffer;
+			ret = drmIoctl(fd, DRM_IOCTL_AMDGPU_GEM_USERPTR,
+				       &userptr_args);
+			if (ret) {
+				ret = -errno;
+				pr_perror("Failed to create userptr object");
+				goto exit;
+			} else {
+				struct drm_gem_close close_args = {
+					.handle = userptr_args.handle,
+				};
+
+				ret = amdgpu_copy_buffer(fd,
+							 entry->gem_handle,
+							 userptr_args.handle,
+							 entry->size);
+				has_copy_buffer = ret == 0;
+
+				ret = drmIoctl(fd, DRM_IOCTL_GEM_CLOSE,
+					       &close_args);
+				if (ret) {
+					ret = -errno;
+					pr_perror("Failed to close userptr object");
+				}
+
+				if (has_copy_buffer == 1) {
+					snprintf(path, sizeof(path),
+						 IMG_DRM_PAGES_FILE, rd->id,
+						 rd->drm_render_minor, i);
+					ret = write_img_file(path, buffer,
+							     entry->size);
+					if (ret)
+						goto exit;
+				}
+			}
+		}
+
+		if (!has_copy_buffer && !boinfo->is_userptr &&
+		    !libdrm_initialized) {
 			uint32_t major, minor;
 			char *drm_path;
 			int drm_fd;
@@ -506,7 +703,7 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 			libdrm_initialized = true;
 		}
 
-		if (!boinfo->is_userptr) {
+		if (!has_copy_buffer && !boinfo->is_userptr) {
 			ret = drmPrimeHandleToFD(fd, boinfo->handle, 0, &dmabuf_fd);
 			if (ret) {
 				pr_perror("Failed to get dmabuf fd from handle");
@@ -522,24 +719,11 @@ int amdgpu_plugin_drm_dump_file(int fd, int id, struct stat *drm)
 				goto exit;
 			}
 
-			if (buffer_size < entry->size) {
-				if (buffer_size) {
-					free(buffer);
-					buffer = NULL;
-				}
-
-				ret = posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE),
-						     entry->size);
-				if (ret) {
-					errno = ret;
-					pr_perror("Failed to allocate userptr buffer");
-					ret = -ret;
-					close(bo_contents_fd);
-					close(dmabuf_fd);
-					goto exit;
-				}
-
-				buffer_size = entry->size;
+			ret = prepare_buffer(entry->size, &buffer, &buffer_size);
+			if (ret) {
+				close(bo_contents_fd);
+				close(dmabuf_fd);
+				goto exit;
 			}
 
 			ret = sdma_copy_bo(dmabuf_fd, entry->size,
@@ -733,10 +917,13 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 			}
 			handle = create_args.out.handle;
 
-			ret = drmPrimeHandleToFD(fd, handle, 0, &dmabuf_fd);
-			if (ret) {
-				pr_perror("Failed to get dmabuf fd from handle");
-				goto exit;
+			if (!(boinfo->alloc_flags &
+			      AMDGPU_GEM_CREATE_VM_ALWAYS_VALID)) {
+				ret = drmPrimeHandleToFD(fd, handle, 0, &dmabuf_fd);
+				if (ret) {
+					pr_perror("Failed to get dmabuf fd from handle");
+					goto exit;
+				}
 			}
 		}
 
@@ -749,7 +936,7 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 			goto exit;
 		}
 
-		if (!boinfo->is_import)
+		if (!boinfo->is_import && dmabuf_fd != -1)
 			store_dmabuf_fd(boinfo->handle, dmabuf_fd);
 
 		dmabufs[i] = dmabuf_fd;
