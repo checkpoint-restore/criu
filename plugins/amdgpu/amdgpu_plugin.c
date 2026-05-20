@@ -355,7 +355,7 @@ static size_t getenv_size_t(const char *var, size_t defvalue)
 			sh = 0;
 			break;
 		default:
-			pr_warn("Ignoring invalid size suffix for %s=%s, expecting 'K'/k', 'M', or 'G'\n", var, value_str);
+			pr_warn("Ignoring invalid size suffix for %s=%s, expecting 'K'/'k', 'M', or 'G'\n", var, value_str);
 			goto out;
 		}
 		if (SIZE_MAX >> sh < val) {
