@@ -337,7 +337,7 @@ static size_t getenv_size_t(const char *var, size_t defvalue)
 		errno = 0;
 		val = (size_t)strtoul(value_str, &endp, 0);
 		if (errno || value_str == endp) {
-			pr_err("Ignoring invalid value for %s=%s, expecting a positive integer\n", var, value_str);
+			pr_warn("Ignoring invalid value for %s=%s, expecting a positive integer\n", var, value_str);
 			goto out;
 		}
 		switch (*endp) {
