@@ -322,7 +322,7 @@ static bool getenv_bool(const char *var, bool defvalue)
 			pr_warn("Ignoring invalid value for %s=%s, expecting (0/1 or YES/NO)\n", var, value_str);
 	}
 
-	pr_info("param: %s:%u\n", var, val);
+	pr_info("param: %s:%d\n", var, val);
 	return val;
 }
 
@@ -365,7 +365,7 @@ static size_t getenv_size_t(const char *var, size_t defvalue)
 	}
 
 out:
-	pr_info("param: %s:0x%lx\n", var, val);
+	pr_info("param: %s:0x%zx\n", var, val);
 	return val;
 }
 
