@@ -316,8 +316,33 @@ static int vma_stat(struct vma_area *vma, int fd)
 	return 0;
 }
 
+static int open_mapped_file(pid_t pid, const char *fname)
+{
+	int fd, root;
+	const char *rel = fname;
+
+	if (opts.unprivileged && fname[0] == '/') {
+		root = open_proc(pid, "root");
+		if (root >= 0) {
+			/*
+			 * openat() ignores dirfd when pathname is absolute; paths from
+			 * smaps are absolute container paths (e.g. /bin/busybox).
+			 */
+			if (*rel == '/')
+				rel++;
+
+			fd = openat(root, rel, O_RDONLY);
+			close(root);
+			if (fd >= 0)
+				return fd;
+		}
+	}
+
+	return open(fname, O_RDONLY);
+}
+
 static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct vma_file_info *vfi, int *vm_file_fd,
-				const char *path)
+				const char *path, pid_t pid)
 {
 	int fd, hugetlb_flag = 0;
 	dev_t vfi_dev;
@@ -327,7 +352,8 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 	 * best we can do here is fill stat using the information
 	 * from smaps file and ... hope for the better :\
 	 *
-	 * Here we'll miss AIO-s and sockets :(
+	 * Without access to map_files, socket mappings still cannot be
+	 * identified through the link metadata.
 	 */
 
 	if (fname[0] == '\0') {
@@ -356,6 +382,11 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 		return 0;
 	}
 
+	if (!strncmp(fname, AIO_FNAME, sizeof(AIO_FNAME) - 1)) {
+		vma->e->status = VMA_AREA_AIORING;
+		return 0;
+	}
+
 	vfi_dev = makedev(vfi->dev_maj, vfi->dev_min);
 
 	if (is_hugetlb_dev(vfi_dev, &hugetlb_flag) || is_anon_shmem_map(vfi_dev)) {
@@ -380,7 +411,7 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 	}
 
 	pr_info("Failed to open map_files/%s, try to go via [%s] path\n", path, fname);
-	fd = open(fname, O_RDONLY);
+	fd = open_mapped_file(pid, fname);
 	if (fd < 0) {
 		pr_perror("Can't open mapped [%s]", fname);
 		return -1;
@@ -428,7 +459,7 @@ closefd:
 }
 
 static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd, struct vma_file_info *vfi,
-			   struct vma_file_info *prev_vfi, int *vm_file_fd)
+			   struct vma_file_info *prev_vfi, int *vm_file_fd, pid_t pid)
 {
 	char path[32];
 	int flags;
@@ -512,8 +543,8 @@ static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd, st
 			return -1;
 		}
 
-		if (errno == EPERM && !opts.aufs)
-			return vma_get_mapfile_user(fname, vma, vfi, vm_file_fd, path);
+		if ((errno == EPERM || errno == EACCES) && !opts.aufs)
+			return vma_get_mapfile_user(fname, vma, vfi, vm_file_fd, path, pid);
 
 		pr_perror("Can't open map_files");
 		return -1;
@@ -600,7 +631,7 @@ static inline int handle_vvar_vma(struct vma_area *vma)
 static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_path, DIR *map_files_dir,
 		      struct vma_file_info *vfi, struct vma_file_info *prev_vfi, int *vm_file_fd)
 {
-	if (vma_get_mapfile(file_path, vma_area, map_files_dir, vfi, prev_vfi, vm_file_fd))
+	if (vma_get_mapfile(file_path, vma_area, map_files_dir, vfi, prev_vfi, vm_file_fd, pid))
 		goto err_bogus_mapfile;
 
 	if (vma_area->e->status != 0)
