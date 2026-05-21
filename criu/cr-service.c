@@ -1534,11 +1534,15 @@ int cr_service(bool daemon_mode)
 
 		pr_info("The service socket is bound to %s\n", server_addr.sun_path);
 
-		/* change service socket permissions, so anyone can connect to it */
-		if (chmod(server_addr.sun_path, 0666)) {
+		/* restrict service socket permissions to owner only */
+		if (chmod(server_addr.sun_path, 0600)) {
 			pr_perror("Can't change permissions of the service socket");
 			goto err;
 		}
+
+		pr_msg("Service socket %s has permissions 0600. "
+		       "Use chmod to make it accessible to other users if needed.\n",
+		       server_addr.sun_path);
 
 		if (listen(server_fd, 16) == -1) {
 			pr_perror("Can't listen for socket connections");
