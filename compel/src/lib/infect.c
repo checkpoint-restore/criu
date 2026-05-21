@@ -308,8 +308,15 @@ try_again:
 		return -1;
 	}
 
-	if (ss->seccomp_mode != SECCOMP_MODE_DISABLED && ptrace_suspend_seccomp(pid) < 0)
-		goto err;
+	if (ss->seccomp_mode != SECCOMP_MODE_DISABLED) {
+		if (ptrace_suspend_seccomp(pid) < 0) {
+			if (errno != EPERM && errno != EACCES)
+				goto err;
+
+			pr_warn("Unable to suspend seccomp for %d, memory will be read via process_vm_readv\n", pid);
+			ss->seccomp_suspend_failed = true;
+		}
+	}
 
 	/*
 	 * FIXME(issues/1429): parasite code contains instructions that trigger
