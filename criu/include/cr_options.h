@@ -293,6 +293,12 @@ struct cr_options {
 	 * explicitly request it as it comes with many limitations.
 	 */
 	int unprivileged;
+	/*
+	 * Set when PTRACE_O_SUSPEND_SECCOMP failed during seize (e.g. rootless
+	 * containers). Page memory is dumped with process_vm_readv instead of
+	 * the parasite vmsplice path.
+	 */
+	bool seccomp_suspend_failed;
 };
 
 extern struct cr_options opts;
