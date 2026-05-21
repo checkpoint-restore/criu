@@ -32,6 +32,8 @@ run: all
 		-d --pidfile pidfile -o service.log --status-fd 200; \
 		$(PYTHON) read.py build/status"
 	rm -f build/status
+	@# Socket defaults to 0600; transfer ownership to the test user.
+	chown 1000:1000 build/criu_service.socket
 	chmod a+rw build/pidfile
 	sudo -g '#1000' -u '#1000' ./run.sh
 	sudo -g '#1000' -u '#1000' ./version.py
