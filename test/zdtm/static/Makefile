@@ -487,6 +487,7 @@ TST_DIR		=				\
 		sk-unix-mntns			\
 		sk-unix01			\
 		sk-unix01-seqpacket		\
+		sk-unix-dgram-cred          \
 		sk-unix-dgram-ghost		\
 		unsupported_children_collision  \
 		shared_slave_mount_children	\
