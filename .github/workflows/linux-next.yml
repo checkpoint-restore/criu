@@ -1,0 +1,401 @@
+name: linux-next-tests
+on:
+  schedule:
+    - cron: "20 8 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+#
+# This workflow is to test CRIU on linux-next tree.
+# It involves external GitHub Actions runners (EC2 instances on AWS).
+# To run it requires necessary setup on AWS side (auth via GitHub OIDC to
+# manage EC2 instances and S3 bucket), and GH_RUNNERS_PAT_TOKEN
+# (GitHub Personal Access Token to manage GitHub Actions Runners for a repo).
+#
+# Logic is simple:
+# 1. Build linux kernel on GitHub-hosted runner and upload .deb-packages
+#    to S3 bucket
+# 2. Create EC2 instance and register it as GH self-hosted runner
+#    (we use machulav/ec2-github-runner for this)
+# 3. Schedule a job on newly created runner, install a new kernel
+# 4. Reboot EC2 instance
+# 5. Schedule CRIU test job on EC2 runner
+# 6. Destroy EC2 instance and unregister it from GitHub.
+#
+# I use explicit commit hashes for actions steps which are not GitHub-provided
+# (for example machulav/ec2-github-runner@343a1b2ae682e681c3cec9a235d882da17ff04ef).
+# This is to be on a safe side and ensure that any update is done manually.
+#
+
+permissions:
+  id-token: write
+
+jobs:
+  kernel-build:
+    env:
+      BUILDDIR: "/home/runner/kernel-build/tmp"
+    name: Kernel build
+    runs-on: ubuntu-24.04
+    outputs:
+      date: ${{ steps.get-date.outputs.date }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Prepare directory for build
+        run: |
+          set -eux
+
+          echo $BUILDDIR
+          mkdir -p $BUILDDIR
+          # Not enough RAM for kernel builds anymore
+          # sudo mount -t tmpfs tmpfs $BUILDDIR
+
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+
+      - name: Restore linux-next build artifacts from cache
+        id: build-artifacts-restore
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.BUILDDIR }}/artifacts
+          key: linux-next-build-${{ steps.get-date.outputs.date }}
+
+      - name: Install dependencies
+        if: steps.build-artifacts-restore.outputs.cache-hit != 'true'
+        run: |
+          set -eux
+
+          sudo apt-get update
+
+          sudo apt-get install --no-install-recommends -y \
+            curl \
+            git \
+            build-essential \
+            libssl-dev \
+            libelf-dev \
+            libdw-dev \
+            bc \
+            bison \
+            cpio \
+            flex \
+            debhelper-compat
+
+      # We don't want to put too much stress to git.kernel.org so we
+      # use a cache (valid for 1 day) for git clone copy of the repo.
+      - name: Restore linux-next git cache
+        if: steps.build-artifacts-restore.outputs.cache-hit != 'true'
+        id: linux-next-git-restore
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.BUILDDIR }}/linux
+          key: linux-next-git-cache-${{ steps.get-date.outputs.date }}
+
+      - name: Checkout Linux kernel
+        if: ${{ steps.build-artifacts-restore.outputs.cache-hit != 'true' &&
+                steps.linux-next-git-restore.outputs.cache-hit != 'true' }}
+        run: |
+          set -eux
+
+          cd "$BUILDDIR"
+
+          git clone --depth=1 --branch master --single-branch \
+                    https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git linux
+
+          # Record exactly which linux-next state we built, so a CI failure
+          # can be correlated with a specific tree (and its daily next-* tag).
+          git -C linux --no-pager log -1 --format='linux-next HEAD: %H %cs %s'
+
+      - name: Save linux-next git cache
+        if: ${{ steps.build-artifacts-restore.outputs.cache-hit != 'true' &&
+                steps.linux-next-git-restore.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ${{ env.BUILDDIR }}/linux
+          key: linux-next-git-cache-${{ steps.get-date.outputs.date }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # 6.2.1
+        with:
+          role-to-assume: ${{ vars.AWS_IAM_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Build Linux kernel
+        if: steps.build-artifacts-restore.outputs.cache-hit != 'true'
+        run: |
+          set -eux
+
+          cd "$BUILDDIR/linux"
+
+          # kernel config was generated with make localmodconfig on EC2 instance
+          # after full CRIU tests run (to trigger all modules load)
+          aws s3 cp \
+            s3://criu-linux-next-ci-634567146514-eu-central-1-an/t3.xlarge-kernel-config \
+            .config
+
+          scripts/config --disable SYSTEM_TRUSTED_KEYS
+          scripts/config --disable SYSTEM_REVOCATION_KEYS
+
+          make olddefconfig
+
+          time make -j$(nproc) bindeb-pkg LOCALVERSION="-criu-ci"
+
+          ls -la .
+          ls -la ..
+
+          cd "$BUILDDIR"
+          mkdir artifacts/
+          mv linux-*.deb artifacts/
+
+          echo "artifactPath=${BUILDDIR}/artifacts" >> $GITHUB_ENV
+
+      - name: Save linux-next build results cache
+        if: steps.build-artifacts-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.artifactPath }}
+          key: linux-next-build-${{ steps.get-date.outputs.date }}
+
+      - name: Upload kernel packages to S3
+        run: |
+          set -eux
+
+          cd "$BUILDDIR"
+
+          BUILD_DATE="${{ steps.get-date.outputs.date }}"
+
+          aws s3 cp \
+            artifacts \
+            s3://criu-linux-next-ci-634567146514-eu-central-1-an/artifacts/$BUILD_DATE/ \
+            --recursive
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-kernel-build
+          path: ${{ env.BUILDDIR }}/artifacts/linux-*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+  start-runner:
+    name: Start self-hosted EC2 runner
+    needs:
+      - kernel-build
+    runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.start-ec2-runner.outputs.label }}
+      ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # 6.2.1
+        with:
+          role-to-assume: ${{ vars.AWS_IAM_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Start EC2 runner
+        id: start-ec2-runner
+        uses: machulav/ec2-github-runner@343a1b2ae682e681c3cec9a235d882da17ff04ef # 2.6.1
+        with:
+          mode: start
+          startup-timeout-minutes: 10
+          github-token: ${{ secrets.GH_RUNNERS_PAT_TOKEN }}
+          ec2-image-id: ami-0596cf3199908321b # Ubuntu 24.04 LTS image id on AWS
+          ec2-instance-type: t3.xlarge
+          subnet-id: subnet-0ddb356c3fc41e51a
+          security-group-id: sg-054aa948984162822
+          packages: '["git", "docker.io"]'
+          runner-debug: true
+
+          # we need this so GitHub runner software survives EC2 reboot
+          run-runner-as-service: true
+
+          # we need this to make EC2 runner capable of accessing S3 bucket with kernel builds
+          iam-role-name: ec2-linux-next-vm
+
+          aws-resource-tags: > # attach tags to distinguish GH Actions instances on AWS
+            [
+              {"Key": "Name", "Value": "ec2-github-runner"},
+              {"Key": "GitHubRepository", "Value": "${{ github.repository }}"},
+              {"Key": "GitHubRunId", "Value": "${{ github.run_id }}"}
+            ]
+
+  install-kernel:
+    name: Install kernel on the EC2 runner
+    needs:
+      - kernel-build
+      - start-runner # required to start the main job when the runner is ready
+    runs-on: ${{ needs.start-runner.outputs.label }} # run the job on the newly created runner
+    timeout-minutes: 15
+    steps:
+      - name: Install unzip
+        run: |
+          set -eux
+
+          sudo apt-get update
+
+          sudo apt-get install --no-install-recommends -y \
+            unzip
+
+      - name: Install AWS CLI
+        run: |
+          set -eux
+
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install --update
+
+      - name: Install linux-next kernel
+        run: |
+          set -eux
+
+          BUILD_DATE="${{ needs.kernel-build.outputs.date }}"
+
+          aws s3 cp \
+            s3://criu-linux-next-ci-634567146514-eu-central-1-an/artifacts/$BUILD_DATE/ \
+            artifacts \
+            --recursive
+
+          ls -la artifacts
+
+          sudo dpkg -i artifacts/linux-image-*-criu-ci_*_amd64.deb
+
+  reboot-runner:
+    name: Reboot EC2 runner instance
+    needs:
+      - start-runner
+      - install-kernel # required to start the main job when the runner is ready
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # 6.2.1
+        with:
+          role-to-assume: ${{ vars.AWS_IAM_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Reboot runner
+        run: |
+          set -eux
+
+          INSTANCE_ID="${{ needs.start-runner.outputs.ec2-instance-id }}"
+          aws ec2 reboot-instances --instance-ids "$INSTANCE_ID"
+          aws ec2 wait instance-status-ok --instance-ids "$INSTANCE_ID"
+
+  do-the-job:
+    name: Do the job on the runner
+    needs:
+      - start-runner
+      - reboot-runner # required to start the main job when the runner is ready
+    runs-on: ${{ needs.start-runner.outputs.label }} # run the job on the newly created runner
+    timeout-minutes: 60
+    steps:
+      - name: Validate kernel
+        run: |
+          set -eux
+
+          # ensure that we are running linux-next kernel
+          uname -a | grep next | grep "criu-ci"
+
+      - name: Install make
+        run: |
+          set -eux
+
+          sudo apt-get install --no-install-recommends -y \
+            make
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run CRIU tests
+        run:  |
+          set -eux
+
+          #
+          # We have to set oom_score_adj to the minimal possible value,
+          # otherwise zdtm/static/oom_score_adj test will fail with EACCES
+          # check (see __set_oom_adj() [1] in the kernel).
+          #
+          # This is not a problem on a normal GitHub runners, but is a problem
+          # on a self-hosted ones cause we run GitHub stuff via systemd service
+          # and systemd sets oom_score_adj on a parent process to 500, while
+          # in the test we want to set 400.
+          #
+          # [1] https://github.com/torvalds/linux/blob/27fa82620cbaa89a7fc11ac3057701d598813e87/fs/proc/base.c#L1151
+          echo "-1000" > /proc/self/oom_score_adj
+
+          echo 131072 > /sys/kernel/debug/tracing/buffer_size_kb
+          echo 1 > /sys/kernel/tracing/events/x86_fpu/x86_fpu_xstate_check_failed/enable
+          echo 1 > /sys/kernel/tracing/tracing_on
+
+          sudo make -C scripts/ci local
+
+      - name: Print trace buffer
+        run:  |
+          set -eux
+
+          cat /sys/kernel/tracing/trace
+
+          ! grep x86_fpu_xstate_check_failed /sys/kernel/tracing/trace
+
+      - name: Get tainted state
+        run:  |
+          set -eux
+
+          cat /proc/sys/kernel/tainted
+
+      - name: Print dmesg
+        run:  |
+          set -eux
+
+          dmesg
+
+  get-serial-console:
+    name: Get EC2 serial console output
+    needs:
+      - start-runner
+      - do-the-job # required to wait when the main job is done
+    if: ${{ always() }} # required to get logs even if the error happened in the previous jobs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # 6.2.1
+        with:
+          role-to-assume: ${{ vars.AWS_IAM_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Get serial console output
+        run: |
+          set -eux
+
+          INSTANCE_ID="${{ needs.start-runner.outputs.ec2-instance-id }}"
+          aws ec2 get-console-output \
+                      --instance-id "$INSTANCE_ID" \
+                      --latest \
+                      --output text
+
+  stop-runner:
+    name: Stop self-hosted EC2 runner
+    needs:
+      - start-runner # required to get output from the start-runner job
+      - get-serial-console
+    if: ${{ always() }} # required to stop the runner even if the error happened in the previous jobs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # 6.2.1
+        with:
+          role-to-assume: ${{ vars.AWS_IAM_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Stop EC2 runner
+        uses: machulav/ec2-github-runner@343a1b2ae682e681c3cec9a235d882da17ff04ef # 2.6.1
+        with:
+          mode: stop
+          github-token: ${{ secrets.GH_RUNNERS_PAT_TOKEN }}
+          label: ${{ needs.start-runner.outputs.label }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
