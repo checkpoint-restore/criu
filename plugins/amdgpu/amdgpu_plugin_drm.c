@@ -125,6 +125,7 @@ static void free_e(CriuRenderNode *e)
 		if (e->bo_entries[i])
 			xfree(e->bo_entries[i]);
 	}
+	xfree(e->bo_entries);
 
 	xfree(e);
 }
