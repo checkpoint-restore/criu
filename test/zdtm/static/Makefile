@@ -137,6 +137,7 @@ TST_NOFILE	:=				\
 		socket-tcp-skip-in-flight	\
 		socket-tcp-keepalive		\
 		socket-linger			\
+		socket-timeo			\
 		sock_opts00			\
 		sock_opts01			\
 		sock_opts02			\
