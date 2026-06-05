@@ -197,8 +197,8 @@ jobs:
       # FIXME: https://github.com/containers/podman/issues/14920
       run: sudo -E XDG_RUNTIME_DIR= make -C scripts/ci fedora-rawhide CONTAINER_RUNTIME=podman BUILD_OPTIONS="--security-opt seccomp=unconfined"
 
-  vagrant-fedora-rawhide-test:
-    name: Vagrant Fedora ${{ matrix.name }} based test
+  vm-fedora-rawhide-test:
+    name: VM Fedora ${{ matrix.name }} based test
     needs: [alpine-test]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
