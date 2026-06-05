@@ -57,6 +57,7 @@ $(TARGETS):
 		$(if $(ZDTM_OPTS),-e ZDTM_OPTS) \
 		$(if $(ZDTM_SHARD_INDEX),-e ZDTM_SHARD_INDEX) \
 		$(if $(ZDTM_SHARD_COUNT),-e ZDTM_SHARD_COUNT) \
+		$(if $(CLANG),-e CC=clang -e HOSTCC=clang) \
 		$(CONTAINER_OPTS) \
 		criu-$@ scripts/ci/run-ci-tests.sh
 
