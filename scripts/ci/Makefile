@@ -74,20 +74,6 @@ podman-test:
 java-test:
 	./java-test.sh
 
-setup-vagrant:
-	./vagrant.sh setup
-
-vagrant-fedora-no-vdso: setup-vagrant
-	./vagrant.sh fedora-no-vdso
-
-vagrant-fedora-rawhide: setup-vagrant
-	./vagrant.sh fedora-rawhide
-
-vagrant-fedora-non-root: setup-vagrant
-	./vagrant.sh fedora-non-root
-
-.PHONY: setup-vagrant vagrant-fedora-no-vdso vagrant-fedora-rawhide vagrant-fedora-non-root
-
 check-commit:
 	(cd ../.. && git clean -dfx)
 	($(MAKE) -j $$(nproc) -C ../.. && \

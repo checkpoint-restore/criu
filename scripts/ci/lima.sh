@@ -8,6 +8,10 @@
 #   lima.sh fedora-stable-test
 #   lima.sh fedora-next-setup
 #   lima.sh fedora-next-test
+#   lima.sh fedora-no-vdso-setup
+#   lima.sh fedora-no-vdso-test
+#   lima.sh fedora-non-root-setup
+#   lima.sh fedora-non-root-test
 
 set -e
 set -x
@@ -107,6 +111,94 @@ fedora-next-setup() {
 
 fedora-next-test() {
 	_common_test
+}
+
+fedora-no-vdso-setup() {
+	"${CRIU_DIR}"/contrib/dependencies/dnf-packages.sh
+	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
+	systemctl mask sssd
+	# Disable VDSO; the VM is rebooted between setup and test
+	grubby --update-kernel ALL --args="vdso=0"
+}
+
+fedora-no-vdso-test() {
+	cd "${CRIU_DIR}"
+	make -j"$(nproc)"
+	./test/zdtm.py run -a --keep-going
+	# This test requires pidfd_getfd which is guaranteed in Fedora 33.
+	# It is skipped from -a because it runs in RPC mode only.
+	./test/zdtm.py run -t zdtm/transition/pidfd_store_sk --rpc --pre 2
+}
+
+fedora-non-root-setup() {
+	"${CRIU_DIR}"/contrib/dependencies/dnf-packages.sh
+	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
+	systemctl mask sssd
+	# The rpc test cases are running as user #1000
+	adduser -u 1000 test
+	# The user-namespace test (unshare --map-auto) needs subordinate
+	# UID/GID ranges so that GID 65534 (nobody) is mapped inside the
+	# namespace.  Without this, zdtm.py --rootless fails with EINVAL
+	# on setgid(65534).
+	echo "root:100000:65536" >> /etc/subuid
+	echo "root:100000:65536" >> /etc/subgid
+}
+
+fedora-non-root-test() {
+	cd "${CRIU_DIR}"
+	make -j"$(nproc)"
+
+	# Make the source tree writable by non-root users.  On GitHub
+	# Actions limactl copy preserves the runner's permissions (755
+	# directories), so test binaries running as non-root cannot
+	# create output files without this.
+	chmod -R a+rwX .
+
+	# Setting the capability should be the only line needed to run
+	# as non-root on Fedora.  In other environments either set
+	# /proc/sys/kernel/yama/ptrace_scope to 0 or grant
+	# cap_sys_ptrace to criu.
+	setcap cap_checkpoint_restore+eip criu/criu
+
+	# Run it once as non-root.
+	# Remove any root-owned dump directories from make so the
+	# non-root user can create its own.
+	criu/criu check --unprivileged
+	rm -rf test/dump
+	./test/zdtm.py run \
+		-t zdtm/static/env00 \
+		-t zdtm/static/pthread00 \
+		-f h --rootless
+
+	# Run it as root with '--rootless'
+	sudo ./test/zdtm.py run \
+		-t zdtm/static/env00 \
+		-t zdtm/static/pthread00 \
+		-f h
+	sudo chmod 777 test/dump/zdtm/static/{env00,pthread00}
+	sudo ./test/zdtm.py run \
+		-t zdtm/static/env00 \
+		-t zdtm/static/pthread00 \
+		-f h --rootless
+
+	# Run it as non-root in a user namespace.  Since
+	# CAP_CHECKPOINT_RESTORE behaves differently in non-user
+	# namespaces (e.g. no access to map_files) this tests that we
+	# can dump and restore under those conditions.
+	# Note: the "... && true" part is necessary so that bash does
+	# not exec the last statement and still reaps zombies.
+	# Note: selinux in Enforcing mode prevents clone3() or
+	# writing to ns_last_pid on restore; set to Permissive for
+	# the test and then restore it.
+	# Remove dump directory left by previous test runs as root;
+	# the user namespace test runs as nobody (uid 65534) and
+	# cannot write into root-owned directories.
+	rm -rf test/dump
+	selinuxmode=$(getenforce)
+	sudo setenforce Permissive
+	unshare --map-auto -fpm --mount-proc bash -c \
+		"./test/zdtm.py run -t zdtm/static/maps00 -f h --rootless && true"
+	sudo setenforce "$selinuxmode"
 }
 
 "$@"

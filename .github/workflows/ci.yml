@@ -208,8 +208,16 @@ jobs:
         include:
           - variant: fedora-stable
             name: Stable
+            reboot: true
           - variant: fedora-next
             name: Next
+            reboot: true
+          - variant: fedora-no-vdso
+            name: No VDSO
+            reboot: true
+          - variant: fedora-non-root
+            name: Non-Root
+            reboot: false
     steps:
     - uses: actions/checkout@v4
     - uses: ./.github/actions/lima-vm-setup
@@ -219,6 +227,7 @@ jobs:
     - name: Setup VM
       run: lima sudo /home/criu/scripts/ci/lima.sh ${{ matrix.variant }}-setup
     - name: Reboot VM to activate new kernel
+      if: matrix.reboot
       run: |
         limactl stop default
         limactl start default
