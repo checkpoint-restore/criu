@@ -67,15 +67,33 @@ jobs:
           ZDTM_OPTS="-x zdtm/static/change_mnt_context -x zdtm/static/maps05"
 
   archlinux-test:
+    name: Arch Linux Test (${{ matrix.shard_name }})
     needs: [alpine-test]
     # archlinux:latest + pacman -Syu is a rolling-release build; failures
     # caused by upstream package churn are outside CRIU's control.
     continue-on-error: true
+    strategy:
+      matrix:
+        shard: [0, 1, 2, 3, 4]
+        include:
+          - shard: 0
+            shard_name: zdtm 1/4
+          - shard: 1
+            shard_name: zdtm 2/4
+          - shard: 2
+            shard_name: zdtm 3/4
+          - shard: 3
+            shard_name: zdtm 4/4
+          - shard: 4
+            shard_name: non-zdtm
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
-    - name: Run Arch Linux Test
-      run: sudo -E make -C scripts/ci archlinux
+    - name: Run Arch Linux ${{ matrix.shard_name }} Test
+      run: >
+        sudo -E make -C scripts/ci archlinux
+        ZDTM_SHARD_INDEX=${{ matrix.shard }}
+        ZDTM_SHARD_COUNT=4
 
   compat-test:
     needs: [alpine-test]
