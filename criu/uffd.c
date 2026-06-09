@@ -299,6 +299,7 @@ close:
 int setup_uffd(int pid, struct task_restore_args *task_args)
 {
 	unsigned long features = kdat.uffd_features & NEED_UFFD_API_FEATURES;
+	int err = 0;
 
 	if (!opts.lazy_pages) {
 		task_args->uffd = -1;
@@ -309,9 +310,14 @@ int setup_uffd(int pid, struct task_restore_args *task_args)
 	 * Open userfaulfd FD which is passed to the restorer blob and
 	 * to a second process handling the userfaultfd page faults.
 	 */
-	task_args->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features, NULL);
+	task_args->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features, &err);
 	if (task_args->uffd < 0) {
-		pr_perror("Unable to open an userfaultfd descriptor");
+		if (err)
+			errno = err;
+		pr_perror("Unable to open a userfaultfd descriptor");
+		if (err == EPERM)
+			pr_err("To use --lazy-pages, run with CAP_SYS_PTRACE in the root "
+			       "user namespace or set 'sysctl -w vm.unprivileged_userfaultfd=1'\n");
 		return -1;
 	}
 
