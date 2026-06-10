@@ -958,8 +958,17 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		 * (did not have the "ac" flag in /proc/pid/smaps), we
 		 * can safely mmap them with PROT_NONE because we know
 		 * we will never need to write any bits to them.
+		 *
+		 * This only holds for a standalone VMA (vma->pvma == NULL).
+		 * A COW root (vma->pvma == VMA_COW_ROOT) shares this very
+		 * mapping with inherited children via the mremap() in the
+		 * branch below; those children may have pages to restore,
+		 * and restoring content into a PROT_NONE mapping faults
+		 * (e.g. the memcmp()/copy in restore_priv_vma_content()).
+		 * So a COW root must stay writable even when it is itself
+		 * PROT_NONE and not accountable.
 		 */
-		if (vma->e->prot == PROT_NONE && vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE)) {
+		if (vma->e->prot == PROT_NONE && vma->pvma == NULL && vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE)) {
 			addr = mmap(*tgt_addr, size, PROT_NONE, vma->e->flags | MAP_FIXED | flag, vma->e->fd,
 				    vma->e->pgoff);
 		} else {
