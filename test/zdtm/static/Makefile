@@ -192,6 +192,7 @@ TST_NOFILE	:=				\
 		socket-ext			\
 		unhashed_proc			\
 		cow00				\
+		cow02				\
 		child_opened_proc		\
 		posix_timers			\
 		sigpending			\
