@@ -2962,8 +2962,9 @@ if __name__ == '__main__':
 
     if opts['action'] == run_tests:
         criu.available()
-    for tst in test_classes.values():
-        tst.available()
+    if opts['action'] != clean_stuff:
+        for tst in test_classes.values():
+            tst.available()
 
     orig_hugepages = set_nr_hugepages(20)
     opts['action'](opts)
