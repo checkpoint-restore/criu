@@ -25,7 +25,7 @@ root = tempfile.mkdtemp(prefix="root.mount", dir="/tmp")
 mount(None, root, 1, 0, 0)
 mounts = [root]
 
-for i in range(10):
+for _ in range(10):
     dstdir = random.choice(mounts)
     dst = tempfile.mkdtemp(prefix="mount", dir=dstdir)
     src = random.choice(mounts + [None])

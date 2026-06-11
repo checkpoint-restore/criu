@@ -24,7 +24,6 @@ def recode_and_check(imgf, o_img, pretty):
     try:
         r_img = pycriu.images.dumps(pb)
     except Exception as e:
-        r_img = pycriu.images.dumps(pb)
         print("%s %s encode fails: %s" % (imgf, pretty and 'pretty ' or '', e))
         return False
 

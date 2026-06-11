@@ -2419,7 +2419,7 @@ def grep_errors(fname, err=False):
         print_sep("grep Error (no)", "-", 60)
         first = False
         for i in before:
-            print_next = print_error(i)
+            print_error(i)
 
     if not first:
         print_sep("ERROR OVER", "-", 60)

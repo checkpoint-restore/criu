@@ -605,7 +605,7 @@ def chk_state(st, opts):
 
     pid = os.fork()
     if pid == 0:
-        msg = signal_sk.recv(64)
+        signal_sk.recv(64)
         ret = chk_real_state(st)
         sys.exit(ret)
 
