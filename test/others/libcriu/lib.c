@@ -46,7 +46,7 @@ int chk_exit(int status, int want)
 	return 1;
 }
 
-int get_version()
+void get_version(void)
 {
 	printf("Using a CRIU binary with version %d\n", criu_get_version());
 }
