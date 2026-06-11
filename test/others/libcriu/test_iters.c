@@ -18,7 +18,7 @@ static void sh(int sig)
 	stop = 1;
 }
 
-static int open_imgdir(void)
+static void open_imgdir(void)
 {
 	char p[10];
 
