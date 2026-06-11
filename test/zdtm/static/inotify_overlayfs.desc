@@ -1,0 +1,2 @@
+{'flags': 'suid', 'flavor': 'ns', 'feature': 'mnt_id',
+ 'opts': '--external mnt[]:s'}

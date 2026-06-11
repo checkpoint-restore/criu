@@ -1,0 +1,19 @@
+#!/bin/bash
+
+[ "$1" == "--clean" ] || exit 0
+
+# Remove overlay backing dirs left by the ZDTM_NEWNS=1 phase.
+# The test creates them in its working directory, which is the
+# same directory as this hook script.
+test_dir=$(dirname "$(readlink -f "$0")")
+for dir in "$test_dir"/zdtm_inotify_ovl.* ; do
+	[ -d "$dir" ] && rm -rf "$dir"
+done
+
+# Remove overlay mount point dirs from /tmp.
+for dir in /tmp/zdtm_ino_mnt.* ; do
+	umount "$dir" 2>/dev/null || true
+	[ -d "$dir" ] && rmdir "$dir"
+done
+
+exit 0

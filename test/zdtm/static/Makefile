@@ -481,6 +481,7 @@ TST_DIR		=				\
 		symlink				\
 		symlink01			\
 		unbindable			\
+		inotify_overlayfs		\
 
 TST_DIR_FILE	=				\
 		chroot				\
