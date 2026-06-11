@@ -5,6 +5,7 @@ dnf install -y \
 	binutils \
 	elfutils-libelf-devel \
 	gcc \
+	gdb \
 	git \
 	glibc-devel \
 	gnutls-devel \
