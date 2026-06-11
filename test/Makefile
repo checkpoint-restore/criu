@@ -56,7 +56,7 @@ clean: clean_root
 	$(Q) $(RM) *.log
 	$(Q) $(RM) -r ./dump/
 	$(Q) $(MAKE) -C zdtm cleandep clean cleanout
-	$(Q) $(MAKE) -C libcriu clean
-	$(Q) $(MAKE) -C rpc clean
-	$(Q) $(MAKE) -C crit clean
+	$(Q) $(MAKE) -C others/libcriu clean
+	$(Q) $(MAKE) -C others/rpc clean
+	$(Q) $(MAKE) -C others/crit clean
 .PHONY: clean
