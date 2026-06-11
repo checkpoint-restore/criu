@@ -66,8 +66,18 @@ jobs:
         sudo sysctl -w kernel.sched_rt_runtime_us=-1
         # etc/hosts entry is needed for netns_lock_iptables
         echo "127.0.0.1   localhost" | sudo tee -a /etc/hosts
+        # socket-tcpbuf* fill large TCP queues, leaving the receive window
+        # retracted toward zero. Restoring that state hits a Linux 6.17
+        # regression where the kernel drops the peer's in-window data and the
+        # restored task hangs ("FAIL at .. die"). Not a CRIU bug; the 6.17
+        # kernel only ships on the *-arm runners here.
+        #   regression: 9ca48d616ed7 ("tcp: do not accept packets beyond window")
+        #   fixed in v7.1: 0e24d17bd966 ("tcp: implement RFC 7323 window
+        #     retraction receiver requirements")
         sudo -E make -C scripts/ci local ${{ matrix.target }} RUN_TESTS=1 \
-          ZDTM_OPTS="-x zdtm/static/change_mnt_context -x zdtm/static/maps05"
+          ZDTM_OPTS="-x zdtm/static/change_mnt_context -x zdtm/static/maps05 \
+          -x zdtm/static/socket-tcpbuf -x zdtm/static/socket-tcpbuf6 \
+          -x zdtm/static/socket-tcpbuf-local -x zdtm/static/socket-tcpbuf6-local"
 
   archlinux-test:
     name: Arch Linux Test (${{ matrix.shard_name }})
