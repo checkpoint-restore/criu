@@ -7,6 +7,7 @@
 #include <string.h>
 #include <utime.h>
 #include <limits.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/inotify.h>
@@ -108,6 +109,163 @@ enum {
 	ERR_GENERIC = -3
 };
 
+#define OVL_WALK_MAX_DEPTH	64
+#define OVL_WALK_WARN_THRESHOLD	10000
+
+/*
+ * Recursively walk a directory tree looking for an inode matching
+ * (s_dev, i_ino).  Returns an allocated path string on success,
+ * NULL when not found.  The caller is responsible for freeing the
+ * returned string via xfree().
+ *
+ * Note: this function takes ownership of @dirfd and closes it
+ * (via fdopendir/closedir) whether it succeeds or fails.
+ *
+ * @visited is incremented for each inode examined and is used to
+ * emit a one-time warning when the walk becomes expensive.
+ */
+static char *__walk_overlay_dir(int dirfd, const char *base,
+				unsigned int s_dev,
+				unsigned long i_ino, int depth,
+				unsigned long *visited)
+{
+	DIR *dfd;
+	struct dirent *de;
+	char *found = NULL;
+
+	if (depth <= 0) {
+		close(dirfd);
+		return NULL;
+	}
+
+	dfd = fdopendir(dirfd);
+	if (!dfd) {
+		pr_perror("Can't fdopendir for overlay walk");
+		close(dirfd);
+		return NULL;
+	}
+
+	while (1) {
+		struct stat st;
+
+		errno = 0;
+		de = readdir(dfd);
+		if (!de)
+			break;
+
+		if (dir_dots(de))
+			continue;
+
+		if (fstatat(dirfd, de->d_name, &st,
+			    AT_SYMLINK_NOFOLLOW) < 0) {
+			pr_debug("overlay walk: fstatat(%s/%s) failed: %s\n",
+				 base, de->d_name, strerror(errno));
+			continue;
+		}
+
+		(*visited)++;
+		if (*visited == OVL_WALK_WARN_THRESHOLD)
+			pr_warn("overlay walk: examined %lu entries so far "
+				"looking for ino %lx, mount may be large\n",
+				*visited, i_ino);
+
+		if (MKKDEV(major(st.st_dev), minor(st.st_dev)) == s_dev &&
+		    st.st_ino == i_ino) {
+			found = xsprintf("%s/%s", base, de->d_name);
+			if (!found)
+				pr_err("OOM building overlay path for ino %lx\n",
+				       i_ino);
+			break;
+		}
+
+		if (S_ISDIR(st.st_mode)) {
+			int subfd;
+			char *subbase;
+
+			subfd = openat(dirfd, de->d_name,
+				       O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+			if (subfd < 0)
+				continue;
+
+			subbase = xsprintf("%s/%s", base, de->d_name);
+			if (!subbase) {
+				close(subfd);
+				continue;
+			}
+
+			found = __walk_overlay_dir(subfd, subbase,
+						   s_dev, i_ino,
+						   depth - 1,
+						   visited);
+			xfree(subbase);
+			if (found)
+				break;
+		}
+	}
+
+	if (!de && errno)
+		pr_perror("overlay walk: readdir failed on %s", base);
+
+	closedir(dfd);
+	return found;
+}
+
+/*
+ * Try to locate a file on an overlay mount by walking the directory
+ * tree and matching (s_dev, i_ino).  Returns an allocated absolute
+ * path (e.g. "/tmp/merged/subdir/file") on success, NULL on failure.
+ */
+static char *find_path_on_overlay(struct mount_info *m,
+				  unsigned int s_dev,
+				  unsigned long i_ino)
+{
+	int root_fd, mount_fd;
+	unsigned long visited = 0;
+	char *base, *found;
+	struct stat st;
+
+	root_fd = mntns_get_root_fd(m->nsid);
+	if (root_fd < 0)
+		return NULL;
+
+	/*
+	 * ns_mountpoint has a leading dot, e.g. "./tmp/merged",
+	 * which makes it relative to mntns root for openat.
+	 */
+	mount_fd = openat(root_fd, m->ns_mountpoint, O_RDONLY | O_DIRECTORY);
+	if (mount_fd < 0) {
+		pr_perror("Can't open overlay mountpoint %s",
+			  m->ns_mountpoint);
+		return NULL;
+	}
+
+	/*
+	 * The path stored in f_handle->path must be absolute so
+	 * that get_mark_path() can strip the leading "/" and use
+	 * openat(mntns_root, path + 1, O_PATH) on restore.
+	 * ns_mountpoint + 1 gives us e.g. "/tmp/merged".
+	 */
+	base = m->ns_mountpoint + 1;
+
+	/* Check if the mountpoint directory itself is the target */
+	if (fstat(mount_fd, &st) == 0 &&
+	    MKKDEV(major(st.st_dev), minor(st.st_dev)) == s_dev &&
+	    st.st_ino == i_ino) {
+		close(mount_fd);
+		return xstrdup(base);
+	}
+
+	found = __walk_overlay_dir(mount_fd, base, s_dev, i_ino,
+				   OVL_WALK_MAX_DEPTH, &visited);
+	/* mount_fd is consumed by fdopendir inside __walk_overlay_dir */
+
+	if (found)
+		pr_debug("overlay walk: found ino %lx after %lu entries\n",
+			 i_ino, visited);
+
+	return found;
+}
+
 static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)
 {
 	struct mount_info *m;
@@ -144,8 +302,31 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 
 		fd = userns_call(open_by_handle, UNS_FDOUT, &handle, sizeof(handle), mntfd);
 		close(mntfd);
-		if (fd < 0)
+		if (fd < 0) {
+			if (m->fstype->code == FSTYPE__OVERLAYFS) {
+				char *ovl_path;
+
+				pr_debug("\t\tHandle open failed on overlay,"
+					 " trying dir walk for %lx\n",
+					 i_ino);
+				ovl_path = find_path_on_overlay(m, s_dev,
+								i_ino);
+				if (ovl_path) {
+					if (root_ns_mask & CLONE_NEWNS) {
+						f_handle->has_mnt_id = true;
+						f_handle->mnt_id = m->mnt_id;
+					}
+					return ovl_path;
+				}
+				/*
+				 * Mark as found so the caller gets
+				 * ERR_NO_PATH_IN_MOUNT and falls
+				 * through to irmap lookup.
+				 */
+				suitable_mount_found = 1;
+			}
 			continue;
+		}
 		suitable_mount_found = 1;
 
 		if (read_fd_link(fd, buf, sizeof(buf)) < 0) {
