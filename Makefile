@@ -476,6 +476,7 @@ shellcheck:
 	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh
 	shellcheck -x test/others/config-file/*.sh
 	shellcheck -x test/others/action-script/*.sh
+	shellcheck -x test/others/odirect/*.sh
 	shellcheck -x contrib/criu-service-client/test/*.sh
 
 codespell:
