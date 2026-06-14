@@ -16,6 +16,7 @@
 #include <sys/mman.h>
 #include <sys/mount.h>
 #include <aio.h>
+#include <dirent.h>
 
 #include <sys/fanotify.h>
 
@@ -108,6 +109,77 @@ enum {
 	ERR_GENERIC = -3
 };
 
+/*
+ * Recursively scan a directory tree looking for a file with the given
+ * @s_dev and @i_ino. Returns an allocated absolute path string on success,
+ * NULL if not found. Used as a fallback for overlayfs when open_by_handle_at
+ * cannot decode the file handle.
+ */
+static char *scan_dir_for_inode(int mntns_root, const char *base_path,
+				unsigned int s_dev, unsigned long i_ino,
+				int depth)
+{
+	static int entries_scanned;
+	int fd;
+	DIR *dir;
+	struct dirent *de;
+	char *result = NULL;
+
+	if (depth <= 0)
+		return NULL;
+
+	fd = openat(mntns_root, base_path, O_RDONLY | O_DIRECTORY);
+	if (fd < 0)
+		return NULL;
+
+	dir = fdopendir(fd);
+	if (!dir) {
+		close(fd);
+		return NULL;
+	}
+
+	while ((de = readdir(dir)) != NULL) {
+		struct stat st;
+		char child_path[PATH_MAX];
+		int n;
+
+		if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
+			continue;
+
+		n = snprintf(child_path, PATH_MAX, "%s/%s", base_path,
+			     de->d_name);
+		if (n >= PATH_MAX)
+			continue;
+
+		if (fstatat(mntns_root, child_path, &st, AT_SYMLINK_NOFOLLOW))
+			continue;
+
+		entries_scanned++;
+		if (entries_scanned == 10000)
+			pr_warn("Overlayfs inode scan: checked over 10000 entries\n");
+
+		if (st.st_dev != s_dev)
+			continue;
+
+		if (st.st_ino == i_ino) {
+			result = xsprintf("/%s", child_path);
+			break;
+		}
+
+		if (S_ISDIR(st.st_mode)) {
+			result = scan_dir_for_inode(mntns_root, child_path,
+						    s_dev, i_ino, depth - 1);
+			if (result)
+				break;
+		}
+	}
+
+	closedir(dir);
+	return result;
+}
+
+#define OVERLAYFS_SCAN_MAX_DEPTH 64
+
 static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)
 {
 	struct mount_info *m;
@@ -136,6 +208,13 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 		if (!mnt_is_dir(m))
 			continue;
 
+		/*
+		 * Record that we found a mount with matching s_dev before
+		 * trying open_by_handle_at. On overlayfs, handle decoding
+		 * may fail but the mount is still correct.
+		 */
+		suitable_mount_found = 1;
+
 		mntfd = __open_mountpoint(m);
 		pr_debug("\t\tTrying via mntid %d root %s ns_mountpoint @%s (%d)\n", m->mnt_id, m->root,
 			 m->ns_mountpoint, mntfd);
@@ -146,7 +225,6 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 		close(mntfd);
 		if (fd < 0)
 			continue;
-		suitable_mount_found = 1;
 
 		if (read_fd_link(fd, buf, sizeof(buf)) < 0) {
 			close(fd);
@@ -267,6 +345,34 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle
 		pr_err("Can't find suitable path for handle (dev %#x ino %#lx): %d\n", s_dev, i_ino,
 		       (int)PTR_ERR(path));
 		goto err;
+	}
+
+	/*
+	 * For overlayfs, open_by_handle_at() often fails because overlayfs
+	 * does not reliably support file handle decoding (depends on kernel
+	 * version and nfs_export mount option). Resolve the path by scanning
+	 * the overlay mount tree for the matching inode.
+	 */
+	if (mi->fstype->code == FSTYPE__OVERLAYFS) {
+		int mntns_root = mntns_get_root_fd(mi->nsid);
+		if (mntns_root >= 0) {
+			char *mp = mi->ns_mountpoint + 1;
+			if (mp[0] == '\0')
+				mp = ".";
+			path = scan_dir_for_inode(mntns_root, mp, s_dev, i_ino,
+						  OVERLAYFS_SCAN_MAX_DEPTH);
+			if (path) {
+				pr_debug("\tResolved overlayfs path: %s\n", path);
+				f_handle->path = path;
+				if (root_ns_mask & CLONE_NEWNS) {
+					f_handle->has_mnt_id = true;
+					f_handle->mnt_id = mi->mnt_id;
+				}
+				goto out_nopath;
+			}
+		}
+		pr_warn("\tOverlayfs inode scan failed, trying irmap\n");
+		goto fault;
 	}
 
 	if (!opts.force_irmap)

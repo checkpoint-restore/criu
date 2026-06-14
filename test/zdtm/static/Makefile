@@ -418,6 +418,7 @@ TST_DIR		=				\
 		inotify01			\
 		inotify02			\
 		inotify04			\
+		inotify_overlayfs		\
 		cgroup00			\
 		rmdir_open			\
 		cgroup01			\
