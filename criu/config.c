@@ -1058,7 +1058,8 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		}
 	}
 
-	if (has_network_lock_opt && !strcmp(argv[optind], "restore")) {
+	if (has_network_lock_opt && argv && optind < argc &&
+	    !strcmp(argv[optind], "restore")) {
 		pr_warn("--network-lock will be ignored in restore command\n");
 		pr_info("Network lock method from dump will be used in restore\n");
 	}
