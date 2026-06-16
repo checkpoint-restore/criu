@@ -8,6 +8,11 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <linux/userfaultfd.h>
+#include <string.h>
+#include <pthread.h>
+#include <poll.h>
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-xfer: "
@@ -27,15 +32,36 @@
 #include "rst_info.h"
 #include "stats.h"
 #include "tls.h"
+#include "uffd.h"
+#include "clone/clone-uffd.h"
+#include "clone/clone-dump.h"
+#include "clone/page-pool.h"
+#include "criu-plugin.h"
+#include "plugin.h"
+#include "dump.h"
+#include "mem.h"
+#include "clone/clone-bulk-send.h"
+#include "clone/spsc-queue.h"
+#include "xmalloc.h"
+#include "clone/clone-page-xfer.h"
+#include "clone/clone-unified-thread.h"
+#include "clone/clone-bulk-recv.h"
 
 static int page_server_sk = -1;
 
-struct page_server_iov {
-	u32 cmd;
-	u64 nr_pages;
-	u64 vaddr;
-	u64 dst_id;
-};
+
+int get_page_server_sk(void)
+{
+	return page_server_sk;
+}
+
+/* Wrapper for clone_wait_for_page_server_thread (called from cr-dump.c, clone-dump.c) */
+void wait_for_page_server_thread(void)
+{
+	clone_wait_for_page_server_thread();
+}
+
+
 
 static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 {
@@ -43,19 +69,6 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 	iov->iov_len = ps->nr_pages * PAGE_SIZE;
 }
 
-#define PS_IOV_ADD    1
-#define PS_IOV_HOLE   2
-#define PS_IOV_OPEN   3
-#define PS_IOV_OPEN2  4
-#define PS_IOV_PARENT 5
-#define PS_IOV_ADD_F  6
-#define PS_IOV_GET    7
-
-#define PS_IOV_CLOSE	   0x1023
-#define PS_IOV_FORCE_CLOSE 0x1024
-
-#define PS_CMD_BITS 16
-#define PS_CMD_MASK ((1 << PS_CMD_BITS) - 1)
 
 #define PS_TYPE_BITS 8
 #define PS_TYPE_MASK ((1 << PS_TYPE_BITS) - 1)
@@ -119,15 +132,6 @@ static int decode_pm(u64 dst_id, unsigned long *id)
 	return type;
 }
 
-static inline u32 encode_ps_cmd(u32 cmd, u32 flags)
-{
-	return flags << PS_CMD_BITS | cmd;
-}
-
-static inline u32 decode_ps_cmd(u32 cmd)
-{
-	return cmd & PS_CMD_MASK;
-}
 
 static inline u32 decode_ps_flags(u32 cmd)
 {
@@ -144,16 +148,90 @@ static inline int __recv(int sk, void *buf, size_t sz, int fl)
 	return opts.tls ? tls_recv(buf, sz, fl) : recv(sk, buf, sz, fl);
 }
 
+/*
+ * Blocking-loop send: keep calling __send() until all `sz` bytes are
+ * delivered, the peer closes, or a real error occurs. Short writes
+ * happen on blocking TCP sockets under socket-buffer pressure; the
+ * old single-shot code treated them as fatal and callers would
+ * BUG_ON on the short return (see clone-bulk-send.c:1680 /
+ * clone-page-xfer.c:56). Retry EINTR too — it's recoverable.
+ *
+ * MSG_DONTWAIT callers have their own retry policy; don't break them.
+ *
+ * Return: `sz` on success, 0 on peer close mid-write, -1 on error.
+ */
+static int __send_all(int sk, const void *buf, size_t sz, int fl)
+{
+	const char *cursor = buf;
+	size_t remaining = sz;
+
+	if (fl & MSG_DONTWAIT)
+		return __send(sk, buf, sz, fl);
+
+	while (remaining > 0) {
+		int ret = __send(sk, cursor, remaining, fl);
+
+		if (ret < 0) {
+			if (errno == EINTR)
+				continue;
+			return -1;
+		}
+		if (ret == 0)
+			return 0;
+		cursor += ret;
+		remaining -= ret;
+	}
+	return sz;
+}
+
+/* Exported wrappers for clone-page-xfer.c and clone-bulk-send.c */
+int page_server_send(int sk, const void *buf, size_t sz, int fl)
+{
+	return __send_all(sk, buf, sz, fl);
+}
+
+int page_server_recv(int sk, void *buf, size_t sz, int fl)
+{
+	/*
+	 * GnuTLS returns one record at a time (~16KB max), so MSG_WAITALL
+	 * semantics must be implemented by looping. Without TLS the kernel
+	 * handles MSG_WAITALL internally.
+	 */
+	if (opts.tls && (fl & MSG_WAITALL)) {
+		char *cursor = buf;
+		size_t remaining = sz;
+
+		while (remaining > 0) {
+			int ret = __recv(sk, cursor, remaining, fl & ~MSG_WAITALL);
+
+			if (ret < 0) {
+				if (errno == EINTR)
+					continue;
+				return -1;
+			}
+			if (ret == 0)
+				return sz - remaining;
+			cursor += ret;
+			remaining -= ret;
+		}
+		return sz;
+	}
+
+	return __recv(sk, buf, sz, fl);
+}
+
+/* Raw wrappers for P3 parallel sockets are in clone-page-xfer.c */
+
 static inline int send_psi_flags(int sk, struct page_server_iov *pi, int flags)
 {
-	if (__send(sk, pi, sizeof(*pi), flags) != sizeof(*pi)) {
+	if (__send_all(sk, pi, sizeof(*pi), flags) != sizeof(*pi)) {
 		pr_perror("Can't send PSI %d to server", pi->cmd);
 		return -1;
 	}
 	return 0;
 }
 
-static inline int send_psi(int sk, struct page_server_iov *pi)
+int send_psi(int sk, struct page_server_iov *pi)
 {
 	return send_psi_flags(sk, pi, 0);
 }
@@ -165,7 +243,7 @@ static void tcp_cork(int sk, bool on)
 		pr_pwarn("Unable to set TCP_CORK=%d", val);
 }
 
-static void tcp_nodelay(int sk, bool on)
+void page_server_tcp_nodelay(int sk, bool on)
 {
 	int val = on ? 1 : 0;
 	if (setsockopt(sk, SOL_TCP, TCP_NODELAY, &val, sizeof(val)))
@@ -238,7 +316,7 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, unsigned l
 	}
 
 	/* Push the command NOW */
-	tcp_nodelay(xfer->sk, true);
+	page_server_tcp_nodelay(xfer->sk, true);
 
 	if (__recv(xfer->sk, &has_parent, 1, 0) != 1) {
 		pr_perror("The page server doesn't answer");
@@ -881,6 +959,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb;
 	unsigned int cur_hole = 0;
+	struct lazy_vma_entry *cur_lve = NULL;
 	int ret;
 
 	pr_debug("Transferring pages:\n");
@@ -893,10 +972,31 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec iov = ppb->iov[i];
 			u32 flags;
+			unsigned long seg_vaddr = (unsigned long)iov.iov_base + xfer->offset;
 
 			ret = dump_holes(xfer, pp, &cur_hole, iov.iov_base);
 			if (ret)
 				return ret;
+
+			/*
+			 * CLONE mode: Write lazy VMA entries to pagemap.
+			 *
+			 * The uffd page fault handler (collect_iovs in uffd.c) reads
+			 * pagemap to build its list of servable address ranges. Without
+			 * these PE_LAZY entries, it won't know about lazy VMAs and the
+			 * process will crash on page faults.
+			 *
+			 * In regular lazy-pages, lazy pages go through generate_iovs()
+			 * into page_pipe. In CLONE mode, lazy VMAs skip that path and
+			 * are collected separately, so we write them here.
+			 *
+			 * Only for task pagemap (offset==0), not shmem pagemap.
+			 */
+			if (opts.clone_dump && xfer->offset == 0) {
+				ret = clone_write_lazy_vmas_to_pagemap(xfer, seg_vaddr, &cur_lve);
+				if (ret)
+					return ret;
+			}
 
 			BUG_ON(iov.iov_base < (void *)xfer->offset);
 			iov.iov_base -= xfer->offset;
@@ -911,7 +1011,18 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 		}
 	}
 
-	return dump_holes(xfer, pp, &cur_hole, NULL);
+	ret = dump_holes(xfer, pp, &cur_hole, NULL);
+	if (ret)
+		return ret;
+
+	/* CLONE: Write remaining lazy VMAs that come after all pipe segments */
+	if (opts.clone_dump && xfer->offset == 0) {
+		ret = clone_write_lazy_vmas_to_pagemap(xfer, ULONG_MAX, &cur_lve);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 /*
@@ -982,7 +1093,7 @@ static int check_parent_server_xfer(int fd_type, unsigned long img_id)
 	if (send_psi(page_server_sk, &pi))
 		return -1;
 
-	tcp_nodelay(page_server_sk, true);
+	page_server_tcp_nodelay(page_server_sk, true);
 
 	if (__recv(page_server_sk, &has_parent, sizeof(int), 0) != sizeof(int)) {
 		pr_perror("The page server doesn't answer");
@@ -1179,7 +1290,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 			return -1;
 	}
 
-	tcp_nodelay(sk, true);
+	page_server_tcp_nodelay(sk, true);
 
 	return 0;
 }
@@ -1188,7 +1299,7 @@ static int page_server_serve(int sk)
 {
 	int ret = -1;
 	bool flushed = false;
-	bool receiving_pages = !opts.lazy_pages;
+	bool receiving_pages = !(opts.lazy_pages || opts.clone_dump);
 
 	if (receiving_pages) {
 		/*
@@ -1196,7 +1307,7 @@ static int page_server_serve(int sk)
 		 * writes back the has_parent bit from time to time, so
 		 * make it NODELAY all the time.
 		 */
-		tcp_nodelay(sk, true);
+		page_server_tcp_nodelay(sk, true);
 
 		if (pipe(cxfer.p)) {
 			pr_perror("Can't make pipe for xfer");
@@ -1273,6 +1384,23 @@ static int page_server_serve(int sk)
 		}
 		case PS_IOV_GET:
 			ret = page_server_get_pages(sk, &pi);
+			break;
+		case PS_IOV_GET_ALL:
+			/*
+			 * CLONE mode: target requests all pages. Hand off to
+			 * clone_page_server_get_all_pages() which starts P3 senders.
+			 * Store socket and return - main dump loop continues.
+			 */
+			if (!opts.clone_dump) {
+				pr_err("PS_IOV_GET_ALL requires CLONE mode\n");
+				ret = -1;
+				break;
+			}
+			ret = clone_page_server_get_all_pages(sk, pi.dst_id);
+			if (!ret) {
+				page_server_sk = sk;
+				return 0;
+			}
 			break;
 		default:
 			pr_err("Unknown command %u\n", pi.cmd);
@@ -1430,7 +1558,7 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	if (init_stats(DUMP_STATS))
 		return -1;
 
-	if (!opts.lazy_pages)
+	if (!(opts.lazy_pages || opts.clone_dump))
 		up_page_ids_base();
 	else if (!lazy_dump)
 		if (page_server_init_send())
@@ -1488,7 +1616,19 @@ static int connect_to_page_server(void)
 		goto out;
 	}
 
-	page_server_sk = setup_tcp_client(opts.addr);
+	if (opts.clone_dump) {
+		int retries = 300;
+
+		while (retries-- > 0) {
+			page_server_sk = setup_tcp_client(opts.addr);
+			if (page_server_sk >= 0)
+				break;
+			usleep(100000);
+		}
+	} else {
+		page_server_sk = setup_tcp_client(opts.addr);
+	}
+
 	if (page_server_sk == -1)
 		return -1;
 
@@ -1665,6 +1805,11 @@ static int page_server_async_read(struct epoll_rfd *f)
 
 static int page_server_hangup_event(struct epoll_rfd *rfd)
 {
+	if (opts.clone_dump && clone_is_all_pages_sent_received()) {
+		pr_debug("Page server closed connection after all pages sent\n");
+		return 1;
+	}
+
 	pr_err("Remote side closed connection\n");
 	return -1;
 }
@@ -1677,10 +1822,31 @@ int connect_to_page_server_to_recv(int epfd)
 		return -1;
 
 	ps_rfd.fd = page_server_sk;
-	ps_rfd.read_event = page_server_async_read;
+	/* Use bulk stream reader in bulk mode, regular reader in on-demand mode */
+	if (opts.clone_dump) {
+		ps_rfd.read_event = page_server_async_read_bulk;
+	} else {
+		ps_rfd.read_event = page_server_async_read;
+	}
 	ps_rfd.hangup_event = page_server_hangup_event;
 
 	return epoll_add_rfd(epfd, &ps_rfd);
+}
+
+/*
+ * Remove page server socket from epoll and close it.
+ * Called after all pages are received to prevent hangup events.
+ */
+int remove_page_server_from_epoll(int epfd)
+{
+	if (page_server_sk < 0)
+		return 0;
+
+	pr_debug("Removing page server fd=%d from epoll\n", page_server_sk);
+	epoll_del_rfd(epfd, &ps_rfd);
+	close(page_server_sk);
+	page_server_sk = -1;
+	return 0;
 }
 
 int request_remote_pages(unsigned long img_id, unsigned long addr, unsigned long nr_pages)
@@ -1696,7 +1862,7 @@ int request_remote_pages(unsigned long img_id, unsigned long addr, unsigned long
 	if (send_psi_flags(page_server_sk, &pi, MSG_DONTWAIT))
 		return -1;
 
-	tcp_nodelay(page_server_sk, true);
+	page_server_tcp_nodelay(page_server_sk, true);
 	return 0;
 }
 

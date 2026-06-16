@@ -8,16 +8,27 @@
 #include "proc_parse.h"
 #include "inventory.pb-c.h"
 #include "pagemap-cache.h"
+#include "clone/clone-mem.h"
 
 struct parasite_ctl;
 struct vm_area_list;
 struct page_pipe;
 struct pstree_item;
-struct vma_area;
 
 struct mem_dump_ctl {
 	bool pre_dump;
 	bool lazy;
+	/*
+	 * CLONE Phase 1 pre-dump: populate global_lazy_vmas only. No page pipe,
+	 * no xfer, no pagemap/pages file is written. Disk writes for CLONE
+	 * mode happen only in Phase-3 skeleton dump (while frozen).
+	 */
+	bool clone_pre_dump;
+	/*
+	 * CLONE Phase 3 skeleton dump: skip lazy VMAs (already transferred
+	 * via P3 bulk sender), dump only non-lazy VMAs (stack, VDSO, etc.).
+	 */
+	bool clone_skip_lazy;
 	struct proc_pid_stat *stat;
 	InventoryEntry *parent_ie;
 };

@@ -193,6 +193,20 @@ TST_NOFILE	:=				\
 		unhashed_proc			\
 		cow00				\
 		cow02				\
+		clone_dump_basic			\
+		clone_dump_mmap_munmap		\
+		clone_dump_write_storm		\
+		clone_dump_large_memory		\
+		clone_dump_multi_thread		\
+		clone_dump_file_backed		\
+		clone_dump_new_vma		\
+		clone_dump_grow			\
+		clone_dump_munmap_half		\
+		clone_dump_munmap_reuse		\
+		clone_dump_munmap_reuse_unwritten	\
+		clone_dump_mremap			\
+		clone_dump_wp_unpopulated		\
+		clone_dump_reseize		\
 		child_opened_proc		\
 		posix_timers			\
 		sigpending			\
@@ -528,7 +542,9 @@ all:	$(TST) criu-rtc.so
 install: all
 .PHONY: all install
 
-$(TST_NOFILE:%=%.pid):	%.pid:	%
+# filter out tests with custom .pid rules below
+TST_NOFILE_FILTERED := $(filter-out clone_dump_file_backed,$(TST_NOFILE))
+$(TST_NOFILE_FILTERED:%=%.pid):	%.pid:	%
 	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out
 
 $(TST_FILE:%=%.pid):	%.pid:	%
@@ -539,6 +555,9 @@ $(TST_DIR:%=%.pid):	%.pid:	%
 
 $(TST_DIR_FILE:%=%.pid):	%.pid:	%
 	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --dirname=$<.dir.test --filename=$<.test
+
+clone_dump_file_backed.pid: clone_dump_file_backed
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --test_dir=$(<D)
 
 cmdlinenv00.pid: cmdlinenv00
 	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --arg1=arg1 --arg2=arg2 --arg3=arg3
@@ -614,6 +633,19 @@ socket_aio:		LDLIBS += -lrt -pthread
 uptime_grow:		LDLIBS += -lrt -pthread
 unlink_largefile:	CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 inotify_system_nodel:	CFLAGS += -DNO_DEL
+clone_dump_mmap_munmap:	LDLIBS += -pthread
+clone_dump_write_storm:	LDLIBS += -pthread
+clone_dump_large_memory:	LDLIBS += -pthread
+clone_dump_multi_thread:	LDLIBS += -pthread
+clone_dump_file_backed:	LDLIBS += -pthread
+clone_dump_new_vma:	LDLIBS += -pthread
+clone_dump_grow:		LDLIBS += -pthread
+clone_dump_munmap_half:	LDLIBS += -pthread
+clone_dump_munmap_reuse:	LDLIBS += -pthread
+clone_dump_munmap_reuse_unwritten:	LDLIBS += -pthread
+clone_dump_mremap:	LDLIBS += -pthread
+clone_dump_wp_unpopulated:	LDLIBS += -pthread
+clone_dump_reseize:	LDLIBS += -pthread
 pthread00:		LDLIBS += -pthread
 pthread00-pac:		CFLAGS += ${PAC_CFLAGS}
 pthread00-pac:		LDLIBS += -pthread

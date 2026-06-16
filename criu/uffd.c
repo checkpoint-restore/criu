@@ -32,6 +32,7 @@
 #include "crtools.h"
 #include "cr_options.h"
 #include "xmalloc.h"
+#include "common/list.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include "restorer.h"
 #include "page-xfer.h"
@@ -41,15 +42,16 @@
 #include "fdstore.h"
 #include "util.h"
 #include "namespaces.h"
+#include "pagemap.h"
+#include "clone/clone-conf.h"
+#include "clone/pf-tracker.h"
+#include "clone/clone-uffd.h"
+#include "uffd-internal.h"
+#include "clone/unmapped-tracker.h"
+#include "clone/page-pool.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "uffd: "
-
-#define lp_debug(lpi, fmt, arg...)  pr_debug("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
-#define lp_info(lpi, fmt, arg...)   pr_info("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
-#define lp_warn(lpi, fmt, arg...)   pr_warn("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
-#define lp_err(lpi, fmt, arg...)    pr_err("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
-#define lp_perror(lpi, fmt, arg...) pr_perror("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
 
 #define NEED_UFFD_API_FEATURES \
 	(UFFD_FEATURE_EVENT_FORK | UFFD_FEATURE_EVENT_REMAP | UFFD_FEATURE_EVENT_UNMAP | UFFD_FEATURE_EVENT_REMOVE)
@@ -57,6 +59,7 @@
 #define LAZY_PAGES_SOCK_NAME "lazy-pages.socket"
 
 #define LAZY_PAGES_RESTORE_FINISHED 0x52535446 /* ReSTore Finished */
+/* LAZY_PAGES_DRAIN_COMPLETE and LAZY_PAGES_TASKS_FROZEN are in uffd-internal.h */
 
 /*
  * Background transfer parameters.
@@ -67,38 +70,11 @@
 #define DEFAULT_XFER_LEN (64 << 10)
 #define MAX_XFER_LEN	 (4 << 20)
 
+/* Connection retry parameters for lazy pages socket */
+#define LAZY_PAGES_CONN_RETRIES   1200	  /* ~2 minutes total */
+#define LAZY_PAGES_CONN_DELAY_US  100000  /* 100ms between retries */
+
 static mutex_t *lazy_sock_mutex;
-
-struct lazy_iov {
-	struct list_head l;
-	unsigned long start;	 /* run-time start address, tracks remaps */
-	unsigned long end;	 /* run-time end address, tracks remaps */
-	unsigned long img_start; /* start address at the dump time */
-};
-
-struct lazy_pages_info {
-	int pid;
-	bool exited;
-
-	struct list_head iovs;
-	struct list_head reqs;
-
-	struct lazy_pages_info *parent;
-	unsigned ref_cnt;
-
-	struct page_read pr;
-
-	unsigned long xfer_len; /* in pages */
-	unsigned long total_pages;
-	unsigned long copied_pages;
-
-	struct epoll_rfd lpfd;
-
-	struct list_head l;
-
-	unsigned long buf_size;
-	void *buf;
-};
 
 /* global lazy-pages daemon state */
 static LIST_HEAD(lpis);
@@ -109,6 +85,12 @@ static bool restore_finished;
 static struct epoll_rfd lazy_sk_rfd;
 /* socket for communication with lazy-pages daemon */
 static int lazy_pages_sk_id = -1;
+
+/* Accessors for clone-uffd.c */
+struct list_head *uffd_get_lpis(void) { return &lpis; }
+struct epoll_rfd *uffd_get_lazy_sk_rfd(void) { return &lazy_sk_rfd; }
+void uffd_set_epollfd(int fd) { epollfd = fd; }
+int uffd_get_epollfd(void) { return epollfd; }
 
 static int handle_uffd_event(struct epoll_rfd *lpfd);
 
@@ -148,7 +130,7 @@ static void free_iovs(struct lazy_pages_info *lpi)
 
 static void lpi_fini(struct lazy_pages_info *lpi);
 
-static inline void lpi_put(struct lazy_pages_info *lpi)
+void lpi_put(struct lazy_pages_info *lpi)
 {
 	lpi->ref_cnt--;
 	if (!lpi->ref_cnt)
@@ -235,7 +217,7 @@ out:
 
 int lazy_pages_setup_zombie(int pid)
 {
-	if (!opts.lazy_pages)
+	if (!(opts.lazy_pages || opts.clone_dump))
 		return 0;
 
 	if (send_uffd(0, -pid))
@@ -301,7 +283,7 @@ int setup_uffd(int pid, struct task_restore_args *task_args)
 	unsigned long features = kdat.uffd_features & NEED_UFFD_API_FEATURES;
 	int err = 0;
 
-	if (!opts.lazy_pages) {
+	if (!(opts.lazy_pages || opts.clone_dump)) {
 		task_args->uffd = -1;
 		return 0;
 	}
@@ -335,7 +317,7 @@ int prepare_lazy_pages_socket(void)
 	int fd, len, ret = -1;
 	struct sockaddr_un sun;
 
-	if (!opts.lazy_pages)
+	if (!(opts.lazy_pages || opts.clone_dump))
 		return 0;
 
 	if (prepare_sock_addr(&sun))
@@ -347,13 +329,32 @@ int prepare_lazy_pages_socket(void)
 
 	mutex_init(lazy_sock_mutex);
 
-	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
-		return -1;
-
 	len = offsetof(struct sockaddr_un, sun_path) + strlen(sun.sun_path);
-	if (connect(fd, (struct sockaddr *)&sun, len) < 0) {
-		pr_perror("connect to %s failed", sun.sun_path);
-		goto out;
+
+	/*
+	 * Retry connecting - lazy-pages daemon may not be listening yet.
+	 * This is especially important in clone mode where restore starts
+	 * before lazy-pages is fully ready.
+	 */
+	{
+		int retries = LAZY_PAGES_CONN_RETRIES;
+		int delay_us = LAZY_PAGES_CONN_DELAY_US;
+
+		while (retries-- > 0) {
+			fd = socket(AF_UNIX, SOCK_STREAM, 0);
+			if (fd < 0)
+				return -1;
+			if (connect(fd, (struct sockaddr *)&sun, len) == 0)
+				break;
+			close(fd);
+			fd = -1;
+			if (retries > 0)
+				usleep(delay_us);
+		}
+		if (fd < 0) {
+			pr_perror("connect to %s failed", sun.sun_path);
+			return -1;
+		}
 	}
 
 	lazy_pages_sk_id = fdstore_add(fd);
@@ -423,6 +424,11 @@ static struct lazy_iov *find_iov(struct lazy_pages_info *lpi, unsigned long addr
 			return iov;
 
 	return NULL;
+}
+
+struct lazy_iov *clone_find_iov(struct lazy_pages_info *lpi, unsigned long addr)
+{
+	return find_iov(lpi, addr);
 }
 
 static int split_iov(struct lazy_iov *iov, unsigned long addr)
@@ -675,7 +681,8 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from, unsigned 
 static int collect_iovs(struct lazy_pages_info *lpi)
 {
 	unsigned long start, end, len, nr_pages = 0;
-	int n_vma = 0, max_iov_len = 0, ret = -1;
+	unsigned long max_iov_len = 0;
+	int n_vma = 0, ret = -1;
 	struct page_read *pr = &lpi->pr;
 	struct lazy_iov *iov;
 	MmEntry *mm;
@@ -735,7 +742,7 @@ free_mm:
 
 static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, unsigned long nr);
 
-static int ud_open(int client, struct lazy_pages_info **_lpi)
+int uffd_open_task(int client, struct lazy_pages_info **_lpi)
 {
 	struct lazy_pages_info *lpi;
 	int ret = -1;
@@ -925,7 +932,7 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, unsign
 	return drop_iovs(lpi, addr, nr * PAGE_SIZE);
 }
 
-static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long nr_pages)
+int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long nr_pages)
 {
 	struct uffdio_zeropage uffdio_zeropage;
 	unsigned long len = page_size() * nr_pages;
@@ -1045,6 +1052,10 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	lp_debug(lpi, "%s: %llx(%llx)\n", msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP", unreg.start, unreg.len);
 
+	/* CLONE mode: track unmapped pages and remove from buffer */
+	if (opts.clone_dump)
+		clone_handle_remove_event(unreg.start, unreg.len);
+
 	/*
 	 * The REMOVE event does not change the VMA, so we need to
 	 * make sure that we won't handle #PFs in the removed
@@ -1063,7 +1074,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		pr_perror("Failed to unregister (%llx - %llx)", unreg.start, unreg.start + unreg.len);
 		return -1;
 	}
-
+	if (opts.clone_dump) return 0;//In clone mode do not remove iovs, as it impact performance and create many iovs onprocesses with high memory usage.
 	return drop_iovs(lpi, unreg.start, unreg.len);
 }
 
@@ -1165,6 +1176,9 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
 	lp_debug(lpi, "#PF at 0x%llx\n", address);
 
+	if (opts.clone_dump)
+		return clone_handle_page_fault(lpi, address);
+
 	if (is_page_queued(lpi, address))
 		return 0;
 
@@ -1233,7 +1247,7 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 	return 0;
 }
 
-static void lazy_pages_summary(struct lazy_pages_info *lpi)
+void lazy_pages_summary(struct lazy_pages_info *lpi)
 {
 	lp_debug(lpi, "UFFD transferred pages: (%ld/%ld)\n", lpi->copied_pages, lpi->total_pages);
 
@@ -1298,12 +1312,17 @@ int lazy_pages_finish_restore(void)
 	uint32_t fin = LAZY_PAGES_RESTORE_FINISHED;
 	int fd, ret;
 
-	if (!opts.lazy_pages)
+	if (!(opts.lazy_pages || opts.clone_dump))
 		return 0;
 
 	fd = fdstore_get(lazy_pages_sk_id);
 	if (fd < 0) {
 		pr_err("No lazy-pages socket\n");
+		return -1;
+	}
+
+	if (opts.clone_dump && clone_wait_for_drain(fd) < 0) {
+		close(fd);
 		return -1;
 	}
 
@@ -1316,7 +1335,7 @@ int lazy_pages_finish_restore(void)
 	return ret < 0 ? ret : 0;
 }
 
-static int prepare_lazy_socket(void)
+int uffd_prepare_listen_socket(void)
 {
 	int listen;
 	struct sockaddr_un saddr;
@@ -1333,7 +1352,7 @@ static int prepare_lazy_socket(void)
 	return listen;
 }
 
-static int lazy_sk_read_event(struct epoll_rfd *rfd)
+int uffd_lazy_sk_read_event(struct epoll_rfd *rfd)
 {
 	uint32_t fin;
 	int ret;
@@ -1351,17 +1370,29 @@ static int lazy_sk_read_event(struct epoll_rfd *rfd)
 		return -1;
 	}
 
-	if (fin != LAZY_PAGES_RESTORE_FINISHED) {
-		pr_err("Unexpected response: %x\n", fin);
-		return -1;
+	if (fin == LAZY_PAGES_RESTORE_FINISHED) {
+		restore_finished = true;
+		return 1;
 	}
 
-	restore_finished = true;
+	/*
+	 * CLONE mode: TASKS_FROZEN signal means restore has caught all tasks
+	 * via PTRACE_INTERRUPT. Now it's safe to start drain - tasks are frozen.
+	 */
+	if (fin == LAZY_PAGES_TASKS_FROZEN && opts.clone_dump) {
+		pr_debug("CLONE: Received TASKS_FROZEN signal, starting drain\n");
+		if (clone_handle_lazy_accept_post_connect(&lpis) < 0) {
+			pr_err("Failed to start drain after TASKS_FROZEN\n");
+			return -1;
+		}
+		return 0;
+	}
 
-	return 1;
+	pr_err("Unexpected response: %x\n", fin);
+	return -1;
 }
 
-static int lazy_sk_hangup_event(struct epoll_rfd *rfd)
+int uffd_lazy_sk_hangup_event(struct epoll_rfd *rfd)
 {
 	if (!restore_finished) {
 		pr_err("Restorer unexpectedly closed the connection\n");
@@ -1388,7 +1419,7 @@ static int prepare_uffds(int listen, int epollfd)
 
 	for (i = 0; i < task_entries->nr_tasks; i++) {
 		struct lazy_pages_info *lpi = NULL;
-		if (ud_open(client, &lpi))
+		if (uffd_open_task(client, &lpi))
 			goto close_uffd;
 		if (lpi == NULL)
 			continue;
@@ -1397,8 +1428,8 @@ static int prepare_uffds(int listen, int epollfd)
 	}
 
 	lazy_sk_rfd.fd = client;
-	lazy_sk_rfd.read_event = lazy_sk_read_event;
-	lazy_sk_rfd.hangup_event = lazy_sk_hangup_event;
+	lazy_sk_rfd.read_event = uffd_lazy_sk_read_event;
+	lazy_sk_rfd.hangup_event = uffd_lazy_sk_hangup_event;
 	if (epoll_add_rfd(epollfd, &lazy_sk_rfd))
 		goto close_uffd;
 
@@ -1424,7 +1455,7 @@ int cr_lazy_pages(bool daemon)
 	if (prepare_dummy_pstree())
 		return -1;
 
-	lazy_sk = prepare_lazy_socket();
+	lazy_sk = uffd_prepare_listen_socket();
 	if (lazy_sk < 0)
 		return -1;
 

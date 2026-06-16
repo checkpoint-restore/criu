@@ -56,7 +56,8 @@
 #include "compel/infect-util.h"
 #include <compel/plugins/std/syscall-codes.h>
 
-#define VMA_OPT_LEN 128
+#define VMA_OPT_LEN		128
+#define TCP_SERVER_BACKLOG	32
 
 static int xatol_base(const char *string, long *number, int base)
 {
@@ -1239,7 +1240,7 @@ int setup_tcp_server(char *type, char *addr, unsigned short *port)
 		goto out;
 	}
 
-	if (listen(sk, 1)) {
+	if (listen(sk, TCP_SERVER_BACKLOG)) {
 		pr_perror("Can't listen on %s server socket", type);
 		goto out;
 	}
@@ -1264,6 +1265,22 @@ int setup_tcp_server(char *type, char *addr, unsigned short *port)
 out:
 	close(sk);
 	return -1;
+}
+
+/* Global listening socket for accepting additional P3 connections */
+static int g_listen_sk = -1;
+
+int get_listen_socket(void)
+{
+	return g_listen_sk;
+}
+
+void close_listen_socket(void)
+{
+	if (g_listen_sk >= 0) {
+		close(g_listen_sk);
+		g_listen_sk = -1;
+	}
 }
 
 int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
@@ -1311,7 +1328,8 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 			goto err;
 		}
 		pr_info("Accepted connection from %s:%s\n", address, port);
-		close(sk);
+		/* Keep listening socket for P3 parallel connections */
+		g_listen_sk = sk;
 	}
 
 	return 0;

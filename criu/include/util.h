@@ -292,6 +292,8 @@ char *xsprintf(const char *fmt, ...) __attribute__((__format__(__printf__, 1, 2)
 
 int setup_tcp_server(char *type, char *addr, unsigned short *port);
 int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk);
+int get_listen_socket(void);
+void close_listen_socket(void);
 int setup_tcp_client(char *hostname);
 
 /* path should be writable and no more than PATH_MAX long */

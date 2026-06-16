@@ -6,6 +6,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sched.h>
+#include <signal.h>
 
 #include <fcntl.h>
 
@@ -43,6 +44,8 @@
 #include "fault-injection.h"
 #include "proc_parse.h"
 #include "kerndat.h"
+#include "clone/clone-conf.h"
+#include "clone/clone-phase2.h"
 
 #include "setproctitle.h"
 #include "sysctl.h"
@@ -52,6 +55,13 @@ void flush_early_log_to_stderr(void) __attribute__((destructor));
 void flush_early_log_to_stderr(void)
 {
 	flush_early_log_buffer(STDERR_FILENO);
+}
+
+static void crash_handler(int sig)
+{
+	pr_err("CRIU crashed with signal %d (%s)\n", sig, strsignal(sig));
+	print_stack_trace(getpid());
+	_exit(128 + sig);
 }
 
 static int image_dir_mode(void)
@@ -82,6 +92,7 @@ struct {
 	{ "pre-dump", CR_PRE_DUMP },
 	{ "restore", CR_RESTORE },
 	{ "lazy-pages", CR_LAZY_PAGES },
+	{ "clone-receive", CR_CLONE_RECEIVE },
 	{ "check", CR_CHECK },
 	{ "page-server", CR_PAGE_SERVER },
 	{ "service", CR_SERVICE },
@@ -182,6 +193,11 @@ int main(int argc, char *argv[], char *envp[])
 		pr_perror("Failed to set a SIGPIPE signal ignore.");
 		return 1;
 	}
+
+	/* Install crash handler to print backtrace on fatal signals */
+	signal(SIGSEGV, crash_handler);
+	signal(SIGBUS, crash_handler);
+	signal(SIGABRT, crash_handler);
 
 	cmd = argv[optind];
 	ret = parse_criu_mode(argc, argv, &optind);
@@ -299,6 +315,27 @@ int main(int argc, char *argv[], char *envp[])
 	if (opts.img_parent)
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
+	if (opts.mode == CR_CLONE_RECEIVE)
+		opts.clone_dump = true;
+
+	if (opts.clone_dump) {
+#ifndef CONFIG_HAS_LZ4
+		pr_err("--clone-dump requires LZ4 support. Rebuild with liblz4-dev installed.\n");
+		return 1;
+#else
+		/* --clone-dump implies lazy-pages mode */
+		opts.lazy_pages = true;
+
+		if (clone_cfg_init_from_opts(opts.clone_num_p3_threads,
+					   opts.clone_num_p3_threads_bulk,
+					   opts.clone_num_scanners,
+					   opts.clone_num_pre_scanners,
+					   opts.clone_num_drain_threads,
+					   opts.clone_pre_scan))
+			return 1;
+#endif
+	}
+
 	switch (opts.mode) {
 	case CR_DUMP:
 		if (!opts.tree_id)
@@ -331,6 +368,9 @@ int main(int argc, char *argv[], char *envp[])
 
 	case CR_LAZY_PAGES:
 		return cr_lazy_pages(opts.daemon_mode) != 0;
+
+	case CR_CLONE_RECEIVE:
+		return cr_clone_receive(opts.daemon_mode) != 0;
 
 	case CR_CHECK:
 		return cr_check() != 0;
@@ -373,6 +413,7 @@ usage:
 	       "  criu service [<options>]\n"
 	       "  criu dedup\n"
 	       "  criu lazy-pages -D DIR [<options>]\n"
+	       "  criu clone-receive -D DIR --address ADDR --port PORT [<options>]\n"
 	       "\n"
 	       "Commands:\n"
 	       "  dump           checkpoint a process/tree identified by pid\n"
@@ -383,7 +424,8 @@ usage:
 	       "  service        launch service\n"
 	       "  dedup          remove duplicates in memory dump\n"
 	       "  cpuinfo dump   writes cpu information into image file\n"
-	       "  cpuinfo check  validates cpu information read from image file\n");
+	       "  cpuinfo check  validates cpu information read from image file\n"
+	       "  clone-receive  receive pages from clone-dump and restore\n");
 
 	if (usage_error) {
 		pr_msg("\nTry -h|--help for more info\n");
@@ -521,6 +563,8 @@ usage:
 	       "  --skip-file-rwx-check\n"
 	       "			Skip checking file permissions\n"
 	       "			(r/w/x for u/g/o) on restore.\n"
+	       "  --skip-file-size-check\n"
+	       "			Skip checking file size on restore.\n"
 	       "\n"
 	       "Check options:\n"
 	       "  Without options, \"criu check\" checks availability of absolutely required\n"

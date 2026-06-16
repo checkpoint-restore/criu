@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <limits.h>
+#include <pthread.h>
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -216,7 +217,6 @@ int log_init(const char *output)
 	int new_logfd, fd;
 
 	gettimeofday(&start, NULL);
-	reset_buf_off();
 
 	if (output && !strncmp(output, "-", 2)) {
 		new_logfd = dup(STDOUT_FILENO);

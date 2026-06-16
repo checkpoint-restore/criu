@@ -65,6 +65,10 @@
 #include "stats.h"
 #include "mem.h"
 #include "page-pipe.h"
+#include "clone/clone-conf.h"
+#include "clone/clone-dump.h"
+#include "clone/clone-page-xfer.h"
+#include "clone/clone-bulk-send.h"
 #include "posix-timer.h"
 #include "vdso.h"
 #include "vma.h"
@@ -121,12 +125,14 @@ void free_mappings(struct vm_area_list *vma_area_list)
 int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t dump_file)
 {
 	int ret = -1;
+	bool use_maps;
 
 	pr_info("\n");
 	pr_info("Collecting mappings (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_smaps(pid, vma_area_list, dump_file);
+	use_maps = opts.clone_dump;
+	ret = use_maps ? parse_maps(pid, vma_area_list, dump_file) : parse_smaps(pid, vma_area_list, dump_file);
 	if (ret < 0)
 		goto err;
 
@@ -857,7 +863,7 @@ err:
 	return ret;
 }
 
-static int collect_pstree_ids_predump(void)
+int collect_pstree_ids_predump(void)
 {
 	struct pstree_item *item;
 	struct pid pid;
@@ -901,7 +907,7 @@ int collect_pstree_ids(void)
 	return 0;
 }
 
-static int collect_file_locks(void)
+int collect_file_locks(void)
 {
 	return parse_file_locks();
 }
@@ -1468,14 +1474,14 @@ static int dump_task_cgroup(struct parasite_ctl *parasite_ctl, const struct pstr
 	return 0;
 }
 
-static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
+int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 {
 	pid_t pid = item->pid->real;
 	struct vm_area_list vmas;
 	struct parasite_ctl *parasite_ctl;
 	int ret = -1;
 	struct parasite_dump_misc misc;
-	struct mem_dump_ctl mdc;
+	struct mem_dump_ctl mdc = {};
 
 	vm_area_list_init(&vmas);
 
@@ -1513,6 +1519,21 @@ static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie
 		goto err_free;
 	}
 
+	/*
+	 * For CLONE phased migration: set up WP_ASYNC tracking after infecting.
+	 * The parasite creates the userfaultfd inside the target process context
+	 * (since /proc/<pid>/userfaultfd is deprecated/unavailable on some kernels).
+	 * This allows the process to run with async write tracking during bulk
+	 * page transfer. Dirty pages are later discovered via PAGEMAP_SCAN.
+	 */
+	if (opts.clone_dump) {
+		ret = clone_dump_init_async(item, &vmas, parasite_ctl);
+		if (ret) {
+			pr_err("Failed to init CLONE ASYNC (pid: %d)\n", pid);
+			goto err_cure;
+		}
+	}
+
 	ret = parasite_fixup_vdso(parasite_ctl, pid, &vmas);
 	if (ret) {
 		pr_err("Can't fixup vdso VMAs (pid: %d)\n", pid);
@@ -1533,8 +1554,14 @@ static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie
 
 	item->pid->ns[0].virt = misc.pid;
 
-	mdc.pre_dump = true;
-	mdc.lazy = false;
+	/*
+	 * CLONE Phase 1: Build lazy VMA list only, no disk writes.
+	 * Pages will be transferred asynchronously via P3 bulk sender.
+	 */
+	mdc.pre_dump = !opts.clone_dump;
+	mdc.lazy = opts.clone_dump;
+	mdc.clone_pre_dump = opts.clone_dump;
+	mdc.clone_skip_lazy = false;
 	mdc.stat = NULL;
 	mdc.parent_ie = parent_ie;
 
@@ -1555,7 +1582,7 @@ err_cure:
 	goto err_free;
 }
 
-static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
+int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 {
 	pid_t pid = item->pid->real;
 	struct vm_area_list vmas;
@@ -1565,7 +1592,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	struct cr_imgset *cr_imgset = NULL;
 	struct parasite_drain_fd *dfds = NULL;
 	struct proc_posix_timers_stat proc_args;
-	struct mem_dump_ctl mdc;
+	struct mem_dump_ctl mdc = {};
 
 	vm_area_list_init(&vmas);
 
@@ -1708,8 +1735,17 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		}
 	}
 
+	/*
+	 * Phase-3 skeleton dump:
+	 *   - Non-CLONE: standard dump — run parasite_dump_pages_seized to dump
+	 *     all page data.
+	 *   - CLONE Phase 3: skip lazy VMAs (already transferred via P3 bulk
+	 *     sender), dump only non-lazy VMAs (stack, VDSO, etc.).
+	 */
 	mdc.pre_dump = false;
-	mdc.lazy = opts.lazy_pages;
+	mdc.lazy = clone_is_phased_skeleton_dump() ? false : opts.lazy_pages;
+	mdc.clone_pre_dump = false;
+	mdc.clone_skip_lazy = clone_is_phased_skeleton_dump();
 	mdc.stat = &pps_buf;
 	mdc.parent_ie = parent_ie;
 
@@ -1761,9 +1797,10 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 
 	/*
 	 * On failure local map will be cured in cr_dump_finish()
-	 * for lazy pages.
+	 * for lazy pages. In CLONE phased skeleton dump, always use
+	 * compel_cure_remote() to keep mappings for convergence.
 	 */
-	if (opts.lazy_pages)
+	if (opts.lazy_pages || clone_is_phased_skeleton_dump())
 		ret = compel_cure_remote(parasite_ctl);
 	else
 		ret = compel_cure(parasite_ctl);
@@ -2043,12 +2080,18 @@ static int cr_lazy_mem_dump(void)
 	return ret;
 }
 
-static int cr_dump_finish(int ret)
+int cr_dump_finish(int ret)
 {
 	int post_dump_ret = 0;
 
-	if (disconnect_from_page_server())
-		ret = -1;
+	/*
+	 * For CLONE mode, don't disconnect yet - we need the socket open
+	 * to send all_pages_sent signal. It will be closed later.
+	 */
+	if (!(opts.clone_dump && clone_get_phase() == CLONE_PHASE_DONE)) {
+		if (disconnect_from_page_server())
+			ret = -1;
+	}
 
 	close_cr_imgset(&glob_imgset);
 
@@ -2102,16 +2145,35 @@ static int cr_dump_finish(int ret)
 		delete_link_remaps();
 	}
 
+	/*
+	 * CLONE phased dump path: signal target and unfreeze.
+	 * Inventory was already written in cr_dump_tasks_clone_phased().
+	 */
+	if (opts.clone_dump && clone_get_phase() == CLONE_PHASE_DONE) {
+		ret = cr_dump_clone_finish(ret);
+		goto out_release_clone;
+	}
+
+	/* Standard path: transfer pages then resume */
 	if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
 
 	if (arch_set_thread_regs(root_item, true) < 0)
-		return -1;
+		ret = -1;
+	else {
+		cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
 
-	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+		pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
+		timing_stop(TIME_FROZEN);
+	}
 
-	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
-	timing_stop(TIME_FROZEN);
+out_release_clone:
+	/* Wait for background page server thread before destroying CLONE session */
+	wait_for_page_server_thread();
+	if (opts.clone_dump)
+		clone_dump_fini();
+	clone_mem_free_lazy_vmas();
+
 	free_pstree(root_item);
 	seccomp_free_entries();
 	free_file_locks();
@@ -2130,23 +2192,90 @@ static int cr_dump_finish(int ret)
 		pr_err("Dumping FAILED.\n");
 	} else {
 		write_stats(DUMP_STATS);
-		pr_info("Dumping finished successfully\n");
+		pr_warn("Dumping finished successfully\n");
 	}
 	return post_dump_ret ?: (ret != 0);
 }
 
-int cr_dump_tasks(pid_t pid)
+/*
+ * cr_dump_post_task_operations - Common post-task dump operations
+ *
+ * Called after all tasks have been dumped. Handles mount namespaces,
+ * file locks, process tree, cgroups, and other post-dump cleanup.
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int cr_dump_post_task_operations(InventoryEntry *he)
 {
-	InventoryEntry he = INVENTORY_ENTRY__INIT;
-	InventoryEntry *parent_ie = NULL;
-	struct pstree_item *item;
+	if (dead_pid_conflict())
+		return -1;
+
+	if (dump_mnt_namespaces() < 0)
+		return -1;
+
+	if (dump_file_locks())
+		return -1;
+
+	if (dump_verify_tty_sids())
+		return -1;
+
+	if (dump_zombies())
+		return -1;
+
+	if (dump_pstree(root_item))
+		return -1;
+
+	if (cr_dump_shmem())
+		return -1;
+
+	if (root_ns_mask) {
+		if (dump_namespaces(root_item, root_ns_mask))
+			return -1;
+	}
+
+	if ((root_ns_mask & CLONE_NEWTIME) == 0) {
+		if (dump_time_ns(0))
+			return -1;
+	}
+
+	if (dump_aa_namespaces() < 0)
+		return -1;
+
+	if (dump_cgroups())
+		return -1;
+
+	if (fix_external_unix_sockets())
+		return -1;
+
+	if (tty_post_actions())
+		return -1;
+
+	if (inventory_save_uptime(he))
+		return -1;
+
+	return 0;
+}
+
+
+
+/*
+ * Common dump initialization shared by cr_dump_tasks() and the CLONE phased
+ * dump. Performs everything from the process-limit bump through arming the
+ * alarm handler: allocates the pstree root for @pid, runs the pre-dump
+ * scripts, initializes stats/plugins/LSM/irmap/cpu/vdso/cgroups, prepares the
+ * inventory @he, connects to the page server and sets up the alarm handler.
+ *
+ * @banner is the descriptive label for the "Dumping ..." log line.
+ * Returns 0 on success, -1 on error (the caller's err: path runs cr_dump_finish).
+ */
+int cr_dump_init(pid_t pid, InventoryEntry *he, const char *banner)
+{
 	int ret;
-	int exit_code = -1;
 
 	kerndat_warn_about_madv_guards();
 
 	pr_info("========================================\n");
-	pr_info("Dumping processes (pid: %d comm: %s)\n", pid, __task_comm_info(pid));
+	pr_info("%s (pid: %d comm: %s)\n", banner, pid, __task_comm_info(pid));
 	pr_info("========================================\n");
 
 	/*
@@ -2158,50 +2287,72 @@ int cr_dump_tasks(pid_t pid)
 
 	root_item = alloc_pstree_item();
 	if (!root_item)
-		goto err;
+		return -1;
 	root_item->pid->real = pid;
 
 	ret = run_scripts(ACT_PRE_DUMP);
 	if (ret != 0) {
 		pr_err("Pre dump script failed with %d!\n", ret);
-		goto err;
+		return -1;
 	}
+
 	if (init_stats(DUMP_STATS))
-		goto err;
+		return -1;
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__DUMP))
-		goto err;
+		return -1;
 
 	if (lsm_check_opts())
-		goto err;
+		return -1;
 
 	if (irmap_load_cache())
-		goto err;
+		return -1;
 
 	if (cpu_init())
-		goto err;
+		return -1;
 
 	if (vdso_init_dump())
-		goto err;
+		return -1;
 
 	if (cgp_init(opts.cgroup_props, opts.cgroup_props ? strlen(opts.cgroup_props) : 0, opts.cgroup_props_file))
-		goto err;
+		return -1;
 
 	if (parse_cg_info())
-		goto err;
+		return -1;
 
-	if (prepare_inventory(&he))
-		goto err;
+	if (prepare_inventory(he))
+		return -1;
 
 	if (opts.cpu_cap & CPU_CAP_IMAGE) {
 		if (cpu_dump_cpuinfo())
-			goto err;
+			return -1;
 	}
 
 	if (connect_to_page_server_to_send() < 0)
-		goto err;
+		return -1;
 
 	if (setup_alarm_handler())
+		return -1;
+
+	return 0;
+}
+
+int cr_dump_tasks(pid_t pid)
+{
+	InventoryEntry he = INVENTORY_ENTRY__INIT;
+	InventoryEntry *parent_ie = NULL;
+	struct pstree_item *item;
+	int ret;
+	int exit_code = -1;
+
+	/*
+	 * CLONE phased migration: --clone-dump uses the phased
+	 * WP_ASYNC -> WP_SYNC flow for minimal source downtime.
+	 */
+	if (opts.clone_dump)
+		return cr_dump_tasks_clone_phased(pid);
+
+	if (cr_dump_init(pid, &he, "Dumping processes"))
 		goto err;
 
 	/*
@@ -2258,63 +2409,8 @@ int cr_dump_tasks(pid_t pid)
 		parent_ie = NULL;
 	}
 
-	/*
-	 * It may happen that a process has completed but its files in
-	 * /proc/PID/ are still open by another process. If the PID has been
-	 * given to some newer thread since then, we may be unable to dump
-	 * all this.
-	 */
-	if (dead_pid_conflict())
-		goto err;
-
-	/* MNT namespaces are dumped after files to save remapped links */
-	if (dump_mnt_namespaces() < 0)
-		goto err;
-
-	if (dump_file_locks())
-		goto err;
-
-	if (dump_verify_tty_sids())
-		goto err;
-
-	if (dump_zombies())
-		goto err;
-
-	if (dump_pstree(root_item))
-		goto err;
-
-	/*
-	 * TODO: cr_dump_shmem has to be called before dump_namespaces(),
-	 * because page_ids is a global variable and it is used to dump
-	 * ipc shared memory, but an ipc namespace is dumped in a child
-	 * process.
-	 */
-	if (cr_dump_shmem())
-		goto err;
-
-	if (root_ns_mask) {
-		if (dump_namespaces(root_item, root_ns_mask))
-			goto err;
-	}
-
-	if ((root_ns_mask & CLONE_NEWTIME) == 0) {
-		if (dump_time_ns(0))
-			goto err;
-	}
-
-	if (dump_aa_namespaces() < 0)
-		goto err;
-
-	if (dump_cgroups())
-		goto err;
-
-	if (fix_external_unix_sockets())
-		goto err;
-
-	if (tty_post_actions())
-		goto err;
-
-	if (inventory_save_uptime(&he))
+	/* Standard post-task dump operations */
+	if (cr_dump_post_task_operations(&he))
 		goto err;
 
 	he.has_pre_dump_mode = false;

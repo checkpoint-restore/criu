@@ -1045,6 +1045,36 @@ static int cgroup_version(void)
 	return -1;
 }
 
+/*
+ * reseize_pstree - Re-seize tasks after they were released
+ *
+ * Used in CLONE phased migration to re-attach to tasks after Phase 1
+ * released them (via pstree_switch_state(TASK_ALIVE)). Threads may
+ * have changed (created/destroyed) while the process was running,
+ * so we reset the thread lists and delegate to collect_pstree()
+ * which re-discovers threads from /proc/<pid>/task/.
+ */
+int reseize_pstree(void)
+{
+	struct pstree_item *item;
+
+	pr_info("Re-seizing tasks for CLONE phased migration\n");
+
+	/*
+	 * Reset thread lists so collect_pstree() -> collect_threads()
+	 * re-discovers them from /proc. Keep only the thread leader
+	 * (threads[0]) — stale thread entries would cause
+	 * thread_collected() to skip them without re-seizing.
+	 */
+	for_each_pstree_item(item) {
+		if (item->pid->state == TASK_DEAD)
+			continue;
+		item->nr_threads = 0;
+	}
+
+	return collect_pstree();
+}
+
 int collect_pstree(void)
 {
 	pid_t pid = root_item->pid->real;

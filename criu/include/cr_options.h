@@ -120,6 +120,7 @@ enum criu_mode {
 	CR_PRE_DUMP,
 	CR_RESTORE,
 	CR_LAZY_PAGES,
+	CR_CLONE_RECEIVE,
 	CR_CHECK,
 	CR_PAGE_SERVER,
 	CR_SERVICE,
@@ -190,9 +191,17 @@ struct cr_options {
 	unsigned int empty_ns;
 	int tcp_skip_in_flight;
 	bool lazy_pages;
+	bool clone_dump;
+	int clone_num_p3_threads;
+	int clone_num_p3_threads_bulk;
+	int clone_num_scanners;
+	int clone_num_pre_scanners;
+	int clone_num_drain_threads;
+	bool clone_pre_scan;
 	char *work_dir;
 	int network_lock_method;
 	int skip_file_rwx_check;
+	int skip_file_size_check;
 	int allow_uprobes;
 
 	/*

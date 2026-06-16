@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <sys/ioctl.h>
 #include <sys/uio.h>
+#include <linux/userfaultfd.h>
 
 #include "linux/rseq.h"
 
@@ -868,6 +869,131 @@ static int parasite_dump_cgroup(struct parasite_dump_cgroup_args *args)
 	return 0;
 }
 
+static int parasite_clone_dump_init(struct parasite_clone_dump_args *args)
+{
+	struct parasite_vma_entry *vmas, *vma;
+	struct uffdio_register reg;
+	struct uffdio_api api;
+	int uffd, tsock, i;
+	int ret = 0;
+	unsigned long addr, len;
+	unsigned long total_pages = 0;
+	unsigned int *failed_indices;
+
+	pr_debug("CLONE dump init: registering %d VMAs\n", args->nr_vmas);
+
+	args->nr_failed_vmas = 0;
+	failed_indices = clone_dump_failed_indices(args);
+
+	/* Create userfaultfd in target process context */
+	uffd = sys_userfaultfd(O_CLOEXEC | O_NONBLOCK);
+	if (uffd < 0) {
+		int err = -uffd;
+		pr_err("Failed to create userfaultfd: %d (%s)\n", err,
+			err == ENOSYS ? "not supported" :
+			err == EPERM ? "permission denied" :
+			err == EINVAL ? "invalid flags" : "unknown error");
+		return -1;
+	}
+
+	/* Initialize userfaultfd API with requested features */
+	memset(&api, 0, sizeof(api));
+	api.api = UFFD_API;
+	api.features = args->uffd_features ? args->uffd_features
+					   : UFFD_FEATURE_PAGEFAULT_FLAG_WP;
+	api.ioctls = 0;
+
+	ret = sys_ioctl(uffd, UFFDIO_API, (unsigned long)&api);
+	if (ret < 0) {
+		pr_err("Failed to initialize userfaultfd API: %d uffd=%d\n", -ret, uffd);
+		sys_close(uffd);
+		return -1;
+	}
+
+	pr_debug("UFFD created with features: 0x%llx (requested 0x%lx)\n",
+		 (unsigned long long)api.features, args->uffd_features);
+	if (args->uffd_features && !(api.features & args->uffd_features)) {
+		pr_err("Kernel userfaultfd does not support requested features 0x%lx\n",
+		       args->uffd_features);
+		sys_close(uffd);
+		return -1;
+	}
+	if (!args->uffd_features && !(api.features & UFFD_FEATURE_PAGEFAULT_FLAG_WP)) {
+		pr_err("Kernel userfaultfd does not support WP pagefault flag\n");
+		sys_close(uffd);
+		return -1;
+	}
+
+	vmas = clone_dump_vmas(args);
+
+	/* Register each VMA with write-protection */
+	for (i = 0; i < args->nr_vmas; i++) {
+		vma = vmas + i;
+		addr = vma->start;
+		len = vma->len;
+
+		pr_debug("Registering VMA %d: %lx-%lx prot=%x len=%lu\n",
+			 i, addr, addr + len, vma->prot, len);
+
+		/* Skip non-writable VMAs - mark for later dump by CRIU */
+		if (!(vma->prot & PROT_WRITE)) {
+			pr_debug("Skipping non-writable VMA: %lx-%lx len=%lu\n",
+				 addr, addr + len, len);
+			failed_indices[args->nr_failed_vmas++] = i;
+			continue;
+		}
+
+		/* Register VMA for write-protect tracking */
+		reg.range.start = addr;
+		reg.range.len = len;
+		reg.mode = UFFDIO_REGISTER_MODE_WP;
+		ret = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long)&reg);
+		if (ret) {
+			if (ret == -EINVAL) {
+				pr_warn("Cannot WP-register VMA %lx-%lx (unsupported)\n",
+					addr, addr + len);
+			} else {
+				pr_err("Failed to register VMA %lx-%lx: ret=%d\n",
+				       addr, addr + len, ret);
+			}
+			failed_indices[args->nr_failed_vmas++] = i;
+			continue;
+		}
+
+		total_pages += len / PAGE_SIZE;
+		pr_debug("Registered VMA for WP tracking: %lx-%lx (%lu pages)\n",
+			 addr, addr + len, len / PAGE_SIZE);
+	}
+
+	pr_debug("CLONE dump init complete: %lu total pages\n", total_pages);
+
+	/* Send userfaultfd back to CRIU before setting return status */
+	tsock = parasite_get_rpc_sock();
+	ret = send_fd(tsock, NULL, 0, uffd);
+	if (ret) {
+		pr_err("Failed to send userfaultfd back to CRIU: %d\n", ret);
+		sys_close(uffd);
+		args->ret = -1;
+		return -1;
+	}
+
+	pr_debug("Sent uffd=%d back to CRIU\n", uffd);
+
+	/* Set success status after fd is sent */
+	args->total_pages = total_pages;
+	args->ret = 0;
+
+	/*
+	 * Close the parasite's copy of uffd.
+	 *
+	 * CRIU keeps a duplicated reference received via SCM_RIGHTS, so
+	 * leaving it open in the target would leak an fd and make future
+	 * dumps fail on anon_inode:[userfaultfd].
+	 */
+	sys_close(uffd);
+	return 0;
+}
+
 void parasite_cleanup(void)
 {
 	if (mprotect_args) {
@@ -919,6 +1045,9 @@ int parasite_daemon_cmd(int cmd, void *args)
 		break;
 	case PARASITE_CMD_DUMP_CGROUP:
 		ret = parasite_dump_cgroup(args);
+		break;
+	case PARASITE_CMD_CLONE_DUMP_INIT:
+		ret = parasite_clone_dump_init(args);
 		break;
 	default:
 		pr_err("Unknown command in parasite daemon thread leader: %d\n", cmd);

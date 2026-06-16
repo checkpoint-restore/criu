@@ -699,12 +699,20 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "pre-dump-mode", required_argument, 0, 1097 },
 		{ "file-validation", required_argument, 0, 1098 },
 		BOOL_OPT("skip-file-rwx-check", &opts.skip_file_rwx_check),
+		BOOL_OPT("skip-file-size-check", &opts.skip_file_size_check),
 		{ "lsm-mount-context", required_argument, 0, 1099 },
 		{ "network-lock", required_argument, 0, 1100 },
 		BOOL_OPT("mntns-compat-mode", &opts.mntns_compat_mode),
 		BOOL_OPT("unprivileged", &opts.unprivileged),
 		BOOL_OPT("ghost-fiemap", &opts.ghost_fiemap),
 		BOOL_OPT(OPT_ALLOW_UPROBES, &opts.allow_uprobes),
+		{ "clone-dump", no_argument, 0, 1105 },
+		{ "clone-p3-threads", required_argument, 0, 1106 },
+		{ "clone-p3-threads-bulk", required_argument, 0, 1107 },
+		{ "clone-scanners", required_argument, 0, 1108 },
+		{ "clone-pre-scanners", required_argument, 0, 1109 },
+		{ "clone-drain-threads", required_argument, 0, 1110 },
+		{ "clone-pre-scan", no_argument, 0, 1111 },
 		{},
 	};
 
@@ -1044,6 +1052,27 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 				pr_err("Invalid value for --network-lock: %s\n", optarg);
 				return 1;
 			}
+			break;
+		case 1105:
+			opts.clone_dump = true;
+			break;
+		case 1106:
+			opts.clone_num_p3_threads = atoi(optarg);
+			break;
+		case 1107:
+			opts.clone_num_p3_threads_bulk = atoi(optarg);
+			break;
+		case 1108:
+			opts.clone_num_scanners = atoi(optarg);
+			break;
+		case 1109:
+			opts.clone_num_pre_scanners = atoi(optarg);
+			break;
+		case 1110:
+			opts.clone_num_drain_threads = atoi(optarg);
+			break;
+		case 1111:
+			opts.clone_pre_scan = true;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
