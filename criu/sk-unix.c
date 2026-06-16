@@ -1768,7 +1768,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 		tmp = dup(sk[0]);
 		if (tmp < 0) {
 			pr_perror("Can't dup()");
-			return -1;
+			goto err_pair;
 		}
 		close(sk[0]);
 		sk[0] = tmp;
@@ -1776,18 +1776,23 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 
 	if (setup_and_serve_out(fle_peer, sk[1])) {
 		pr_err("Can't send pair slave\n");
-		return -1;
+		goto err_pair;
 	}
 	sk[1] = fle_peer->fe->fd;
 
 	if (bind_unix_sk(sk[0], ui))
-		return -1;
+		goto err;
 
 	if (bind_unix_sk(sk[1], peer))
-		return -1;
+		goto err;
 
 	*new_fd = sk[0];
 	return 1;
+err_pair:
+	close(sk[1]);
+err:
+	close(sk[0]);
+	return -1;
 }
 
 static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
@@ -1882,8 +1887,11 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 			return -1;
 		}
 
-		if (send_criu_dump_resp(sks[1], true, true) == -1)
+		if (send_criu_dump_resp(sks[1], true, true) == -1) {
+			close(sks[0]);
+			close(sks[1]);
 			return -1;
+		}
 
 		close(sks[1]);
 		sk = sks[0];
@@ -1902,8 +1910,11 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 			return -1;
 		}
 
-		if (setup_second_end(sks, file_master(&queuer->d)))
+		if (setup_second_end(sks, file_master(&queuer->d))) {
+			close(sks[0]);
+			close(sks[1]);
 			return -1;
+		}
 
 		sk = sks[0];
 	} else if (ui->ue->type == SOCK_DGRAM && queuer && queuer->ue->ino == FAKE_INO) {
@@ -1930,11 +1941,16 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		 */
 		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr.sun_family))) {
 			pr_perror("Can't clear socket's peer");
+			close(sks[0]);
+			close(sks[1]);
 			return -1;
 		}
 
-		if (setup_second_end(sks, file_master(&queuer->d)))
+		if (setup_second_end(sks, file_master(&queuer->d))) {
+			close(sks[0]);
+			close(sks[1]);
 			return -1;
+		}
 
 		sk = sks[0];
 	} else {
