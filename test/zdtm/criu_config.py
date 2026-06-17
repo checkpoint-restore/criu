@@ -14,8 +14,8 @@ class criu_config:
             preload=False,
             nowait=False):
 
-        config_path = tempfile.mktemp(".conf", "criu-%s-" % action)
-        with open(config_path, "w") as config_fd:
+        config_fd_raw, config_path = tempfile.mkstemp(".conf", "criu-%s-" % action)
+        with os.fdopen(config_fd_raw, "w") as config_fd:
             for arg in args:
                 if arg.startswith("--"):
                     config_fd.write("\n")

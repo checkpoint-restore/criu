@@ -223,8 +223,9 @@ class ns_flavor:
             except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise
-            dst = tempfile.mktemp(".tso", "",
-                                  self.root + os.path.dirname(fname))
+            fd, dst = tempfile.mkstemp(".tso", "",
+                                      self.root + os.path.dirname(fname))
+            os.close(fd)
             shutil.copy2(fname, dst)
             os.rename(dst, tfname)
 
