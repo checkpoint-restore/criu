@@ -2606,7 +2606,7 @@ def list_tests(opts):
     tlist = all_tests(opts)
     if opts['info']:
         print(sti_fmt % ('Name', 'Flavors', 'Flags'))
-        tlist = map(lambda x: show_test_info(x), tlist)
+        tlist = map(show_test_info, tlist)
     print('\n'.join(tlist))
 
 
