@@ -493,15 +493,20 @@ void ns_create(int argc, char **argv)
 		char pname[PATH_MAX];
 		int fd;
 
+		char *ext_uid_map = getenv("ZDTM_UID_MAP");
+		char *ext_gid_map = getenv("ZDTM_GID_MAP");
+
 		snprintf(pname, sizeof(pname), "/proc/%d/uid_map", pid);
 		fd = open(pname, O_WRONLY);
 		if (fd < 0) {
 			fprintf(stderr, "open(%s): %m\n", pname);
 			exit(1);
 		}
-		if (write(fd, UID_MAP, sizeof(UID_MAP)) < 0) {
-			fprintf(stderr, "write(" UID_MAP "): %m\n");
-			exit(1);
+
+		if (ext_uid_map) {
+			dprintf(fd, "%s", ext_uid_map);
+		} else {
+			write(fd, UID_MAP, sizeof(UID_MAP) - 1);
 		}
 		close(fd);
 
@@ -511,9 +516,11 @@ void ns_create(int argc, char **argv)
 			fprintf(stderr, "open(%s): %m\n", pname);
 			exit(1);
 		}
-		if (write(fd, GID_MAP, sizeof(GID_MAP)) < 0) {
-			fprintf(stderr, "write(" GID_MAP "): %m\n");
-			exit(1);
+
+		if (ext_gid_map) {
+			dprintf(fd, "%s", ext_gid_map);
+		} else {
+			write(fd, GID_MAP, sizeof(GID_MAP) - 1);
 		}
 		close(fd);
 	}
