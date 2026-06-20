@@ -167,6 +167,7 @@ extern int collect_namespaces(bool for_dump);
 extern int collect_mnt_namespaces(bool for_dump);
 extern int dump_mnt_namespaces(void);
 extern int dump_namespaces(struct pstree_item *item, unsigned int ns_flags);
+extern int prepare_root_ns_mask(void);
 extern int prepare_namespace_before_tasks(void);
 extern int prepare_namespace(struct pstree_item *item, unsigned long clone_flags);
 extern int prepare_userns_creds(void);
