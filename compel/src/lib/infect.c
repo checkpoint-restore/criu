@@ -313,7 +313,11 @@ try_again:
 			if (errno != EPERM && errno != EACCES)
 				goto err;
 
-			pr_warn("Unable to suspend seccomp for %d, memory will be read via process_vm_readv\n", pid);
+			pr_warn("Unable to suspend seccomp for %d: %s. "
+				"Memory read via process_vm_readv; other parasite "
+				"syscalls may still be blocked. If the dump fails "
+				"with SIGSYS, relax the seccomp profile.\n",
+				pid, strerror(errno));
 			ss->seccomp_suspend_failed = true;
 		}
 	}
