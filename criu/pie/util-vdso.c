@@ -122,7 +122,7 @@ static int has_elf_identity(Ehdr_t *ehdr)
 #endif
 
 	/* check ELF data encoding */
-	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB) {
+	if (ehdr->e_ident[EI_DATA] != BORD) {
 		pr_err("Unsupported ELF data encoding: %d\n", ehdr->e_ident[EI_DATA]);
 		return false;
 	};
