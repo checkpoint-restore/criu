@@ -174,7 +174,7 @@ static void release_cmsg(SkPacketEntry *pe)
 	pe->scm = NULL;
 }
 
-int dump_sk_queue(int sock_fd, int sock_id)
+int dump_sk_queue(int sock_fd, int sock_id, int flags)
 {
 	SkPacketEntry pe = SK_PACKET_ENTRY__INIT;
 	int ret, size, orig_peek_off;
