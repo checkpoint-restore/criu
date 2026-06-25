@@ -207,14 +207,22 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 			continue;
 		}
 
-		if (ch->cmsg_len == CMSG_LEN(sizeof(struct ucred)) &&
-		    ch->cmsg_type == SCM_CREDENTIALS &&
-		    ch->cmsg_level == SOL_SOCKET) {
-			struct ucred *ucred = (struct ucred *)CMSG_DATA(ch);
+		if (ch->cmsg_level == SOL_SOCKET) {
+			if (ch->cmsg_len == CMSG_LEN(sizeof(struct ucred)) &&
+			    ch->cmsg_type == SCM_CREDENTIALS) {
+				struct ucred *ucred = (struct ucred *)CMSG_DATA(ch);
 
-			if (dump_sk_creds(ucred, pe, flags))
-				return -1;
-			continue;
+				if (dump_sk_creds(ucred, pe, flags))
+					return -1;
+				continue;
+			} else if (ch->cmsg_type == SCM_TIMESTAMP ||
+				   ch->cmsg_type == SCM_TIMESTAMPNS ||
+				   ch->cmsg_type == SCM_TIMESTAMPING) {
+				/*
+				 * Allow to receive timestamps from the kernel.
+				 */
+				continue;
+			}
 		}
 
 		pr_err("cmsg: len %lu type %d level %d\n",
