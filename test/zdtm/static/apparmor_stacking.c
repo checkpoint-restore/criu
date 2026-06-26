@@ -45,7 +45,7 @@ static int setprofile(char *to)
 static int checkprofile(pid_t pid, char *expected)
 {
 	FILE *f;
-	char path[PATH_MAX], profile[1024];
+	char path[PATH_MAX], profile[1024], stacked_expected[1024];
 	int len;
 
 	sprintf(path, "/proc/%d/attr/current", pid);
@@ -63,8 +63,21 @@ static int checkprofile(pid_t pid, char *expected)
 		return -1;
 	}
 
-	if (strcmp(profile, expected) != 0) {
-		fail("bad profile .%s. expected .%s.", profile, expected);
+	/*
+	 * On modern kernels (AppArmor 4.x), when restoring tasks confined by
+	 * profiles inside an AppArmor namespace from the host root unconfined
+	 * namespace, AppArmor retains the host root unconfined profile stacked
+	 * with the namespaced target profile when queried from the root namespace
+	 * (e.g., "unconfined//&:ns:profile").
+	 */
+	len = snprintf(stacked_expected, sizeof(stacked_expected), "unconfined//&%s", expected);
+	if (len < 0 || len >= sizeof(stacked_expected)) {
+		fail("bad sprintf");
+		return -1;
+	}
+
+	if (strcmp(profile, expected) != 0 && strcmp(profile, stacked_expected) != 0) {
+		fail("bad profile .%s. expected .%s. or .%s.", profile, expected, stacked_expected);
 		return -1;
 	}
 
