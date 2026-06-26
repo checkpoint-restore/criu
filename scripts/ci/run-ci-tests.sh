@@ -18,6 +18,17 @@ if [ "$UNAME_M" != "x86_64" ]; then
 	[ -n "$RUN_TESTS" ] || SKIP_CI_TEST=1
 fi
 
+chmod_parents_o_x() {
+	local d
+
+	d="$(pwd -P)"
+
+	while [ "$d" != "/" ]; do
+		chmod o+x "$d" || return 1
+		d=$(dirname "$d")
+	done
+}
+
 ci_prep () {
 	[ -n "$SKIP_CI_PREP" ] && return
 
@@ -55,6 +66,8 @@ ci_prep () {
 	contrib/dependencies/apt-packages.sh
 	contrib/apt-install "${CI_PKGS[@]}"
 	chmod a+x "$HOME"
+	chmod_parents_o_x
+
 }
 
 test_stream() {
