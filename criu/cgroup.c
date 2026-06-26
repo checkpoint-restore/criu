@@ -1058,10 +1058,24 @@ err:
 	return ret;
 }
 
+/*
+ * Build the comma-separated controller directory name and mount option
+ * strings from a CgControllerEntry.  Returns the length written into
+ * @dir (without the trailing comma, which is replaced by '\0'), or -1
+ * if the output would overflow the supplied buffers.
+ *
+ * Every snprintf() call is checked for truncation: snprintf() returns
+ * the number of bytes that *would* have been written, so blindly
+ * adding that to the offset can move it past the buffer end.  The
+ * next append would then compute a negative remaining length, which
+ * wraps to a huge size_t, removing the truncation guard and causing
+ * a stack buffer overflow (CWE-121).
+ */
 static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds, char *opt, int os)
 {
 	int i, doff = 0, ooff = 0;
 	bool none_opt = false;
+	int ret, rem;
 
 	for (i = 0; i < ctl->n_cnames; i++) {
 		char *n;
@@ -1070,25 +1084,58 @@ static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds, char *opt
 		if (strstartswith(n, "name=")) {
 			n += 5;
 			if (opt && !none_opt) {
-				ooff += snprintf(opt + ooff, os - ooff, "none,");
+				rem = os - ooff;
+				if (rem <= 0)
+					goto overflow;
+				ret = snprintf(opt + ooff, rem, "none,");
+				if (ret < 0 || ret >= rem)
+					goto overflow;
+				ooff += ret;
 				none_opt = true;
 			}
 		}
 
+		rem = ds - doff;
+		if (rem <= 0)
+			goto overflow;
+
 		if (n[0] == 0)
-			doff += snprintf(dir + doff, ds - doff, "unified,");
+			ret = snprintf(dir + doff, rem, "unified,");
 		else
-			doff += snprintf(dir + doff, ds - doff, "%s,", n);
-		if (opt)
-			ooff += snprintf(opt + ooff, os - ooff, "%s,", ctl->cnames[i]);
+			ret = snprintf(dir + doff, rem, "%s,", n);
+
+		if (ret < 0 || ret >= rem)
+			goto overflow;
+		doff += ret;
+
+		if (opt) {
+			rem = os - ooff;
+			if (rem <= 0)
+				goto overflow;
+			ret = snprintf(opt + ooff, rem, "%s,", ctl->cnames[i]);
+			if (ret < 0 || ret >= rem)
+				goto overflow;
+			ooff += ret;
+		}
 	}
+
+	/* Need at least one character written to strip the trailing ',' */
+	if (doff <= 0)
+		goto overflow;
 
 	/* Chop the trailing ','-s */
 	dir[--doff] = '\0';
-	if (opt)
+	if (opt) {
+		if (ooff <= 0)
+			goto overflow;
 		opt[ooff - 1] = '\0';
+	}
 
 	return doff;
+
+overflow:
+	pr_err("ctrl_dir_and_opt: controller name data exceeds buffer\n");
+	return -1;
 }
 
 /* Some properties cannot be restored after the cgroup has children or tasks in
@@ -1169,6 +1216,8 @@ static int prepare_cgns(CgSetEntry *se)
 		}
 
 		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
+		if (aux_off < 0)
+			return -1;
 
 		/* We need to do an unshare() here as unshare() pins the root
 		 * of the cgroup namespace to whatever the current cgroups are.
@@ -1235,6 +1284,8 @@ static int move_in_cgroup(CgSetEntry *se)
 		}
 
 		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
+		if (aux_off < 0)
+			return -1;
 
 		/* Note that unshare(CLONE_NEWCGROUP) doesn't change the view
 		 * of previously mounted cgroupfses; since we're restoring via
@@ -1660,7 +1711,8 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 int prepare_cgroup_properties(void)
 {
 	char cname_path[PATH_MAX];
-	unsigned int i, off;
+	unsigned int i;
+	int off;
 
 	for (i = 0; i < n_controllers; i++) {
 		CgControllerEntry *c = controllers[i];
@@ -1671,6 +1723,8 @@ int prepare_cgroup_properties(void)
 		}
 
 		off = ctrl_dir_and_opt(c, cname_path, sizeof(cname_path), NULL, 0);
+		if (off < 0)
+			return -1;
 		if (prepare_cgroup_dir_properties(cname_path, off, c->dirs, c->n_dirs) < 0)
 			return -1;
 	}
@@ -1918,7 +1972,10 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 			return -1;
 		}
 
-		ctl_off += ctrl_dir_and_opt(ctrl, paux + ctl_off, sizeof(paux) - ctl_off, opt, sizeof(opt));
+		ret = ctrl_dir_and_opt(ctrl, paux + ctl_off, sizeof(paux) - ctl_off, opt, sizeof(opt));
+		if (ret < 0)
+			return -1;
+		ctl_off += ret;
 
 		/* Create controller if not yet present */
 		if (access(paux, F_OK)) {
@@ -2037,6 +2094,8 @@ static int cgroupd(int sk)
 				continue;
 
 			aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
+			if (aux_off < 0)
+				return -1;
 			format = ctrl->cnames[0][0] ? "/%s/tasks" : "/%s/cgroup.threads";
 			snprintf(aux + aux_off, sizeof(aux) - aux_off, format, ce->path);
 
