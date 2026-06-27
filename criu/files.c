@@ -60,6 +60,68 @@
 
 #define FDESC_HASH_SIZE 64
 static struct hlist_head file_desc_hash[FDESC_HASH_SIZE];
+
+/*
+ * Cache mapping (kdev, ino) -> path for files seen during dump.
+ * Used by fsnotify overlay resolution to avoid redundant /proc
+ * access -- any file already processed by dump_one_file() can
+ * be looked up here.
+ */
+#define FD_PATH_HASH_BITS 6
+#define FD_PATH_HASH_SIZE (1 << FD_PATH_HASH_BITS)
+#define FD_PATH_HASH_MASK (FD_PATH_HASH_SIZE - 1)
+
+struct fd_path_entry {
+	unsigned int kdev;
+	unsigned long ino;
+	char *path;
+	struct fd_path_entry *next;
+};
+
+static struct fd_path_entry *fd_path_hash[FD_PATH_HASH_SIZE];
+
+static inline int fd_path_hashfn(unsigned int kdev, unsigned long ino)
+{
+	return (kdev + ino) & FD_PATH_HASH_MASK;
+}
+
+void fd_path_cache_add(unsigned int kdev, unsigned long ino,
+		       const char *path)
+{
+	struct fd_path_entry *e;
+	int hv = fd_path_hashfn(kdev, ino);
+
+	/* Skip if already cached */
+	for (e = fd_path_hash[hv]; e; e = e->next)
+		if (e->kdev == kdev && e->ino == ino)
+			return;
+
+	e = xmalloc(sizeof(*e));
+	if (!e)
+		return;
+
+	e->kdev = kdev;
+	e->ino = ino;
+	e->path = xstrdup(path);
+	if (!e->path) {
+		xfree(e);
+		return;
+	}
+
+	e->next = fd_path_hash[hv];
+	fd_path_hash[hv] = e;
+}
+
+char *fd_path_cache_lookup(unsigned int kdev, unsigned long ino)
+{
+	struct fd_path_entry *e;
+
+	for (e = fd_path_hash[fd_path_hashfn(kdev, ino)]; e; e = e->next)
+		if (e->kdev == kdev && e->ino == ino)
+			return e->path;
+
+	return NULL;
+}
 /* file_desc's, which fle is not owned by a process, that is able to open them */
 static LIST_HEAD(fake_master_head);
 
@@ -567,6 +629,14 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 			return -1;
 
 		p.link = &link;
+
+		/* Cache (dev, ino) -> path for overlay fsnotify resolution */
+		if (link.name[1] == '/' &&
+		    !strstr(link.name + 1, " (deleted)"))
+			fd_path_cache_add(
+				MKKDEV(major(p.stat.st_dev),
+				       minor(p.stat.st_dev)),
+				p.stat.st_ino, link.name + 1);
 
 		/* TODO: Dump for hugetlb fd when memfd hugetlb is not supported */
 		if (is_memfd(p.stat.st_dev) || (kdat.has_memfd_hugetlb && is_hugetlb_dev(p.stat.st_dev, NULL)))

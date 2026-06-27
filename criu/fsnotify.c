@@ -148,6 +148,12 @@ static char *__walk_overlay_dir(int dirfd, const char *base,
 	while (1) {
 		struct stat st;
 
+		/*
+		 * readdir() returns NULL both on end-of-directory and
+		 * on error; the only way to tell them apart is errno.
+		 * Reset it before each call so the post-loop check
+		 * (!de && errno) can detect a real failure.
+		 */
 		errno = 0;
 		de = readdir(dfd);
 		if (!de)
@@ -165,8 +171,7 @@ static char *__walk_overlay_dir(int dirfd, const char *base,
 
 		(*visited)++;
 		if (*visited == OVL_WALK_WARN_THRESHOLD)
-			pr_warn("overlay walk: examined %lu entries so far "
-				"looking for ino %lx, mount may be large\n",
+			pr_warn("overlay walk: examined %lu entries so far looking for ino %lx, mount may be large\n",
 				*visited, i_ino);
 
 		if (MKKDEV(major(st.st_dev), minor(st.st_dev)) == s_dev &&
@@ -304,10 +309,30 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 		close(mntfd);
 		if (fd < 0) {
 			if (m->fstype->code == FSTYPE__OVERLAYFS) {
-				char *ovl_path;
+				char *ovl_path, *cached;
 
-				pr_debug("\t\tHandle open failed on overlay,"
-					 " trying dir walk for %lx\n",
+				/*
+				 * Try the dump-time file cache first.
+				 * It contains paths for all files
+				 * already processed by dump_one_file()
+				 * across all processes.
+				 */
+				cached = fd_path_cache_lookup(s_dev,
+							      i_ino);
+				if (cached) {
+					pr_debug("\t\tResolved overlay ino %lx via file cache -> %s\n",
+						 i_ino, cached);
+					ovl_path = xstrdup(cached);
+					if (!ovl_path)
+						return ERR_PTR(ERR_GENERIC);
+					if (root_ns_mask & CLONE_NEWNS) {
+						f_handle->has_mnt_id = true;
+						f_handle->mnt_id = m->mnt_id;
+					}
+					return ovl_path;
+				}
+
+				pr_debug("\t\tHandle open failed on overlay, trying dir walk for %lx\n",
 					 i_ino);
 				ovl_path = find_path_on_overlay(m, s_dev,
 								i_ino);
@@ -488,8 +513,7 @@ static int check_one_wd(InotifyWdEntry *we)
 		we->f_handle->type, we->f_handle->handle[0], we->f_handle->handle[1]);
 
 	if (we->mask & KERNEL_FS_EVENT_ON_CHILD)
-		pr_warn_once("\t\tDetected FS_EVENT_ON_CHILD bit "
-			     "in mask (will be ignored on restore)\n");
+		pr_warn_once("\t\tDetected FS_EVENT_ON_CHILD bit in mask (will be ignored on restore)\n");
 
 	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle)) {
 		pr_err("Failed to check handle for inotify wd %#x (dev %#x ino %#" PRIx64 " mask %#x)\n",
