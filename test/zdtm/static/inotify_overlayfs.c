@@ -25,6 +25,9 @@ TEST_OPTION(dirname, string, "directory name", 1);
 #define BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
 #define TEST_FNAME "testfile"
 
+#define NUM_BATCH_FILES 4
+#define BATCH_PREFIX "batchfile"
+
 #define OVL_DIR_SUFFIX "zdtm_inotify_ovl.XXXXXX"
 
 static int rm_entry(const char *path, const struct stat *st,
@@ -64,6 +67,9 @@ int main(int argc, char *argv[])
 	char merged[PATH_MAX], watch_path[PATH_MAX];
 	char buf[BUFF_SIZE];
 	int inotify_fd, wd, fd, dir_fd;
+	int batch_wd[NUM_BATCH_FILES];
+	char batch_name[PATH_MAX];
+	int i;
 	char *zdtm_newns = getenv("ZDTM_NEWNS");
 	cleanup_free char *cwd = NULL;
 
@@ -116,19 +122,39 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		/* Create a test file in the lower layer */
+		/* Create test files in the lower layer */
 		dir_fd = openat(AT_FDCWD, ovl_lower, O_RDONLY | O_DIRECTORY);
 		if (dir_fd < 0) {
 			pr_perror("Can't open lower dir %s", ovl_lower);
 			return 1;
 		}
 		fd = openat(dir_fd, TEST_FNAME, O_CREAT | O_WRONLY, 0644);
-		close(dir_fd);
 		if (fd < 0) {
 			pr_perror("Can't create test file in lower");
+			close(dir_fd);
 			return 1;
 		}
 		close(fd);
+
+		/*
+		 * Create additional files for batch overlay walk testing.
+		 * These are closed immediately so they are not held open
+		 * at dump time, forcing the overlay directory walk path.
+		 */
+		for (i = 0; i < NUM_BATCH_FILES; i++) {
+			snprintf(batch_name, sizeof(batch_name),
+				 BATCH_PREFIX "%d", i);
+			fd = openat(dir_fd, batch_name,
+				    O_CREAT | O_WRONLY, 0644);
+			if (fd < 0) {
+				pr_perror("Can't create %s in lower",
+					  batch_name);
+				close(dir_fd);
+				return 1;
+			}
+			close(fd);
+		}
+		close(dir_fd);
 
 		/*
 		 * Mount overlay at a path outside ZDTM_ROOT so it
@@ -187,10 +213,31 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	/*
+	 * Add watches on batch files.  No FDs are kept open to these
+	 * files, so at dump time the only reference is the inotify
+	 * watch itself.  This forces CRIU through the batch overlay
+	 * directory walk code path (resolve_overlay_pending).
+	 */
+	for (i = 0; i < NUM_BATCH_FILES; i++) {
+		snprintf(watch_path, sizeof(watch_path),
+			 "%s/" BATCH_PREFIX "%d", dirname, i);
+		batch_wd[i] = inotify_add_watch(inotify_fd, watch_path,
+						 IN_OPEN);
+		if (batch_wd[i] < 0) {
+			pr_perror("inotify_add_watch failed for %s",
+				  watch_path);
+			close(inotify_fd);
+			return 1;
+		}
+	}
+
 	test_daemon();
 	test_waitsig();
 
-	/* After restore, trigger an inotify event */
+	/* After restore, trigger an inotify event on the original file */
+	snprintf(watch_path, sizeof(watch_path),
+		 "%s/" TEST_FNAME, dirname);
 	fd = open(watch_path, O_RDONLY);
 	if (fd < 0) {
 		fail("Can't open %s after restore", watch_path);
@@ -205,6 +252,28 @@ int main(int argc, char *argv[])
 		fail("No inotify events after restore");
 		close(inotify_fd);
 		return 1;
+	}
+
+	/* Verify batch file watches survived C/R */
+	for (i = 0; i < NUM_BATCH_FILES; i++) {
+		snprintf(watch_path, sizeof(watch_path),
+			 "%s/" BATCH_PREFIX "%d", dirname, i);
+		fd = open(watch_path, O_RDONLY);
+		if (fd < 0) {
+			fail("Can't open batch file %s after restore",
+			     watch_path);
+			close(inotify_fd);
+			return 1;
+		}
+		close(fd);
+
+		memset(buf, 0, sizeof(buf));
+		if (read(inotify_fd, buf, sizeof(buf)) <= 0) {
+			fail("No inotify event for batch file %s",
+			     watch_path);
+			close(inotify_fd);
+			return 1;
+		}
 	}
 
 	close(inotify_fd);
