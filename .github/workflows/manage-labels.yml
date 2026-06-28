@@ -6,7 +6,7 @@ jobs:
     if: github.event_name == 'issue_comment'
     runs-on: ubuntu-latest
     steps:
-      - uses: mondeja/remove-labels-gh-action@v1
+      - uses: mondeja/remove-labels-gh-action@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           labels: |

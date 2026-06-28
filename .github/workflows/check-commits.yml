@@ -12,7 +12,7 @@ jobs:
     # Check if pull request does not have label "not-selfcontained-ok"
     if: "!contains(github.event.pull_request.labels.*.name, 'not-selfcontained-ok')"
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
       with:
         # Needed to rebase against the base branch
         fetch-depth: 0

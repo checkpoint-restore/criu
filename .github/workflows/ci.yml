@@ -29,7 +29,7 @@ jobs:
             shard_name: non-zdtm
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Alpine ${{ matrix.target }} ${{ matrix.shard_name }} Test
       run: >
         sudo -E make -C scripts/ci alpine ${{ matrix.target }}
@@ -46,7 +46,7 @@ jobs:
         target: [GCC=1, CLANG=1]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Alpine ${{ matrix.target }} Test
       run: sudo -E make -C scripts/ci alpine ${{ matrix.target }}
 
@@ -59,7 +59,7 @@ jobs:
         target: [GCC=1, CLANG=1]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Tests ${{ matrix.target }} on ${{ matrix.os }}
       run: |
         # The 'sched_policy00' needs the following:
@@ -92,7 +92,7 @@ jobs:
             shard_name: non-zdtm
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Arch Linux ${{ matrix.shard_name }} Test
       run: >
         sudo -E make -C scripts/ci archlinux
@@ -111,7 +111,7 @@ jobs:
       matrix:
         version: [9, 10]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/lima-vm-setup
       with:
         template: centos-stream-${{ matrix.version }}
@@ -133,7 +133,7 @@ jobs:
       matrix:
         target: [GCC, CLANG]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Compat Tests (${{ matrix.target }})
       run: sudo -E make -C scripts/ci local COMPAT_TEST=y ${{ matrix.target }}=1
 
@@ -159,7 +159,7 @@ jobs:
           - experimental: true
             target: ppc64-unstable-cross
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Cross Compilation Targets
       run: >
         sudo make -C scripts/ci ${{ matrix.target }}
@@ -172,7 +172,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Docker Test (${{ matrix.os }})
       run: sudo make -C scripts/ci docker-test
 
@@ -180,7 +180,7 @@ jobs:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Fedora ASAN Test
       run: sudo -E make -C scripts/ci fedora-asan
 
@@ -197,7 +197,7 @@ jobs:
           - os: ubuntu-24.04-arm
             name: aarch64 Fedora Rawhide
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Fedora Rawhide Test
       # We need to pass environment variables from the CI environment to
       # distinguish between CI environments. However, we need to make sure that
@@ -227,7 +227,7 @@ jobs:
             name: Non-Root
             reboot: false
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/lima-vm-setup
       with:
         template: fedora
@@ -250,13 +250,13 @@ jobs:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Coverage Tests
       run: sudo -E make -C scripts/ci local GCOV=1
     - name: Run gcov
       run: sudo -E find . -name '*gcda' -type f -print0 | sudo -E xargs --null --max-args 128 gcov
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -264,7 +264,7 @@ jobs:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Java Test
       run: sudo make -C scripts/ci java-test
 
@@ -272,14 +272,14 @@ jobs:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo make -C scripts/ci loongarch64-qemu-test
 
   nftables-test:
     needs: [alpine-test]
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Remove iptables
       run: sudo apt remove -y iptables
     - name: Install libnftables-dev
@@ -295,7 +295,7 @@ jobs:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run Podman Test
       run: sudo make -C scripts/ci podman-test
 
@@ -303,7 +303,7 @@ jobs:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run CRIU Image Streamer Test
       run: sudo -E make -C scripts/ci local STREAM_TEST=1
 
@@ -311,7 +311,7 @@ jobs:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run X86_64 CLANG Test
       run: sudo make -C scripts/ci x86_64 CLANG=1
 
@@ -319,6 +319,6 @@ jobs:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Run X86_64 GCC Test
       run: sudo make -C scripts/ci x86_64

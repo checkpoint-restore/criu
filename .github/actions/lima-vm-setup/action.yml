@@ -15,7 +15,7 @@ runs:
   - name: Install Lima
     uses: lima-vm/lima-actions/setup@v1
   - name: Cache Lima images
-    uses: actions/cache@v4
+    uses: actions/cache@v6
     with:
       path: ~/.cache/lima
       key: ${{ inputs.cache-key-prefix }}-${{ github.sha }}
