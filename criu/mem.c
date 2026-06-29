@@ -838,6 +838,10 @@ static inline bool check_cow_vmas(struct vma_area *vma, struct vma_area *pvma)
 	/* ... belong to the same file if being filemap */
 	if (!(vma->e->flags & MAP_ANONYMOUS) && vma->e->shmid != pvma->e->shmid)
 		return false;
+	/* ... both be accountable, since COW VMAs may carry restored pages */
+	if (vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE) ||
+	    vma_area_is(pvma, VMA_AREA_NOT_ACCOUNTABLE))
+		return false;
 
 	pr_debug("Found two COW VMAs @0x%" PRIx64 "-0x%" PRIx64 "\n", vma->e->start, pvma->e->end);
 	return true;
@@ -958,17 +962,8 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		 * (did not have the "ac" flag in /proc/pid/smaps), we
 		 * can safely mmap them with PROT_NONE because we know
 		 * we will never need to write any bits to them.
-		 *
-		 * This only holds for a standalone VMA (vma->pvma == NULL).
-		 * A COW root (vma->pvma == VMA_COW_ROOT) shares this very
-		 * mapping with inherited children via the mremap() in the
-		 * branch below; those children may have pages to restore,
-		 * and restoring content into a PROT_NONE mapping faults
-		 * (e.g. the memcmp()/copy in restore_priv_vma_content()).
-		 * So a COW root must stay writable even when it is itself
-		 * PROT_NONE and not accountable.
 		 */
-		if (vma->e->prot == PROT_NONE && vma->pvma == NULL && vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE)) {
+		if (vma->e->prot == PROT_NONE && vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE)) {
 			addr = mmap(*tgt_addr, size, PROT_NONE, vma->e->flags | MAP_FIXED | flag, vma->e->fd,
 				    vma->e->pgoff);
 		} else {

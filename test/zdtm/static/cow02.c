@@ -4,7 +4,7 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc = "Restore a COW child whose COW-root VMA is a PROT_NONE reservation";
+const char *test_doc = "Restore a COW child whose parent VMA is a PROT_NONE reservation";
 const char *test_author = "Radostin Stoyanov <rstoyanov@fedoraproject.org>";
 
 /*
@@ -13,17 +13,9 @@ const char *test_author = "Radostin Stoyanov <rstoyanov@fedoraproject.org>";
  * VMA_AREA_NOT_ACCOUNTABLE. After fork() the child turns the very same range
  * into a writable mapping and fills it with data.
  *
- * CRIU pairs VMAs that coincide by start/end and flags regardless of their
- * protection bits (see check_cow_vmas()), so the parent's PROT_NONE,
- * not-accountable VMA becomes the COW root of the child's data VMA.
- *
- * On restore, premap_private_vma() used to map a PROT_NONE & not-accountable
- * COW root with PROT_NONE. The child then inherits that mapping (mremap) and
- * restore_priv_vma_content() copies the child's pages into it -- writing to a
- * PROT_NONE mapping faults and the restored task dies with SIGSEGV.
- *
- * The fix keeps a COW root writable; this test crashes at restore without it
- * and passes with it.
+ * Ensure the child's mapping is restored separately, not through COW with the
+ * parent's not-accountable PROT_NONE reservation, so CRIU has a writable
+ * premap for the child's pages.
  */
 
 #define MEM_SIZE (32 * 4096)
