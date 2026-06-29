@@ -35,6 +35,18 @@ int main(void)
 }
 endef
 
+define FEATURE_TEST_LIBDRM_AMDGPU
+#include <xf86drm.h>
+#include <libdrm/amdgpu.h>
+
+int main(void)
+{
+	uint32_t major = 0, minor = 0;
+	amdgpu_device_handle dev = NULL;
+	return amdgpu_device_initialize(-1, &major, &minor, &dev);
+}
+endef
+
 define FEATURE_TEST_PTRACE_PEEKSIGINFO
 
 #include <sys/ptrace.h>
