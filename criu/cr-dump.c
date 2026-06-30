@@ -30,6 +30,7 @@
 #include "images/siginfo.pb-c.h"
 
 #include "common/list.h"
+#include "linux/rseq.h"
 #include "imgset.h"
 #include "file-ids.h"
 #include "kcmp-ids.h"

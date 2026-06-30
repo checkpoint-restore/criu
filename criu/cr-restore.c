@@ -25,6 +25,13 @@
 
 #include "linux/rseq.h"
 
+#ifdef __has_include
+#if __has_include("sys/rseq.h")
+#include <sys/rseq.h>
+#include "asm/thread_pointer.h"
+#endif
+#endif
+
 #include "clone-noasan.h"
 #include "cr_options.h"
 #include "servicefd.h"
@@ -1922,7 +1929,7 @@ static void finalize_restore(void)
 			continue;
 
 		/* Unmap the restorer blob */
-		ctl = compel_prepare_noctx(pid);
+		ctl = compel_prepare_noctx(pid, false);
 		if (ctl == NULL)
 			continue;
 
