@@ -93,7 +93,7 @@ The parasitic code is compiled and converted to a header using *compel*, and inc
 Following steps are performed to infect the victim process:
 
     - stop the task: *int compel_stop_task(int pid);*
-    - prepare infection handler: *struct parasite_ctl *compel_prepare(int pid);*
+    - prepare infection handler: *struct parasite_ctl *compel_prepare(int pid, bool handle_rseq);*
     - execute system call: *int compel_syscall(ctl, int syscall_nr, long *ret, int arg ...);*
     - infect victim: *int compel_infect(ctl, nr_thread, size_of_args_area);*
     - cure the victim: *int compel_cure(ctl);* //ctl pointer is freed by this call

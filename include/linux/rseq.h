@@ -2,13 +2,6 @@
 #ifndef _UAPI_LINUX_RSEQ_H
 #define _UAPI_LINUX_RSEQ_H
 
-#ifdef __has_include
-#if __has_include("sys/rseq.h")
-#include <sys/rseq.h>
-#include "asm/thread_pointer.h"
-#endif
-#endif
-
 #include <linux/types.h>
 #include <asm/byteorder.h>
 
@@ -43,6 +36,8 @@ enum rseq_cs_flags {
 	RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL = (1U << RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL_BIT),
 	RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE = (1U << RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE_BIT),
 };
+#else
+#include <sys/rseq.h>
 #endif /* CONFIG_HAS_NO_LIBC_RSEQ_DEFS */
 
 /*
