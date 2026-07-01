@@ -63,7 +63,6 @@ struct dmp_info {
 	struct parasite_ctl *parasite_ctl;
 	struct parasite_thread_ctl **thread_ctls;
 	uint64_t *thread_sp;
-	struct criu_rseq_cs *thread_rseq_cs;
 
 	/*
 	 * Although we don't support dumping different struct creds in general,
