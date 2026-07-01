@@ -541,8 +541,9 @@ usage:
 	       "                        pages images of previous dump\n"
 	       "                        when used on restore, as soon as page is restored, it\n"
 	       "                        will be punched from the image\n"
-	       "  --pre-dump-mode       splice - parasite based pre-dumping (default)\n"
-	       "                        read   - process_vm_readv syscall based pre-dumping\n"
+	       "  --memory-dump-mode    splice - parasite based memory dumping (default)\n"
+	       "                        read   - process_vm_readv syscall based memory dumping\n"
+	       "                        (alias for --pre-dump-mode, applies to dump as well)\n"
 #ifdef CONFIG_LZ4
 	       "  -c|--compress         enable page-sized LZ4 memory compression\n"
 	       "  --compress-block size\n"
