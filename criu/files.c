@@ -1111,25 +1111,37 @@ out:
 	return ret;
 }
 
+/*
+ * This helper owns new_fd. On failure it closes either new_fd or, after
+ * reopen_fd_as() succeeds, the descriptor moved to fle->fe->fd.
+ */
 int setup_and_serve_out(struct fdinfo_list_entry *fle, int new_fd)
 {
 	struct file_desc *d = fle->desc;
 	pid_t pid = fle->pid;
 
 	if (reopen_fd_as(fle->fe->fd, new_fd))
-		return -1;
+		goto err;
+	new_fd = fle->fe->fd;
 
 	if (fcntl(fle->fe->fd, F_SETFD, fle->fe->flags) == -1) {
 		pr_perror("Unable to set file descriptor flags");
-		return -1;
+		goto err;
 	}
 
 	BUG_ON(fle->stage != FLE_INITIALIZED);
 	fle->stage = FLE_OPEN;
 
+	/*
+	 * After FLE_OPEN the descriptor may already be referenced
+	 * by other parts of restore; don't close it on failure.
+	 */
 	if (serve_out_fd(pid, fle->fe->fd, d))
 		return -1;
 	return 0;
+err:
+	close(new_fd);
+	return -1;
 }
 
 static int open_fd(struct fdinfo_list_entry *fle)
