@@ -12,6 +12,9 @@
 #include "stats.h"
 #include "cr_options.h"
 
+#include "syscall.h"
+#include <sys/ioctl.h>  // defines FIONREAD
+
 /* can existing iov accumulate the page? */
 static inline bool iov_grow_page(struct iovec *iov, unsigned long addr)
 {
@@ -79,7 +82,7 @@ static struct page_pipe_buf *pp_prev_ppb(struct page_pipe *pp, unsigned int ppb_
 	if (list_empty(&pp->bufs))
 		return NULL;
 
-	if (ppb_flags & PPB_LAZY && opts.lazy_pages)
+	if (ppb_flags & PPB_LAZY && (opts.lazy_pages || opts.clone_dump))
 		type = 1;
 
 	return pp->prev[type];
@@ -89,7 +92,7 @@ static void pp_update_prev_ppb(struct page_pipe *pp, struct page_pipe_buf *ppb, 
 {
 	int type = 0;
 
-	if (ppb_flags & PPB_LAZY && opts.lazy_pages)
+	if (ppb_flags & PPB_LAZY && (opts.lazy_pages || opts.clone_dump))
 		type = 1;
 
 	pp->prev[type] = ppb;

@@ -671,6 +671,8 @@ static int accept_tsock(struct parasite_ctl *ctl)
 		return -1;
 	}
 
+	close(ask); /* Listening socket served its purpose, close to free the address */
+
 	ctl->tsock = sock;
 	return 0;
 }

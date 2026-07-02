@@ -797,6 +797,143 @@ static int vma_list_add(struct vma_area *vma_area, struct vm_area_list *vma_area
 	return 0;
 }
 
+static int task_size_check(pid_t pid, VmaEntry *entry);
+
+static void set_maps_derived_flags(struct vma_area *vma_area, const char *file_path)
+{
+	/*
+	 * /proc/<pid>/maps doesn't provide VmFlags, but we still need some
+	 * mmap() flags to restore mappings correctly. For stacks the kernel
+	 * typically exposes "[stack]" (and "[stack:<tid>]") names.
+	 *
+	 * This is intentionally minimal: CLONE dump uses maps parsing only to
+	 * avoid the /proc/<pid>/smaps page-table walk overhead.
+	 */
+	if (!strncmp(file_path, "[stack", 6))
+		vma_area->e->flags |= MAP_GROWSDOWN;
+}
+
+int parse_maps(pid_t pid, struct vm_area_list *vma_area_list,
+	       dump_filemap_t dump_filemap)
+{
+	struct vma_area *vma_area = NULL, *prev_vma_area = NULL;
+	unsigned long start, end, pgoff, prev_end = 0;
+	char r, w, x, s;
+	int ret = -1, vm_file_fd = -1;
+	struct vma_file_info vfi;
+	struct vma_file_info prev_vfi = {};
+
+	DIR *map_files_dir = NULL;
+	struct bfd f;
+
+	vm_area_list_init(vma_area_list);
+
+	f.fd = open_proc(pid, "maps");
+	if (f.fd < 0)
+		goto err_n;
+
+	if (bfdopenr(&f))
+		goto err;
+
+	map_files_dir = opendir_proc(pid, "map_files");
+	if (!map_files_dir) /* old kernel? */
+		goto err;
+
+	while (1) {
+		int num, path_off;
+		char *str;
+
+		str = breadline(&f);
+		if (IS_ERR(str))
+			goto err;
+		if (str == NULL)
+			break;
+
+		vma_area = alloc_vma_area();
+		if (!vma_area)
+			goto err;
+
+		num = sscanf(str, "%lx-%lx %c%c%c%c %lx %x:%x %lu %n", &start, &end, &r, &w, &x, &s,
+			     &pgoff, &vfi.dev_maj, &vfi.dev_min, &vfi.ino, &path_off);
+		if (num < 10) {
+			pr_err("Can't parse: %s\n", str);
+			goto err;
+		}
+
+		vma_area->e->start = start;
+		vma_area->e->end = end;
+		vma_area->e->pgoff = pgoff;
+		vma_area->e->prot = PROT_NONE;
+
+		if (task_size_check(pid, vma_area->e))
+			goto err;
+
+		if (r == 'r')
+			vma_area->e->prot |= PROT_READ;
+		if (w == 'w')
+			vma_area->e->prot |= PROT_WRITE;
+		if (x == 'x')
+			vma_area->e->prot |= PROT_EXEC;
+
+		if (s == 's')
+			vma_area->e->flags = MAP_SHARED;
+		else if (s == 'p')
+			vma_area->e->flags = MAP_PRIVATE;
+		else {
+			pr_err("Unexpected VMA met (%c)\n", s);
+			goto err;
+		}
+
+		pr_debug("Handling VMA with the following maps entry: %s\n", str);
+		if (handle_vma(pid, vma_area, str + path_off, map_files_dir, &vfi, &prev_vfi, &vm_file_fd))
+			goto err;
+
+		set_maps_derived_flags(vma_area, str + path_off);
+
+		if (vma_entry_is(vma_area->e, VMA_FILE_PRIVATE) || vma_entry_is(vma_area->e, VMA_FILE_SHARED)) {
+			if (dump_filemap && dump_filemap(vma_area, vm_file_fd))
+				goto err;
+		} else if (vma_entry_is(vma_area->e, VMA_AREA_AIORING))
+			vma_area_list->nr_aios++;
+
+		if (vma_area_is(vma_area, VMA_AREA_VVAR) &&
+		    prev_vma_area && vma_area_is(prev_vma_area, VMA_AREA_VVAR)) {
+			if (prev_vma_area->e->end != vma_area->e->start) {
+				pr_err("two nonconsecutive vvar vma-s: "
+				       "%" PRIx64 "-%" PRIx64 " %" PRIx64 "-%" PRIx64 "\n",
+				       prev_vma_area->e->start, prev_vma_area->e->end,
+				       vma_area->e->start, vma_area->e->end);
+				goto err;
+			}
+			/* Merge all vvar vma-s into one. */
+			prev_vma_area->e->end = vma_area->e->end;
+			if (!vma_area->file_borrowed)
+				xfree(vma_area->vmst);
+			xfree(vma_area);
+			vma_area = NULL;
+			continue;
+		}
+
+		if (vma_list_add(vma_area, vma_area_list, &prev_end, &vfi, &prev_vfi))
+			goto err;
+
+		prev_vma_area = vma_area;
+		vma_area = NULL;
+	}
+
+	ret = 0;
+
+err:
+	bclose(&f);
+err_n:
+	close_safe(&vm_file_fd);
+	if (map_files_dir)
+		closedir(map_files_dir);
+
+	xfree(vma_area);
+	return ret;
+}
+
 /*
  * On s390 we have old kernels where the global task size assumption of
  * criu does not work. See also compel_task_size() for s390.

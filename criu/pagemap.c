@@ -954,7 +954,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 		pr->maybe_read_page = maybe_read_page_img_streamer;
 	else {
 		pr->maybe_read_page = maybe_read_page_local;
-		if (!pr->parent && !opts.lazy_pages)
+		if (!pr->parent && !(opts.lazy_pages || opts.clone_dump))
 			pr->pieok = true;
 	}
 

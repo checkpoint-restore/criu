@@ -81,6 +81,7 @@ extern int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list, dump_
 extern void free_mappings(struct vm_area_list *vma_area_list);
 
 extern int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t cb);
+extern int parse_maps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t cb);
 extern int parse_self_maps_lite(struct vm_area_list *vms);
 
 #define vma_area_is(vma_area, s) vma_entry_is((vma_area)->e, s)
