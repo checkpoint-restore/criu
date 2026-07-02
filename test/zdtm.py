@@ -2390,6 +2390,15 @@ def print_error(line):
     return False
 
 
+# Patterns of log messages to ignore in grep_errors(). These are
+# matched as regular expressions against each line. Matching lines
+# are silently skipped and will not trigger "ERROR OVER" output.
+grep_errors_ignore = [
+    # Commonly seen with ns/uns flavors; harmless but triggers ERROR OVER
+    r"Error: ipv[46]: [Aa]ddress already assigned\.",  # codespell:ignore ddress
+]
+
+
 def grep_errors(fname, err=False):
     first = True
     print_next = False
@@ -2399,6 +2408,9 @@ def grep_errors(fname, err=False):
             before.append(line)
             if len(before) > 5:
                 before.pop(0)
+            # Skip lines matching known harmless messages
+            if any(re.search(p, line) for p in grep_errors_ignore):
+                continue
             if "Error" in line or "Warn" in line:
                 if first:
                     print_fname(fname, 'log')
