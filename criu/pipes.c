@@ -181,8 +181,21 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 	while (iov.iov_len > 0) {
 		ret = vmsplice(pfd, &iov, 1, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 		if (ret < 0) {
-			pr_perror("%#x: Error splicing data", id);
-			return -1;
+			/*
+			 * Since linux-next (see https://lwn.net/Articles/1075838/)
+			 * vmsplice() with SPLICE_F_GIFT into a pipe can fail with
+			 * EOPNOTSUPP. Fall back to a plain write() in that case.
+			 */
+			if (errno == EOPNOTSUPP) {
+				ret = write(pfd, iov.iov_base, iov.iov_len);
+				if (ret < 0) {
+					pr_perror("%#x: Error writing data", id);
+					return -1;
+				}
+			} else {
+				pr_perror("%#x: Error splicing data", id);
+				return -1;
+			}
 		}
 
 		if (ret == 0 || ret > iov.iov_len /* sanity */) {
