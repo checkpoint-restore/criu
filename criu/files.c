@@ -1539,8 +1539,8 @@ int shared_fdt_prepare(struct pstree_item *item)
 
 struct inherit_fd {
 	struct list_head inh_list;
-	char *inh_id; /* file identifier */
-	int inh_fd;   /* criu's descriptor to inherit */
+	char *inh_id;	 /* file identifier (or "og_fd[N]" ) */
+	int inh_fd;	 /* criu's descriptor to inherit */
 	int inh_fd_id;
 };
 
@@ -1555,6 +1555,9 @@ int inherit_fd_parse(char *optarg)
 
 	/*
 	 * Parse the argument.
+	 * Formats supported:
+	 *   fd[N]:identifier
+	 *   fd[N]:og_fd[M]     
 	 */
 	if (!strncmp(optarg, "fd", 2))
 		cp = &optarg[2];
@@ -1613,6 +1616,12 @@ int inherit_fd_add(int fd, char *key)
 
 	inh->inh_fd = fd;
 	list_add_tail(&inh->inh_list, &opts.inherit_fds);
+
+	if (!strncmp(key, "og_fd[", 8)) {
+		int og_fd = -1;
+		sscanf(key, "og_fd[%d]", &og_fd);
+		pr_info("Inherit fd %d will replace original fd %d\n", fd, og_fd);
+	}
 	return 0;
 }
 
@@ -1625,7 +1634,16 @@ void inherit_fd_log(void)
 	struct inherit_fd *inh;
 
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
-		pr_info("File %s will be restored from inherit fd %d\n", inh->inh_id, inh->inh_fd);
+		
+		if (!strncmp(inh->inh_id, "og_fd[", 6)) {
+			int og_fd = -1;
+			sscanf(inh->inh_id, "og_fd[%d]", &og_fd);
+			pr_info("Original fd %d will be restored from inherit fd %d\n",
+				og_fd, inh->inh_fd);
+		} else {
+			pr_info("File %s will be restored from inherit fd %d\n",
+				inh->inh_id, inh->inh_fd);
+		}
 	}
 }
 
@@ -1653,6 +1671,9 @@ int inherit_fd_lookup_id(char *id)
 
 	ret = -1;
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
+	
+		if (!strncmp(inh->inh_id, "og_fd[", 6))
+			continue;
 		if (!strcmp(inh->inh_id, id)) {
 			ret = fdstore_get(inh->inh_fd_id);
 			pr_debug("Found id %s (fd %d) in inherit fd list\n", id, ret);
@@ -1662,11 +1683,73 @@ int inherit_fd_lookup_id(char *id)
 	return ret;
 }
 
-bool inherited_fd(struct file_desc *d, int *fd_p)
+/*
+ * Look up the inherit fd list by original fd number.
+ * For --inherit-fd 'fd[N]:og_fd[M]', parse the og_fd number from inh_id
+ * and return the inherited fd that will replace it during restore.
+ */
+
+static int inherit_fd_lookup_by_og_fd(int og_fd)
 {
-	char buf[PATH_MAX], *id_str;
+	int ret;
+	struct inherit_fd *inher;
+
+	ret = -1;
+	list_for_each_entry(inher, &opts.inherit_fds, inh_list) {
+		int stored_og_fd;
+
+		if (strncmp(inher->inh_id, "og_fd[", 6) != 0)
+			continue;
+
+		
+		if (sscanf(inher->inh_id, "og_fd[%d]", &stored_og_fd) != 1)
+			continue;
+
+		if (stored_og_fd == og_fd) {
+			ret = fdstore_get(inher->inh_fd_id);
+			pr_debug("Found og_fd %d (fd %d) in inherit fd list\n",
+				 og_fd, ret);
+			break;
+		}
+	}
+	return ret;
+}
+
+/*
+ * Check if any file in file_desc's list matches an og_fd inherit entry.
+ * Returns the inherited fd if found, else -1.
+ */
+static int inherit_fd_check_og_fd(struct file_desc *d)
+{
+	struct fdinfo_list_entry *file;
 	int i_fd;
 
+	list_for_each_entry(file, &d->fd_info_head, desc_list) {
+		i_fd = inherit_fd_lookup_by_og_fd(file->fe->fd);
+		if (i_fd >= 0) {
+			pr_debug("File descriptor id %#x has file with og_fd %d matching inherit\n",
+				 d->id, file->fe->fd);
+			return i_fd;
+		}
+	}
+	return -1;
+}
+
+/* Check for og_fd by iterating through file descriptors
+* if found goto found else use normal id matching
+* if --inherit-fd 'fd[N]:og_fd[M]' entry.
+* else fd[N] identifier matching
+*/
+bool inherited_fd(struct file_desc *d, int *fd_p)
+{
+	char buf[PATH_MAX], *id_str = NULL;
+	int i_fd;
+
+	i_fd = inherit_fd_check_og_fd(d);
+	if (i_fd >= 0)
+		goto found;
+
+	
 	if (!d->ops->name)
 		return false;
 
@@ -1675,13 +1758,19 @@ bool inherited_fd(struct file_desc *d, int *fd_p)
 	if (i_fd < 0)
 		return false;
 
+found:
 	if (fd_p == NULL)
 		return true;
 
 	*fd_p = i_fd;
+	
+	/* Get the name string if we don't have it yet */
+	if (id_str == NULL && d->ops->name)
+		id_str = d->ops->name(d, buf, sizeof(buf));
+	
 	pr_info("File %s will be restored from fd %d dumped "
 		"from inherit fd %d\n",
-		id_str, *fd_p, i_fd);
+		id_str ? id_str : "<unknown>", *fd_p, i_fd);
 	return true;
 }
 
