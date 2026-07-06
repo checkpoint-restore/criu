@@ -3,21 +3,29 @@ import argparse
 import sys
 import json
 import os
+from contextlib import contextmanager
 
 import pycriu
 from . import __version__
 
 
+@contextmanager
 def inf(opts):
     if opts['in']:
-        return open(opts['in'], 'rb')
+        f = open(opts['in'], 'rb')
+        try:
+            yield f
+        finally:
+            f.close()
     else:
         if sys.stdin.isatty():
             # If we are reading from a terminal (not a pipe) we want text input and not binary
-            return sys.stdin
-        return sys.stdin.buffer
+            yield sys.stdin
+        else:
+            yield sys.stdin.buffer
 
 
+@contextmanager
 def outf(opts, decode):
     # Decode means from protobuf to JSON.
     # Use text when writing to JSON else use binaray mode
@@ -25,22 +33,33 @@ def outf(opts, decode):
         mode = 'wb+'
         if decode:
             mode = 'w+'
-        return open(opts['out'], mode)
+        f = open(opts['out'], mode)
+        try:
+            yield f
+        finally:
+            f.close()
     else:
         if decode:
-            return sys.stdout
-        return sys.stdout.buffer
+            yield sys.stdout
+        else:
+            yield sys.stdout.buffer
 
 
+@contextmanager
 def dinf(opts, name):
-    return open(os.path.join(opts['dir'], name), mode='rb')
+    f = open(os.path.join(opts['dir'], name), mode='rb')
+    try:
+        yield f
+    finally:
+        f.close()
 
 
 def decode(opts):
     indent = None
 
     try:
-        img = pycriu.images.load(inf(opts), opts['pretty'], opts['nopl'])
+        with inf(opts) as i:
+            img = pycriu.images.load(i, opts['pretty'], opts['nopl'])
     except pycriu.images.MagicException as exc:
         print("Unknown magic %#x.\n"
               "Maybe you are feeding me an image with "
@@ -50,25 +69,28 @@ def decode(opts):
     if opts['pretty']:
         indent = 4
 
-    f = outf(opts, True)
-    json.dump(img, f, indent=indent)
-    if f == sys.stdout:
-        f.write("\n")
+    with outf(opts, True) as f:
+        json.dump(img, f, indent=indent)
+        if f == sys.stdout:
+            f.write("\n")
 
 
 def encode(opts):
     try:
-        img = json.load(inf(opts))
+        with inf(opts) as i:
+            img = json.load(i)
     except UnicodeDecodeError:
         print("Cannot read JSON.\n"
               "Maybe you are feeding me an image with protobuf data? "
               "Encode expects JSON input.", file=sys.stderr)
         sys.exit(1)
-    pycriu.images.dump(img, outf(opts, False))
+    with outf(opts, False) as o:
+        pycriu.images.dump(img, o)
 
 
 def info(opts):
-    infs = pycriu.images.info(inf(opts))
+    with inf(opts) as i:
+        infs = pycriu.images.info(i)
     json.dump(infs, sys.stdout, indent=4)
     print()
 
@@ -101,10 +123,11 @@ def show_ps(p, opts, depth=0):
 
 def explore_ps(opts):
     pss = {}
-    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+    with dinf(opts, 'pstree.img') as f:
+        ps_img = pycriu.images.load(f)
     for p in ps_img['entries']:
-        core = pycriu.images.load(
-            dinf(opts, 'core-%d.img' % get_task_id(p, 'pid')))
+        with dinf(opts, 'core-%d.img' % get_task_id(p, 'pid')) as f:
+            core = pycriu.images.load(f)
         ps = ps_item(p, core['entries'][0])
         pss[ps.pid] = ps
 
@@ -131,7 +154,8 @@ def ftype_find_in_files(opts, ft, fid):
 
     if files_img is None:
         try:
-            files_img = pycriu.images.load(dinf(opts, "files.img"))['entries']
+            with dinf(opts, "files.img") as f:
+                files_img = pycriu.images.load(f)['entries']
         except Exception:
             files_img = []
 
@@ -154,7 +178,8 @@ def ftype_find_in_image(opts, ft, fid, img):
             return None
 
     if ft['img'] is None:
-        ft['img'] = pycriu.images.load(dinf(opts, img))['entries']
+        with dinf(opts, img) as f:
+            ft['img'] = pycriu.images.load(f)['entries']
     for f in ft['img']:
         if f['id'] == fid:
             return f
@@ -218,18 +243,22 @@ def get_file_str(opts, fd):
 
 
 def explore_fds(opts):
-    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+    with dinf(opts, 'pstree.img') as f:
+        ps_img = pycriu.images.load(f)
     for p in ps_img['entries']:
         pid = get_task_id(p, 'pid')
-        idi = pycriu.images.load(dinf(opts, 'ids-%s.img' % pid))
+        with dinf(opts, 'ids-%s.img' % pid) as f:
+            idi = pycriu.images.load(f)
         fdt = idi['entries'][0]['files_id']
-        fdi = pycriu.images.load(dinf(opts, 'fdinfo-%d.img' % fdt))
+        with dinf(opts, 'fdinfo-%d.img' % fdt) as f:
+            fdi = pycriu.images.load(f)
 
         print("%d" % pid)
         for fd in fdi['entries']:
             print("\t%7d: %s" % (fd['fd'], get_file_str(opts, fd)))
 
-        fdi = pycriu.images.load(dinf(opts, 'fs-%d.img' % pid))['entries'][0]
+        with dinf(opts, 'fs-%d.img' % pid) as f:
+            fdi = pycriu.images.load(f)['entries'][0]
         print("\t%7s: %s" %
               ('cwd', get_file_str(opts, {
                   'type': 'REG',
@@ -258,11 +287,13 @@ class vma_id:
 
 
 def explore_mems(opts):
-    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+    with dinf(opts, 'pstree.img') as f:
+        ps_img = pycriu.images.load(f)
     vids = vma_id()
     for p in ps_img['entries']:
         pid = get_task_id(p, 'pid')
-        mmi = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid))['entries'][0]
+        with dinf(opts, 'mm-%d.img' % pid) as f:
+            mmi = pycriu.images.load(f)['entries'][0]
 
         print("%d" % pid)
         print("\t%-36s    %s" % ('exe',
@@ -311,12 +342,14 @@ def explore_mems(opts):
 
 
 def explore_rss(opts):
-    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+    with dinf(opts, 'pstree.img') as f:
+        ps_img = pycriu.images.load(f)
     for p in ps_img['entries']:
         pid = get_task_id(p, 'pid')
-        vmas = pycriu.images.load(dinf(opts, 'mm-%d.img' %
-                                       pid))['entries'][0]['vmas']
-        pms = pycriu.images.load(dinf(opts, 'pagemap-%d.img' % pid))['entries']
+        with dinf(opts, 'mm-%d.img' % pid) as f:
+            vmas = pycriu.images.load(f)['entries'][0]['vmas']
+        with dinf(opts, 'pagemap-%d.img' % pid) as f:
+            pms = pycriu.images.load(f)['entries']
 
         print("%d" % pid)
         vmi = 0
