@@ -35,10 +35,10 @@ All C code MUST follow the [Linux Kernel Coding Style](https://www.kernel.org/do
   See `criu/include/restorer.h` for `CR_STATE_*` definitions.
 - **crit**: Tooling for inspecting CRIU image files.
 - **soccr**: Library for TCP socket checkpoint/restore.
-- **pie/ directories**: Code in these directories (e.g., `criu/pie/`) should be
+- **pie/ directories**: Code in these directories (e.g., `criu/pie/`, `compel/plugins/`) should be
   self-contained Position-Independent Executable (PIE) code. It MUST NOT
   depend on any external libraries and can only depend on things implemented by
-  Compel.
+  Compel. Check `.github/instructions/pie.instructions.md` for specific rules.
 
 ### CRIU Commands
 - **dump**: Saves a process tree and all its related resources into a
@@ -55,6 +55,12 @@ All C code MUST follow the [Linux Kernel Coding Style](https://www.kernel.org/do
   obtaining references from parent images.
 - **page-server**: Launches CRIU in page server mode to send memory pages over
   the network during migration.
+
+## Build & Verification
+- **Build**: `make` (creates `./criu/criu`).
+- **Dependencies**: See `contrib/dependencies` for install scripts.
+- **Lint**: `make lint` (checks python, shell, spelling).
+- **Style**: `make indent` (checks C code style).
 
 ## Development & Testing
 - **ZDTM (Zero-Downtime Migration)**: The primary test suite located in
