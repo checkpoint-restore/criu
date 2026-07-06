@@ -32,6 +32,7 @@ import io
 import sys
 import ctypes
 import platform
+from contextlib import ExitStack
 
 from pycriu import images
 from . import elf
@@ -872,86 +873,86 @@ class coredump_generator:
             # current process.
             return b"\0" * size
 
-        if vma["status"] & status["VMA_FILE_SHARED"] or \
-           vma["status"] & status["VMA_FILE_PRIVATE"]:
-            # Open file before iterating vma pages
-            shmid = vma["shmid"]
-            off = vma["pgoff"]
+        # ExitStack ensures the file opened below (if any) is closed
+        # when the block exits, even if an exception is raised.
+        with ExitStack() as stack:
+            if vma["status"] & status["VMA_FILE_SHARED"] or \
+               vma["status"] & status["VMA_FILE_PRIVATE"]:
+                # Open file before iterating vma pages
+                shmid = vma["shmid"]
+                off = vma["pgoff"]
 
-            files = self.reg_files
-            fname = next(filter(lambda x: x["id"] == shmid, files))["name"]
+                files = self.reg_files
+                fname = next(
+                    filter(lambda x: x["id"] == shmid, files))["name"]
 
-            try:
-                f = open(fname, 'rb')
-            except FileNotFoundError:
-                sys.exit('Required file %s not found.' % fname)
+                try:
+                    f = stack.enter_context(open(fname, 'rb'))
+                except FileNotFoundError:
+                    sys.exit('Required file %s not found.' % fname)
 
-            f.seek(off)
+                f.seek(off)
 
-        start = vma["start"]
-        end = vma["start"] + size
+            start = vma["start"]
+            end = vma["start"] + size
 
-        # Split requested memory chunk into pages, so it could be
-        # pictured as:
-        #
-        # "----" -- part of page with memory outside of our vma;
-        # "XXXX" -- memory from our vma;
-        #
-        #  Start page     Pages in the middle        End page
-        # [-----XXXXX]...[XXXXXXXXXX][XXXXXXXXXX]...[XXX-------]
-        #
-        # Each page could be found in pages.img or in a standalone
-        # file described by shmid field in vma entry and
-        # corresponding entry in reg-files.img.
-        # For VMA_FILE_PRIVATE vma, unchanged pages are taken from
-        # a file, and changed ones -- from pages.img.
-        # Finally, if no page is found neither in pages.img nor
-        # in file, hole in inserted -- a page filled with zeroes.
-        start_page = start // PAGESIZE
-        end_page = end // PAGESIZE
+            # Split requested memory chunk into pages, so it could be
+            # pictured as:
+            #
+            # "----" -- part of page with memory outside of our vma;
+            # "XXXX" -- memory from our vma;
+            #
+            #  Start page     Pages in the middle        End page
+            # [-----XXXXX]...[XXXXXXXXXX][XXXXXXXXXX]...[XXX-------]
+            #
+            # Each page could be found in pages.img or in a standalone
+            # file described by shmid field in vma entry and
+            # corresponding entry in reg-files.img.
+            # For VMA_FILE_PRIVATE vma, unchanged pages are taken from
+            # a file, and changed ones -- from pages.img.
+            # Finally, if no page is found neither in pages.img nor
+            # in file, hole in inserted -- a page filled with zeroes.
+            start_page = start // PAGESIZE
+            end_page = end // PAGESIZE
 
-        buf = b""
-        for page_no in range(start_page, end_page + 1):
-            page = None
+            buf = b""
+            for page_no in range(start_page, end_page + 1):
+                page = None
 
-            # Search for needed page in pages.img and reg-files.img
-            # and choose appropriate.
-            page_mem = self._get_page(pid, page_no)
+                # Search for needed page in pages.img and reg-files.img
+                # and choose appropriate.
+                page_mem = self._get_page(pid, page_no)
 
-            if f is not None:
-                page = f.read(PAGESIZE)
+                if f is not None:
+                    page = f.read(PAGESIZE)
 
-            if page_mem is not None:
-                # Page from pages.img has higher priority
-                # than one from mapped file on disk.
-                page = page_mem
+                if page_mem is not None:
+                    # Page from pages.img has higher priority
+                    # than one from mapped file on disk.
+                    page = page_mem
 
-            if page is None:
-                # Hole
-                page = PAGESIZE * b"\0"
+                if page is None:
+                    # Hole
+                    page = PAGESIZE * b"\0"
 
-            # If it is a start or end page, we need to read
-            # only part of it.
-            if page_no == start_page:
-                n_skip = start - page_no * PAGESIZE
-                if start_page == end_page:
-                    n_read = size
+                # If it is a start or end page, we need to read
+                # only part of it.
+                if page_no == start_page:
+                    n_skip = start - page_no * PAGESIZE
+                    if start_page == end_page:
+                        n_read = size
+                    else:
+                        n_read = PAGESIZE - n_skip
+                elif page_no == end_page:
+                    n_skip = 0
+                    n_read = end - page_no * PAGESIZE
                 else:
-                    n_read = PAGESIZE - n_skip
-            elif page_no == end_page:
-                n_skip = 0
-                n_read = end - page_no * PAGESIZE
-            else:
-                n_skip = 0
-                n_read = PAGESIZE
+                    n_skip = 0
+                    n_read = PAGESIZE
 
-            buf += page[n_skip:n_skip + n_read]
+                buf += page[n_skip:n_skip + n_read]
 
-        # Don't forget to close file.
-        if f is not None:
-            f.close()
-
-        return buf
+            return buf
 
     def _gen_cmdline(self, pid):
         """
