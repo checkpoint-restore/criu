@@ -61,14 +61,15 @@ def get_pipe_ino(pid, fd):
 
 
 def get_pipe_rw(pid, fd):
-    for l in open('/proc/%d/fdinfo/%d' % (pid, fd)):
-        if l.startswith('flags:'):
-            f = l.split(None, 1)[1][-2]
-            if f == '0':
-                return 0  # Read
-            elif f == '1':
-                return 1  # Write
-            break
+    with open('/proc/%d/fdinfo/%d' % (pid, fd)) as fh:
+        for l in fh:
+            if l.startswith('flags:'):
+                f = l.split(None, 1)[1][-2]
+                if f == '0':
+                    return 0  # Read
+                elif f == '1':
+                    return 1  # Write
+                break
 
     raise Exception('Unexpected fdinfo contents')
 
