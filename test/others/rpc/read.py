@@ -7,9 +7,8 @@
 
 import sys
 
-f = open(sys.argv[1])
-r = f.read(1)
-f.close()
+with open(sys.argv[1]) as f:
+    r = f.read(1)
 
 if r == '\0':
     sys.exit(0)
