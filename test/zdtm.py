@@ -767,6 +767,7 @@ class inhfd_test:
             os.close(fd)
             fd = os.open("/dev/null", os.O_RDONLY)
             os.dup2(fd, 0)
+            os.close(fd)
             for my_file, _ in self.__files:
                 my_file.close()
             os.close(start_pipe[0])
@@ -2647,30 +2648,27 @@ class group:
         scripts = filter(lambda names: os.access(names[1], os.X_OK),
                          map(lambda test: (test, test + ext), self.__tests))
         if scripts:
-            f = open(fname + ext, "w")
-            f.write("#!/bin/sh -e\n")
+            with open(fname + ext, "w") as f:
+                f.write("#!/bin/sh -e\n")
 
-            for test, script in scripts:
-                f.write("echo 'Running %s for %s'\n" % (ext, test))
-                f.write('%s "$@"\n' % script)
+                for test, script in scripts:
+                    f.write("echo 'Running %s for %s'\n" % (ext, test))
+                    f.write('%s "$@"\n' % script)
 
-            f.write("echo 'All %s scripts OK'\n" % ext)
-            f.close()
+                f.write("echo 'All %s scripts OK'\n" % ext)
             os.chmod(fname + ext, 0o700)
 
     def dump(self, fname):
-        f = open(fname, "w")
-        for t in self.__tests:
-            f.write(t + '\n')
-        f.close()
+        with open(fname, "w") as f:
+            for t in self.__tests:
+                f.write(t + '\n')
         os.chmod(fname, 0o700)
 
         if len(self.__desc) or len(self.__deps):
-            f = open(fname + '.desc', "w")
-            if len(self.__deps):
-                self.__desc['deps'] = list(self.__deps)
-            f.write(repr(self.__desc))
-            f.close()
+            with open(fname + '.desc', "w") as f:
+                if len(self.__deps):
+                    self.__desc['deps'] = list(self.__deps)
+                f.write(repr(self.__desc))
 
         # write "meta" .checkskip and .hook scripts
         self.__dump_meta(fname, '.checkskip')
