@@ -543,7 +543,8 @@ usage:
 	       "                        will be punched from the image\n"
 	       "  --memory-dump-mode    splice - parasite based memory dumping (default)\n"
 	       "                        read   - process_vm_readv syscall based memory dumping\n"
-	       "                        (alias for --pre-dump-mode, applies to dump as well)\n"
+	       "                        (applies to dump as well)\n"
+	       "  --pre-dump-mode       (alias for --memory-dump-mode)\n"
 #ifdef CONFIG_LZ4
 	       "  -c|--compress         enable page-sized LZ4 memory compression\n"
 	       "  --compress-block size\n"
