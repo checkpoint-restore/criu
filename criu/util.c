@@ -994,8 +994,14 @@ int cr_fchown(int fd, uid_t new_uid, gid_t new_gid)
 	}
 	pr_debug("fstat(%d): uid %u gid %u\n", fd, st.st_uid, st.st_gid);
 
-	if (new_uid != st.st_uid || new_gid != st.st_gid)
+	if (new_uid != st.st_uid || new_gid != st.st_gid) {
+		if (opts.unprivileged) {
+			pr_warn("Unable to change fd %d ownership (%d, %d) to (%d, %d): Operation not permitted (ignored in unprivileged mode)\n",
+				fd, st.st_uid, st.st_gid, new_uid, new_gid);
+			return 0;
+		}
 		goto out_eperm;
+	}
 
 	return 0;
 out_eperm:
@@ -1024,11 +1030,16 @@ int cr_fchpermat(int dirfd, const char *path, uid_t new_uid, gid_t new_gid, mode
 	}
 
 	if (new_uid != st.st_uid || new_gid != st.st_gid) {
-		errno = EPERM;
-		pr_perror("Unable to change [%d]/%s ownership (%d, %d) to (%d, %d)",
-			  dirfd, path, st.st_uid, st.st_gid, new_uid, new_gid);
-		errno = EPERM;
-		return -1;
+		if (opts.unprivileged) {
+			pr_warn("Unable to change [%d]/%s ownership (%d, %d) to (%d, %d): Operation not permitted (ignored in unprivileged mode)\n",
+				dirfd, path, st.st_uid, st.st_gid, new_uid, new_gid);
+		} else {
+			errno = EPERM;
+			pr_perror("Unable to change [%d]/%s ownership (%d, %d) to (%d, %d)",
+				  dirfd, path, st.st_uid, st.st_gid, new_uid, new_gid);
+			errno = EPERM;
+			return -1;
+		}
 	}
 
 	if (new_mode == st.st_mode)

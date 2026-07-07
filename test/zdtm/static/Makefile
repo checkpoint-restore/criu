@@ -471,6 +471,7 @@ TST_DIR		=				\
 		del_standalone_un_seqpacket	\
 		sk-unix-mntns			\
 		sk-unix01			\
+		sk_unix_owner			\
 		sk-unix01-seqpacket		\
 		sk-unix-dgram-ghost		\
 		unsupported_children_collision  \
