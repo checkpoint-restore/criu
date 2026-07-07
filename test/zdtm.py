@@ -1178,7 +1178,7 @@ class criu:
 
     def fini(self):
         if self.__lazy_migrate:
-            ret = self.__dump_process.wait()
+            self.__dump_process.wait()
         if self.__lazy_pages_p:
             ret = self.__lazy_pages_p.wait()
             grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"), err=ret)
@@ -1360,7 +1360,6 @@ class criu:
         if not os.access(self.__stats_file("dump"), os.R_OK):
             return
 
-        stats_written = -1
         with open(self.__stats_file("dump"), 'rb') as stfile:
             stats = crpc.images.load(stfile)
             stent = stats['entries'][0]['dump']
@@ -2223,8 +2222,6 @@ class Launcher:
             self.wait()
 
     def __wait_one(self, flags):
-        pid = -1
-        status = -1
         signal.alarm(10)
         while True:
             try:
