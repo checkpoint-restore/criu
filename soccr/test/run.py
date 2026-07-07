@@ -44,7 +44,6 @@ if str2 != eval(s):
     print("FAIL", repr(str2), repr(s))
     sys.exit(5)
 
-s = p1.stdout.read()
 m = hashlib.md5()
 m.update(str1)
 str1 = m.hexdigest()
