@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-import sys, os
+import ast
+import sys
+import os
 import hashlib
 from subprocess import Popen, PIPE
 
-str2 = "test_test" * (1 << 20)
-str1 = "Test_Test!"
+str2 = b"test_test" * (1 << 20)
+str1 = b"Test_Test!"
 
 src = os.getenv("TCP_SRC", "127.0.0.1")
 dst = os.getenv("TCP_DST", "127.0.0.1")
@@ -27,8 +29,8 @@ p2 = Popen(args + ["src"], stdout=PIPE, stdin=PIPE)
 
 p1.stdout.read(5)
 p2.stdout.read(5)
-p1.stdin.write("start")
-p2.stdin.write("start")
+p1.stdin.write(b"start")
+p2.stdin.write(b"start")
 
 p1.stdin.write(str1)
 p1.stdin.close()
@@ -40,7 +42,9 @@ m = hashlib.md5()
 m.update(str2)
 str2 = m.hexdigest()
 
-if str2 != eval(s):
+# tcp-test.py prints repr(hexdigest()), so we parse it back.
+# Use literal_eval instead of eval to avoid code injection.
+if str2 != ast.literal_eval(s.decode()):
     print("FAIL", repr(str2), repr(s))
     sys.exit(5)
 
@@ -49,7 +53,7 @@ m.update(str1)
 str1 = m.hexdigest()
 
 s = p2.stdout.read()
-if str1 != eval(s):
+if str1 != ast.literal_eval(s.decode()):
     print("FAIL", repr(str1), s)
     sys.exit(5)
 

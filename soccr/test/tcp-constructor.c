@@ -1,13 +1,18 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <linux/socket.h>
-#include <netinet/tcp.h>
 #include <string.h>
 #include <getopt.h>
 #include <stdlib.h>
 
+/* soccr.h includes <netinet/tcp.h> and provides fallback
+ * definitions guarded by CONFIG_HAS_TCP_REPAIR. Including
+ * <netinet/tcp.h> separately can cause redefinition errors. */
 #include "soccr/soccr.h"
 
 #define pr_perror(fmt, ...)                                                                  \
