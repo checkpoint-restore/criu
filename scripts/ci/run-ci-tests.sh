@@ -247,6 +247,7 @@ export SKIP_PREP=1
 chmod 0777 test/
 chmod 0777 test/zdtm/static
 chmod 0777 test/zdtm/transition
+chmod 0777 soccr/test/
 
 # We run streaming tests separately to improve test completion times,
 # hence the exit 0.
@@ -481,6 +482,9 @@ run_non_shardable_tests() {
 
 	# compel testing
 	make -C compel/test
+
+	# soccr testing
+	make -C soccr/test
 
 	# amdgpu and cuda plugin testing
 	make amdgpu_plugin
