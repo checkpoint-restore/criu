@@ -1,3 +1,7 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <sys/socket.h>
 #include <arpa/inet.h> /* for srvaddr_in and inet_ntoa() */
 #include <string.h>
@@ -7,13 +11,6 @@
 #include <stdarg.h>
 
 #define pr_perror(fmt, ...) printf(fmt ": %m\n", ##__VA_ARGS__)
-
-enum {
-	TCP_NO_QUEUE,
-	TCP_RECV_QUEUE,
-	TCP_SEND_QUEUE,
-	TCP_QUEUES_NR,
-};
 static void pr_printf(unsigned int level, const char *fmt, ...)
 {
 	va_list args;
@@ -145,7 +142,7 @@ int main(void)
 	}
 
 	libsoccr_resume(so_rst);
-	libsoccr_resume(so);
+	libsoccr_release(so);
 
 	if (read(rst, &buf, sizeof(buf)) != sizeof(buf)) {
 		pr_perror("read");

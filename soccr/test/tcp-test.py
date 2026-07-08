@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import sys, socket
+import sys
+import socket
 import hashlib
 
 sk = socket.fromfd(3, socket.AF_INET, socket.SOCK_STREAM)
 
-s = sys.stdin.read()
+s = sys.stdin.buffer.read()
 ret = sk.send(s)
 print("%s: send() -> %d" % (sys.argv[1], ret), file=sys.stderr)
 sk.shutdown(socket.SHUT_WR)

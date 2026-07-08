@@ -315,6 +315,7 @@ clean-cuda_plugin:
 
 clean-top:
 	$(Q) $(MAKE) -C Documentation clean
+	$(Q) $(MAKE) -C soccr/test clean
 	$(Q) $(MAKE) $(build)=test/compel clean
 	$(Q) $(RM) .gitid
 .PHONY: clean-top
@@ -469,7 +470,9 @@ ruff:
 		scripts/github-indent-warnings.py \
 		contrib/criu-service-client/test/*.py \
 		contrib/compression-benchmark/ \
-		test/others/compression/
+		test/others/compression/ \
+		soccr/test/run.py \
+		soccr/test/tcp-test.py
 
 shellcheck:
 	shellcheck --version
