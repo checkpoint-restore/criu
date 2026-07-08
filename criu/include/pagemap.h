@@ -1,6 +1,9 @@
 #ifndef __CR_PAGE_READ_H__
 #define __CR_PAGE_READ_H__
 
+#include <stddef.h>
+#include <sys/types.h>
+
 #include "common/list.h"
 #include "images/pagemap.pb-c.h"
 #include "page.h"
@@ -116,6 +119,15 @@ struct page_read {
 	 */
 	unsigned int region_block_offset;
 
+	/*
+	 * Last decompressed region block for repeated partial reads. A page
+	 * reader belongs to one pages image, so its virtual address and size
+	 * uniquely identify the cached block. A zero size means no valid cache.
+	 */
+	char *cached_region;
+	unsigned long cached_region_vaddr;
+	size_t cached_region_size;
+
 	/* Record consequent neighbour iov-ecs to punch together */
 	struct iovec bunch;
 
@@ -177,6 +189,7 @@ int probe_pages_o_direct(int fd);
  * maintains its own set of references to those structures.
  */
 extern void dup_page_read(struct page_read *src, struct page_read *dst);
+extern void page_read_free_cache(struct page_read *pr);
 
 extern void page_read_disable_dedup(struct page_read *pr);
 

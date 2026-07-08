@@ -169,6 +169,14 @@ int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 	return 0;
 }
 
+void page_read_free_cache(struct page_read *pr)
+{
+	xfree(pr->cached_region);
+	pr->cached_region = NULL;
+	pr->cached_region_vaddr = 0;
+	pr->cached_region_size = 0;
+}
+
 static int advance(struct page_read *pr)
 {
 	pr->curr_pme++;
@@ -892,6 +900,44 @@ static int read_compressed_pages(struct page_read *pr, int fd,
 	return 0;
 }
 
+static bool region_cache_hit(struct page_read *pr, unsigned long vaddr,
+			     size_t size)
+{
+	return pr->cached_region_size == size &&
+	       pr->cached_region_vaddr == vaddr;
+}
+
+static int region_cache_load(struct page_read *pr, int fd, char *compressed_buf,
+			     unsigned long vaddr, size_t idx, uint32_t cs,
+			     unsigned int pages, size_t bytes)
+{
+	char *cache;
+	size_t old_size = pr->cached_region_size;
+
+	/* Do not expose partially overwritten data as a valid cache entry. */
+	pr->cached_region_size = 0;
+
+	if (bytes != old_size) {
+		cache = xrealloc(pr->cached_region, bytes);
+		if (!cache)
+			return -1;
+		pr->cached_region = cache;
+	}
+
+	if (pread_full(fd, compressed_buf, cs, pr->pi_off))
+		return -1;
+
+	if (decompress_region(compressed_buf, cs, pages, pr->cached_region)) {
+		pr_err("Region decompression failed (idx=%zu cs=%u region=%u)\n",
+		       idx, cs, pages);
+		return -1;
+	}
+
+	pr->cached_region_vaddr = vaddr;
+	pr->cached_region_size = bytes;
+	return 0;
+}
+
 /*
  * Region-mode synchronous compressed read. Each compressed_size[]
  * entry covers up to region_pages pages. Reads may start mid-region
@@ -903,7 +949,8 @@ static int read_compressed_pages(struct page_read *pr, int fd,
  * and pr->pi_off; staying within a block bumps region_block_offset.
  */
 static int read_compressed_pages_region(struct page_read *pr, int fd,
-					unsigned long nr, void *buf)
+					unsigned long vaddr, unsigned long nr,
+					void *buf)
 {
 	unsigned int region_pages = pr->pe->region_pages;
 	size_t region_bytes_max = (size_t)region_pages * PAGE_SIZE;
@@ -924,6 +971,7 @@ static int read_compressed_pages_region(struct page_read *pr, int fd,
 		unsigned int avail;
 		unsigned int take;
 		size_t out_bytes;
+		unsigned long region_vaddr;
 
 		if (idx >= pr->pe->n_compressed_size) {
 			pr_err("region read: index %zu >= n_compressed %zu\n",
@@ -946,6 +994,8 @@ static int read_compressed_pages_region(struct page_read *pr, int fd,
 		if (nr - pages_done < avail)
 			take = (unsigned int)(nr - pages_done);
 		out_bytes = (size_t)take * PAGE_SIZE;
+		region_vaddr = vaddr + pages_done * PAGE_SIZE -
+				 (unsigned long)off * PAGE_SIZE;
 
 		if (cs == 0) {
 			memset((char *)buf + pages_done * PAGE_SIZE, 0, out_bytes);
@@ -967,25 +1017,18 @@ static int read_compressed_pages_region(struct page_read *pr, int fd,
 				goto out;
 			}
 		} else {
-			/* Partial slice: decompress into scratch, then memcpy. */
-			char *region_dec = xmalloc(this_bytes);
-
-			if (!region_dec)
+			/*
+			 * Partial slice: keep the decompressed region around
+			 * because incremental restores can read alternating
+			 * pages from the same parent region.
+			 */
+			if (!region_cache_hit(pr, region_vaddr, this_bytes) &&
+			    region_cache_load(pr, fd, scratch, region_vaddr, idx,
+					      cs, this_region, this_bytes))
 				goto out;
-			if (pread_full(fd, scratch, cs, pr->pi_off)) {
-				xfree(region_dec);
-				goto out;
-			}
-			if (decompress_region(scratch, cs, this_region, region_dec)) {
-				pr_err("Region decompression failed (idx=%zu cs=%u region=%u)\n",
-				       idx, cs, this_region);
-				xfree(region_dec);
-				goto out;
-			}
 			memcpy((char *)buf + pages_done * PAGE_SIZE,
-			       region_dec + (size_t)off * PAGE_SIZE,
+			       pr->cached_region + (size_t)off * PAGE_SIZE,
 			       out_bytes);
-			xfree(region_dec);
 		}
 
 		pages_done += take;
@@ -1093,7 +1136,7 @@ static int maybe_read_page_local_compressed(struct page_read *pr, unsigned long 
 		 pr->img_id, pr->id, pr->cvaddr, pr->pi_off);
 
 	if (region_pages)
-		ret = read_compressed_pages_region(pr, fd, nr, buf);
+		ret = read_compressed_pages_region(pr, fd, vaddr, nr, buf);
 	else
 		ret = read_compressed_pages(pr, fd, nr, buf);
 	if (ret)
@@ -1725,6 +1768,8 @@ static void close_page_read(struct page_read *pr)
 
 	if (pr->pmes)
 		free_pagemaps(pr);
+
+	page_read_free_cache(pr);
 }
 
 static void reset_pagemap(struct page_read *pr)
@@ -2075,6 +2120,9 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->pi_off = 0;
 	pr->compressed_size_index = 0;
 	pr->region_block_offset = 0;
+	pr->cached_region = NULL;
+	pr->cached_region_vaddr = 0;
+	pr->cached_region_size = 0;
 	pr->bunch.iov_len = 0;
 	pr->bunch.iov_base = NULL;
 	pr->pmes = NULL;
@@ -2191,5 +2239,8 @@ void dup_page_read(struct page_read *src, struct page_read *dst)
 	memcpy(dst, src, sizeof(*dst));
 	INIT_LIST_HEAD(&dst->async);
 	dst->id = src->id + DUP_IDS_BASE * dup_ids++;
+	dst->cached_region = NULL;
+	dst->cached_region_vaddr = 0;
+	dst->cached_region_size = 0;
 	dst->reset(dst);
 }
