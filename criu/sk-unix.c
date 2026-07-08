@@ -408,7 +408,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 	 * (i stands for in-flight, cons -- for connections) things.
 	 */
 	if (sk->rqlen != 0 && sk->state != TCP_LISTEN) {
-		if (dump_sk_queue(lfd, id, 0))
+		if (dump_sk_queue(lfd, id, SK_QUEUE_REAL_PID))
 			goto err;
 	}
 

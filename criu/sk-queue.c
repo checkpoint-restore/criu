@@ -18,6 +18,10 @@
 #include "util-pie.h"
 #include "sockets.h"
 #include "xmalloc.h"
+#include "namespaces.h"
+#include "pstree.h"
+#include "util.h"
+
 #include "sk-queue.h"
 #include "files.h"
 #include "protobuf.h"
@@ -132,7 +136,49 @@ static int dump_scm_rights(struct cmsghdr *ch, SkPacketEntry *pe)
  */
 #define CMSG_MAX_SIZE 2048
 
-static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe)
+static int dump_sk_creds(struct ucred *ucred, SkPacketEntry *pe, int flags)
+{
+	SkUcredEntry *ent;
+
+	ent = xmalloc(sizeof(*ent));
+	if (!ent)
+		return -1;
+
+	sk_ucred_entry__init(ent);
+	ent->uid = userns_uid(ucred->uid);
+	ent->gid = userns_gid(ucred->gid);
+	if (flags & SK_QUEUE_REAL_PID) {
+		/*
+		 * It is impossible to convert pid from real to virt,
+		 * because virt pid-s are known for dumped task only
+		 */
+		pr_err("ucred-s for unix sockets aren't supported yet\n");
+		return -1;
+	} else {
+		int pidns = root_ns_mask & CLONE_NEWPID;
+		char path[64];
+		int ret;
+
+		/* Does a process exist? */
+		if (pidns) {
+			snprintf(path, sizeof(path), "%d", ucred->pid);
+			ret = faccessat(get_service_fd(CR_PROC_FD_OFF), path, R_OK, 0);
+		} else {
+			snprintf(path, sizeof(path), "/proc/%d", ucred->pid);
+			ret = access(path, R_OK);
+		}
+		if (ret) {
+			pr_err("Unable to dump ucred for a dead process %d\n", ucred->pid);
+			return -1;
+		}
+		ent->pid = ucred->pid;
+	}
+	pe->ucred = ent;
+
+	return 0;
+}
+
+static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 {
 	struct cmsghdr *ch;
 	int n_rights = 0;
@@ -152,6 +198,16 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe)
 				return -1;
 
 			n_rights++;
+			continue;
+		}
+
+		if (ch->cmsg_len == CMSG_LEN(sizeof(struct ucred)) &&
+		    ch->cmsg_type == SCM_CREDENTIALS &&
+		    ch->cmsg_level == SOL_SOCKET) {
+			struct ucred *ucred = (struct ucred *)CMSG_DATA(ch);
+
+			if (dump_sk_creds(ucred, pe, flags))
+				return -1;
 			continue;
 		}
 
@@ -270,7 +326,7 @@ int dump_sk_queue(int sock_fd, int sock_id, int flags)
 			goto err_set_sock;
 		}
 
-		if (dump_packet_cmsg(&msg, &pe))
+		if (dump_packet_cmsg(&msg, &pe, flags))
 			goto err_set_sock;
 
 		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_SK_QUEUES), &pe, PB_SK_QUEUES);
@@ -311,6 +367,7 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 	SkPacketEntry *entry = pkt->entry;
 	struct msghdr mh = {};
 	struct iovec iov;
+	char cmsg[CMSG_MAX_SIZE];
 
 	mh.msg_iov = &iov;
 	mh.msg_iovlen = 1;
@@ -330,6 +387,23 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 	 * boundaries messages should be saved.
 	 */
 
+	if (entry->ucred) {
+		struct ucred *ucred;
+		struct cmsghdr *ch;
+
+		mh.msg_control = cmsg;
+		mh.msg_controllen = sizeof(cmsg);
+
+		ch = CMSG_FIRSTHDR(&mh);
+		ch->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+		ch->cmsg_level = SOL_SOCKET;
+		ch->cmsg_type = SCM_CREDENTIALS;
+		ucred = (struct ucred *)CMSG_DATA(ch);
+		ucred->pid = entry->ucred->pid;
+		ucred->uid = entry->ucred->uid;
+		ucred->gid = entry->ucred->gid;
+		mh.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
+	}
 	ret = sendmsg(fd, &mh, 0);
 	xfree(pkt->data);
 	xfree(pkt->scm);

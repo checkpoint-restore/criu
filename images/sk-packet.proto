@@ -7,12 +7,17 @@ message scm_entry {
 	repeated uint32			rights		= 2;
 }
 
+message sk_ucred_entry {
+	required uint32		uid		= 1;
+	required uint32		gid		= 2;
+	required uint32		pid		= 3;
+}
+
 message sk_packet_entry {
 	required uint32		id_for		= 1;
 	required uint32		length		= 2;
 	// Reserved for message address
 	// optional bytes		addr	= 3;
 	repeated scm_entry	scm		= 4;
-	// Reserved for ucred restore
-	// optional sk_ucred_entry	ucred	= 128;
+	optional sk_ucred_entry	ucred	= 128;
 }
