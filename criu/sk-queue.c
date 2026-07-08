@@ -124,6 +124,18 @@ static int dump_scm_rights(struct cmsghdr *ch, SkPacketEntry *pe)
 	return 0;
 }
 
+static void release_cmsg(SkPacketEntry *pe)
+{
+	int i;
+
+	for (i = 0; i < pe->n_scm; i++)
+		xfree(pe->scm[i]);
+	xfree(pe->scm);
+
+	pe->n_scm = 0;
+	pe->scm = NULL;
+}
+
 /*
  * Maximum size of the control messages. XXX -- is there any
  * way to get this value out of the kernel?
@@ -190,6 +202,8 @@ int sk_queue_post_actions(void)
 
 next:
 		list_del(&pkt->list);
+		if (pkt->entry)
+			release_cmsg(pkt->entry);
 		xfree(pkt);
 	}
 	return ret;
@@ -197,8 +211,12 @@ next:
 
 static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len)
 {
+	SkPacketEntry *pe;
+	SkUcredEntry *ue;
+	void *p;
 	struct sk_packet *pkt;
 	size_t sum = 0;
+	int i, j;
 
 	sum += sizeof(*pkt);
 	sum += sizeof(*pkt->entry);
@@ -206,31 +224,68 @@ static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len)
 	sum += len;
 
 	pkt = xmalloc(sum);
+	if (!pkt)
+		return -ENOMEM;
 
-	if (pkt) {
-		SkPacketEntry *pe = (void *)pkt + sizeof(*pkt);
-		SkUcredEntry *ue = (void *)pe + sizeof(*pe);
-		void *p = (void *)ue + sizeof(*ue);
+	pe = (void *)pkt + sizeof(*pkt);
+	ue = (void *)pe + sizeof(*pe);
+	p = (void *)ue + sizeof(*ue);
 
-		sk_packet_entry__init(pe);
-		sk_ucred_entry__init(ue);
+	sk_packet_entry__init(pe);
+	sk_ucred_entry__init(ue);
 
-		pkt->entry = pe;
-		pkt->data_off = p - (void *)pkt;
-		list_add_tail(&pkt->list, &packets_list);
+	pkt->entry = pe;
+	pkt->data_off = p - (void *)pkt;
 
-		pe->id_for = entry->id_for;
-		pe->length = entry->length;
-		pe->ucred = ue;
-		ue->uid = entry->ucred->uid;
-		ue->gid = entry->ucred->gid;
-		ue->pid = entry->ucred->pid;
+	pe->id_for = entry->id_for;
+	pe->length = entry->length;
+	pe->ucred = ue;
+	ue->uid = entry->ucred->uid;
+	ue->gid = entry->ucred->gid;
+	ue->pid = entry->ucred->pid;
 
-		memcpy(p, data, len);
-		pr_debug("ucred: Queued ucred packet id_for %x\n",
-			 pkt->entry->id_for);
-		return 0;
+	pe->n_scm = entry->n_scm;
+
+	pe->scm = xmalloc(pe->n_scm * sizeof(ScmEntry *));
+	if (!pe->scm) {
+		xfree(pkt);
+		return -1;
 	}
+
+	for (i = 0; i < entry->n_scm; i++) {
+		void *buf;
+		ScmEntry *scme;
+
+		buf = xmalloc(sizeof(ScmEntry) + entry->scm[i]->n_rights * sizeof(uint32_t));
+		if (!buf)
+			goto err_free;
+
+		scme = xptr_pull(&buf, ScmEntry);
+		scm_entry__init(scme);
+		scme->type = entry->scm[i]->type;
+		scme->n_rights = entry->scm[i]->n_rights;
+		scme->rights = xptr_pull_s(&buf, scme->n_rights * sizeof(uint32_t));
+
+		for (j = 0; j < scme->n_rights; j++)
+			scme->rights[j] = entry->scm[i]->rights[j];
+
+		pe->scm[i] = scme;
+	}
+
+
+	memcpy(p, data, len);
+	pr_debug("ucred: Queued ucred packet id_for %x\n",
+		 pkt->entry->id_for);
+
+	list_add_tail(&pkt->list, &packets_list);
+
+	return 0;
+
+err_free:
+	for (j = 0; j < i; j++)
+		xfree(pe->scm[j]);
+	xfree(pe->scm);
+	xfree(pkt);
 
 	return -ENOMEM;
 }
@@ -341,18 +396,6 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 	}
 
 	return ret;
-}
-
-static void release_cmsg(SkPacketEntry *pe)
-{
-	int i;
-
-	for (i = 0; i < pe->n_scm; i++)
-		xfree(pe->scm[i]);
-	xfree(pe->scm);
-
-	pe->n_scm = 0;
-	pe->scm = NULL;
 }
 
 int dump_sk_queue(int sock_fd, int sock_id, int flags)
