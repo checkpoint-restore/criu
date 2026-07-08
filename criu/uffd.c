@@ -168,10 +168,12 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 	free_iovs(lpi);
 	if (lpi->lpfd.fd > 0)
 		close(lpi->lpfd.fd);
-	if (lpi->parent)
+	if (lpi->parent) {
+		page_read_free_cache(&lpi->pr);
 		lpi_put(lpi->parent);
-	if (!lpi->parent && lpi->pr.close)
+	} else if (lpi->pr.close) {
 		lpi->pr.close(&lpi->pr);
+	}
 	xfree(lpi);
 }
 
