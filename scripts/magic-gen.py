@@ -26,7 +26,7 @@ def main(argv):
             if len(split) < 3:
                 continue
 
-            if not '#define' in split[0]:
+            if '#define' not in split[0]:
                 continue
 
             key = split[1]

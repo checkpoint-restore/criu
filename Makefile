@@ -458,6 +458,7 @@ ruff:
 		lib/pycriu/images/pb2dict.py \
 		lib/pycriu/images/images.py \
 		scripts/criu-ns \
+		scripts/magic-gen.py \
 		test/others/criu-ns/run.py \
 		crit/*.py \
 		crit/crit/*.py \
