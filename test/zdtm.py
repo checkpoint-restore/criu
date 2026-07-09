@@ -1390,7 +1390,7 @@ class criu:
                                       strace, preexec)
                 grep_errors(os.path.join(__ddir, log))
                 if ret == 0:
-                    return
+                    return None
             rst_succeeded = os.access(
                 os.path.join(__ddir, "restore-succeeded"), os.F_OK)
             if (self.__test.blocking() and not self.__criu.exit_signal(ret)) or \
@@ -1398,6 +1398,8 @@ class criu:
                 raise test_fail_expected_exc(action)
             else:
                 raise test_fail_exc("CRIU %s" % action)
+
+        return None
 
     def __stats_file(self, action):
         return os.path.join(self.__ddir(), "stats-%s" % action)
