@@ -7,7 +7,7 @@ import sys
 def main(argv):
     if len(argv) != 3:
         print("Usage: magic-gen.py path/to/image.h path/to/magic.py")
-        exit(1)
+        sys.exit(1)
 
     magic_c_header = argv[1]
     magic_py = argv[2]
