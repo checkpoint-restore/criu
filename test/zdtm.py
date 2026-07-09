@@ -2134,7 +2134,7 @@ def is_proc_stopped(pid):
                         return line.split(":", 1)[1].strip().split(" ")[0]
         except Exception as e:
             print("Unable to read a thread status: %s" % e)
-            pass  # process is dead
+            # process is dead
         return None
 
     def is_thread_stopped(status):
@@ -2146,7 +2146,7 @@ def is_proc_stopped(pid):
         thread_dirs = os.listdir(tasks_dir)
     except Exception as e:
         print("Unable to read threads: %s" % e)
-        pass  # process is dead
+        # process is dead
 
     for thread_dir in thread_dirs:
         thread_status = get_thread_status(os.path.join(tasks_dir, thread_dir))
@@ -2171,7 +2171,7 @@ def pstree_signal(root_pid, signal):
             os.kill(int(pid), signal)
         except Exception as e:
             print("Unable to kill %d: %s" % (pid, e))
-            pass  # process is dead
+            # process is dead
 
 
 def do_run_test(tname, tdesc, flavs, opts):
