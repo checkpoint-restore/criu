@@ -476,7 +476,7 @@ def chk_real_state(st):
         rsk = st.real_sockets[sk.sk_id]
         try:
             s_st = os.fstat(rsk.fileno())
-        except:
+        except Exception:
             print('FAIL: Socket %d lost' % sk.sk_id)
             return CHK_FAIL_SOCKET
         if not stat.S_ISSOCK(s_st.st_mode):
@@ -518,7 +518,7 @@ def chk_real_state(st):
             acc.act(st)
             try:
                 acc.do(st)
-            except:
+            except Exception:
                 print('FAIL: Cannot accept pending connection for %d' %
                       sk.sk_id)
                 return CHK_FAIL_ACCEPT
@@ -537,7 +537,7 @@ def chk_real_state(st):
             msg = sk.inqueue.pop(0)
             try:
                 r_msg, m_from = rsk.recvfrom(128)
-            except:
+            except Exception:
                 print('FAIL: No message in queue for %d' % sk.sk_id)
                 return CHK_FAIL_RECV_0
 
@@ -570,7 +570,7 @@ def chk_real_state(st):
         try:
             rsk.send(msgv)
             rmsg = psk.recv(128)
-        except:
+        except Exception:
             print('FAIL: Connectivity %d -> %d lost' % (sk.sk_id, sk.peer))
             return CHK_FAIL_CONNECT
 
@@ -621,7 +621,7 @@ def chk_state(st, opts):
             criu_bin, "dump", "-t",
             "%d" % pid, "-D", img_path, "-v4", "-o", "dump.log", "-j"
         ])
-    except:
+    except Exception:
         print("Dump failed")
         os.kill(pid, signal.SIGKILL)
         return CHK_FAIL_DUMP
@@ -633,7 +633,7 @@ def chk_state(st, opts):
             criu_bin, "restore", "-D", img_path, "-v4", "-o", "rst.log", "-j",
             "-d", "-S"
         ])
-    except:
+    except Exception:
         print("Restore failed")
         return CHK_FAIL_RESTORE
 
@@ -641,7 +641,7 @@ def chk_state(st, opts):
     signal_sk = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM, 0)
     try:
         signal_sk.sendto('check', sigsk_name)
-    except:
+    except Exception:
         # Probably the peer has died before us or smth else went wrong
         os.kill(pid, signal.SIGKILL)
 
