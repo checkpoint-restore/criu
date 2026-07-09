@@ -1848,7 +1848,7 @@ def cr(cr_api, test, opts):
     cr_api.set_test(test)
 
     iters = iter_parm(opts['iters'], 1)
-    for i in iters[0]:
+    for _ in iters[0]:
         pre = iter_parm(opts['pre'], 0)
         for p in pre[0]:
             if opts['snaps']:
