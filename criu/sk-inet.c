@@ -388,6 +388,8 @@ static int dump_ip_raw_opts(int sk, int family, int proto, IpOptsRawEntry *r)
 		ret |= dump_opt(sk, SOL_IP, IP_HDRINCL, &r->hdrincl);
 		ret |= dump_opt(sk, SOL_IP, IP_NODEFRAG, &r->nodefrag);
 		r->has_nodefrag = !!r->nodefrag;
+		ret |= dump_opt(sk, SOL_IP, IP_CHECKSUM, &r->checksum);
+		r->has_checksum = !!r->checksum;
 
 		if (proto == IPPROTO_ICMP)
 			ret |= do_dump_opt(sk, SOL_RAW, ICMP_FILTER, r->icmpv_filter,
@@ -423,6 +425,8 @@ static int dump_ip_opts(int sk, int family, int type, int proto, IpOptsEntry *io
 			/* Due to kernel code we can use SOL_IP instead of SOL_IPV6 */
 			ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
 		ret |= dump_opt(sk, SOL_IPV6, IPV6_RECVPKTINFO, &ioe->pktinfo);
+		ret |= dump_opt(sk, SOL_IPV6, IPV6_TCLASS, &ioe->tos);
+		ret |= dump_opt(sk, SOL_IPV6, IPV6_UNICAST_HOPS, &ioe->ttl);
 	} else {
 		ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
 		ret |= dump_opt(sk, SOL_IP, IP_PKTINFO, &ioe->pktinfo);
@@ -825,6 +829,8 @@ static int restore_ip_raw_opts(int sk, int family, int proto, IpOptsRawEntry *r)
 
 	if (r->has_nodefrag)
 		ret |= restore_opt(sk, SOL_IP, IP_NODEFRAG, &r->nodefrag);
+	if (r->has_checksum)
+		ret |= restore_opt(sk, SOL_IP, IP_CHECKSUM, &r->checksum);
 	if (r->has_hdrincl)
 		ret |= restore_opt(sk, family == AF_INET6 ? SOL_IPV6 : SOL_IP,
 				   family == AF_INET6 ? IPV6_HDRINCL : IP_HDRINCL, &r->hdrincl);
@@ -841,6 +847,10 @@ int restore_ip_opts(int sk, int family, int proto, IpOptsEntry *ioe)
 			ret |= restore_opt(sk, SOL_IPV6, IPV6_FREEBIND, &ioe->freebind);
 		if (ioe->has_pktinfo)
 			ret |= restore_opt(sk, SOL_IPV6, IPV6_RECVPKTINFO, &ioe->pktinfo);
+		if (ioe->has_tos)
+			ret |= restore_opt(sk, SOL_IPV6, IPV6_TCLASS, &ioe->tos);
+		if (ioe->has_ttl)
+			ret |= restore_opt(sk, SOL_IPV6, IPV6_UNICAST_HOPS, &ioe->ttl);
 	} else {
 		if (ioe->has_freebind)
 			ret |= restore_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
