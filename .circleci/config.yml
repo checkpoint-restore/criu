@@ -1,27 +1,40 @@
 version: 2.1
 jobs:
-  test-local-gcc:
+  test-local:
     machine:
       image: default
     working_directory: ~/criu
+    parameters:
+      compiler:
+        type: string
+      shard_index:
+        type: integer
+      shard_count:
+        type: integer
+        default: 4
     steps:
       - checkout
       - run:
-          name: "Test local with GCC"
-          command: sudo -E make -C scripts/ci local
-  test-local-clang:
-    machine:
-      image: default
-    working_directory: ~/criu
-    steps:
-      - checkout
-      - run:
-          name: "Test local with CLANG"
-          command: sudo -E make -C scripts/ci local CLANG=1
+          name: "Test local << parameters.compiler >> shard << parameters.shard_index >>"
+          command: >
+            sudo -E make -C scripts/ci local << parameters.compiler >>=1
+            ZDTM_SHARD_INDEX=<< parameters.shard_index >>
+            ZDTM_SHARD_COUNT=<< parameters.shard_count >>
 
 workflows:
   version: 2
   builds:
     jobs:
-      - test-local-gcc
-      - test-local-clang
+      - test-local:
+          matrix:
+            parameters:
+              compiler: ["GCC", "CLANG"]
+              shard_index: [0, 1, 2, 3]
+      - test-local:
+          name: "GCC non-zdtm"
+          compiler: "GCC"
+          shard_index: 4
+      - test-local:
+          name: "CLANG non-zdtm"
+          compiler: "CLANG"
+          shard_index: 4
