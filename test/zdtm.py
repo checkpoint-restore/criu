@@ -222,10 +222,10 @@ class ns_flavor:
     ]
     __dev_dirs = ["pts", "net"]
 
-    def __init__(self, opts):
-        self.name = "ns"
+    def __init__(self, opts, name="ns", uns=False):
+        self.name = name
         self.ns = True
-        self.uns = False
+        self.uns = uns
         self.root, self.devpath = make_tests_root()
         self.root_mounted = False
 
@@ -357,9 +357,7 @@ class ns_flavor:
 
 class userns_flavor(ns_flavor):
     def __init__(self, opts):
-        ns_flavor.__init__(self, opts)
-        self.name = "userns"
-        self.uns = True
+        ns_flavor.__init__(self, opts, name="userns", uns=True)
 
     def init(self, l_bins, x_bins):
         # To be able to create roots_yard in CRIU
