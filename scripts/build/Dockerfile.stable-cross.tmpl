@@ -22,10 +22,10 @@ RUN /criu/contrib/dependencies/apt-cross-packages.sh
 
 COPY . /criu
 
-# amdgpu_plugin with armv7 is not supported
+# amdgpu_plugin is not supported on armv7 and riscv64
 RUN	make mrproper && date && \
 	make -j $(nproc) && \
-	if [ "$SUBARCH" != "armv7" ]; then \
+	if [ "$SUBARCH" != "armv7" ] && [ "$ARCH" != "riscv64" ]; then \
 		make -j $(nproc) amdgpu_plugin; \
 	fi && \
 	make -j $(nproc) zdtm && date
