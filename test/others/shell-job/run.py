@@ -35,7 +35,6 @@ if pid == 0:
         if not os.access("running", os.F_OK):
             sys.exit(0)
         time.sleep(1)
-    sys.exit(1)
 
 pw.close()
 pr.read(1)
