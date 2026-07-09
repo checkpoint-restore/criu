@@ -6,7 +6,7 @@ if [ ! -x "$APT_INSTALL" ]; then
 	exit 1
 fi
 
-"$APT_INSTALL" \
+if ! "$APT_INSTALL" \
 	crossbuild-essential-"${DEBIAN_ARCH}" \
 	iproute2:"${DEBIAN_ARCH}" \
 	libaio-dev:"${DEBIAN_ARCH}" \
@@ -34,4 +34,13 @@ fi
 	git \
 	protobuf-c-compiler \
 	protobuf-compiler \
-	python3-protobuf
+	python3-protobuf; then
+	if [ -n "$CI_CROSS_COMPILE" ]; then
+		# Use \r to move cursor to the start of the line so that
+		# ::error:: is recognized by GitHub Actions even when
+		# running inside a Docker build where BuildKit prefixes
+		# each line with step and timing information.
+		printf '\r::error::Cross-compile dependency installation failed for %s\n' "${DEBIAN_ARCH}"
+	fi
+	exit 1
+fi

@@ -163,6 +163,7 @@ jobs:
     - name: Run Cross Compilation Targets
       run: >
         sudo make -C scripts/ci ${{ matrix.target }}
+        BUILD_OPTIONS="--build-arg CI_CROSS_COMPILE=1"
 
   docker-test:
     needs: [alpine-test]

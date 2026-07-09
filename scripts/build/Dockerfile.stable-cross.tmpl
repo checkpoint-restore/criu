@@ -15,6 +15,9 @@ ENV CROSS_COMPILE=${CROSS_TRIPLET}-				\
 ENV PATH="${PATH}:${CROSS_ROOT}/bin"				\
 	PKG_CONFIG_PATH=/usr/lib/${CROSS_TRIPLET}/pkgconfig
 
+ARG CI_CROSS_COMPILE
+ENV CI_CROSS_COMPILE=${CI_CROSS_COMPILE}
+
 COPY contrib/dependencies/apt-cross-packages.sh /criu/contrib/dependencies/apt-cross-packages.sh
 COPY contrib/apt-install /criu/contrib/apt-install
 WORKDIR /criu
