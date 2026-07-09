@@ -32,3 +32,6 @@ jobs:
         echo "127.0.0.1   localhost" | sudo tee -a /etc/hosts
         sudo -E make -C scripts/ci local ${{ matrix.target }} RUN_TESTS=1 \
           ZDTM_OPTS="-x zdtm/static/change_mnt_context -x zdtm/static/maps05"
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg

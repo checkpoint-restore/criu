@@ -22,3 +22,6 @@ jobs:
       run: sudo chmod 755 /home/runner
     - name: Build with nftables network locking backend
       run: sudo make -C scripts/ci local COMPILE_FLAGS="NETWORK_LOCK_DEFAULT=NETWORK_LOCK_NFTABLES"
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg

@@ -19,3 +19,6 @@ jobs:
     - uses: actions/checkout@v4
     - name: Run Compat Tests (${{ matrix.target }})
       run: sudo -E make -C scripts/ci local COMPAT_TEST=y ${{ matrix.target }}=1
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
