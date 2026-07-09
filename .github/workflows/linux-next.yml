@@ -350,6 +350,7 @@ jobs:
           cat /proc/sys/kernel/tainted
 
       - name: Print dmesg
+        if: always()
         run:  |
           set -eux
 
