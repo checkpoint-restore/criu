@@ -3,3 +3,14 @@ FROM docker.io/library/ubuntu:jammy
 ENV ARCH=riscv64
 ENV DEBIAN_ARCH=riscv64
 ENV CROSS_TRIPLET=riscv64-linux-gnu
+
+RUN apt-get clean -y && apt-get update -y && apt-get install -y --no-install-recommends gnupg2
+
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C 8D69674688B6CB36 B523E5F3FC4E5F2C
+
+COPY scripts/ci/riscv64-cross/amd64-sources.list /etc/apt/sources.list
+
+COPY scripts/ci/riscv64-cross/riscv64-sources.list /etc/apt/sources.list.d/
+
+RUN dpkg --add-architecture ${DEBIAN_ARCH} && \
+	apt-get update -y
