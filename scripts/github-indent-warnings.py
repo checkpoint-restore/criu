@@ -9,7 +9,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 1 and len(sys.argv) != 2:
         print(f'usage: {sys.argv[0]} <path/to/file>')
         print(f'usage: <command> | {sys.argv[0]}')
-        exit(1)
+        sys.exit(1)
 
     input_file = sys.stdin.fileno()
     if len(sys.argv) == 2:

@@ -38,7 +38,7 @@ def run_task_with_own_pty(task):
         fcntl.ioctl(fd_s, termios.TIOCSCTTY, 1)
         os.close(fd_s)
         task()
-        exit(0)
+        sys.exit(0)
 
     os.close(fd_s)
     fd_m = os.fdopen(fd_m, "rb")
@@ -65,7 +65,7 @@ def run_task_with_own_pty(task):
 
     if status != 0:
         print("task %s exited badly: %d" % (task.__name__, status))
-        exit(1)
+        sys.exit(1)
 
     return 0
 
