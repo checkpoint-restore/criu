@@ -20,6 +20,10 @@ jobs:
             sudo -E make -C scripts/ci local << parameters.compiler >>=1
             ZDTM_SHARD_INDEX=<< parameters.shard_index >>
             ZDTM_SHARD_COUNT=<< parameters.shard_count >>
+      - run:
+          name: Print dmesg
+          when: always
+          command: sudo dmesg
 
 workflows:
   version: 2
