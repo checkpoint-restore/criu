@@ -189,7 +189,6 @@ ulimit -c unlimited
 cgid=$$
 cleanup_cgroup() {
 	./test/zdtm_umount_cgroups $cgid
-	dmesg
 }
 trap cleanup_cgroup EXIT
 ./test/zdtm_mount_cgroups $cgid
