@@ -35,6 +35,9 @@ jobs:
         sudo -E make -C scripts/ci alpine ${{ matrix.target }}
         ZDTM_SHARD_INDEX=${{ matrix.shard }}
         ZDTM_SHARD_COUNT=4
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   alpine-test-arm64:
     name: Alpine Test ARM64
@@ -49,6 +52,9 @@ jobs:
     - uses: actions/checkout@v7
     - name: Run Alpine ${{ matrix.target }} Test
       run: sudo -E make -C scripts/ci alpine ${{ matrix.target }}
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   aarch64-test:
     needs: [alpine-test]
@@ -68,6 +74,9 @@ jobs:
         echo "127.0.0.1   localhost" | sudo tee -a /etc/hosts
         sudo -E make -C scripts/ci local ${{ matrix.target }} RUN_TESTS=1 \
           ZDTM_OPTS="-x zdtm/static/change_mnt_context -x zdtm/static/maps05"
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   archlinux-test:
     name: Arch Linux Test (${{ matrix.shard_name }})
@@ -98,6 +107,9 @@ jobs:
         sudo -E make -C scripts/ci archlinux
         ZDTM_SHARD_INDEX=${{ matrix.shard }}
         ZDTM_SHARD_COUNT=4
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   centos-stream-test:
     name: CentOS Stream ${{ matrix.version }}
@@ -124,6 +136,9 @@ jobs:
         lima cat /proc/cmdline
     - name: Run tests
       run: ssh -tt lima-default sudo -i /home/criu/scripts/ci/lima.sh centos-stream-test
+    - name: Print dmesg
+      if: always()
+      run: lima sudo dmesg
 
   compat-test:
     needs: [alpine-test]
@@ -136,6 +151,9 @@ jobs:
     - uses: actions/checkout@v7
     - name: Run Compat Tests (${{ matrix.target }})
       run: sudo -E make -C scripts/ci local COMPAT_TEST=y ${{ matrix.target }}=1
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   cross-compile:
     needs: [alpine-test]
@@ -184,6 +202,9 @@ jobs:
     - uses: actions/checkout@v7
     - name: Run Fedora ASAN Test
       run: sudo -E make -C scripts/ci fedora-asan
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   fedora-rawhide-test:
     name: ${{ matrix.name }}
@@ -205,6 +226,9 @@ jobs:
       # XDG_RUNTIME_DIR environment variable is not set due to a bug in Podman.
       # FIXME: https://github.com/containers/podman/issues/14920
       run: sudo -E XDG_RUNTIME_DIR= make -C scripts/ci fedora-rawhide CONTAINER_RUNTIME=podman BUILD_OPTIONS="--security-opt seccomp=unconfined"
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   vm-fedora-rawhide-test:
     name: VM Fedora ${{ matrix.name }} based test
@@ -246,6 +270,9 @@ jobs:
         lima cat /proc/cmdline
     - name: Run tests
       run: ssh -tt lima-default sudo -i /home/criu/scripts/ci/lima.sh ${{ matrix.variant }}-test
+    - name: Print dmesg
+      if: always()
+      run: lima sudo dmesg
 
   gcov-test:
     needs: [alpine-test]
@@ -260,6 +287,9 @@ jobs:
       uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   java-test:
     needs: [alpine-test]
@@ -291,6 +321,9 @@ jobs:
       run: sudo chmod 755 /home/runner
     - name: Build with nftables network locking backend
       run: sudo make -C scripts/ci local COMPILE_FLAGS="NETWORK_LOCK_DEFAULT=NETWORK_LOCK_NFTABLES"
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   podman-test:
     needs: [alpine-test]
@@ -307,6 +340,9 @@ jobs:
     - uses: actions/checkout@v7
     - name: Run CRIU Image Streamer Test
       run: sudo -E make -C scripts/ci local STREAM_TEST=1
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   x86-64-clang-test:
     needs: [alpine-test]
@@ -315,6 +351,9 @@ jobs:
     - uses: actions/checkout@v7
     - name: Run X86_64 CLANG Test
       run: sudo make -C scripts/ci x86_64 CLANG=1
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
 
   x86-64-gcc-test:
     needs: [alpine-test]
@@ -323,3 +362,6 @@ jobs:
     - uses: actions/checkout@v7
     - name: Run X86_64 GCC Test
       run: sudo make -C scripts/ci x86_64
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
