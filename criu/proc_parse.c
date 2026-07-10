@@ -1758,8 +1758,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 			}
 		}
 	end:
-		if (fsname)
-			free(fsname);
+		free(fsname);
 
 		if (new)
 			mntinfo_add_list_before(&list, new);
