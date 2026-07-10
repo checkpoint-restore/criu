@@ -1100,8 +1100,7 @@ int criu_local_add_irmap_path(criu_opts *opts, const char *path)
 	return 0;
 
 err:
-	if (my_path)
-		free(my_path);
+	free(my_path);
 
 	return -ENOMEM;
 }
@@ -1250,8 +1249,7 @@ int criu_local_add_external(criu_opts *opts, const char *key)
 	opts->rpc->n_external = nr;
 	return 0;
 err:
-	if (e)
-		free(e);
+	free(e);
 	return -ENOMEM;
 }
 
@@ -2037,14 +2035,10 @@ int criu_local_join_ns_add(criu_opts *opts, const char *ns, const char *ns_file,
 	return 0;
 
 err:
-	if (_ns)
-		free(_ns);
-	if (_ns_file)
-		free(_ns_file);
-	if (_extra_opt)
-		free(_extra_opt);
-	if (join_ns)
-		free(join_ns);
+	free(_ns);
+	free(_ns_file);
+	free(_extra_opt);
+	free(join_ns);
 	return -1;
 }
 
