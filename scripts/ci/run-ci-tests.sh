@@ -360,6 +360,13 @@ run_non_shardable_tests() {
 		echo "Skipping hugetlb compression tests"
 	fi
 
+	# Incremental compression parent chains.
+	if criu/criu check --feature compress && criu/criu check --feature mem_dirty_track; then
+		make -C test/others/compression/incremental run
+	else
+		echo "Skipping compression/incremental test"
+	fi
+
 	./test/zdtm.py run -t zdtm/transition/pid_reuse --pre 2 # start time based pid reuse detection
 	./test/zdtm.py run -t zdtm/transition/pidfd_store_sk --rpc --pre 2 # pidfd based pid reuse detection
 
