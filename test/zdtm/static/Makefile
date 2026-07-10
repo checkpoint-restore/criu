@@ -287,6 +287,7 @@ TST_NOFILE	:=				\
 		shmemfd-priv			\
 		time				\
 		timens_nested			\
+		pidns_nested			\
 		timens_for_kids			\
 		zombie_leader			\
 		sigtrap				\

@@ -959,16 +959,13 @@ static int prepare_pstree_kobj_ids(void)
 		if (item == root_item) {
 			pr_info("Will restore in %lx namespaces\n", cflags);
 			root_ns_mask = cflags;
-		} else if (cflags & ~(root_ns_mask & CLONE_SUBNS)) {
+		} else if (cflags & ~(root_ns_mask | CLONE_SUBNS)) {
 			/*
-			 * Namespaces from CLONE_SUBNS can be nested, but in
-			 * this case nobody can't share external namespaces of
-			 * these types.
-			 *
-			 * Workaround for all other namespaces --
-			 * all tasks should be in one namespace. And
-			 * this namespace is either inherited from the
-			 * criu or is created for the init task (only)
+			 * Namespaces from CLONE_SUBNS can be nested and
+			 * can also be created by sub-tasks even if root
+			 * doesn't use them (e.g. a child creates a PID
+			 * namespace for sandboxing). All other namespace
+			 * types must be shared with root.
 			 */
 			pr_err("Can't restore sub-task in NS (cflags %lx)\n", cflags);
 			return -1;
