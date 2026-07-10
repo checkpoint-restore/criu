@@ -92,6 +92,9 @@ UNIT-BUILTINS		+= $(obj)/bfd.o
 UNIT-BUILTINS		+= $(obj)/config.o
 UNIT-BUILTINS		+= $(obj)/log.o
 UNIT-BUILTINS		+= $(obj)/string.o
+ifeq ($(CONFIG_LZ4),y)
+UNIT-BUILTINS		+= $(obj)/compression.o
+endif
 UNIT-BUILTINS		+= $(obj)/unittest/built-in.o
 
 $(obj)/unittest/Makefile: ;
