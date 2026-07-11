@@ -1,3 +1,6 @@
 unit:
 	python3 ./test_config.py
-.PHONY: unit
+
+run: unit
+	./run.sh
+.PHONY: run unit

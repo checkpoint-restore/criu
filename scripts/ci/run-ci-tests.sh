@@ -349,6 +349,15 @@ run_non_shardable_tests() {
 		echo "Skipping memory compression ZDTM tests"
 	fi
 
+	# Run a small checksum-verified compression benchmark. The full benchmark
+	# remains available under contrib/compression-benchmark for performance
+	# runs; this CI wrapper avoids dropping the host page cache.
+	if criu/criu check --feature compress; then
+		make -C test/others/compression/benchmark run
+	else
+		echo "Skipping compression benchmark test"
+	fi
+
 	if criu/criu check --feature compress; then
 		# Hugetlb mappings are not premapped. Their blocks must remain
 		# self-contained raw/zero fallbacks for PIE restore.
