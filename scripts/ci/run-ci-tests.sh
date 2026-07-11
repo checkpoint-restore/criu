@@ -367,6 +367,13 @@ run_non_shardable_tests() {
 		echo "Skipping compression/incremental test"
 	fi
 
+	# Raw compression fallback image format.
+	if criu/criu check --feature compress; then
+		make -C test/others/compression/raw run
+	else
+		echo "Skipping compression/raw test"
+	fi
+
 	./test/zdtm.py run -t zdtm/transition/pid_reuse --pre 2 # start time based pid reuse detection
 	./test/zdtm.py run -t zdtm/transition/pidfd_store_sk --rpc --pre 2 # pidfd based pid reuse detection
 
