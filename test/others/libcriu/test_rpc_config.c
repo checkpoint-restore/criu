@@ -67,15 +67,18 @@ static int create_criu_config_file(void)
 	}
 
 	fprintf(fp, "log-file=%s\n", log_file);
+	fprintf(fp, "compress-acceleration=2\n");
 	fflush(fp);
 	fclose(fp);
 
 	return 0;
 }
 
-static int check_log_file(void)
+static int check_log_file(const char *forbidden)
 {
 	struct stat st;
+	char line[512];
+	FILE *fp;
 
 	if (stat(log_file, &st) < 0) {
 		perror("Config file does not exist");
@@ -86,6 +89,20 @@ static int check_log_file(void)
 		fprintf(stderr, "Config file is empty\n");
 		return -1;
 	}
+
+	fp = fopen(log_file, "r");
+	if (!fp) {
+		perror("Failed to open log file");
+		return -1;
+	}
+	while (forbidden && fgets(line, sizeof(line), fp)) {
+		if (strstr(line, forbidden)) {
+			fprintf(stderr, "Unexpected log message: %s", line);
+			fclose(fp);
+			return -1;
+		}
+	}
+	fclose(fp);
 
 	unlink(log_file);
 	return 0;
@@ -169,6 +186,10 @@ int main(int argc, char **argv)
 	printf("Setting dump RPC config file: %s\n", conf_file);
 	criu_set_config_file(conf_file);
 	criu_set_log_file("dump.log");
+	if (criu_set_compress(CRIU_COMPRESS_OFF)) {
+		fprintf(stderr, "Failed to disable compression\n");
+		goto cleanup;
+	}
 
 	ret = criu_dump();
 	if (ret < 0) {
@@ -181,13 +202,14 @@ int main(int argc, char **argv)
 	printf("   `- Dump succeeded\n");
 	waitpid(pid, NULL, 0);
 
-	if (check_log_file()) {
+	if (check_log_file("compression of memory pages is enabled")) {
 		printf("Error: log file not overwritten by RPC config file\n");
 		goto cleanup;
 	}
 
 	printf("--- Restore loop ---\n");
 	criu_init_opts();
+	criu_set_service_binary(argv[1]);
 	criu_set_images_dir_fd(img_fd);
 	criu_set_log_level(CRIU_LOG_DEBUG);
 
@@ -195,6 +217,10 @@ int main(int argc, char **argv)
 	printf("Setting restore RPC config file: %s\n", conf_file);
 	criu_set_config_file(conf_file);
 	criu_set_log_file("restore.log");
+	if (criu_set_compress(CRIU_COMPRESS_OFF)) {
+		fprintf(stderr, "Failed to disable compression\n");
+		goto cleanup;
+	}
 
 	pid = criu_restore_child();
 	if (pid <= 0) {
@@ -206,7 +232,7 @@ int main(int argc, char **argv)
 	printf("   `- Restore returned pid %d\n", pid);
 	kill(pid, SIGUSR1);
 
-	if (check_log_file()) {
+	if (check_log_file("compression of memory pages is enabled")) {
 		printf("Error: log file not overwritten by RPC config file\n");
 		goto cleanup;
 	}

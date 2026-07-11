@@ -60,6 +60,17 @@ enum criu_image_io_mode {
 	CRIU_IMAGE_IO_DIRECT = 1,
 };
 
+enum criu_compress_mode {
+	CRIU_COMPRESS_OFF = 0,
+	CRIU_COMPRESS_PER_PAGE = 1,
+	CRIU_COMPRESS_REGION = 2,
+};
+
+#define CRIU_COMPRESS_MAX_ACCELERATION 65537U
+#define CRIU_COMPRESS_MAX_REGION_SIZE  (4U * 1024U * 1024U)
+/* Maximum explicit setting; automatic concurrency is not capped by it. */
+#define CRIU_DECOMPRESS_MAX_THREADS    1024U
+
 int criu_set_service_address(const char *path);
 void criu_set_service_fd(int fd);
 int criu_set_service_binary(const char *path);
@@ -90,6 +101,17 @@ void criu_set_unprivileged(bool unprivileged);
 void criu_set_orphan_pts_master(bool orphan_pts_master);
 void criu_set_file_locks(bool file_locks);
 void criu_set_track_mem(bool track_mem);
+int criu_set_compress(enum criu_compress_mode mode);
+int criu_set_compress_acceleration(unsigned int acceleration);
+int criu_set_compress_region_size(unsigned int bytes);
+/*
+ * Worker concurrency for LZ4 decoding and eligible large zero fills:
+ * 0 = auto, 1 = serial/no zero-fill workers (default), N > 1 = aggregate
+ * worker limit.
+ * CPU affinity, useful batch work, and the shared budget may reduce active
+ * concurrency.
+ */
+int criu_set_decompress_threads(unsigned int threads);
 void criu_set_auto_dedup(bool auto_dedup);
 void criu_set_force_irmap(bool force_irmap);
 void criu_set_link_remap(bool link_remap);
@@ -253,6 +275,11 @@ void criu_local_set_skip_file_rwx_check(criu_opts *opts, bool skip_file_rwx_chec
 void criu_local_set_orphan_pts_master(criu_opts *opts, bool orphan_pts_master);
 void criu_local_set_file_locks(criu_opts *opts, bool file_locks);
 void criu_local_set_track_mem(criu_opts *opts, bool track_mem);
+int criu_local_set_compress(criu_opts *opts, enum criu_compress_mode mode);
+int criu_local_set_compress_acceleration(criu_opts *opts, unsigned int acceleration);
+int criu_local_set_compress_region_size(criu_opts *opts, unsigned int bytes);
+/* Uses the same worker-concurrency values as criu_set_decompress_threads(). */
+int criu_local_set_decompress_threads(criu_opts *opts, unsigned int threads);
 void criu_local_set_auto_dedup(criu_opts *opts, bool auto_dedup);
 void criu_local_set_force_irmap(criu_opts *opts, bool force_irmap);
 void criu_local_set_link_remap(criu_opts *opts, bool link_remap);
@@ -327,6 +354,7 @@ struct criu_feature_check {
 	bool mem_track;
 	bool lazy_pages;
 	bool pidfd_store;
+	bool mem_compression;
 };
 
 int criu_feature_check(struct criu_feature_check *features, size_t size);

@@ -17,10 +17,12 @@ int main(int argc, char **argv)
 	bool mem_track = 0;
 	bool lazy_pages = 0;
 	bool pidfd_store = 0;
+	bool mem_compression = 0;
 	struct criu_feature_check features = {
 		.mem_track = true,
 		.lazy_pages = true,
 		.pidfd_store = true,
+		.mem_compression = true,
 	};
 
 	printf("--- Start feature check ---\n");
@@ -38,6 +40,10 @@ int main(int argc, char **argv)
 	env = getenv("CRIU_FEATURE_PIDFD_STORE");
 	if (env) {
 		pidfd_store = true;
+	}
+	env = getenv("CRIU_FEATURE_COMPRESS");
+	if (env) {
+		mem_compression = true;
 	}
 
 	ret = criu_feature_check(&features, sizeof(features) + 1);
@@ -59,6 +65,10 @@ int main(int argc, char **argv)
 		return -1;
 	printf("   `- pidfd_store: %d - expected : %d\n", features.pidfd_store, pidfd_store);
 	if (features.pidfd_store != pidfd_store)
+		return -1;
+	printf("   `- mem_compression: %d - expected : %d\n",
+	       features.mem_compression, mem_compression);
+	if (features.mem_compression != mem_compression)
 		return -1;
 
 	return 0;
