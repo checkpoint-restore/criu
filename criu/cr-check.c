@@ -1809,6 +1809,16 @@ static int check_binfmt_misc_sandboxing(void)
 	return 0;
 }
 
+static int check_compress(void)
+{
+#ifdef CONFIG_LZ4
+	return 0;
+#else
+	pr_info("LZ4 compression support is not compiled in\n");
+	return -1;
+#endif
+}
+
 struct feature_list {
 	char *name;
 	int (*func)(void);
@@ -1860,6 +1870,7 @@ static struct feature_list feature_list[] = {
 	{ "overlayfs_maps", check_overlayfs_maps },
 	{ "pagemap_scan_guard_pages", check_pagemap_scan_guard_pages },
 	{ "binfmt_misc_sandboxing", check_binfmt_misc_sandboxing },
+	{ "compress", check_compress },
 	{ NULL, NULL },
 };
 

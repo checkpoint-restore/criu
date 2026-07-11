@@ -386,6 +386,7 @@ run_non_shardable_tests() {
 
 	# config file parser and parameter testing
 	make -C test/others/config-file run
+	make -C test/others/compression/page-server run
 
 	# action script testing
 	make -C test/others/action-script run

@@ -51,6 +51,9 @@ run_test() {
 	fi
 }
 
+if criu check --feature compress > /dev/null; then
+	export CRIU_FEATURE_COMPRESS=1
+fi
 run_test test_sub
 run_test test_self
 run_test test_notify

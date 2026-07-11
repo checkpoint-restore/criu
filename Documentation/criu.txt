@@ -378,6 +378,60 @@ mount -t cgroup -o devices,freezer none devices,freezer
     Allows to link unlinked files back, if possible (modifies filesystem
     during *restore*).
 
+*-c, --compress*::
+    Enable LZ4 per-page compression of memory pages during *dump*.
+    Each system page is compressed as an independent LZ4 block.
+    Zero-filled pages are detected and stored with no data; pages that
+    do not compress well are stored raw to avoid decompression overhead
+    on *restore*. The compression choice made at *dump* time is recorded
+    in the inventory image and applied automatically on *restore*.
+    Compatible with *--page-server* when *--tls* is not used, *--stream*,
+    *--lazy-pages*, iterative checkpointing, *--auto-dedup*, and the *dedup*
+    command.
+
+*--compress-region* 'size'::
+    Enable LZ4 region compression of memory pages during *dump*.
+    A run of consecutive pages totalling 'size' bytes is compressed as
+    a single LZ4 block, which yields a better ratio and faster dump
+    on heap-shaped data than per-page compression at the cost of
+    slightly slower restore on partial reads. 'size' accepts K/M/G
+    suffixes (e.g. *256K*, *1M*); it must be a multiple of the system
+    page size and at most 4M. Mutually exclusive with *--compress*.
+    Currently supports only the local image path (no
+    *--page-server* / *--stream*). Hole-punching deduplication is
+    skipped for compressed images since compressed pages are
+    variably-sized.
+
+*--compress-acceleration* 'N'::
+    Set the LZ4 acceleration level for page compression (1 to 65537).
+    Controls how thoroughly the compressor searches for matching byte
+    sequences. The default value of 1 gives the best compression
+    ratio. Higher values skip more match candidates, resulting in
+    faster compression but larger output. Decompression speed is not
+    affected. Implies *--compress* unless *--compress-region* is set.
+
+*--decompress-threads* 'N'::
+    Set worker concurrency for LZ4 decoding and eligible large zero fills,
+    including the calling restore thread. The default value of 1 keeps each
+    LZ4 decode serial and handles zero blocks without a worker pool;
+    independent private, shmem, and memfd requests can still run concurrently.
+    A value of 0 lets CRIU choose the concurrency for each batch. CRIU starts
+    with the CPUs allowed by its affinity mask, then limits the width by the
+    number and decoded size of the blocks in that batch and by the restore-wide
+    CPU budget. Small batches and zero runs with fewer than two blocks remain
+    serial. Values above 1 set an upper bound on aggregate worker concurrency
+    instead of using the automatic CPU count. Explicit requests above the
+    available CPU count are reduced with a warning. The accepted range is 0
+    through 1024; this validation ceiling does not determine the automatic
+    concurrency.
+    Encoded staging memory is bounded independently of the thread count.
+    Restore keeps at most two active 32 MiB encoded input buffers. When a
+    local reader can reserve a second buffer without waiting, its calling thread
+    reads the next payload while pool workers decode the current one. If
+    another restore request already owns the second buffer, reading remains
+    synchronous. The option can also be set through a configuration file
+    (*decompress-threads 0*).
+
 *--timeout* 'number'::
     Set a time limit in seconds for collecting tasks during the
     dump operation. The timeout is 10 seconds by default.
