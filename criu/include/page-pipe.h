@@ -96,6 +96,7 @@ struct page_pipe_buf {
 	unsigned long pipe_off;	/* where this buf is started in a pipe */
 	unsigned long pages_in;	/* how many pages are there */
 #define PPB_LAZY (1 << 0)
+#define PPB_FORCE_RAW (1 << 1)
 	unsigned int flags;
 	struct iovec *iov;  /* vaddr:len map */
 	struct list_head l; /* links into page_pipe->bufs */
@@ -105,10 +106,11 @@ struct page_pipe_buf {
  * Page pipe buffers with different flags cannot share the same pipe.
  * We track the last ppb that was used for each type separately in the
  * prev[] array in the struct page_pipe (below).
- * Currently we have 2 types: the buffers that are always stored in
- * the images and the buffers that are lazily migrated
+ * PPB_LAZY and PPB_FORCE_RAW form the type index.  Keeping force-raw
+ * buffers separate prevents a pipe segment that may be LZ4-compressed
+ * from being transferred under the force-raw policy (or vice versa).
  */
-#define PP_PIPE_TYPES 2
+#define PP_PIPE_TYPES 4
 
 #define PP_HOLE_PARENT (1 << 0)
 

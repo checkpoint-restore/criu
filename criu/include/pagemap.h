@@ -45,6 +45,8 @@
  * All this is implemented in read_pagemap_page.
  */
 
+struct encoded_read_ctx;
+
 struct page_read {
 	/* reads page from current pagemap */
 	int (*read_pages)(struct page_read *, unsigned long vaddr, unsigned long nr, void *, unsigned flags);
@@ -128,6 +130,15 @@ struct page_read {
 	unsigned long cached_region_vaddr;
 	size_t cached_region_size;
 
+	/*
+	 * Bounded encoded buffers and workers. All readers in an incremental
+	 * parent chain use the context owned by encoded_read_owner, so a sync
+	 * initiated by a parent cannot acquire a second batch lease and deadlock
+	 * against its child. Only the owner releases the context at close.
+	 */
+	struct encoded_read_ctx *encoded_read_ctx;
+	struct page_read *encoded_read_owner;
+
 	/* Record consequent neighbour iov-ecs to punch together */
 	struct iovec bunch;
 
@@ -168,6 +179,35 @@ struct task_restore_args;
 
 int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, struct list_head *to);
 int pagemap_render_iovec(struct list_head *from, struct task_restore_args *ta);
+
+/*
+ * Return true when every file-backed queued read can be submitted with
+ * O_DIRECT. Encoded storage is rejected; raw storage and all destination
+ * extents must be page-aligned. Zero entries have no file extent, and a
+ * zero-only list returns false because it needs no AIO setup.
+ */
+bool pagemap_iovec_is_direct_compatible(const struct list_head *from);
+
+/*
+ * Return whether any page-image block overlapping [start, end) contains an
+ * actual LZ4 payload. Raw-fallback and zero blocks return false. Parent-image
+ * entries are followed without changing either reader's cursor.
+ *
+ * A local lookup is O(log(nr_pmes) + overlapping entries/blocks). Each
+ * inherited span repeats that lookup in the parent, so a fragmented parent
+ * chain additionally pays one logarithmic lookup per inherited span. A
+ * negative return indicates invalid input or an inconsistent parent chain.
+ */
+int page_read_range_has_lz4(struct page_read *pr, unsigned long start,
+			     unsigned long end);
+
+/* Also return true when raw/zero runs exceed the bounded direct-PIE limit. */
+int page_read_range_needs_premap(struct page_read *pr, unsigned long start,
+				  unsigned long end);
+
+/* Return whether the top image delegates any part of [start, end) to a parent. */
+int page_read_range_has_parent(struct page_read *pr, unsigned long start,
+				unsigned long end);
 
 /*
  * Try to enable O_DIRECT on a pages-image fd and verify with one
