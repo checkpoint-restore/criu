@@ -33,6 +33,7 @@ apk add --no-cache \
 	protobuf-c-dev \
 	protobuf-dev \
 	py3-importlib-metadata \
+	py3-lz4 \
 	py3-pip \
 	py3-protobuf \
 	py3-yaml \

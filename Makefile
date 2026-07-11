@@ -463,6 +463,7 @@ ruff:
 		test/others/criu-ns/run.py \
 		crit/*.py \
 		crit/crit/*.py \
+		test/others/crit/*.py \
 		scripts/uninstall_module.py \
 		coredump/ coredump/coredump \
 		scripts/github-indent-warnings.py \

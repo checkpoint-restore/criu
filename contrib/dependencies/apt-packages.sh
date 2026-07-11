@@ -37,6 +37,7 @@ fi
 	protobuf-c-compiler \
 	protobuf-compiler \
 	python3-importlib-metadata \
+	python3-lz4 \
 	python3-pip \
 	python3-protobuf \
 	python3-yaml \
