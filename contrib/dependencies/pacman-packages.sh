@@ -26,6 +26,7 @@ pacman -Syu --noconfirm \
 	protobuf \
 	protobuf-c \
 	python-importlib-metadata \
+	python-lz4 \
 	python-pip \
 	python-protobuf \
 	python-yaml \

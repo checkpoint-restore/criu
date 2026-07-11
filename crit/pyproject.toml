@@ -15,6 +15,9 @@ requires-python = ">=3.6"
 [project.scripts]
 crit = "crit.__main__:main"
 
+[project.optional-dependencies]
+compression = ["lz4"]
+
 [tool.setuptools]
 packages = ["crit"]
 

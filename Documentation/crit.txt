@@ -18,6 +18,10 @@ SYNOPSIS
 
 *crit* 'show' [-h] in
 
+*crit* 'compress' [-h] [--in-place] [--acceleration N] dir
+
+*crit* 'decompress' [-h] [--in-place] dir
+
 DESCRIPTION
 -----------
 *crit* is a feature-rich replacement for existing *criu* show.
@@ -43,11 +47,45 @@ Positional Arguments
 *show*::
     convert *criu* image from binary to human-readable JSON
 
+*compress*::
+    compress memory page images in a checkpoint directory using CRIU's
+    per-page LZ4 format. The command rewrites *pages-*.img*,
+    *pagemap-*.img*, and *inventory.img*. Pages that are zero-filled or
+    do not meet CRIU's compression threshold are stored without an LZ4
+    payload. By default, the original files are preserved with a *.bak*
+    suffix; use *--in-place* to skip these backup files. The inventory
+    is updated to record compression metadata and the compressed-image
+    version. Existing *.bak* files are never overwritten.
+
+*decompress*::
+    decompress memory page images in a checkpoint directory back to
+    uncompressed page payloads. The command removes compression metadata
+    from the pagemap and inventory images. When the directory has no parent
+    reference, the command also restores the normal image version. It retains
+    the compressed-image version for incremental checkpoints because a parent
+    may still contain compressed payloads. By default, rewritten files are
+    preserved with a *.bak* suffix; use *--in-place* to skip these backup
+    files. Existing *.bak* files are never overwritten.
+
+Both transformations preserve the ownership, permissions, ACLs, security
+labels, and other extended attributes of rewritten images. All output is
+staged and synchronized before it is installed. If a write, rename, *SIGHUP*,
+*SIGINT*, or *SIGTERM* interrupts the commit, CRIT restores the complete
+original image set instead of leaving a partially transformed set.
+
 Optional Arguments
 ~~~~~~~~~~~~~~~~~~
 
 *-h*, *--help*::
     Print some help and exit
+
+*--in-place*::
+    Rewrite files without creating *.bak* backup files. This option is
+    accepted by *compress* and *decompress*.
+
+*--acceleration* 'N'::
+    Set the LZ4 acceleration level used by *compress*. Higher values
+    trade compression ratio for speed.
 
 SEE ALSO
 --------

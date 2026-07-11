@@ -3,3 +3,17 @@
 *.txt
 stats-*
 *.json
+comp/
+uncomp/
+cdc/
+dcd/
+sparse-compress/
+sparse-decompress/
+threshold-compress/
+threshold-parent/
+parent-placeholder/
+truncated-decompress/
+region/
+malformed-*/
+transaction-compress/
+transaction-decompress/
