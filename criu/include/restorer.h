@@ -135,9 +135,25 @@ struct thread_restore_args {
 
 typedef long (*thread_restore_fcall_t)(struct thread_restore_args *args);
 
+/*
+ * Internal representation of a pages-image range queued for PIE restore.
+ *
+ * PACKED_RAW and ZERO originate from entries which still carry compression
+ * metadata.  They are separate from UNCOMPRESSED so that the restorer can
+ * bypass LZ4 without treating their packed image offsets as ordinary pages
+ * image offsets (in particular, --auto-dedup must not punch PACKED_RAW).
+ */
+enum restore_vma_io_storage {
+	VMA_IO_UNCOMPRESSED,
+	VMA_IO_ENCODED,
+	VMA_IO_PACKED_RAW,
+	VMA_IO_ZERO,
+};
+
 struct restore_vma_io {
 	int nr_iovs;
 	loff_t off;
+	enum restore_vma_io_storage storage;
 	uint32_t *compressed_size;
 	uint64_t total_compressed_size;
 	int n_compressed_size;

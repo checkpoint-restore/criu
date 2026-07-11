@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include <linux/securebits.h>
 #include <linux/capability.h>
@@ -1680,8 +1681,10 @@ static int process_aio_event(struct task_restore_args *args, aio_context_t aio_c
 	}
 
 	cb = (struct iocb *)(unsigned long)ev->obj;
+	idx = cb - iocbs;
+	r = rio_ptrs[idx];
 
-	if (args->auto_dedup) {
+	if (args->auto_dedup && r->storage == VMA_IO_UNCOMPRESSED) {
 		long fr = sys_fallocate(fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE,
 					cb->aio_offset, res);
 		if (fr < 0)
@@ -1691,8 +1694,6 @@ static int process_aio_event(struct task_restore_args *args, aio_context_t aio_c
 	if (res == ev->data)
 		return 0;
 
-	idx = cb - iocbs;
-	r = rio_ptrs[idx];
 	advance_vma_io_retry(r, res, &iov_next, &nr_next);
 	if (!iov_next || nr_next == 0) {
 		pr_err("AIO retry advance produced no work after %zd bytes\n", res);
@@ -1760,6 +1761,148 @@ static int reap_aio_events(struct task_restore_args *args, aio_context_t aio_ctx
 	return 0;
 }
 
+static int restore_vma_preadv_one(struct task_restore_args *args,
+				  struct restore_vma_io *rio,
+				  bool allow_dedup);
+
+static int validate_direct_vma_io(struct restore_vma_io *rio)
+{
+	uint64_t payload_bytes = 0;
+	uint64_t output_bytes = 0;
+	uint64_t iov_bytes = 0;
+	int i;
+
+	if (rio->storage != VMA_IO_PACKED_RAW && rio->storage != VMA_IO_ZERO)
+		return -1;
+	if (rio->n_compressed_size <= 0 || !rio->compressed_size) {
+		pr_err("Direct compressed VMA IO has no block metadata\n");
+		return -1;
+	}
+	if (rio->region_pages && !rio->block_pages) {
+		pr_err("Direct compressed region VMA IO has no page counts\n");
+		return -1;
+	}
+
+	for (i = 0; i < rio->n_compressed_size; i++) {
+		unsigned int block_pages = rio->region_pages ?
+						rio->block_pages[i] : 1;
+		uint64_t block_bytes;
+		uint32_t compressed_size = rio->compressed_size[i];
+
+		if (!block_pages ||
+		    (rio->region_pages && block_pages > rio->region_pages)) {
+			pr_err("Invalid direct VMA IO block page count %u\n",
+			       block_pages);
+			return -1;
+		}
+		block_bytes = (uint64_t)block_pages * PAGE_SIZE;
+		if (rio->storage == VMA_IO_PACKED_RAW &&
+		    compressed_size != block_bytes) {
+			pr_err("Packed-raw VMA IO block %d has size %u, expected %llu\n",
+			       i, compressed_size,
+			       (unsigned long long)block_bytes);
+			return -1;
+		}
+		if (rio->storage == VMA_IO_ZERO && compressed_size) {
+			pr_err("Zero VMA IO block %d has payload size %u\n", i,
+			       compressed_size);
+			return -1;
+		}
+		if (payload_bytes > UINT64_MAX - compressed_size ||
+		    output_bytes > UINT64_MAX - block_bytes) {
+			pr_err("Direct VMA IO size overflows\n");
+			return -1;
+		}
+		payload_bytes += compressed_size;
+		output_bytes += block_bytes;
+	}
+
+	for (i = 0; i < rio->nr_iovs; i++) {
+		if (iov_bytes > UINT64_MAX - rio->iovs[i].iov_len) {
+			pr_err("Direct VMA IO destination size overflows\n");
+			return -1;
+		}
+		iov_bytes += rio->iovs[i].iov_len;
+	}
+
+	if (payload_bytes != rio->total_compressed_size ||
+	    output_bytes != iov_bytes || rio->n_pages <= 0 ||
+	    output_bytes != (uint64_t)rio->n_pages * PAGE_SIZE) {
+		pr_err("Inconsistent direct VMA IO sizes: payload=%llu metadata=%llu output=%llu iov=%llu\n",
+		       (unsigned long long)payload_bytes,
+		       (unsigned long long)rio->total_compressed_size,
+		       (unsigned long long)output_bytes,
+		       (unsigned long long)iov_bytes);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int restore_vma_preadv_mixed(struct task_restore_args *args)
+{
+	struct restore_vma_io *rio = args->vma_ios;
+	unsigned int i;
+	int ret = -1;
+
+	/*
+	 * Actual LZ4 blocks are restored into premapped VMAs before PIE.  A
+	 * delayed VMA can therefore contain only ordinary uncompressed pages,
+	 * packed raw-fallback blocks, or zero blocks, all of which PIE can
+	 * restore with native syscalls.
+	 */
+	for (i = 0; i < args->vma_ios_n; i++) {
+		if (rio->storage == VMA_IO_UNCOMPRESSED) {
+			if (args->vma_ios_fd == -1) {
+				pr_err("No pages image fd for uncompressed VMA IO entry\n");
+				goto out;
+			}
+
+			if (restore_vma_preadv_one(args, rio, true))
+				goto out;
+			goto next;
+		}
+		if (rio->storage == VMA_IO_PACKED_RAW) {
+			if (args->vma_ios_fd == -1) {
+				pr_err("No pages image fd for packed-raw VMA IO entry\n");
+				goto out;
+			}
+			if (validate_direct_vma_io(rio) ||
+			    restore_vma_preadv_one(args, rio, false))
+				goto out;
+			goto next;
+		}
+		if (rio->storage == VMA_IO_ZERO) {
+			int j;
+
+			if (validate_direct_vma_io(rio))
+				goto out;
+			for (j = 0; j < rio->nr_iovs; j++)
+				memset(rio->iovs[j].iov_base, 0,
+				       rio->iovs[j].iov_len);
+			goto next;
+		}
+		if (rio->storage != VMA_IO_ENCODED) {
+			pr_err("Unknown VMA IO storage kind %d\n", rio->storage);
+			goto out;
+		}
+		pr_err("Delayed VMA IO unexpectedly contains an LZ4 block\n");
+		goto out;
+
+next:
+		rio = (struct restore_vma_io *)((char *)rio + RIO_SIZE(rio->nr_iovs));
+	}
+
+	ret = 0;
+out:
+	if (args->vma_ios_fd != -1) {
+		sys_close(args->vma_ios_fd);
+		args->vma_ios_fd = -1;
+	}
+
+	return ret;
+}
+
 /*
  * Call preadv() but limit size of the read. Zero `max_to_read` skips the limit.
  */
@@ -1794,76 +1937,61 @@ static ssize_t preadv_limited(int fd, struct iovec *iovs, int nr, off_t offs, si
 	return ret;
 }
 
-/*
- * Restore private VMA page contents via synchronous preadv().
- *
- * Fallback engine selected when the pages image fd does not support
- * O_DIRECT (probe_pages_o_direct() returned 0). Reads each page-io
- * iovec batch with sys_preadv() and honors --auto-dedup by punching
- * holes in the consumed range. Closes args->vma_ios_fd on exit.
- */
-static int restore_vma_preadv(struct task_restore_args *args)
+static int restore_vma_preadv_one(struct task_restore_args *args,
+				  struct restore_vma_io *rio,
+				  bool allow_dedup)
 {
-	struct restore_vma_io *rio;
-	unsigned int i;
+	struct iovec *iovs = rio->iovs;
+	int nr = rio->nr_iovs;
+	ssize_t r;
 
-	rio = args->vma_ios;
-	for (i = 0; i < args->vma_ios_n; i++) {
-		struct iovec *iovs = rio->iovs;
-		int nr = rio->nr_iovs;
-		ssize_t r;
-
-		while (nr) {
-			pr_debug("Preadv %lx:%d... (%d iovs)\n", (unsigned long)iovs->iov_base, (int)iovs->iov_len, nr);
-			/*
-			 * If we're requested to punch holes in the file after reading we do
-			 * it to save memory. Limit the reads then to an arbitrary block size.
-			 */
-			r = preadv_limited(args->vma_ios_fd, iovs, nr, rio->off,
-					   args->auto_dedup ? AUTO_DEDUP_OVERHEAD_BYTES : 0);
-			if (r < 0) {
-				pr_err("Can't read pages data (%d)\n", (int)r);
-				return -1;
-			}
-
-			if (r == 0) {
-				pr_err("Unexpected EOF reading pages data at offset %ld (%d iovs remaining)\n",
-				       (long)rio->off, nr);
-				return -1;
-			}
-
-			pr_debug("`- returned %ld\n", (long)r);
-			/* If the file is open for writing, then it means we should punch holes
-			 * in it. */
-			if (args->auto_dedup) {
-				int fr = sys_fallocate(args->vma_ios_fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE,
-						       rio->off, r);
-				if (fr < 0) {
-					pr_debug("Failed to punch holes with fallocate: %d\n", fr);
-				}
-			}
-			rio->off += r;
-			/* Advance the iovecs */
-			do {
-				if (iovs->iov_len <= r) {
-					pr_debug("   `- skip pagemap\n");
-					r -= iovs->iov_len;
-					iovs++;
-					nr--;
-					continue;
-				}
-
-				iovs->iov_base += r;
-				iovs->iov_len -= r;
-				break;
-			} while (nr > 0);
+	while (nr) {
+		pr_debug("Preadv %lx:%d... (%d iovs)\n", (unsigned long)iovs->iov_base, (int)iovs->iov_len, nr);
+		/*
+		 * If we're requested to punch holes in the file after reading we do
+		 * it to save memory. Limit the reads then to an arbitrary block size.
+		 */
+		r = preadv_limited(args->vma_ios_fd, iovs, nr, rio->off,
+				   args->auto_dedup && allow_dedup ?
+					   AUTO_DEDUP_OVERHEAD_BYTES : 0);
+		if (r < 0) {
+			pr_err("Can't read pages data (%d)\n", (int)r);
+			return -1;
 		}
 
-		rio = (struct restore_vma_io *)((char *)rio + RIO_SIZE(rio->nr_iovs));
-	}
+		if (r == 0) {
+			pr_err("Unexpected EOF reading pages data at offset %ld (%d iovs remaining)\n",
+			       (long)rio->off, nr);
+			return -1;
+		}
 
-	if (args->vma_ios_fd != -1)
-		sys_close(args->vma_ios_fd);
+		pr_debug("`- returned %ld\n", (long)r);
+		/*
+		 * If the file is open for writing, then it means we should
+		 * punch holes in it.
+		 */
+		if (args->auto_dedup && allow_dedup) {
+			int fr = sys_fallocate(args->vma_ios_fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE,
+					       rio->off, r);
+			if (fr < 0)
+				pr_debug("Failed to punch holes with fallocate: %d\n", fr);
+		}
+		rio->off += r;
+		/* Advance the iovecs */
+		do {
+			if (iovs->iov_len <= r) {
+				pr_debug("   `- skip pagemap\n");
+				r -= iovs->iov_len;
+				iovs++;
+				nr--;
+				continue;
+			}
+
+			iovs->iov_base += r;
+			iovs->iov_len -= r;
+			break;
+		} while (nr > 0);
+	}
 
 	return 0;
 }
@@ -1871,10 +1999,10 @@ static int restore_vma_preadv(struct task_restore_args *args)
 /*
  * Restore private VMA page contents via Linux native AIO.
  *
- * Submits io_submit() requests against the O_DIRECT-prepared pages image
- * fd in a bounded AIO_BATCH window. Handles MAX_RW_COUNT (0x7FFFF000)
- * short reads by masking to page alignment and resubmitting. Closes
- * args->vma_ios_fd on exit.
+ * Submits aligned uncompressed and packed-raw requests against the
+ * O_DIRECT-prepared pages image in a bounded AIO_BATCH window. Zero records
+ * are cleared without I/O. Handles MAX_RW_COUNT (0x7FFFF000) short reads by
+ * masking to page alignment and resubmitting. Closes args->vma_ios_fd on exit.
  */
 static int restore_vma_aio(struct task_restore_args *args)
 {
@@ -1888,40 +2016,75 @@ static int restore_vma_aio(struct task_restore_args *args)
 	struct restore_vma_io *rio;
 	struct io_event *events;
 	unsigned long alloc_sz;
-	unsigned int submitted = 0, completed = 0;
+	const unsigned long event_sz =
+		AIO_BATCH * sizeof(struct io_event);
+	const unsigned long request_sz = sizeof(struct iocb) +
+		sizeof(struct iocb *) + sizeof(struct restore_vma_io *);
+	unsigned int submitted = 0, completed = 0, read_count = 0;
 	unsigned int i;
 	int ret = -1;
+
+	if (__builtin_mul_overflow((unsigned long)n, request_sz, &alloc_sz) ||
+	    __builtin_add_overflow(alloc_sz, event_sz, &alloc_sz)) {
+		pr_err("AIO restore metadata size overflows for %u requests\n", n);
+		sys_close(fd);
+		args->vma_ios_fd = -1;
+		return -1;
+	}
 
 	aio_ret = sys_io_setup(AIO_BATCH, &aio_ctx);
 	if (aio_ret < 0) {
 		pr_err("io_setup(%d) failed: %ld\n", AIO_BATCH, aio_ret);
+		sys_close(fd);
+		args->vma_ios_fd = -1;
 		return -1;
 	}
 
-	alloc_sz = n * sizeof(struct iocb) + n * sizeof(struct iocb *) +
-		   n * sizeof(struct restore_vma_io *) +
-		   AIO_BATCH * sizeof(struct io_event);
 	iocbs = (void *)sys_mmap(NULL, alloc_sz, PROT_READ | PROT_WRITE,
 				 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (IS_ERR(iocbs)) {
 		pr_err("Can't mmap AIO buffers: %ld\n", PTR_ERR(iocbs));
 		sys_io_destroy(aio_ctx);
+		sys_close(fd);
+		args->vma_ios_fd = -1;
 		return -1;
 	}
 	iocbps = (struct iocb **)((char *)iocbs + n * sizeof(struct iocb));
 	rio_ptrs = (struct restore_vma_io **)((char *)iocbps + n * sizeof(struct iocb *));
 	events = (struct io_event *)((char *)rio_ptrs + n * sizeof(struct restore_vma_io *));
 
-	/* Build all iocbs from vma_ios */
+	/* Build compact iocbs for entries which actually read from the image. */
 	rio = args->vma_ios;
 	for (i = 0; i < n; i++) {
-		struct iocb *cb = &iocbs[i];
+		struct iocb *cb;
 		size_t expected = 0;
 		int j;
 
-		for (j = 0; j < rio->nr_iovs; j++)
-			expected += rio->iovs[j].iov_len;
+		if (rio->storage == VMA_IO_ZERO) {
+			if (validate_direct_vma_io(rio))
+				goto out;
+			for (j = 0; j < rio->nr_iovs; j++)
+				memset(rio->iovs[j].iov_base, 0,
+				       rio->iovs[j].iov_len);
+			goto next;
+		}
+		if (rio->storage == VMA_IO_PACKED_RAW) {
+			if (validate_direct_vma_io(rio))
+				goto out;
+		} else if (rio->storage != VMA_IO_UNCOMPRESSED) {
+			pr_err("AIO restore received storage kind %d\n", rio->storage);
+			goto out;
+		}
 
+		for (j = 0; j < rio->nr_iovs; j++) {
+			if (expected > SIZE_MAX - rio->iovs[j].iov_len) {
+				pr_err("AIO restore request size overflows\n");
+				goto out;
+			}
+			expected += rio->iovs[j].iov_len;
+		}
+
+		cb = &iocbs[read_count];
 		memset(cb, 0, sizeof(*cb));
 		cb->aio_fildes = fd;
 		cb->aio_lio_opcode = IOCB_CMD_PREADV;
@@ -1930,18 +2093,21 @@ static int restore_vma_aio(struct task_restore_args *args)
 		cb->aio_offset = rio->off;
 		/* io_getevents() returns this as event.data for short-read checks. */
 		cb->aio_data = expected;
-		iocbps[i] = cb;
-		rio_ptrs[i] = rio;
+		iocbps[read_count] = cb;
+		rio_ptrs[read_count] = rio;
+		read_count++;
 
+	next:
 		rio = (struct restore_vma_io *)((char *)rio + RIO_SIZE(rio->nr_iovs));
 	}
 
 	/* Submit and reap in batches */
-	while (submitted < n || completed < n) {
-		if (submit_aio_batch(aio_ctx, iocbps, n, &submitted, completed) < 0)
+	while (submitted < read_count || completed < read_count) {
+		if (submit_aio_batch(aio_ctx, iocbps, read_count,
+				     &submitted, completed) < 0)
 			goto out;
 
-		if (completed >= n)
+		if (completed >= read_count)
 			continue;
 
 		/*
@@ -2257,13 +2423,20 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	 * Engine is selected from args->vma_ios_use_direct, populated by
 	 * probe_pages_o_direct() at restore-args build time:
 	 *   true  -> restore_vma_aio()    (io_submit, O_DIRECT, batched)
-	 *   false -> restore_vma_preadv() (sys_preadv, buffered, sequential)
-	 * Both helpers consume args->vma_ios and close args->vma_ios_fd on exit.
+	 *   false -> restore_vma_preadv_mixed() (buffered, sequential I/O)
+	 * The selected reader consumes args->vma_ios and closes
+	 * args->vma_ios_fd on exit. Compressed images can use AIO when every
+	 * delayed file-backed range is raw and page-aligned; encoded ranges are
+	 * premapped and decoded before PIE.
 	 */
 	if (args->vma_ios_n > 0 && args->vma_ios_fd != -1) {
-		int rc = args->vma_ios_use_direct
-			? restore_vma_aio(args)
-			: restore_vma_preadv(args);
+		int rc;
+
+		if (args->vma_ios_use_direct)
+			pr_debug("Restoring delayed VMA I/O with native AIO\n");
+		rc = args->vma_ios_use_direct ?
+			     restore_vma_aio(args) :
+			     restore_vma_preadv_mixed(args);
 		if (rc < 0)
 			goto core_restore_end;
 	}

@@ -31,6 +31,8 @@ struct page_xfer {
 	 */
 	unsigned long offset;
 	bool transfer_lazy;
+	/* Store the current page-pipe segment as compressed-format raw/zero blocks. */
+	bool force_raw;
 
 	/*
 	 * Local non-streaming dump only: the pages image fd was switched to

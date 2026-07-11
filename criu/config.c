@@ -433,6 +433,7 @@ void init_opts(void)
 	opts.image_io_mode = IMAGE_IO_DEFAULT;
 	opts.network_lock_method = NETWORK_LOCK_DEFAULT;
 	opts.ghost_fiemap = FIEMAP_DEFAULT;
+	opts.decompress_threads = 1;
 }
 
 bool deprecated_ok(char *what)
