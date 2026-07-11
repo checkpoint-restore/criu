@@ -19,6 +19,7 @@
 #include "proc_parse.h"
 #include "img-streamer.h"
 #include "namespaces.h"
+#include "compression.h"
 
 bool ns_per_id = false;
 bool img_common_magic = true;
@@ -85,6 +86,21 @@ int check_img_inventory(bool restore)
 	case CRTOOLS_IMAGES_V1_1:
 		/* newer images with extra magic in the head */
 		break;
+	case CRTOOLS_IMAGES_V1_2:
+		/* images may contain compressed memory page payloads */
+#ifndef CONFIG_LZ4
+		/*
+		 * V1_2 is inherited by incremental children even when the top
+		 * image did not compress new pages. Reject it before restore
+		 * setup rather than discovering an encoded parent only after
+		 * pagemap readers have been opened.
+		 */
+		if (restore) {
+			pr_err("LZ4 support is required for this image chain\n");
+			goto out_err;
+		}
+#endif
+		break;
 	default:
 		pr_err("Not supported images version %u\n", he->img_version);
 		goto out_err;
@@ -144,6 +160,68 @@ int check_img_inventory(bool restore)
 			dump_criu_run_id[0] = NO_DUMP_CRIU_RUN_ID;
 		}
 
+	}
+
+	if (he->has_compress) {
+		/* Validate the protobuf uint32 before narrowing it to the signed
+		 * command-line option field. Values above INT_MAX would otherwise
+		 * become negative and evade a signed upper-bound check. */
+		if (he->compress > COMPRESS_REGION) {
+			pr_err("Image has unknown compression mode %u\n", he->compress);
+			goto out_err;
+		}
+		if (he->compress && he->img_version < CRTOOLS_IMAGES_V1_2) {
+			pr_err("Image version %u cannot contain compressed memory pages\n",
+			       he->img_version);
+			goto out_err;
+		}
+		opts.compress_mode = he->compress;
+		if (he->has_compress_region_size)
+			opts.compress_region_size = he->compress_region_size;
+
+		/*
+		 * On restore the compression mode usually comes from the
+		 * image inventory rather than the command line, so it is
+		 * not known when check_options() runs. Re-validate the
+		 * restore-path constraints here, once the mode is known.
+		 */
+		if (restore && opts.compress_mode) {
+#ifndef CONFIG_LZ4
+			pr_err("Image uses memory page compression but CRIU was built without LZ4 support (CONFIG_LZ4)\n");
+			goto out_err;
+#else
+			/*
+			 * The image-streamer and page-server/remote restore
+			 * readers only understand the per-page wire format.
+			 * A region-compressed image must use the local
+			 * restore path.
+			 */
+			if (opts.compress_mode == COMPRESS_REGION) {
+				if (opts.stream) {
+					pr_err("Region-compressed image cannot be restored with --stream\n");
+					goto out_err;
+				}
+				if (opts.use_page_server || opts.addr) {
+					pr_err("Region-compressed image cannot be restored via page-server\n");
+					goto out_err;
+				}
+			}
+#endif
+		}
+
+		if (opts.compress_mode == COMPRESS_REGION)
+			pr_debug("Region decompression of memory pages is enabled\n");
+		else if (opts.compress_mode == COMPRESS_PER_PAGE)
+			pr_debug("Per-page decompression of memory pages is enabled\n");
+	} else if (restore) {
+		/*
+		 * Image without compression metadata (e.g. an older image).
+		 * Clear any compression mode so a stale setting cannot make
+		 * the compressed reader misinterpret uncompressed pages.
+		 */
+		opts.compress_mode = COMPRESS_OFF;
+		opts.compress_acceleration = 0;
+		opts.compress_region_size = 0;
 	}
 
 	ret = 0;
@@ -238,13 +316,26 @@ void free_inventory_plugins_list(void)
 	n_inventory_plugins = 0;
 }
 
-int write_img_inventory(InventoryEntry *he)
+static uint32_t inventory_image_version(const InventoryEntry *he,
+					const InventoryEntry *parent_ie)
+{
+	if ((he->has_compress && he->compress) ||
+	    (parent_ie && parent_ie->img_version == CRTOOLS_IMAGES_V1_2))
+		return CRTOOLS_IMAGES_V1_2;
+	if (he->img_version)
+		return he->img_version;
+	return CRTOOLS_IMAGES_V1_1;
+}
+
+int write_img_inventory(InventoryEntry *he, const InventoryEntry *parent_ie)
 {
 	PluginsEntry pe = PLUGINS_ENTRY__INIT;
 	struct cr_img *img;
 	int ret;
 
-	pr_info("Writing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
+	he->img_version = inventory_image_version(he, parent_ie);
+
+	pr_info("Writing image inventory (version %u)\n", he->img_version);
 
 	img = open_image(CR_FD_INVENTORY, O_DUMP);
 	if (!img)
@@ -295,63 +386,79 @@ int inventory_save_uptime(InventoryEntry *he)
 }
 
 /*
- * This function is intended to get an inventory image from previous (parent)
- * dump iteration. We use dump_uptime from the image in detect_pid_reuse().
- *
- * You see that these function never fails by itself, it only prints warnings
- * to better understand reasons why we don't found a proper image, failing here
- * is too early. We get to detect_pid_reuse() only if we have a parent pagemap
- * and that's the proper place to fail: we know that there is a parent pagemap
- * but we don't have (can't access, etc) parent inventory => can't detect
- * pid-reuse => fail.
+ * Load the previous dump's inventory when a parent directory is configured.
+ * A NULL *parent_ie is reserved for the normal first-dump case. Once a parent
+ * directory exists its inventory is also needed to propagate the image-format
+ * version, so an unreadable or unsupported inventory is a hard error even when
+ * pidfds make the dump-uptime PID-reuse check unnecessary.
  */
-
-InventoryEntry *get_parent_inventory(void)
+int get_parent_inventory(InventoryEntry **parent_ie)
 {
 	struct cr_img *img;
-	InventoryEntry *ie;
+	InventoryEntry *ie = NULL;
 	int dir;
 
+	*parent_ie = NULL;
 	if (open_parent(get_service_fd(IMG_FD_OFF), &dir)) {
-		/*
-		 * We print the warning below to be notified that we had some
-		 * unexpected problem on open. For instance we have a parent
-		 * directory but have no access. Having no parent inventory
-		 * when also having no parent directory is an expected case of
-		 * first dump iteration.
-		 */
-		pr_warn("Failed to open parent directory\n");
-		return NULL;
+		pr_err("Failed to open parent directory\n");
+		return -1;
 	}
 	if (dir < 0)
-		return NULL;
+		return 0;
 
 	img = open_image_at(dir, CR_FD_INVENTORY, O_RSTR);
 	if (!img) {
-		pr_warn("Failed to open parent pre-dump inventory image\n");
+		pr_err("Failed to open parent pre-dump inventory image\n");
 		close(dir);
-		return NULL;
+		return -1;
 	}
 
 	if (pb_read_one(img, &ie, PB_INVENTORY) < 0) {
-		pr_warn("Failed to read parent pre-dump inventory entry\n");
+		pr_err("Failed to read parent pre-dump inventory entry\n");
 		close_image(img);
 		close(dir);
-		return NULL;
+		return -1;
+	}
+
+	switch (ie->img_version) {
+	case CRTOOLS_IMAGES_V1:
+	case CRTOOLS_IMAGES_V1_1:
+	case CRTOOLS_IMAGES_V1_2:
+		break;
+	default:
+		pr_err("Unsupported parent image version %u\n", ie->img_version);
+		goto err;
+	}
+	if (ie->has_compress && ie->compress > COMPRESS_REGION) {
+		pr_err("Parent image has unknown compression mode %u\n",
+		       ie->compress);
+		goto err;
+	}
+	if (ie->has_compress && ie->compress &&
+	    ie->img_version < CRTOOLS_IMAGES_V1_2) {
+		pr_err("Parent image version %u cannot contain compressed memory pages\n",
+		       ie->img_version);
+		goto err;
 	}
 
 	if (!ie->has_dump_uptime) {
+		/* pidfd-based reuse detection does not need the legacy timestamp. */
 		pr_warn("Parent pre-dump inventory has no uptime\n");
-		inventory_entry__free_unpacked(ie, NULL);
-		ie = NULL;
 	}
 
 	close_image(img);
 	close(dir);
-	return ie;
+	*parent_ie = ie;
+	return 0;
+
+err:
+	inventory_entry__free_unpacked(ie, NULL);
+	close_image(img);
+	close(dir);
+	return -1;
 }
 
-int prepare_inventory(InventoryEntry *he)
+int prepare_inventory(InventoryEntry *he, const InventoryEntry *parent_ie)
 {
 	struct pid pid;
 	struct {
@@ -359,9 +466,10 @@ int prepare_inventory(InventoryEntry *he)
 		struct dmp_info d;
 	} crt = { .i.pid = &pid };
 
-	pr_info("Preparing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
-
-	he->img_version = CRTOOLS_IMAGES_V1_1;
+	he->has_compress = true;
+	he->compress = opts.compress_mode;
+	he->img_version = inventory_image_version(he, parent_ie);
+	pr_info("Preparing image inventory (version %u)\n", he->img_version);
 	he->fdinfo_per_id = true;
 	he->has_fdinfo_per_id = true;
 	he->ns_per_id = true;
@@ -401,6 +509,11 @@ int prepare_inventory(InventoryEntry *he)
 
 	if (!he->dump_criu_run_id)
 		return -1;
+
+	if (opts.compress_mode == COMPRESS_REGION && opts.compress_region_size) {
+		he->has_compress_region_size = true;
+		he->compress_region_size = opts.compress_region_size;
+	}
 
 	return 0;
 }
