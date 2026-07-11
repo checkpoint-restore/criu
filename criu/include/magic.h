@@ -11,6 +11,13 @@
  * except for inventory
  */
 #define CRTOOLS_IMAGES_V1_1 2
+/*
+ * v1.2 can contain compressed pages-*.img payloads described by pagemap
+ * compressed_size metadata. Older CRIU versions must reject these images
+ * instead of ignoring the unknown protobuf fields and reading page payloads
+ * as uncompressed data.
+ */
+#define CRTOOLS_IMAGES_V1_2 3
 
 /*
  * Raw images are images in which data is stored in some

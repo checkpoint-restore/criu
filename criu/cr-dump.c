@@ -61,6 +61,7 @@
 #include "cgroup-props.h"
 #include "file-lock.h"
 #include "page-xfer.h"
+#include "compression.h"
 #include "kerndat.h"
 #include "stats.h"
 #include "mem.h"
@@ -1834,7 +1835,7 @@ static int setup_alarm_handler(void)
 	return 0;
 }
 
-static int cr_pre_dump_finish(int status)
+static int cr_pre_dump_finish(int status, const InventoryEntry *parent_ie)
 {
 	InventoryEntry he = INVENTORY_ENTRY__INIT;
 	struct pstree_item *item;
@@ -1854,6 +1855,14 @@ static int cr_pre_dump_finish(int status)
 
 	he.has_pre_dump_mode = true;
 	he.pre_dump_mode = opts.pre_dump_mode;
+
+	he.has_compress = true;
+	he.compress = opts.compress_mode;
+
+	if (opts.compress_mode == COMPRESS_REGION && opts.compress_region_size) {
+		he.has_compress_region_size = true;
+		he.compress_region_size = opts.compress_region_size;
+	}
 
 	pstree_switch_state(root_item, TASK_ALIVE);
 
@@ -1918,7 +1927,7 @@ err:
 	if (bfd_flush_images())
 		ret = -1;
 
-	if (write_img_inventory(&he))
+	if (write_img_inventory(&he, parent_ie))
 		ret = -1;
 
 	if (ret)
@@ -1992,17 +2001,12 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (collect_and_suspend_lsm() < 0)
 		goto err;
 
-	/* Errors handled later in detect_pid_reuse */
-	parent_ie = get_parent_inventory();
+	if (get_parent_inventory(&parent_ie))
+		goto err;
 
 	for_each_pstree_item(item)
 		if (pre_dump_one_task(item, parent_ie))
 			goto err;
-
-	if (parent_ie) {
-		inventory_entry__free_unpacked(parent_ie, NULL);
-		parent_ie = NULL;
-	}
 
 	ret = cr_dump_shmem();
 	if (ret)
@@ -2013,10 +2017,10 @@ int cr_pre_dump_tasks(pid_t pid)
 
 	ret = 0;
 err:
+	ret = cr_pre_dump_finish(ret, parent_ie);
 	if (parent_ie)
 		inventory_entry__free_unpacked(parent_ie, NULL);
-
-	return cr_pre_dump_finish(ret);
+	return ret;
 }
 
 static int cr_lazy_mem_dump(void)
@@ -2190,7 +2194,10 @@ int cr_dump_tasks(pid_t pid)
 	if (parse_cg_info())
 		goto err;
 
-	if (prepare_inventory(&he))
+	if (get_parent_inventory(&parent_ie))
+		goto err;
+
+	if (prepare_inventory(&he, parent_ie))
 		goto err;
 
 	if (opts.cpu_cap & CPU_CAP_IMAGE) {
@@ -2238,9 +2245,6 @@ int cr_dump_tasks(pid_t pid)
 	if (seccomp_collect_dump_filters() < 0)
 		goto err;
 
-	/* Errors handled later in detect_pid_reuse */
-	parent_ie = get_parent_inventory();
-
 	if (collect_and_suspend_lsm() < 0)
 		goto err;
 
@@ -2252,11 +2256,6 @@ int cr_dump_tasks(pid_t pid)
 	ret = run_plugins(DUMP_DEVICES_LATE, pid);
 	if (ret && ret != -ENOTSUP)
 		goto err;
-
-	if (parent_ie) {
-		inventory_entry__free_unpacked(parent_ie, NULL);
-		parent_ie = NULL;
-	}
 
 	/*
 	 * It may happen that a process has completed but its files in
@@ -2323,7 +2322,7 @@ int cr_dump_tasks(pid_t pid)
 		he.allow_uprobes = true;
 	}
 
-	exit_code = write_img_inventory(&he);
+	exit_code = write_img_inventory(&he, parent_ie);
 err:
 	if (parent_ie)
 		inventory_entry__free_unpacked(parent_ie, NULL);

@@ -413,9 +413,8 @@ static int detect_pid_reuse(struct pstree_item *item, struct proc_pid_stat *pps,
 	if (pidfd_store_ready())
 		return pidfd_store_check_pid_reuse(item->pid->real);
 
-	if (!parent_ie) {
-		pr_err("Pid-reuse detection failed: no parent inventory, "
-		       "check warnings in get_parent_inventory\n");
+	if (!parent_ie || !parent_ie->has_dump_uptime) {
+		pr_err("Pid-reuse detection failed: parent inventory has no uptime\n");
 		return -1;
 	}
 
