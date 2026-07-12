@@ -468,7 +468,8 @@ ruff:
 		coredump/ coredump/coredump \
 		scripts/github-indent-warnings.py \
 		contrib/criu-service-client/test/*.py \
-		contrib/compression-benchmark/
+		contrib/compression-benchmark/ \
+		test/others/compression/
 
 shellcheck:
 	shellcheck --version
