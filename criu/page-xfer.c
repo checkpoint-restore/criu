@@ -1069,21 +1069,24 @@ struct page_xfer_job {
 
 static struct page_xfer_job cxfer = {
 	.dst_id = ~0,
+	.p = { -1, -1 },
 };
 
 static struct pipe_read_dest pipe_read_dest = {
+	.p = { -1, -1 },
 	.sink_fd = -1,
 };
 
 static void page_server_close(void)
 {
-	if (cxfer.dst_id != ~0)
+	if (cxfer.dst_id != ~0ULL) {
+		/* Make repeated/error-path cleanup harmless before closing resources. */
+		cxfer.dst_id = ~0ULL;
 		cxfer.loc_xfer.close(&cxfer.loc_xfer);
-	if (pipe_read_dest.sink_fd != -1) {
-		close(pipe_read_dest.sink_fd);
-		close(pipe_read_dest.p[0]);
-		close(pipe_read_dest.p[1]);
 	}
+	close_safe(&pipe_read_dest.sink_fd);
+	close_safe(&pipe_read_dest.p[0]);
+	close_safe(&pipe_read_dest.p[1]);
 }
 
 static int page_server_open(int sk, struct page_server_iov *pi)
@@ -1110,7 +1113,7 @@ static int page_server_open(int sk, struct page_server_iov *pi)
 		char has_parent = !!cxfer.loc_xfer.parent;
 		if (__send(sk, &has_parent, 1, 0) != 1) {
 			pr_perror("Unable to send response");
-			close_page_xfer(&cxfer.loc_xfer);
+			page_server_close();
 			return -1;
 		}
 	}
@@ -1247,6 +1250,7 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 static int page_server_serve(int sk)
 {
 	int ret = -1;
+	int pipe_size;
 	bool flushed = false;
 	bool receiving_pages = !opts.lazy_pages;
 
@@ -1264,10 +1268,22 @@ static int page_server_serve(int sk)
 			return -1;
 		}
 
-		cxfer.pipe_size = fcntl(cxfer.p[0], F_GETPIPE_SZ, 0);
+		pipe_size = fcntl(cxfer.p[0], F_GETPIPE_SZ, 0);
+		if (pipe_size < 0) {
+			pr_perror("Can't get page-server transfer pipe size");
+			close_safe(&cxfer.p[0]);
+			close_safe(&cxfer.p[1]);
+			close(sk);
+			return -1;
+		}
+		cxfer.pipe_size = pipe_size;
 		pr_debug("Created xfer pipe size %u\n", cxfer.pipe_size);
 	} else {
-		pipe_read_dest_init(&pipe_read_dest);
+		if (pipe_read_dest_init(&pipe_read_dest)) {
+			page_server_close();
+			close(sk);
+			return -1;
+		}
 		tcp_cork(sk, true);
 	}
 
@@ -1367,6 +1383,10 @@ static int page_server_serve(int sk)
 	}
 
 	page_server_close();
+	if (receiving_pages) {
+		close_safe(&cxfer.p[0]);
+		close_safe(&cxfer.p[1]);
+	}
 
 	pr_info("Session over\n");
 
