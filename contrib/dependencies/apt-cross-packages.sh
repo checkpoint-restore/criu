@@ -28,7 +28,6 @@ fi
 	libssl-dev:"${DEBIAN_ARCH}" \
 	libtraceevent-dev:"${DEBIAN_ARCH}" \
 	libtracefs-dev:"${DEBIAN_ARCH}" \
-	ncurses-dev:"${DEBIAN_ARCH}" \
 	uuid-dev:"${DEBIAN_ARCH}" \
 	build-essential \
 	pkg-config \
