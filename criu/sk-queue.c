@@ -11,6 +11,7 @@
 
 #include "common/list.h"
 #include "imgset.h"
+#include "kerndat.h"
 #include "image.h"
 #include "servicefd.h"
 #include "cr_options.h"
@@ -388,6 +389,20 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 				if (ret < 0)
 					return -1;
 				continue;
+			} else if (ch->cmsg_len == CMSG_LEN(sizeof(int)) &&
+				   ch->cmsg_type == SCM_PIDFD) {
+				int pidfd = *(int *)CMSG_DATA(ch);
+
+				/*
+				 * The skb pid the pidfd refers to is dumped
+				 * from the SCM_CREDENTIALS cmsg (SO_PASSCRED
+				 * is enabled for the peek when the socket has
+				 * SO_PASSPIDFD), so just close the fd that
+				 * recvmsg installed.
+				 */
+				pr_debug("Closing pidfd %d received on queue peek\n", pidfd);
+				close(pidfd);
+				continue;
 			} else if (ch->cmsg_type == SCM_TIMESTAMP ||
 				   ch->cmsg_type == SCM_TIMESTAMPNS ||
 				   ch->cmsg_type == SCM_TIMESTAMPING) {
@@ -482,6 +497,7 @@ int dump_sk_queue(int sock_fd, int sock_id, int flags)
 {
 	int ret, size, orig_peek_off;
 	int exit_code = -1;
+	int passcred_set = 0;
 	void *data;
 	socklen_t tmp;
 
@@ -525,6 +541,37 @@ int dump_sk_queue(int sock_fd, int sock_id, int flags)
 		goto err_free;
 	}
 
+	/*
+	 * If the socket has SO_PASSPIDFD but not SO_PASSCRED, peeked packets
+	 * carry an SCM_PIDFD cmsg only, which loses the skb uid/gid and needs
+	 * a pidfd -> pid conversion. Both PASS* options are just recvmsg-time
+	 * views of the same pid/creds the kernel attached to the skb at send
+	 * time, so temporarily enable SO_PASSCRED to make every packet yield
+	 * a full SCM_CREDENTIALS cmsg instead.
+	 *
+	 * There is no family check here because dump_sk_queue() is only ever
+	 * called for unix sockets. Should that change, gate this on AF_UNIX
+	 * the way dump_socket_opts() does: since Linux 6.16 get/setsockopt of
+	 * SO_PASSPIDFD fails with EOPNOTSUPP on anything else.
+	 */
+	if (kdat.has_so_passpidfd) {
+		int passpidfd = 0, passcred = 0;
+
+		if (dump_opt(sock_fd, SOL_SOCKET, SO_PASSPIDFD, &passpidfd))
+			goto err_set_sock;
+
+		if (dump_opt(sock_fd, SOL_SOCKET, SO_PASSCRED, &passcred))
+			goto err_set_sock;
+
+		if (passpidfd && !passcred) {
+			int one = 1;
+
+			if (restore_opt(sock_fd, SOL_SOCKET, SO_PASSCRED, &one))
+				goto err_set_sock;
+			passcred_set = 1;
+		}
+	}
+
 	while (1) {
 		ret = dump_sk_queue_packet(sock_fd, sock_id, data, size, flags);
 		if (ret == 1)
@@ -535,6 +582,12 @@ int dump_sk_queue(int sock_fd, int sock_id, int flags)
 	exit_code = 0;
 
 err_set_sock:
+	if (passcred_set) {
+		int zero = 0;
+
+		if (restore_opt(sock_fd, SOL_SOCKET, SO_PASSCRED, &zero))
+			exit_code = -1;
+	}
 	/*
 	 * Restore original peek offset.
 	 */
