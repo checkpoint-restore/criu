@@ -172,22 +172,29 @@ int sk_queue_post_actions(void)
 			struct pstree_item *item, *found = NULL;
 			SkUcredEntry *ue = pkt->entry->ucred;
 
-			for_each_pstree_item(item) {
-				if (item->pid->real == ue->pid) {
-					found = item;
-					break;
+			/*
+			 * A zero pid means the kernel attached no struct pid
+			 * to the skb (credless sender), there is nothing to
+			 * fix up, write the packet as is.
+			 */
+			if (ue->pid != 0) {
+				for_each_pstree_item(item) {
+					if (item->pid->real == ue->pid) {
+						found = item;
+						break;
+					}
 				}
-			}
 
-			if (!found) {
-				pr_warn("ucred: Can't find process with pid %d, ignoring packet\n",
-					ue->pid);
-				goto next;
-			}
+				if (!found) {
+					pr_warn("ucred: Can't find process with pid %d, ignoring packet\n",
+						ue->pid);
+					goto next;
+				}
 
-			pr_debug("ucred: Fixup ucred pids %d -> %d\n",
-				 ue->pid, vpid(item));
-			ue->pid = vpid(item);
+				pr_debug("ucred: Fixup ucred pids %d -> %d\n",
+					 ue->pid, vpid(item));
+				ue->pid = vpid(item);
+			}
 
 			ret = pb_write_one(img, pkt->entry, PB_SK_QUEUES);
 			if (ret < 0) {
