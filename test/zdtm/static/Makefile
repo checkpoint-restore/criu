@@ -71,6 +71,7 @@ TST_NOFILE	:=				\
 		pidfd_kill			\
 		fd_from_pidfd			\
 		sk-unix-dgram-pidfd		\
+		sk-unix-dgram-pidfd-cred	\
 		pipe00				\
 		pipe01				\
 		pipe02				\
