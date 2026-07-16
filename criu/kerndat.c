@@ -1073,6 +1073,35 @@ err:
 	return exit_code;
 }
 
+static int kerndat_has_so_passpidfd(void)
+{
+	int exit_code = -1;
+	socklen_t len;
+	int val;
+	int sock;
+
+	sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (sock < 0) {
+		pr_perror("Unable to create a unix socket");
+		return -1;
+	}
+
+	len = sizeof(val);
+	if (getsockopt(sock, SOL_SOCKET, SO_PASSPIDFD, &val, &len)) {
+		if (errno != ENOPROTOOPT) {
+			pr_perror("Unable to get SO_PASSPIDFD with getsockopt");
+			goto err;
+		}
+		kdat.has_so_passpidfd = false;
+	} else
+		kdat.has_so_passpidfd = true;
+
+	exit_code = 0;
+err:
+	close(sock);
+	return exit_code;
+}
+
 static int kerndat_has_move_mount_set_group(void)
 {
 	char tmpdir[] = "/tmp/.criu.move_mount_set_group.XXXXXX";
@@ -2194,6 +2223,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_sockopt_buf_lock()) {
 		pr_err("kerndat_sockopt_buf_lock failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_so_passpidfd()) {
+		pr_err("kerndat_has_so_passpidfd failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_has_openat2()) {
