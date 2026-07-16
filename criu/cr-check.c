@@ -1360,6 +1360,16 @@ static int check_sockopt_buf_lock(void)
 	return 0;
 }
 
+static int check_so_passpidfd(void)
+{
+	if (!kdat.has_so_passpidfd) {
+		pr_warn("SO_PASSPIDFD is not supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int check_move_mount_set_group(void)
 {
 	if (!kdat.has_move_mount_set_group)
@@ -1733,6 +1743,7 @@ int cr_check(void)
 		ret |= check_timer_cr_ids();
 		ret |= check_pagemap_scan_guard_pages();
 		ret |= check_statmount_by_fd();
+		ret |= check_so_passpidfd();
 
 		if (kdat.lsm == LSMTYPE__APPARMOR)
 			ret |= check_apparmor_stacking();
@@ -1882,6 +1893,7 @@ static struct feature_list feature_list[] = {
 	{ "overlayfs_maps", check_overlayfs_maps },
 	{ "pagemap_scan_guard_pages", check_pagemap_scan_guard_pages },
 	{ "binfmt_misc_sandboxing", check_binfmt_misc_sandboxing },
+	{ "so_passpidfd", check_so_passpidfd },
 	{ "compress", check_compress },
 	{ NULL, NULL },
 };
