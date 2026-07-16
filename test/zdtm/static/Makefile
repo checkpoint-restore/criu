@@ -70,6 +70,7 @@ TST_NOFILE	:=				\
 		pidfd_child			\
 		pidfd_kill			\
 		fd_from_pidfd			\
+		sk-unix-dgram-pidfd		\
 		pipe00				\
 		pipe01				\
 		pipe02				\
