@@ -8,10 +8,12 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 
-#include "cpuid.h"
-
 const char *test_doc = "Test if FPU data in YMM registers do survive the c/r";
 const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
+
+#ifdef __x86_64__
+
+#include "cpuid.h"
 
 static int verify_cpu(void)
 {
@@ -44,17 +46,33 @@ static __aligned unsigned char ymm4[32 + 1];
 static int fpu_test(void)
 {
 	int ret = 0;
+	void (*daemon_fn)(void) = test_daemon;
+	void (*waitsig_fn)(void) = test_waitsig;
 
-	asm volatile("vmovapd %0, %%ymm0 \n" : : "m"(*ymm1) : "memory");
-
-	asm volatile("vmovapd %0, %%ymm7 \n" : : "m"(*ymm2) : "memory");
-
-	test_daemon();
-	test_waitsig();
-
-	asm volatile("vmovapd %%ymm0, %0 \n" : "=m"(*ymm3) : : "memory");
-
-	asm volatile("vmovapd %%ymm7, %0 \n" : "=m"(*ymm4) : : "memory");
+	/*
+	 * Combine YMM register operations and function calls in a
+	 * single asm block to prevent the compiler from inserting
+	 * VZEROUPPER at function call boundaries which would zero
+	 * the upper 128 bits of all YMM registers before CRIU has
+	 * a chance to checkpoint them.
+	 */
+	asm volatile(
+		"vmovapd %[in1], %%ymm0\n\t"
+		"vmovapd %[in2], %%ymm7\n\t"
+		"call *%[daemon]\n\t"
+		"call *%[waitsig]\n\t"
+		"vmovapd %%ymm0, %[out1]\n\t"
+		"vmovapd %%ymm7, %[out2]\n\t"
+		: [out1] "=m"(*ymm3), [out2] "=m"(*ymm4)
+		: [in1] "m"(*ymm1), [in2] "m"(*ymm2),
+		  [daemon] "r"(daemon_fn), [waitsig] "r"(waitsig_fn)
+		: "memory", "cc",
+		  "rax", "rcx", "rdx", "rsi", "rdi",
+		  "r8", "r9", "r10", "r11",
+		  "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5",
+		  "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11",
+		  "xmm12", "xmm13", "xmm14", "xmm15"
+	);
 
 	if (memcmp(ymm1, ymm3, 32) || memcmp(ymm2, ymm4, 32)) {
 		test_msg("Data mismatch ('%s' '%s' '%s' '%s')\n", ymm1, ymm2, ymm3, ymm4);
@@ -66,6 +84,7 @@ static int fpu_test(void)
 
 	return ret;
 }
+#endif
 
 static int bare_run(void)
 {
@@ -83,7 +102,11 @@ int main(int argc, char *argv[])
 
 	test_init(argc, argv);
 
+#ifdef __x86_64__
 	ret = verify_cpu() ? bare_run() : fpu_test();
+#else
+	ret = bare_run();
+#endif
 
 	if (!ret)
 		pass();
