@@ -9,6 +9,10 @@
 #include "rst-malloc.h"
 #include "restorer.h"
 
+#ifndef SIGEV_NONE
+#define SIGEV_NONE 1 /* other notification: meaningless */
+#endif
+
 static inline int timeval_valid(struct timeval *tv)
 {
 	return (tv->tv_sec >= 0) && ((unsigned long)tv->tv_usec < USEC_PER_SEC);
@@ -312,7 +316,7 @@ static int encode_notify_thread_id(pid_t rtid, struct pstree_item *item, PosixTi
 		}
 
 		if (i == item->nr_threads) {
-			pr_warn("Skipping timer because notify thread %d is dead\n", rtid);
+			pr_warn("Notify thread %d is dead, restoring timer as inert (SIGEV_NONE)\n", rtid);
 			return 1;
 		}
 
@@ -348,6 +352,8 @@ static int encode_notify_thread_id(pid_t rtid, struct pstree_item *item, PosixTi
 static int encode_posix_timer(struct pstree_item *item, struct posix_timer *v, struct proc_posix_timer *vp,
 			      PosixTimerEntry *pte)
 {
+	int ret;
+
 	pte->it_id = vp->spt.it_id;
 	pte->clock_id = vp->spt.clock_id;
 	pte->si_signo = vp->spt.si_signo;
@@ -361,7 +367,24 @@ static int encode_posix_timer(struct pstree_item *item, struct posix_timer *v, s
 	pte->vsec = v->val.it_value.tv_sec;
 	pte->vnsec = v->val.it_value.tv_nsec;
 
-	return encode_notify_thread_id(vp->spt.notify_thread_id, item, pte);
+	ret = encode_notify_thread_id(vp->spt.notify_thread_id, item, pte);
+	if (ret < 0)
+		return ret;
+	if (ret == 1) {
+		/*
+		 * The timer's SIGEV_THREAD_ID notify target has exited. The
+		 * kernel already delivers nothing for such a timer, so record
+		 * it as an inert SIGEV_NONE timer rather than dropping it or
+		 * failing to convert the dead thread id. This keeps the timer
+		 * (and its id) present after restore. Any CRIU version reads
+		 * this back as a plain SIGEV_NONE timer, so the image stays
+		 * compatible with versions lacking this handling.
+		 */
+		pte->it_sigev_notify = SIGEV_NONE;
+		pte->has_notify_thread_id = false;
+	}
+
+	return 0;
 }
 
 int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, struct parasite_ctl *ctl,
@@ -374,7 +397,7 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, 
 	struct parasite_dump_posix_timers_args *args;
 	int ret, exit_code = -1;
 	int args_size;
-	int i, j;
+	int i;
 
 	if (core_alloc_posix_timers(tte, proc_args->timer_n, &pte))
 		return -1;
@@ -393,28 +416,15 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, 
 	if (ret < 0)
 		goto end_posix;
 
-	/*
-	* i advances every iteration (indexes parasite-filled args->timer[]);                                                                                                                                            
-	* j advances only for timers we keep, both the next output slot                                                                                                                                            
-	* and the final count. Timers whose notify thread has exited are                                                                                                                                                 
-	* skipped (i.e., j <= i).                                                                                                                                                                                            
-	*/ 
 	i = 0;
-	j = 0;
 	list_for_each_entry(temp, &proc_args->timers, list) {
-		posix_timer_entry__init(&pte[j]);
-		ret = encode_posix_timer(item, &args->timer[i], temp, &pte[j]);
+		posix_timer_entry__init(&pte[i]);
+		ret = encode_posix_timer(item, &args->timer[i], temp, &pte[i]);
 		if (ret < 0)
 			goto end_posix;
-		if (ret == 1) {
-			i++;
-			continue;
-		}
-		tte->posix[j] = &pte[j];
+		tte->posix[i] = &pte[i];
 		i++;
-		j++;
 	}
-	tte->n_posix = j;
 
 	exit_code = 0;
 end_posix:

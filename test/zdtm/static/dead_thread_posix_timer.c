@@ -10,7 +10,7 @@
 #define SIGEV_THREAD_ID 4
 #endif
 
-const char *test_doc = "Check that a SIGEV_THREAD_ID timer targeting a dead thread doesn't break dump";
+const char *test_doc = "Check that a SIGEV_THREAD_ID timer targeting a dead thread is restored as an inert timer";
 const char *test_author = "Felicitas Pojtinger <felicitaspojtinger@loopholelabs.io>";
 
 static timer_t timerid;
@@ -42,6 +42,7 @@ int main(int argc, char **argv)
 {
 	pthread_t thr;
 	void *ret;
+	struct itimerspec its;
 
 	test_init(argc, argv);
 
@@ -62,6 +63,18 @@ int main(int argc, char **argv)
 
 	test_daemon();
 	test_waitsig();
+
+	/*
+	 * The notify thread exited before checkpoint, so the timer is
+	 * restored as an inert SIGEV_NONE timer rather than being dropped.
+	 * It must still exist afterwards, which we verify by querying it.
+	 */
+	its.it_value.tv_sec = 0;
+	its.it_value.tv_nsec = 0;
+	if (timer_gettime(timerid, &its)) {
+		fail("timer_gettime: timer did not survive restore");
+		return 1;
+	}
 
 	pass();
 
