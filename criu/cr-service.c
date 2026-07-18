@@ -506,6 +506,15 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	if (req->has_link_remap)
 		opts.link_remap_ok = req->link_remap;
+	/*
+	 * Force link-remap ON. runc/crun invoke criu via the swrk RPC mode,
+	 * which neither passes --link-remap on the command line nor reads the
+	 * criu config file. Python/vLLM creates deleted POSIX semaphores in
+	 * /dev/shm (e.g. /dev/shm/sem.* (deleted)) that criu cannot dump without
+	 * link-remap. This is required for container checkpoint of vLLM under
+	 * nvproxy. Remove if a future runtime passes link-remap via RPC.
+	 */
+	opts.link_remap_ok = 1; /* force link-remap on for nvproxy/vLLM C/R */
 
 	if (req->has_auto_dedup)
 		opts.auto_dedup = req->auto_dedup;
