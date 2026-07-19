@@ -196,4 +196,9 @@ extern int set_fds_event(pid_t virt);
 extern void wait_fds_event(void);
 
 int find_unused_fd_pid(pid_t pid);
+
+extern void fd_path_cache_add(unsigned int kdev, unsigned long ino,
+			      const char *path);
+extern char *fd_path_cache_lookup(unsigned int kdev, unsigned long ino);
+
 #endif /* __CR_FILES_H__ */

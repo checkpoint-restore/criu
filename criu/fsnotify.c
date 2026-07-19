@@ -69,6 +69,21 @@ struct fsnotify_file_info {
 	struct file_desc d;
 };
 
+/*
+ * Deferred overlay resolution entry.  When the dump loop encounters
+ * a watch on an overlay inode that cannot be opened by handle and
+ * is not in the dump-time file cache, we queue it here instead of
+ * walking the overlay tree immediately.  After all watches are
+ * processed, a single batched walk resolves them all at once.
+ */
+struct ovl_pending {
+	struct list_head	list;
+	unsigned int		s_dev;
+	unsigned long		i_ino;
+	FhEntry			*f_handle;
+	struct mount_info	*mnt;
+};
+
 /* File handle */
 typedef struct {
 	u32 bytes;
@@ -106,7 +121,8 @@ static int open_by_handle(void *arg, int fd, int pid)
 enum {
 	ERR_NO_MOUNT = -1,
 	ERR_NO_PATH_IN_MOUNT = -2,
-	ERR_GENERIC = -3
+	ERR_GENERIC = -3,
+	ERR_NEEDS_OVL_WALK = -4
 };
 
 #define OVL_WALK_MAX_DEPTH	64
@@ -148,6 +164,12 @@ static char *__walk_overlay_dir(int dirfd, const char *base,
 	while (1) {
 		struct stat st;
 
+		/*
+		 * readdir() returns NULL both on end-of-directory and
+		 * on error; the only way to tell them apart is errno.
+		 * Reset it before each call so the post-loop check
+		 * (!de && errno) can detect a real failure.
+		 */
 		errno = 0;
 		de = readdir(dfd);
 		if (!de)
@@ -165,8 +187,7 @@ static char *__walk_overlay_dir(int dirfd, const char *base,
 
 		(*visited)++;
 		if (*visited == OVL_WALK_WARN_THRESHOLD)
-			pr_warn("overlay walk: examined %lu entries so far "
-				"looking for ino %lx, mount may be large\n",
+			pr_warn("overlay walk: examined %lu entries so far looking for ino %lx, mount may be large\n",
 				*visited, i_ino);
 
 		if (MKKDEV(major(st.st_dev), minor(st.st_dev)) == s_dev &&
@@ -232,7 +253,8 @@ static char *find_path_on_overlay(struct mount_info *m,
 	 * ns_mountpoint has a leading dot, e.g. "./tmp/merged",
 	 * which makes it relative to mntns root for openat.
 	 */
-	mount_fd = openat(root_fd, m->ns_mountpoint, O_RDONLY | O_DIRECTORY);
+	mount_fd = openat(root_fd, m->ns_mountpoint,
+			  O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 	if (mount_fd < 0) {
 		pr_perror("Can't open overlay mountpoint %s",
 			  m->ns_mountpoint);
@@ -266,7 +288,9 @@ static char *find_path_on_overlay(struct mount_info *m,
 	return found;
 }
 
-static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)
+static char *alloc_openable(unsigned int s_dev, unsigned long i_ino,
+			    FhEntry *f_handle,
+			    struct mount_info **ovl_mnt_out)
 {
 	struct mount_info *m;
 	fh_t handle;
@@ -304,10 +328,41 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 		close(mntfd);
 		if (fd < 0) {
 			if (m->fstype->code == FSTYPE__OVERLAYFS) {
-				char *ovl_path;
+				char *ovl_path, *cached;
 
-				pr_debug("\t\tHandle open failed on overlay,"
-					 " trying dir walk for %lx\n",
+				/*
+				 * Try the dump-time file cache first.
+				 * It contains paths for all files
+				 * already processed by dump_one_file()
+				 * across all processes.
+				 */
+				cached = fd_path_cache_lookup(s_dev,
+							      i_ino);
+				if (cached) {
+					pr_debug("\t\tResolved overlay ino %lx via file cache -> %s\n",
+						 i_ino, cached);
+					ovl_path = xstrdup(cached);
+					if (!ovl_path)
+						return ERR_PTR(ERR_GENERIC);
+					if (root_ns_mask & CLONE_NEWNS) {
+						f_handle->has_mnt_id = true;
+						f_handle->mnt_id = m->mnt_id;
+					}
+					return ovl_path;
+				}
+
+				/*
+				 * Cache missed.  If the caller supports
+				 * deferred resolution, hand back the
+				 * mount and let the batch walk handle
+				 * it later.
+				 */
+				if (ovl_mnt_out) {
+					*ovl_mnt_out = m;
+					return ERR_PTR(ERR_NEEDS_OVL_WALK);
+				}
+
+				pr_debug("\t\tCache missed, trying dir walk for %lx\n",
 					 i_ino);
 				ovl_path = find_path_on_overlay(m, s_dev,
 								i_ino);
@@ -408,10 +463,19 @@ out:
 	return fd;
 }
 
-int check_open_handle(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)
+/*
+ * Core handle-checking logic shared by both immediate and deferred
+ * callers.  When @pending is non-NULL, overlay mounts that cannot be
+ * opened by handle are queued for a later batched directory walk
+ * instead of being walked immediately.  When @pending is NULL,
+ * alloc_openable() falls back to an inline walk.
+ */
+static int __check_open_handle(unsigned int s_dev, unsigned long i_ino,
+			       FhEntry *f_handle,
+			       struct list_head *pending)
 {
 	char *path, *irmap_path;
-	struct mount_info *mi;
+	struct mount_info *mi, *ovl_mnt = NULL;
 
 	if (fault_injected(FI_CHECK_OPEN_HANDLE))
 		goto fault;
@@ -427,11 +491,24 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle
 	 *    so the only portable solution is to carry the whole path
 	 *    to the watchee inside image.
 	 */
-	path = alloc_openable(s_dev, i_ino, f_handle);
+	path = alloc_openable(s_dev, i_ino, f_handle,
+			      pending ? &ovl_mnt : NULL);
 
 	if (!IS_ERR_OR_NULL(path)) {
 		pr_debug("\tHandle 0x%x:0x%lx is openable\n", s_dev, i_ino);
 		goto out;
+	} else if (IS_ERR(path) && PTR_ERR(path) == ERR_NEEDS_OVL_WALK) {
+		struct ovl_pending *pe;
+
+		pe = xmalloc(sizeof(*pe));
+		if (!pe)
+			goto err;
+		pe->s_dev = s_dev;
+		pe->i_ino = i_ino;
+		pe->f_handle = f_handle;
+		pe->mnt = ovl_mnt;
+		list_add_tail(&pe->list, pending);
+		return 0;
 	} else if (IS_ERR(path) && PTR_ERR(path) == ERR_NO_MOUNT) {
 		goto fault;
 	} else if (IS_ERR(path) && PTR_ERR(path) == ERR_GENERIC) {
@@ -444,9 +521,10 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle
 		goto err;
 	}
 
-	if ((mi->fstype->code == FSTYPE__TMPFS) || (mi->fstype->code == FSTYPE__DEVTMPFS)) {
-		pr_err("Can't find suitable path for handle (dev %#x ino %#lx): %d\n", s_dev, i_ino,
-		       (int)PTR_ERR(path));
+	if ((mi->fstype->code == FSTYPE__TMPFS) ||
+	    (mi->fstype->code == FSTYPE__DEVTMPFS)) {
+		pr_err("Can't find suitable path for handle (dev %#x ino %#lx): %d\n",
+		       s_dev, i_ino, (int)PTR_ERR(path));
 		goto err;
 	}
 
@@ -481,29 +559,317 @@ err:
 	return -1;
 }
 
-static int check_one_wd(InotifyWdEntry *we)
+int check_open_handle(unsigned int s_dev, unsigned long i_ino,
+		      FhEntry *f_handle)
 {
-	pr_info("wd: wd %#08x s_dev %#08x i_ino %#16" PRIx64 " mask %#08x\n", we->wd, we->s_dev, we->i_ino, we->mask);
-	pr_info("\t[fhandle] bytes %#08x type %#08x __handle %#016" PRIx64 ":%#016" PRIx64 "\n", we->f_handle->bytes,
-		we->f_handle->type, we->f_handle->handle[0], we->f_handle->handle[1]);
+	return __check_open_handle(s_dev, i_ino, f_handle, NULL);
+}
 
-	if (we->mask & KERNEL_FS_EVENT_ON_CHILD)
-		pr_warn_once("\t\tDetected FS_EVENT_ON_CHILD bit "
-			     "in mask (will be ignored on restore)\n");
+/*
+ * Recursively walk a directory tree resolving multiple pending overlay
+ * entries in a single pass.  For each directory entry, check against
+ * all pending entries and resolve any matches.  Returns the number of
+ * entries resolved; short-circuits when the pending list is empty.
+ *
+ * Like __walk_overlay_dir(), this takes ownership of @dirfd.
+ */
+static int __walk_overlay_dir_batch(int dirfd, const char *base,
+				    struct list_head *pending, int depth,
+				    unsigned long *visited)
+{
+	DIR *dfd;
+	struct dirent *de;
+	int resolved = 0;
 
-	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle)) {
-		pr_err("Failed to check handle for inotify wd %#x (dev %#x ino %#" PRIx64 " mask %#x)\n",
-		       we->wd, we->s_dev, we->i_ino, we->mask);
-		return -1;
+	if (depth <= 0 || list_empty(pending)) {
+		close(dirfd);
+		return 0;
 	}
 
-	return 0;
+	dfd = fdopendir(dirfd);
+	if (!dfd) {
+		pr_perror("Can't fdopendir for overlay batch walk");
+		close(dirfd);
+		return 0;
+	}
+
+	while (!list_empty(pending)) {
+		struct ovl_pending *pe, *tmp;
+		unsigned int kdev;
+		struct stat st;
+
+		/*
+		 * readdir() returns NULL both on end-of-directory and
+		 * on error; the only way to tell them apart is errno.
+		 * Reset it before each call so the post-loop check
+		 * (!de && errno) can detect a real failure.
+		 */
+		errno = 0;
+		de = readdir(dfd);
+		if (!de)
+			break;
+
+		if (dir_dots(de))
+			continue;
+
+		if (fstatat(dirfd, de->d_name, &st,
+			    AT_SYMLINK_NOFOLLOW) < 0)
+			continue;
+
+		(*visited)++;
+		if (*visited == OVL_WALK_WARN_THRESHOLD)
+			pr_warn("overlay batch walk: examined %lu entries so far, mount may be large\n",
+				*visited);
+
+		kdev = MKKDEV(major(st.st_dev), minor(st.st_dev));
+		list_for_each_entry_safe(pe, tmp, pending, list) {
+			if (pe->s_dev == kdev &&
+			    pe->i_ino == st.st_ino) {
+				char *p;
+
+				p = xsprintf("%s/%s", base,
+					     de->d_name);
+				if (!p)
+					continue;
+				pe->f_handle->path = p;
+				if (root_ns_mask & CLONE_NEWNS) {
+					pe->f_handle->has_mnt_id = true;
+					pe->f_handle->mnt_id =
+						pe->mnt->mnt_id;
+				}
+				list_del(&pe->list);
+				xfree(pe);
+				resolved++;
+				break;
+			}
+		}
+
+		if (S_ISDIR(st.st_mode) && !list_empty(pending)) {
+			int subfd;
+			char *subbase;
+
+			subfd = openat(dirfd, de->d_name,
+				       O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+			if (subfd < 0)
+				continue;
+
+			subbase = xsprintf("%s/%s", base, de->d_name);
+			if (!subbase) {
+				close(subfd);
+				continue;
+			}
+
+			resolved += __walk_overlay_dir_batch(subfd, subbase,
+							     pending,
+							     depth - 1,
+							     visited);
+			xfree(subbase);
+		}
+	}
+
+	if (!de && errno)
+		pr_perror("overlay batch walk: readdir failed on %s", base);
+
+	closedir(dfd);
+	return resolved;
+}
+
+/*
+ * Walk a single overlay mount resolving all matching entries from
+ * @pending in one pass.  Entries on @pending whose s_dev matches
+ * this mount are checked against the mountpoint first, then resolved
+ * via a recursive directory walk.
+ */
+static void find_paths_on_overlay_batch(struct mount_info *m,
+					struct list_head *pending)
+{
+	int root_fd, mount_fd;
+	unsigned long visited = 0;
+	char *base;
+	struct stat st;
+	struct ovl_pending *pe, *tmp;
+
+	root_fd = mntns_get_root_fd(m->nsid);
+	if (root_fd < 0)
+		return;
+
+	mount_fd = openat(root_fd, m->ns_mountpoint,
+			  O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (mount_fd < 0) {
+		pr_perror("Can't open overlay mountpoint %s for batch walk",
+			  m->ns_mountpoint);
+		return;
+	}
+
+	base = m->ns_mountpoint + 1;
+
+	/* Check if the mountpoint itself matches any pending entry */
+	if (fstat(mount_fd, &st) == 0) {
+		unsigned int kdev;
+
+		kdev = MKKDEV(major(st.st_dev), minor(st.st_dev));
+		list_for_each_entry_safe(pe, tmp, pending, list) {
+			if (pe->s_dev == kdev && pe->i_ino == st.st_ino) {
+				pe->f_handle->path = xstrdup(base);
+				if (pe->f_handle->path &&
+				    (root_ns_mask & CLONE_NEWNS)) {
+					pe->f_handle->has_mnt_id = true;
+					pe->f_handle->mnt_id = m->mnt_id;
+				}
+				/*
+				 * Remove even on xstrdup failure: the
+				 * inode matched, so a dir walk would
+				 * not help under OOM.
+				 */
+				list_del(&pe->list);
+				xfree(pe);
+			}
+		}
+	}
+
+	if (!list_empty(pending)) {
+		int nr;
+
+		nr = __walk_overlay_dir_batch(mount_fd, base, pending,
+					      OVL_WALK_MAX_DEPTH, &visited);
+		/* mount_fd consumed by fdopendir inside the batch walk */
+
+		if (nr)
+			pr_debug("overlay batch walk on %s: resolved %d entries after %lu inodes\n",
+				 m->ns_mountpoint, nr, visited);
+	} else {
+		close(mount_fd);
+	}
+}
+
+/*
+ * Walk all overlay mounts to resolve pending entries.  For each
+ * overlay mount, collect entries whose s_dev matches and resolve
+ * them in a single directory tree walk.
+ */
+static void resolve_overlay_pending(struct list_head *pending)
+{
+	struct mount_info *m;
+
+	for (m = mntinfo; m && !list_empty(pending); m = m->next) {
+		struct ovl_pending *pe, *tmp;
+		LIST_HEAD(per_mount);
+		int has_match = 0;
+
+		if (m->fstype->code != FSTYPE__OVERLAYFS)
+			continue;
+		if (!mnt_is_dir(m))
+			continue;
+
+		list_for_each_entry(pe, pending, list) {
+			if (pe->s_dev == m->s_dev) {
+				has_match = 1;
+				break;
+			}
+		}
+
+		if (!has_match)
+			continue;
+
+		/*
+		 * Move matching entries to a per-mount list so the
+		 * batch walk only sees relevant inodes.
+		 */
+		list_for_each_entry_safe(pe, tmp, pending, list) {
+			if (pe->s_dev == m->s_dev)
+				list_move(&pe->list, &per_mount);
+		}
+
+		find_paths_on_overlay_batch(m, &per_mount);
+
+		/* Move unresolved entries back to the main list */
+		list_splice(&per_mount, pending);
+	}
+}
+
+/*
+ * After the batch overlay walk, handle any entries that were not
+ * resolved: try irmap fallback, or leave without a path hint.
+ * Uses the same logic as the tail of __check_open_handle().
+ */
+static int finish_overlay_pending(struct list_head *pending)
+{
+	struct ovl_pending *pe, *tmp;
+	int ret = 0;
+
+	list_for_each_entry_safe(pe, tmp, pending, list) {
+		struct mount_info *mi;
+		char *irmap_path;
+
+		if (pe->f_handle->path) {
+			pr_debug("\tDumping %s as path for deferred handle 0x%x:0x%lx\n",
+				 pe->f_handle->path, pe->s_dev, pe->i_ino);
+			list_del(&pe->list);
+			xfree(pe);
+			continue;
+		}
+
+		mi = lookup_mnt_sdev(pe->s_dev);
+		if (mi && (mi->fstype->code == FSTYPE__TMPFS ||
+			   mi->fstype->code == FSTYPE__DEVTMPFS)) {
+			pr_err("Can't find suitable path for overlay handle (dev %#x ino %#lx)\n",
+			       pe->s_dev, pe->i_ino);
+			ret = -1;
+			list_del(&pe->list);
+			xfree(pe);
+			continue;
+		}
+
+		if (!opts.force_irmap) {
+			/*
+			 * No path found and irmap is not forced --
+			 * proceed without a path hint, same as the
+			 * out_nopath case in __check_open_handle().
+			 */
+			pr_debug("\tDeferred handle 0x%x:0x%lx has no path, proceeding without hint\n",
+				 pe->s_dev, pe->i_ino);
+			list_del(&pe->list);
+			xfree(pe);
+			continue;
+		}
+
+		pr_warn("\tHandle 0x%x:0x%lx cannot be opened (overlay)\n",
+			pe->s_dev, pe->i_ino);
+		irmap_path = irmap_lookup(pe->s_dev, pe->i_ino);
+		if (!irmap_path) {
+			pr_err("\tCan't dump that handle\n");
+			ret = -1;
+		} else {
+			pe->f_handle->path = xstrdup(irmap_path);
+			if (!pe->f_handle->path)
+				ret = -1;
+			else
+				pr_debug("\tDumping %s as irmap path for deferred handle\n",
+					 pe->f_handle->path);
+		}
+
+		list_del(&pe->list);
+		xfree(pe);
+	}
+
+	return ret;
+}
+
+static void free_ovl_pending(struct list_head *pending)
+{
+	struct ovl_pending *pe, *tmp;
+
+	list_for_each_entry_safe(pe, tmp, pending, list) {
+		list_del(&pe->list);
+		xfree(pe);
+	}
 }
 
 static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 {
 	FileEntry fe = FILE_ENTRY__INIT;
 	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
+	LIST_HEAD(ovl_pending);
 	int exit_code = -1, i, ret;
 
 	ret = fd_has_data(lfd);
@@ -521,9 +887,40 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 		goto free;
 	}
 
-	for (i = 0; i < ie.n_wd; i++)
-		if (check_one_wd(ie.wd[i]))
+	/*
+	 * Two-pass overlay resolution: first pass resolves all watches
+	 * that can be opened by handle or via the dump-time file cache,
+	 * deferring overlay walks.  Second pass batch-walks each
+	 * overlay mount once for all remaining entries.
+	 */
+	for (i = 0; i < ie.n_wd; i++) {
+		InotifyWdEntry *we = ie.wd[i];
+
+		pr_info("wd: wd %#08x s_dev %#08x i_ino %#16" PRIx64 " mask %#08x\n",
+			we->wd, we->s_dev, we->i_ino, we->mask);
+		pr_info("\t[fhandle] bytes %#08x type %#08x __handle %#016" PRIx64 ":%#016" PRIx64 "\n",
+			we->f_handle->bytes, we->f_handle->type,
+			we->f_handle->handle[0], we->f_handle->handle[1]);
+
+		if (we->mask & KERNEL_FS_EVENT_ON_CHILD)
+			pr_warn_once("\t\tDetected FS_EVENT_ON_CHILD bit in mask (will be ignored on restore)\n");
+
+		if (__check_open_handle(we->s_dev, we->i_ino,
+				       we->f_handle, &ovl_pending)) {
+			pr_err("Failed to check handle for inotify wd %#x (dev %#x ino %#" PRIx64 " mask %#x)\n",
+			       we->wd, we->s_dev, we->i_ino, we->mask);
+			free_ovl_pending(&ovl_pending);
 			goto free;
+		}
+	}
+
+	if (!list_empty(&ovl_pending)) {
+		resolve_overlay_pending(&ovl_pending);
+		if (finish_overlay_pending(&ovl_pending)) {
+			free_ovl_pending(&ovl_pending);
+			goto free;
+		}
+	}
 
 	fe.type = FD_TYPES__INOTIFY;
 	fe.id = ie.id;
@@ -578,46 +975,11 @@ const struct fdtype_ops inotify_dump_ops = {
 	.pre_dump = pre_dump_one_inotify,
 };
 
-static int check_one_mark(FanotifyMarkEntry *fme)
-{
-	if (fme->type == MARK_TYPE__INODE) {
-		BUG_ON(!fme->ie);
-
-		pr_info("mark: s_dev %#08x i_ino %#016" PRIx64 " mask %#08x\n", fme->s_dev, fme->ie->i_ino, fme->mask);
-
-		pr_info("\t[fhandle] bytes %#08x type %#08x __handle %#016" PRIx64 ":%#016" PRIx64 "\n",
-			fme->ie->f_handle->bytes, fme->ie->f_handle->type, fme->ie->f_handle->handle[0],
-			fme->ie->f_handle->handle[1]);
-
-		if (check_open_handle(fme->s_dev, fme->ie->i_ino, fme->ie->f_handle))
-			return -1;
-	}
-
-	if (fme->type == MARK_TYPE__MOUNT) {
-		struct mount_info *m;
-
-		BUG_ON(!fme->me);
-
-		m = lookup_mnt_id(fme->me->mnt_id);
-		if (!m) {
-			pr_err("Can't find mnt_id %#x for fanotify mark (mask %#x)\n",
-			       fme->me->mnt_id, fme->mask);
-			return -1;
-		}
-		if (!(root_ns_mask & CLONE_NEWNS))
-			fme->me->path = m->ns_mountpoint + 1;
-		fme->s_dev = m->s_dev;
-
-		pr_info("mark: s_dev %#08x mnt_id  %#08x mask %#08x\n", fme->s_dev, fme->me->mnt_id, fme->mask);
-	}
-
-	return 0;
-}
-
 static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 {
 	FileEntry fle = FILE_ENTRY__INIT;
 	FanotifyFileEntry fe = FANOTIFY_FILE_ENTRY__INIT;
+	LIST_HEAD(ovl_pending);
 	int ret = -1, i;
 
 	ret = fd_has_data(lfd);
@@ -636,9 +998,59 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 		goto free;
 	}
 
-	for (i = 0; i < fe.n_mark; i++)
-		if (check_one_mark(fe.mark[i]))
+	/*
+	 * Two-pass overlay resolution for fanotify: INODE-type marks
+	 * go through deferred path resolution, MOUNT-type marks are
+	 * handled inline as before.
+	 */
+	for (i = 0; i < fe.n_mark; i++) {
+		FanotifyMarkEntry *fme = fe.mark[i];
+
+		if (fme->type == MARK_TYPE__INODE) {
+			BUG_ON(!fme->ie);
+
+			pr_info("mark: s_dev %#08x i_ino %#016" PRIx64 " mask %#08x\n",
+				fme->s_dev, fme->ie->i_ino, fme->mask);
+			pr_info("\t[fhandle] bytes %#08x type %#08x __handle %#016" PRIx64 ":%#016" PRIx64 "\n",
+				fme->ie->f_handle->bytes, fme->ie->f_handle->type,
+				fme->ie->f_handle->handle[0], fme->ie->f_handle->handle[1]);
+
+			if (__check_open_handle(
+				    fme->s_dev, fme->ie->i_ino,
+				    fme->ie->f_handle,
+				    &ovl_pending)) {
+				free_ovl_pending(&ovl_pending);
+				goto free;
+			}
+		} else if (fme->type == MARK_TYPE__MOUNT) {
+			struct mount_info *m;
+
+			BUG_ON(!fme->me);
+
+			m = lookup_mnt_id(fme->me->mnt_id);
+			if (!m) {
+				pr_err("Can't find mnt_id %#x for fanotify mark (mask %#x)\n",
+				       fme->me->mnt_id, fme->mask);
+				free_ovl_pending(&ovl_pending);
+				goto free;
+			}
+			if (!(root_ns_mask & CLONE_NEWNS))
+				fme->me->path =
+					m->ns_mountpoint + 1;
+			fme->s_dev = m->s_dev;
+
+			pr_info("mark: s_dev %#08x mnt_id  %#08x mask %#08x\n",
+				fme->s_dev, fme->me->mnt_id, fme->mask);
+		}
+	}
+
+	if (!list_empty(&ovl_pending)) {
+		resolve_overlay_pending(&ovl_pending);
+		if (finish_overlay_pending(&ovl_pending)) {
+			free_ovl_pending(&ovl_pending);
 			goto free;
+		}
+	}
 
 	pr_info("id %#08x flags %#08x\n", fe.id, fe.flags);
 
