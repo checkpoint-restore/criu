@@ -76,7 +76,7 @@ $(1).s: $(2).c $(__nmk-makefile-deps)
 	$$(Q) $$(CC) -S -fverbose-asm $$(strip $$(nmk-ccflags)) $$< -o $$@
 $(1).d: $(2).c $(__nmk-makefile-deps)
 	$$(call msg-dep, $$@)
-	$$(Q) $$(CC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-ccflags)) $$< -o $$@
+	$$(Q) $$(CC) -M -MP -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-ccflags)) $$< -o $$@
 $(1).o: $(2).S $(__nmk-makefile-deps)
 	$$(call msg-cc, $$@)
 	$$(Q) $$(CC) -c $$(strip $$(nmk-asflags)) $$< -o $$@
@@ -85,7 +85,7 @@ $(1).i: $(2).S $(__nmk-makefile-deps)
 	$$(Q) $$(CC) -E $$(strip $$(nmk-asflags)) $$< -o $$@
 $(1).d: $(2).S $(__nmk-makefile-deps)
 	$$(call msg-dep, $$@)
-	$$(Q) $$(CC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-asflags)) $$< -o $$@
+	$$(Q) $$(CC) -M -MP -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-asflags)) $$< -o $$@
 endef
 
 include $(src-makefile)
@@ -227,7 +227,7 @@ $(patsubst %.o,%.s,$(addprefix $(obj)/,$(1))): $(obj)/%.s: $(obj)/%.c $(__nmk-ma
 	$$(Q) $$(HOSTCC) -S -fverbose-asm $$(strip $$(nmk-host-ccflags)) $$< -o $$@
 $(patsubst %.o,%.d,$(addprefix $(obj)/,$(1))): $(obj)/%.d: $(obj)/%.c $(__nmk-makefile-deps)
 	$$(call msg-host-dep, $$@)
-	$$(Q) $$(HOSTCC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-host-ccflags)) $$< -o $$@
+	$$(Q) $$(HOSTCC) -M -MP -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-host-ccflags)) $$< -o $$@
 endef
 
 define gen-host-rules
