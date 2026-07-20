@@ -76,8 +76,11 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	pass();
+	if (timer_delete(timerid)) {
+		fail("timer_gettime: could not delete timer post restore");
+		return 1;
+	}
 
-	timer_delete(timerid);
+	pass();
 	return 0;
 }
