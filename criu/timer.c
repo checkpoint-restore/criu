@@ -372,13 +372,9 @@ static int encode_posix_timer(struct pstree_item *item, struct posix_timer *v, s
 		return ret;
 	if (ret == 1) {
 		/*
-		 * The timer's SIGEV_THREAD_ID notify target has exited. The
-		 * kernel already delivers nothing for such a timer, so record
-		 * it as an inert SIGEV_NONE timer rather than dropping it or
-		 * failing to convert the dead thread id. This keeps the timer
-		 * (and its id) present after restore. Any CRIU version reads
-		 * this back as a plain SIGEV_NONE timer, so the image stays
-		 * compatible with versions lacking this handling.
+		 * The target thread is dead so we can't notify, but the
+		 * timer can still be polled by the application. Downgrade
+		 * it to SIGEV_NONE.
 		 */
 		pte->it_sigev_notify = SIGEV_NONE;
 		pte->has_notify_thread_id = false;
