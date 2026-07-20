@@ -69,6 +69,7 @@
 #include "images/bpfmap-data.pb-c.h"
 #include "images/apparmor.pb-c.h"
 #include "images/pidfd.pb-c.h"
+#include "images/mqueue.pb-c.h"
 
 struct cr_pb_message_desc cr_pb_descs[PB_MAX];
 
@@ -119,6 +120,9 @@ void cr_pb_init(void)
 	CR_PB_DESC(SK_QUEUES, SkPacket, sk_packet);
 	CR_PB_MDESC_INIT(cr_pb_descs[PB_IPCNS_MSG], IpcMsg, ipc_msg);
 	CR_PB_DESC(IPCNS_MSG_ENT, IpcMsg, ipc_msg);
+	CR_PB_DESC(PMQFD, Pmqfd, pmqfd);
+	CR_PB_DESC(IPCNS_PMQ_DATA, PmqData, pmq_data);
+	CR_PB_MDESC_INIT(cr_pb_descs[PB_MQUEUE_MESSAGE], MqueueMessage, mqueue_message);
 	CR_PB_DESC(REMAP_FPATH, RemapFilePath, remap_file_path);
 	CR_PB_DESC(NETDEV, NetDevice, net_device);
 	CR_PB_MDESC_INIT(cr_pb_descs[PB_PAGEMAP_HEAD], PagemapHead, pagemap_head);
