@@ -45,6 +45,36 @@ int check_mount_v2(void)
 	return 0;
 }
 
+struct statmount *do_statmount(struct mnt_id_req *req, unsigned int flags)
+{
+	size_t bufsize = 1 << 15;
+	struct statmount *stmnt = NULL, *tmp = NULL;
+	int ret;
+
+	for (;;) {
+		tmp = xrealloc(stmnt, bufsize);
+		if (!tmp)
+			goto out;
+
+		stmnt = tmp;
+		ret = sys_statmount(req, stmnt, bufsize, flags);
+		if (!ret)
+			return stmnt;
+
+		if (errno != EOVERFLOW)
+			goto out;
+
+		bufsize <<= 1;
+		if (bufsize >= UINT_MAX / 2)
+			goto out;
+	}
+
+out:
+	free(stmnt);
+	return NULL;
+}
+
+
 static struct sharing_group *get_sharing_group(int shared_id, int master_id)
 {
 	struct sharing_group *sg;
@@ -1283,6 +1313,120 @@ err:
 	return exit_code;
 }
 
+static int create_temporary_mountpoint(struct mount_info *unmounted_mnt)
+{
+	if (unmounted_mnt->is_dir) {
+		/*
+		 * Since the mount was unmounted,
+		 * we create a temporary mount point
+		 * to open files after which we
+		 * unmount this mountpoint.
+		 */
+		if (mkdir(unmounted_mnt->plain_mountpoint, 0700)) {
+			pr_perror("failed to create temporary mountpoint for mnt_id=%d, path=%s", unmounted_mnt->mnt_id, unmounted_mnt->plain_mountpoint);
+			return -1;
+		}
+		pr_debug("Created temporary mountpoint for mnt_id=%d, path=%s\n", unmounted_mnt->mnt_id, unmounted_mnt->plain_mountpoint);
+		return 0;
+	} else {
+		int fd;
+
+		fd = creat(unmounted_mnt->plain_mountpoint, 0600);
+		if (fd < 0) {
+			pr_perror("failed to create temporary mountpoint for mnt_id=%d", unmounted_mnt->mnt_id);
+			return -1;
+		}
+		pr_debug("Created temporary mountpoint for mnt_id=%d, path=%s\n", unmounted_mnt->mnt_id, unmounted_mnt->plain_mountpoint);
+		close(fd);
+		return 0;
+	}
+	return -1;
+}
+
+static int do_one_unmounted_bind_mount(struct mount_info *unmounted_mnt)
+{
+	int nsfd, original_nsfd;
+	unsigned long mflags;
+	int ret = -1;
+	char mountpoint[PATH_MAX];
+	/*
+	 * stat() the original path of which this mount was
+	 * a bind mount of, using the original mount's mountpoint
+	 * + the bind mount root.
+	 */
+	struct stat st;
+
+	BUG_ON(!unmounted_mnt->nsid);
+	original_nsfd = open_proc(PROC_SELF, "ns/mnt");
+	if (original_nsfd < 0)
+		return -1;
+
+	nsfd = fdstore_get(unmounted_mnt->nsid->mnt.nsfd_id);
+	if (nsfd < 0) {
+		pr_err("failed to get nsfd for detached mount mnt_id=%d\n", unmounted_mnt->mnt_id);
+		close(original_nsfd);
+		return -1;
+	}
+
+	if (switch_ns_by_fd(nsfd, &mnt_ns_desc, NULL)) {
+		pr_err("failed to mount namespace for detached mount mnt_id=%d\n", unmounted_mnt->mnt_id);
+		close(original_nsfd);
+		close(nsfd);
+		return -1;
+	}
+	close(nsfd);
+
+	unmounted_mnt->private = unmounted_mnt->bind->private;
+
+	snprintf(mountpoint, PATH_MAX, "%s%s", unmounted_mnt->bind->ns_mountpoint, unmounted_mnt->root);
+	if (stat(mountpoint, &st)) {
+		pr_perror("Can't stat mountpoint %s", mountpoint);
+		goto out;
+	}
+
+	if (S_ISDIR(st.st_mode))
+		unmounted_mnt->is_dir = true;
+	else
+		unmounted_mnt->is_dir = false;
+
+	if (create_temporary_mountpoint(unmounted_mnt))
+		goto out;
+
+	if (__do_bind_mount_v2(mountpoint, unmounted_mnt->plain_mountpoint)) {
+		pr_info("failed to do bind original: %s, unmounted: %s\n", mountpoint, unmounted_mnt->plain_mountpoint);
+		goto out;
+	}
+
+	mflags = unmounted_mnt->flags & (~MS_PROPAGATE);
+	if (mflags != (unmounted_mnt->bind->flags & (~MS_PROPAGATE))) {
+		if (mount(NULL, unmounted_mnt->plain_mountpoint, NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
+			pr_perror("Can't bind remount 0x%lx at %s", mflags, unmounted_mnt->plain_mountpoint);
+			goto out;
+		}
+	}
+
+	unmounted_mnt->mounted = true;
+	ret = 0;
+out:
+	if (restore_ns(original_nsfd, &mnt_ns_desc)) {
+		pr_perror("failed to restore original mount namespace");
+		return -1;
+	}
+	return ret;
+}
+
+static int mount_unmounted_mounts(void)
+{
+	struct mount_info *unmounted_mount;
+	list_for_each_entry(unmounted_mount, &unmounted_mounts, unmounted_mnt_list) {
+		/* we currently only support bind mounts */
+		BUG_ON(!unmounted_mount->unmounted || !unmounted_mount->bind);
+		if (do_one_unmounted_bind_mount(unmounted_mount))
+			return -1;
+	}
+	return 0;
+}
+
 /* The main entry point of mount-v2 for creating mounts */
 int prepare_mnt_ns_v2(void)
 {
@@ -1299,6 +1443,9 @@ int prepare_mnt_ns_v2(void)
 		return -1;
 
 	if (assemble_mount_namespaces())
+		return -1;
+
+	if (mount_unmounted_mounts())
 		return -1;
 
 	if (restore_mount_sharing_options())

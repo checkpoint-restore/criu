@@ -1736,6 +1736,79 @@ static int kerndat_has_timer_cr_ids(void)
 	return 0;
 }
 
+static int kerndat_has_statmount(void)
+{
+	/*
+	 * passing in a invalid mount, the first possible
+	 * valid mount is (1ULL << 31) + 1. So this call
+	 * should always return EINVAL.
+	 */
+	struct mnt_id_req req = {
+		.size = MNT_ID_REQ_SIZE_VER1,
+		.mnt_id = 1,
+		.param = STATMOUNT_SUPPORTED_MASK
+	};
+	struct statmount *statmnt = do_statmount(&req, 0);
+
+	if (!statmnt && errno == ENOSYS) {
+		kdat.has_statmount = false;
+		kdat.statmount_supported_mask = 0;
+		pr_info("statmount() isn't supported\n");
+		return 0;
+	}
+
+	if (!statmnt && (errno == EINVAL || errno == ENOENT)) {
+		kdat.has_statmount = true;
+		/*
+		 * these are the flags that we can guarantee that statmount supports
+		 * as they were introduced alongside the syscall.
+		 */
+		kdat.statmount_supported_mask = STATMOUNT_SB_BASIC |
+						STATMOUNT_MNT_BASIC |
+						STATMOUNT_PROPAGATE_FROM |
+						STATMOUNT_MNT_ROOT |
+						STATMOUNT_MNT_POINT |
+						STATMOUNT_FS_TYPE;
+		return 0;
+	}
+
+	if (statmnt) {
+		pr_err("statmount() call unexpectedly succeeded during kerndat check\n");
+		free(statmnt);
+	}
+	return -1;
+}
+
+static int kerndat_has_statmount_by_fd(void)
+{
+	struct statmount *statmnt;
+	struct mnt_id_req req = {
+		.size = MNT_ID_REQ_SIZE_VER1,
+		.param = STATMOUNT_SUPPORTED_MASK,
+		.mnt_fd = STDIN_FILENO
+	};
+
+	if (!kdat.has_statmount) {
+		kdat.has_statmount_by_fd = false;
+		return 0;
+	}
+
+	statmnt = do_statmount(&req, STATMOUNT_BY_FD);
+	if (!statmnt) {
+		if (errno == EINVAL) {
+			pr_info("STATMOUNT_BY_FD flag isn't supported\n");
+			kdat.has_statmount_by_fd = false;
+			return 0;
+		}
+		return -1;
+	}
+	kdat.has_statmount_by_fd = true;
+	if (statmnt->mask & STATMOUNT_SUPPORTED_MASK)
+		kdat.statmount_supported_mask = statmnt->supported_mask;
+	free(statmnt);
+	return 0;
+}
+
 static int kerndat_has_madv_guard(void)
 {
 	void *map;
@@ -2128,6 +2201,14 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_binfmt_misc_sandboxing()) {
 		pr_err("kerndat_has_binfmt_misc_sandboxing has failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_statmount()) {
+		pr_err("kerndat_has_statmount failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_statmount_by_fd()) {
+		pr_err("kerndat_has_statmount_by_fd failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
