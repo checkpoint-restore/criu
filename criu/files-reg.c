@@ -47,6 +47,8 @@
 #include "fs-magic.h"
 #include "namespaces.h"
 #include "proc_parse.h"
+#include "pagemap.h"
+#include "page.h"
 #include "pstree.h"
 #include "string.h"
 #include "fault-injection.h"
@@ -2464,6 +2466,81 @@ void filemap_ctx_fini(void)
 	}
 }
 
+/*
+ * A VMA_FILE_SHARED_TMPFS mapping is dumped like shared memory (see
+ * generate_vma_iovs() in mem.c), because its tmpfs-backed file can be
+ * mutated as a side effect of the dumped task dying (e.g. the kernel's
+ * exit_robust_list() rewriting a held PTHREAD_MUTEX_ROBUST futex word in
+ * place). Write the dumped content back into the just-reopened file so the
+ * live file matches the pre-dump snapshot before anyone -- including the
+ * restored task itself -- can observe it.
+ */
+static int restore_tmpfs_shared_vma_content(int pid, struct vma_area *vma, int fd)
+{
+	struct page_read pr;
+	unsigned long vstart = vma->e->start;
+	unsigned long vend = vma->e->end;
+	unsigned long va;
+	void *buf;
+	int ret;
+
+	ret = open_page_read(pid, &pr, PR_TASK);
+	if (ret <= 0)
+		return ret < 0 ? -1 : 0;
+
+	/*
+	 * seek_pagemap() leaves pr positioned exactly on the entry covering
+	 * @vstart (pr->cvaddr == vstart) -- unlike advance(), it must not be
+	 * followed by another advance() before the first read.
+	 */
+	ret = pr.seek_pagemap(&pr, vstart);
+	if (ret <= 0) {
+		ret = ret < 0 ? -1 : 0;
+		goto out_close;
+	}
+
+	buf = xmalloc(PAGE_SIZE);
+	if (!buf) {
+		ret = -1;
+		goto out_close;
+	}
+
+	va = vstart;
+	while (va < vend) {
+		unsigned long entry_end = (unsigned long)decode_pointer(pr.pe->vaddr) + pr.pe->nr_pages * PAGE_SIZE;
+		unsigned long chunk_end = entry_end < vend ? entry_end : vend;
+
+		while (va < chunk_end) {
+			off_t foff = vma->e->pgoff + (va - vstart);
+
+			ret = pr.read_pages(&pr, va, 1, buf, 0);
+			if (ret < 0)
+				goto out_free;
+
+			if (pwrite(fd, buf, PAGE_SIZE, foff) != PAGE_SIZE) {
+				pr_perror("Can't write back tmpfs shared content for %#lx", va);
+				ret = -1;
+				goto out_free;
+			}
+
+			va += PAGE_SIZE;
+		}
+
+		if (va >= vend)
+			break;
+
+		ret = pr.advance(&pr);
+		if (ret <= 0)
+			break;
+	}
+	ret = pr.sync(&pr);
+out_free:
+	xfree(buf);
+out_close:
+	pr.close(&pr);
+	return ret;
+}
+
 static int open_filemap(int pid, struct vma_area *vma)
 {
 	u32 flags;
@@ -2523,6 +2600,17 @@ static int open_filemap(int pid, struct vma_area *vma)
 
 	ctx.vma = vma;
 	vma->e->fd = ctx.fd;
+
+	if (vma_area_is(vma, VMA_FILE_SHARED_TMPFS)) {
+		if ((flags & O_ACCMODE) == O_RDONLY) {
+			pr_debug("Skipping tmpfs shared content restore for r/o vma %#016" PRIx64 "\n",
+				 vma->e->start);
+		} else if (restore_tmpfs_shared_vma_content(pid, vma, ctx.fd)) {
+			pr_err("Can't restore tmpfs shared content for vma %#016" PRIx64 "\n", vma->e->start);
+			return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -2533,7 +2621,15 @@ int collect_filemap(struct vma_area *vma)
 	if (!vma->e->has_fdflags) {
 		/* Make a wild guess for the fdflags */
 		vma->e->has_fdflags = true;
-		if ((vma->e->prot & PROT_WRITE) && vma_area_is(vma, VMA_FILE_SHARED))
+		/*
+		 * A VMA_FILE_SHARED_TMPFS mapping needs its content restored
+		 * via restore_tmpfs_shared_vma_content() regardless of this
+		 * particular mapping's own protection bits (a read-only
+		 * mapper must not skip content restore just because it isn't
+		 * PROT_WRITE), so always request O_RDWR for it.
+		 */
+		if (vma_area_is(vma, VMA_FILE_SHARED_TMPFS) ||
+		    ((vma->e->prot & PROT_WRITE) && vma_area_is(vma, VMA_FILE_SHARED)))
 			vma->e->fdflags = O_RDWR;
 		else
 			vma->e->fdflags = O_RDONLY;

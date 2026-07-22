@@ -1307,8 +1307,27 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 			if (va < vma->e->start)
 				goto err_addr;
 			else if (unlikely(!vma_area_is_private(vma, kdat.task_size))) {
-				pr_err("Trying to restore page for non-private VMA\n");
-				goto err_addr;
+				unsigned long len;
+
+				if (!vma_area_is(vma, VMA_FILE_SHARED_TMPFS)) {
+					pr_err("Trying to restore page for non-private VMA\n");
+					goto err_addr;
+				}
+
+				/*
+				 * VMA_FILE_SHARED_TMPFS content is written
+				 * straight into the backing tmpfs file before
+				 * it gets mmap()-ed (see open_filemap() ->
+				 * restore_tmpfs_shared_vma_content()), so these
+				 * pagemap entries carry no work here -- just
+				 * skip over them.
+				 */
+				len = min_t(unsigned long, (nr_pages - i) * PAGE_SIZE, vma->e->end - va);
+				pr->skip_pages(pr, len);
+				va += len;
+				len >>= PAGE_SHIFT;
+				i += len;
+				continue;
 			}
 
 			if (!vma_area_is(vma, VMA_PREMMAPED)) {
