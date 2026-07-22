@@ -3,12 +3,14 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include <signal.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 #include "zdtmtst.h"
 
@@ -64,6 +66,11 @@ static inline int zdtm_pidfd_query_exit(int pidfd, int *exit_code)
 	return 1;
 }
 
+static inline int zdtm_pidfd_open(pid_t pid, unsigned int flags)
+{
+	return syscall(__NR_pidfd_open, pid, flags);
+}
+
 static inline int zdtm_pidfd_send_signal(int pidfd, int sig, siginfo_t *info, unsigned int flags)
 {
 	return syscall(__NR_pidfd_send_signal, pidfd, sig, info, flags);
@@ -92,4 +99,149 @@ static inline pid_t zdtm_pidfd_get_pid(int pidfd)
 	fclose(f);
 	return pid;
 }
+
+/* Pull the SCM_PIDFD payload out of the next packet on @sk_rcv. */
+static inline int zdtm_recv_pidfd(int sk_rcv, int flags, int *pidfd)
+{
+	struct msghdr msg = {};
+	struct cmsghdr *cmsg;
+	struct iovec iov;
+	char buf[64];
+	char cmsg_buf[CMSG_SPACE(sizeof(int))];
+
+	memset(buf, 0, sizeof(buf));
+	memset(cmsg_buf, 0, sizeof(cmsg_buf));
+	iov.iov_base = buf;
+	iov.iov_len = sizeof(buf);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = cmsg_buf;
+	msg.msg_controllen = sizeof(cmsg_buf);
+
+	if (recvmsg(sk_rcv, &msg, flags) < 0)
+		return pr_perror("recvmsg");
+
+	cmsg = CMSG_FIRSTHDR(&msg);
+	if (!cmsg) {
+		pr_err("no cmsg\n");
+		return -1;
+	}
+
+	if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_PIDFD) {
+		pr_err("wrong cmsg: level %d type %d\n", cmsg->cmsg_level, cmsg->cmsg_type);
+		return -1;
+	}
+
+	memcpy(pidfd, CMSG_DATA(cmsg), sizeof(*pidfd));
+	return 0;
+}
+
+/*
+ * Queue a datagram from a child that is dead by the time we return, which is
+ * what the SCM_PIDFD tests are all built on: the packet's sender is gone, so
+ * the pidfd its skb refers to is stale and dump has to stand in for it.
+ *
+ * The child sends one datagram on each of the @nr_snd sockets in @sk_snd, then
+ * dies: by raising @term_sig when that is non-zero, otherwise by exiting with
+ * @exit_code. When @pidfd is given, the parent opens a pidfd of the child while
+ * it is still alive and stores it there for the caller to close.
+ *
+ * Returns the pid the child had, now reaped, or -1 on error.
+ */
+static inline pid_t zdtm_queue_msg_from_dead_child(const int *sk_snd, int nr_snd, int exit_code, int term_sig,
+						   int *pidfd)
+{
+	int p[2], status, fd = -1, i;
+	pid_t child;
+	char go = 1;
+
+	if (pipe(p) < 0)
+		return pr_perror("pipe");
+
+	child = fork();
+	if (child < 0) {
+		close(p[0]);
+		close(p[1]);
+		return pr_perror("fork");
+	}
+
+	if (child == 0) {
+		char buf[] = "hello";
+		struct iovec iov = {
+			.iov_base = buf,
+			.iov_len = sizeof(buf),
+		};
+		struct msghdr msg = {
+			.msg_iov = &iov,
+			.msg_iovlen = 1,
+		};
+
+		close(p[1]);
+		/* Stay alive until the parent has had its chance to open a pidfd. */
+		if (read(p[0], &go, sizeof(go)) != sizeof(go))
+			_exit(255);
+
+		for (i = 0; i < nr_snd; i++) {
+			if (sendmsg(sk_snd[i], &msg, 0) < 0)
+				_exit(255);
+		}
+
+		if (term_sig) {
+			sigset_t unblock;
+
+			/* Ensure the signal is deliverable, then die from it. */
+			sigemptyset(&unblock);
+			sigaddset(&unblock, term_sig);
+			sigprocmask(SIG_UNBLOCK, &unblock, NULL);
+			signal(term_sig, SIG_DFL);
+			raise(term_sig);
+		}
+		_exit(exit_code);
+	}
+
+	close(p[0]);
+
+	if (pidfd) {
+		fd = zdtm_pidfd_open(child, 0);
+		if (fd < 0) {
+			pr_perror("zdtm_pidfd_open");
+			goto err;
+		}
+	}
+
+	if (write(p[1], &go, sizeof(go)) != sizeof(go)) {
+		pr_perror("write");
+		goto err;
+	}
+	close(p[1]);
+
+	if (waitpid(child, &status, 0) != child) {
+		pr_perror("waitpid");
+		goto err_reaped;
+	}
+
+	if (term_sig) {
+		if (!WIFSIGNALED(status) || WTERMSIG(status) != term_sig) {
+			pr_err("child not killed by signal %d\n", term_sig);
+			goto err_reaped;
+		}
+	} else if (!WIFEXITED(status) || WEXITSTATUS(status) != exit_code) {
+		pr_err("child failed to send or exit with %d\n", exit_code);
+		goto err_reaped;
+	}
+
+	if (pidfd)
+		*pidfd = fd;
+	return child;
+
+err:
+	close(p[1]);
+	kill(child, SIGKILL);
+	waitpid(child, NULL, 0);
+err_reaped:
+	if (fd >= 0)
+		close(fd);
+	return -1;
+}
+
 #endif /* __ZDTM_PIDFD_H__ */
