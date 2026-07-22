@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <linux/fs.h>
 #include <sys/sysmacros.h>
+#include <sys/vfs.h>
 
 #include "types.h"
 #include "common/list.h"
@@ -35,6 +36,7 @@
 #include "seccomp.h"
 #include "string.h"
 #include "namespaces.h"
+#include "fs-magic.h"
 #include "cgroup.h"
 #include "cgroup-props.h"
 #include "timerfd.h"
@@ -707,10 +709,32 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 				return 0;
 			}
 
-			if (vma_area->e->flags & MAP_PRIVATE)
+			if (vma_area->e->flags & MAP_PRIVATE) {
 				vma_area->e->status |= VMA_FILE_PRIVATE;
-			else
+			} else {
+				struct statfs stfs;
+
 				vma_area->e->status |= VMA_FILE_SHARED;
+
+				/*
+				 * A shared mapping of a regular file that lives on
+				 * tmpfs (e.g. shm_open()'d /dev/shm/xxx) is really
+				 * shared memory wearing a file's clothes: its content
+				 * is process-owned state, not external ground truth,
+				 * so it needs the same dump/restore treatment as
+				 * VMA_ANON_SHARED.
+				 *
+				 * memfd/anon-shmem mappings (VMA_AREA_MEMFD) also sit
+				 * on this same internal tmpfs mount, but they already
+				 * have their own dedicated dump/restore path -- skip
+				 * them here, or they'd be force-dumped through the
+				 * generic page-pipe path without ever getting the
+				 * PROT_READ boost that path relies on.
+				 */
+				if (!(vma_area->e->status & VMA_AREA_MEMFD) && !fstatfs(*vm_file_fd, &stfs) &&
+				    stfs.f_type == TMPFS_MAGIC)
+					vma_area->e->status |= VMA_FILE_SHARED_TMPFS;
+			}
 		}
 
 		/*
@@ -778,9 +802,16 @@ static int vma_list_add(struct vma_area *vma_area, struct vm_area_list *vma_area
 
 	list_add_tail(&vma_area->list, &vma_area_list->h);
 	vma_area_list->nr++;
-	if (vma_area_is_private(vma_area, kdat.task_size)) {
+	if (vma_area_is_private(vma_area, kdat.task_size) || vma_area_is(vma_area, VMA_FILE_SHARED_TMPFS)) {
 		unsigned long pages;
 
+		/*
+		 * VMA_FILE_SHARED_TMPFS vmas are dumped through the same
+		 * page-pipe/pagemap-cache path as private vmas (generate_iovs()
+		 * via generate_vma_iovs()), so their pages must be counted here
+		 * too -- otherwise nr_priv_pages under-sizes create_page_pipe()
+		 * and nr_priv_pages_longest under-sizes the pagemap cache buffer.
+		 */
 		pages = vma_area_len(vma_area) / PAGE_SIZE;
 		vma_area_list->nr_priv_pages += pages;
 		vma_area_list->nr_priv_pages_longest = max(vma_area_list->nr_priv_pages_longest, pages);

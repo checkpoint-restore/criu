@@ -103,6 +103,15 @@
 #define VMA_AREA_UPROBES	(1 << 17)
 #define VMA_AREA_NOT_ACCOUNTABLE (1 << 18)
 
+/*
+ * A MAP_SHARED regular-file mapping whose backing file lives on a tmpfs
+ * mount. Its content is process-owned state (the file is used as shared
+ * memory, e.g. via shm_open()), not external ground truth, so it must be
+ * dumped/restored like VMA_ANON_SHARED instead of being left untouched
+ * like a plain VMA_FILE_SHARED mapping of a real on-disk file.
+ */
+#define VMA_FILE_SHARED_TMPFS (1 << 19)
+
 #define VMA_EXT_PLUGIN	  (1 << 27)
 #define VMA_CLOSE	  (1 << 28)
 #define VMA_NO_PROT_WRITE (1 << 29)
