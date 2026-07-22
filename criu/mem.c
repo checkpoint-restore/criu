@@ -114,6 +114,15 @@ static bool should_dump_entire_vma(VmaEntry *vmae)
 		return true;
 	if (vma_entry_is(vmae, VMA_AREA_AIORING))
 		return true;
+	/*
+	 * A MAP_SHARED tmpfs mapping's pages are file-backed, so the
+	 * PAGEMAP_SCAN-based should_dump_page() path (which intentionally
+	 * excludes file-backed pages as a private-COW optimisation) would
+	 * otherwise skip them all. Force the full range through instead of
+	 * touching that shared, general-purpose query.
+	 */
+	if (vma_entry_is(vmae, VMA_FILE_SHARED_TMPFS))
+		return true;
 
 	return false;
 }
@@ -448,7 +457,8 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma, str
 	u64 vaddr;
 	int ret;
 
-	if (!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED))
+	if (!vma_area_is_private(vma, kdat.task_size) && !vma_area_is(vma, VMA_ANON_SHARED) &&
+	    !vma_area_is(vma, VMA_FILE_SHARED_TMPFS))
 		return 0;
 	/*
 	 * In turn VVAR area is special and referenced from
