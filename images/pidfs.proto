@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+/*
+ * Mirrors the kernel's struct pidfs_attr (fs/pidfs.c): the state pidfs keeps
+ * on a struct pid, including what it stashes when the task exits so that
+ * userspace can still read it through PIDFD_GET_INFO once the task has been
+ * reaped.
+ *
+ * This deliberately lives outside any file or socket image. A struct pid is
+ * shared by everything that refers to the process -- a pidfd file, the pid the
+ * kernel attaches to an skb for SCM_CREDENTIALS/SCM_PIDFD -- so its pidfs
+ * state is described once and referenced from each of them.
+ *
+ * Only the exit code is modelled. The rest of what pidfs keeps cannot be
+ * reproduced on restore: @cgroupid is meaningless after migration, and the
+ * coredump information (@coredump_mask, @coredump_signal, @coredump_code)
+ * would require the stand-in process to actually dump core, so a restored
+ * dead pid never reports PIDFD_INFO_COREDUMP.
+ */
+message pidfs_attr_entry {
+	// wait(2)-style status of the reaped task, when the kernel could tell
+	// us (PIDFD_GET_INFO with PIDFD_INFO_EXIT, Linux 6.15). Its presence
+	// mirrors what the kernel tracks as PIDFS_ATTR_BIT_EXIT; absent means
+	// the task is known to be dead but the way it died is not.
+	optional sint32		exit_code	= 1;
+}

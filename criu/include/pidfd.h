@@ -6,6 +6,7 @@
 
 #include "files.h"
 #include "pidfd.pb-c.h"
+#include "pidfs.pb-c.h"
 
 /*
  * PIDFD_GET_INFO (pidfs ioctl, Linux 6.13) lets us read the exit status of
@@ -44,6 +45,33 @@ struct criu_pidfd_info {
  */
 #define CRIU_PIDFD_INFO_EXIT (1UL << 3)
 #define CRIU_PIDFD_GET_INFO  _IOWR(0xFF, 11, struct criu_pidfd_info)
+
+/*
+ * A process that has been reaped stays observable through its struct pid: a
+ * pidfd of it can still be held, the kernel can still hand one out for an skb
+ * it sent, and pidfs keeps its exit status readable via PIDFD_GET_INFO.
+ *
+ * To reproduce that, restore forks a stand-in process for each such dead pid,
+ * lets everything that needs to reference it do so -- open a pidfd of it, pass
+ * its pid to sendmsg() as spoofed SCM_CREDENTIALS -- and only then makes the
+ * stand-in die exactly the way the original did. The references then go stale
+ * with the right exit status, just as they were before the dump.
+ *
+ * Stand-ins are shared within a pool by exit status. Through the pidfd itself
+ * that makes two dead pids that died the same way indistinguishable, which is
+ * what they already were. What does tell them apart is the pid number, still
+ * visible as ucred.pid on a socket that also has SO_PASSCRED -- but that is a
+ * dump host pid with no meaning after restore, and it is not preserved either
+ * way, so sharing costs nothing that was not already lost.
+ */
+struct dead_pid;
+
+struct dead_pid_pool {
+	struct dead_pid *list;
+};
+
+extern pid_t dead_pid_get(struct dead_pid_pool *pool, PidfsAttrEntry *attr);
+extern int dead_pid_put_all(struct dead_pid_pool *pool);
 
 extern const struct fdtype_ops pidfd_dump_ops;
 extern struct collect_image_info pidfd_cinfo;
