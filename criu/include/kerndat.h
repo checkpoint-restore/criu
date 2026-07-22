@@ -97,6 +97,7 @@ struct kerndat_s {
 	bool has_statmount;
 	bool has_statmount_by_fd;
 	bool has_so_passpidfd;
+	bool has_pidfd_get_info;
 };
 
 extern struct kerndat_s kdat;
