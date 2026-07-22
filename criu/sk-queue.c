@@ -24,12 +24,25 @@
 #include "util.h"
 
 #include "sk-queue.h"
+#include "pidfd.h"
 #include "files.h"
 #include "protobuf.h"
 #include "images/sk-packet.pb-c.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "skqueue: "
+
+/*
+ * Result of inspecting the SCM_PIDFD cmsg the kernel hands us for a peeked
+ * packet. When the kernel gives a definitive answer about the sender we use
+ * it instead of the pstree-lookup-miss heuristic.
+ */
+struct pidfd_probe {
+	bool probed;   /* SCM_PIDFD gave a definitive liveness answer */
+	bool stale;    /* ... and the sender is dead */
+	bool has_exit; /* ... and we know its wait(2) exit status */
+	int exit_code;
+};
 
 struct sk_packet {
 	struct list_head list;
@@ -40,6 +53,14 @@ struct sk_packet {
 	};
 	unsigned scm_len;
 	int *scm;
+	bool pidfd_probed; /* SCM_PIDFD gave a definitive answer for this pkt */
+	bool pidfd_stale;  /* ... and the sender is dead */
+	/*
+	 * Dump side: pidfs state of the sender's struct pid, preallocated
+	 * along with the packet and attached to the entry once we know the
+	 * sender is dead (see sk_queue_post_actions()).
+	 */
+	PidfsAttrEntry *dead_pid;
 };
 
 static LIST_HEAD(packets_list);
@@ -173,30 +194,74 @@ int sk_queue_post_actions(void)
 			struct pstree_item *item, *found = NULL;
 			SkUcredEntry *ue = pkt->entry->ucred;
 
-			/*
-			 * A zero pid means the kernel attached no struct pid
-			 * to the skb (credless sender), there is nothing to
-			 * fix up, write the packet as is.
-			 */
 			if (ue->pid != 0) {
+				/*
+				 * Look the sender up in the dumped tree first. A
+				 * hit is authoritative even when the pidfd probe
+				 * reported an exit: CRIU dumps and restores
+				 * zombies, so a queued packet from an unreaped
+				 * zombie sender that is still in the tree is best
+				 * fixed up to the restored task's vpid rather than
+				 * replaced by a helper. A zero pid is not a pid to
+				 * look up at all, see below.
+				 */
 				for_each_pstree_item(item) {
 					if (item->pid->real == ue->pid) {
 						found = item;
 						break;
 					}
 				}
-
-				if (!found) {
-					pr_warn("ucred: Can't find process with pid %d, ignoring packet\n",
-						ue->pid);
-					goto next;
-				}
-
-				pr_debug("ucred: Fixup ucred pids %d -> %d\n",
-					 ue->pid, vpid(item));
-				ue->pid = vpid(item);
 			}
 
+			if (found) {
+				pr_debug("ucred: Fixup ucred pids %d -> %d\n",
+					 ue->pid, vpid(found));
+				ue->pid = vpid(found);
+			} else if (pkt->pidfd_stale) {
+				/*
+				 * PIDFD_GET_INFO (or a negative SCM_PIDFD payload)
+				 * proved the sender is dead, and it is not in the
+				 * dumped tree. The pid number is a dump host real
+				 * pid with no meaning in the image, so zero it and
+				 * record what is left of the sender instead: the
+				 * pidfs state of its struct pid. Restore stands in
+				 * for it with a process that dies the same way.
+				 */
+				pr_debug("ucred: Sender pid %d is dead (pidfd), marking packet stale on id_for %x\n",
+					 ue->pid, pkt->entry->id_for);
+				pkt->entry->dead_pid = pkt->dead_pid;
+				ue->pid = 0;
+			} else if (ue->pid != 0) {
+				/*
+				 * A sender that is neither in the dumped tree nor
+				 * dead is one nothing can be done for: it won't
+				 * exist after restore and there is no faithful way
+				 * to reattach its pid, so drop the packet rather
+				 * than mislabel it as stale. Without a pidfd verdict
+				 * (the receiver lacks SO_PASSPIDFD) we can't tell
+				 * the two apart, which is the pre-existing
+				 * SCM_CREDENTIALS behaviour.
+				 */
+				if (pkt->pidfd_probed)
+					pr_warn("ucred: Sender pid %d is alive but outside the dumped tree, dropping packet\n",
+						ue->pid);
+				else
+					pr_warn("ucred: Can't find process with pid %d, ignoring packet\n",
+						ue->pid);
+				goto next;
+			}
+
+			/*
+			 * A zero pid left here is a packet we know nothing more
+			 * about, so write it exactly as it was dumped. Note that
+			 * it is not a pid to look up and not proof that the skb
+			 * carries no struct pid: scm_set_cred() keeps the struct
+			 * pid and derives the number from it with pid_vnr(),
+			 * which yields 0 for a pid not nameable in the pid
+			 * namespace we peeked the queue from. Where a pidfd
+			 * proves such a pid dead we prefer a stand-in over a bare
+			 * packet, which is what the stale case above does.
+			 */
 			ret = pb_write_one(img, pkt->entry, PB_SK_QUEUES);
 			if (ret < 0) {
 				ret = -EIO;
@@ -219,8 +284,9 @@ next:
 	return ret;
 }
 
-static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len)
+static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len, struct pidfd_probe *probe)
 {
+	PidfsAttrEntry *pei;
 	SkPacketEntry *pe;
 	SkUcredEntry *ue;
 	void *p;
@@ -231,6 +297,7 @@ static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len)
 	sum += sizeof(*pkt);
 	sum += sizeof(*pkt->entry);
 	sum += sizeof(*pkt->entry->ucred);
+	sum += sizeof(*pkt->dead_pid);
 	sum += len;
 
 	pkt = xmalloc(sum);
@@ -239,13 +306,18 @@ static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len)
 
 	pe = (void *)pkt + sizeof(*pkt);
 	ue = (void *)pe + sizeof(*pe);
-	p = (void *)ue + sizeof(*ue);
+	pei = (void *)ue + sizeof(*ue);
+	p = (void *)pei + sizeof(*pei);
 
 	sk_packet_entry__init(pe);
 	sk_ucred_entry__init(ue);
+	pidfs_attr_entry__init(pei);
 
 	pkt->entry = pe;
 	pkt->data_off = p - (void *)pkt;
+	pkt->pidfd_probed = probe->probed;
+	pkt->pidfd_stale = probe->stale;
+	pkt->dead_pid = pei;
 
 	pe->id_for = entry->id_for;
 	pe->length = entry->length;
@@ -253,6 +325,10 @@ static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len)
 	ue->uid = entry->ucred->uid;
 	ue->gid = entry->ucred->gid;
 	ue->pid = entry->ucred->pid;
+	if (probe->has_exit) {
+		pei->has_exit_code = true;
+		pei->exit_code = probe->exit_code;
+	}
 
 	pe->n_scm = entry->n_scm;
 
@@ -356,7 +432,7 @@ static int dump_sk_creds(struct ucred *ucred, SkPacketEntry *pe, int flags)
 	return 0;
 }
 
-static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
+static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags, struct pidfd_probe *probe)
 {
 	struct cmsghdr *ch;
 	int n_rights = 0;
@@ -397,11 +473,61 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 				 * The skb pid the pidfd refers to is dumped
 				 * from the SCM_CREDENTIALS cmsg (SO_PASSCRED
 				 * is enabled for the peek when the socket has
-				 * SO_PASSPIDFD), so just close the fd that
-				 * recvmsg installed.
+				 * SO_PASSPIDFD). The pidfd itself is the most
+				 * authoritative liveness signal we get for the
+				 * sender, so inspect it before closing the fd
+				 * that recvmsg installed.
+				 *
+				 * A negative payload is pidfd_prepare()'s raw
+				 * return value. Only two of the errors it can
+				 * fail with say anything about the sender:
+				 * kernels < 6.17 refuse to mint a pidfd for an
+				 * already reaped one (-EINVAL before v6.10,
+				 * -ESRCH after). The rest are about us -- a
+				 * full fd table, no memory -- so bail out
+				 * rather than declare a live sender dead and
+				 * quietly stand in for it.
+				 *
+				 * -EINVAL is the looser of the two: before
+				 * v6.10 it also meant "this struct pid is not
+				 * a thread-group leader". A sender with
+				 * CAP_SYS_ADMIN can produce that by spoofing a
+				 * tid in SCM_CREDENTIALS, since scm_check_creds()
+				 * lets it name any pid and __scm_send() resolves
+				 * the number with a bare find_get_pid(). We would
+				 * then stand in for a live thread. Nothing else
+				 * distinguishes the two cases, and a real one is
+				 * far more likely, so take the reaped reading.
 				 */
-				pr_debug("Closing pidfd %d received on queue peek\n", pidfd);
-				close(pidfd);
+				if (pidfd < 0 && pidfd != -EINVAL && pidfd != -ESRCH) {
+					pr_err("Can't get a pidfd of the sender: %d\n", pidfd);
+					return -1;
+				}
+
+				probe->probed = true;
+				if (pidfd < 0) {
+					/* Definitively dead, and no fd to close. */
+					probe->stale = true;
+				} else {
+					int exit_code;
+
+					/*
+					 * Only probe the exit status when the
+					 * kernel is known to support the ioctl;
+					 * otherwise pidfd_query_exit() would fail
+					 * once per packet. A pidfd >= 0 on a kernel
+					 * without PIDFD_GET_INFO means the sender is
+					 * still alive (reaped senders yield the
+					 * negative payload handled above).
+					 */
+					if (kdat.has_pidfd_get_info && pidfd_query_exit(pidfd, &exit_code) > 0) {
+						probe->stale = true;
+						probe->has_exit = true;
+						probe->exit_code = exit_code;
+					}
+					pr_debug("Closing pidfd %d received on queue peek\n", pidfd);
+					close(pidfd);
+				}
 				continue;
 			} else if (ch->cmsg_type == SCM_TIMESTAMP ||
 				   ch->cmsg_type == SCM_TIMESTAMPNS ||
@@ -425,6 +551,7 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 static int dump_sk_queue_packet(int sock_fd, int sock_id, void *data, int size, int flags)
 {
 	SkPacketEntry pe = SK_PACKET_ENTRY__INIT;
+	struct pidfd_probe probe = {};
 	int ret, exit_code = -1;
 	char cmsg[CMSG_MAX_SIZE];
 	struct iovec iov = {
@@ -464,13 +591,24 @@ static int dump_sk_queue_packet(int sock_fd, int sock_id, void *data, int size, 
 		return -1;
 	}
 
-	ret = dump_packet_cmsg(&msg, &pe, flags);
+	if (msg.msg_flags & MSG_CTRUNC) {
+		/*
+		 * Control data was truncated: the kernel dropped part of
+		 * the ancillary messages (and may have installed then
+		 * leaked passed fds). We would misread the sender's
+		 * liveness from a missing SCM_PIDFD, so bail out.
+		 */
+		pr_err("recvmsg failed: control data truncated\n");
+		return -1;
+	}
+
+	ret = dump_packet_cmsg(&msg, &pe, flags, &probe);
 	if (ret < 0)
 		goto cleanup_packet;
 
 	if (ret > 0) {
 		if (ret == 1) {
-			if (queue_packet_entry(&pe, data, pe.length))
+			if (queue_packet_entry(&pe, data, pe.length, &probe))
 				goto cleanup_packet;
 		}
 		exit_code = 0;
@@ -600,7 +738,7 @@ err_free:
 	return exit_code;
 }
 
-static int send_one_pkt(int fd, struct sk_packet *pkt)
+static int send_one_pkt(int fd, struct sk_packet *pkt, pid_t dead_pid)
 {
 	int ret;
 	SkPacketEntry *entry = pkt->entry;
@@ -655,7 +793,16 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 	 * boundaries messages should be saved.
 	 */
 
-	if (entry->ucred && entry->ucred->pid) {
+	/*
+	 * Note what we cannot express here: a packet whose skb carried no
+	 * struct pid at all. We send it with no SCM_CREDENTIALS, and
+	 * unix_maybe_add_creds() then attaches *our* tgid to the skb whenever
+	 * either socket may pass credentials, so a receiver that saw no
+	 * SCM_PIDFD before the dump can get a live one after it. Sending an
+	 * explicit pid of 0 instead is not an option: __scm_send() resolves
+	 * the number with find_get_pid(), which fails with -ESRCH for 0.
+	 */
+	if (entry->ucred && (entry->ucred->pid || entry->dead_pid)) {
 		struct ucred *ucred;
 
 		ch = ch ? CMSG_NXTHDR(&mh, ch) : CMSG_FIRSTHDR(&mh);
@@ -669,15 +816,29 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 		       CMSG_SPACE(sizeof(struct ucred)) >= sizeof(cmsg));
 
 		ucred = (struct ucred *)CMSG_DATA(ch);
-		ucred->pid = entry->ucred->pid;
+		if (entry->dead_pid) {
+			/*
+			 * The sender died before the dump. Attach the pid of
+			 * the process standing in for it to the skb; that
+			 * process is disposed of once the queue is refilled,
+			 * so a receiver with SO_PASSPIDFD gets a pidfd that is
+			 * stale, and reports the original exit status, just as
+			 * before the dump.
+			 */
+			BUG_ON(dead_pid <= 0);
+			ucred->pid = dead_pid;
+		} else {
+			ucred->pid = entry->ucred->pid;
+		}
 		ucred->uid = entry->ucred->uid;
 		ucred->gid = entry->ucred->gid;
 		msg_controllen += CMSG_SPACE(sizeof(struct ucred));
 
-		pr_debug("\tsend creds pid %d uid %d gid %d\n",
-			 entry->ucred->pid,
-			 entry->ucred->uid,
-			 entry->ucred->gid);
+		pr_debug("\tsend creds pid %d uid %d gid %d%s\n",
+			 ucred->pid,
+			 ucred->uid,
+			 ucred->gid,
+			 entry->dead_pid ? " (dead pid stand-in)" : "");
 	}
 
 	mh.msg_controllen = msg_controllen;
@@ -699,6 +860,7 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 
 int restore_sk_queue(int fd, unsigned int peer_id)
 {
+	struct dead_pid_pool dead_pids = {};
 	struct sk_packet *pkt, *tmp;
 	int ret = -1;
 
@@ -709,13 +871,22 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 
 	list_for_each_entry_safe(pkt, tmp, &packets_list, list) {
 		SkPacketEntry *entry = pkt->entry;
+		pid_t dead_pid = 0;
 
 		if (entry->id_for != peer_id)
 			continue;
 
+		if (entry->dead_pid) {
+			dead_pid = dead_pid_get(&dead_pids, entry->dead_pid);
+			if (dead_pid < 0) {
+				ret = -1;
+				goto out;
+			}
+		}
+
 		pr_info("\tRestoring %d-bytes skb for %u\n", (unsigned int)entry->length, peer_id);
 
-		ret = send_one_pkt(fd, pkt);
+		ret = send_one_pkt(fd, pkt, dead_pid);
 		if (ret)
 			goto out;
 
@@ -726,6 +897,14 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 
 	ret = 0;
 out:
+	/*
+	 * Dispose of the stand-in processes only after the queue is refilled:
+	 * every such skb already holds a reference on the stand-in's struct
+	 * pid, so the pidfd a receiver mints goes stale -- with the original
+	 * exit status -- exactly as it was before the dump.
+	 */
+	if (dead_pid_put_all(&dead_pids))
+		ret = -1;
 	return ret;
 }
 
