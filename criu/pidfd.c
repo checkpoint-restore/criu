@@ -60,6 +60,30 @@ static struct dead_pidfd *lookup_dead_pidfd(unsigned int ino)
 	return NULL;
 }
 
+/*
+ * Query the exit status of the process a pidfd refers to via PIDFD_GET_INFO.
+ * Returns 1 and fills *exit_code (a wait(2)-style status word) if the task has
+ * exited, 0 if it is still alive, and -1 if the ioctl is unavailable or failed
+ * (the caller should fall back to a coarser method).
+ */
+int pidfd_query_exit(int pidfd, int *exit_code)
+{
+	struct criu_pidfd_info info = { .mask = CRIU_PIDFD_INFO_EXIT };
+
+	BUILD_BUG_ON(sizeof(struct criu_pidfd_info) != 64);
+
+	if (ioctl(pidfd, CRIU_PIDFD_GET_INFO, &info) < 0) {
+		pr_debug("PIDFD_GET_INFO failed: %s\n", strerror(errno));
+		return -1;
+	}
+
+	if (!(info.mask & CRIU_PIDFD_INFO_EXIT))
+		return 0;
+
+	*exit_code = info.exit_code;
+	return 1;
+}
+
 int is_pidfd_link(char *link)
 {
 	/*

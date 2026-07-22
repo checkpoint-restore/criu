@@ -1370,6 +1370,16 @@ static int check_so_passpidfd(void)
 	return 0;
 }
 
+static int check_pidfd_get_info(void)
+{
+	if (!kdat.has_pidfd_get_info) {
+		pr_warn("PIDFD_GET_INFO is not supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int check_move_mount_set_group(void)
 {
 	if (!kdat.has_move_mount_set_group)
@@ -1744,6 +1754,7 @@ int cr_check(void)
 		ret |= check_pagemap_scan_guard_pages();
 		ret |= check_statmount_by_fd();
 		ret |= check_so_passpidfd();
+		ret |= check_pidfd_get_info();
 
 		if (kdat.lsm == LSMTYPE__APPARMOR)
 			ret |= check_apparmor_stacking();
@@ -1894,6 +1905,7 @@ static struct feature_list feature_list[] = {
 	{ "pagemap_scan_guard_pages", check_pagemap_scan_guard_pages },
 	{ "binfmt_misc_sandboxing", check_binfmt_misc_sandboxing },
 	{ "so_passpidfd", check_so_passpidfd },
+	{ "pidfd_get_info", check_pidfd_get_info },
 	{ "compress", check_compress },
 	{ NULL, NULL },
 };

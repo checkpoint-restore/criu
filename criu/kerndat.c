@@ -57,6 +57,7 @@
 #include "mount-v2.h"
 #include "util-caps.h"
 #include "pagemap_scan.h"
+#include "pidfd.h"
 
 struct kerndat_s kdat = {};
 volatile int dummy_var;
@@ -1100,6 +1101,53 @@ static int kerndat_has_so_passpidfd(void)
 err:
 	close(sock);
 	return exit_code;
+}
+
+/*
+ * The PIDFD_GET_INFO ioctl itself is Linux 6.13, but the exit information we
+ * want out of it (PIDFD_INFO_EXIT) only arrives in 6.15. Both kernels answer
+ * the ioctl on a live task, so asking about ourselves would tell us no more
+ * than that the ioctl is there. Instead fork a child, take a pidfd of it while
+ * it is alive, reap it, and ask: once the task is reaped the only thing left
+ * that can say how it died is the exit information pidfs stashed for us, so an
+ * answer here means the feature really works.
+ */
+static int kerndat_has_pidfd_get_info(void)
+{
+	int pidfd, exit_code, status, ret = 0;
+	pid_t pid;
+
+	kdat.has_pidfd_get_info = false;
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Unable to fork a child to probe PIDFD_GET_INFO");
+		return -1;
+	}
+	if (pid == 0)
+		_exit(0);
+
+	pidfd = syscall(SYS_pidfd_open, pid, 0);
+	if (pidfd < 0)
+		/* Without pidfd_open() there is certainly no PIDFD_GET_INFO. */
+		pr_debug("pidfd_open() is not supported, so neither is PIDFD_GET_INFO\n");
+
+	if (waitpid(pid, &status, 0) != pid) {
+		pr_perror("Unable to reap the PIDFD_GET_INFO probe child");
+		ret = -1;
+		goto out;
+	}
+
+	if (pidfd >= 0 && pidfd_query_exit(pidfd, &exit_code) > 0) {
+		if (WIFEXITED(exit_code) && WEXITSTATUS(exit_code) == 0)
+			kdat.has_pidfd_get_info = true;
+		else
+			pr_warn("PIDFD_GET_INFO reports status %#x for a child that exited with 0\n", exit_code);
+	}
+out:
+	if (pidfd >= 0)
+		close(pidfd);
+	return ret;
 }
 
 static int kerndat_has_move_mount_set_group(void)
@@ -2222,6 +2270,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_so_passpidfd()) {
 		pr_err("kerndat_has_so_passpidfd failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_pidfd_get_info()) {
+		pr_err("kerndat_has_pidfd_get_info failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_has_openat2()) {
