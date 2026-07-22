@@ -293,6 +293,8 @@ TST_NOFILE	:=				\
 		memfd06				\
 		shmemfd				\
 		shmemfd-priv			\
+		shmem_tmpfs_robust_mutex	\
+		shmem_tmpfs_robust_mutex_unlinked	\
 		time				\
 		timens_nested			\
 		timens_for_kids			\
@@ -624,6 +626,8 @@ futex:			CFLAGS += -pthread
 futex:			LDFLAGS += -pthread
 futex-rl:		CFLAGS += -pthread
 futex-rl:		LDFLAGS += -pthread
+shmem_tmpfs_robust_mutex:		LDLIBS += -lrt -pthread
+shmem_tmpfs_robust_mutex_unlinked:	LDLIBS += -lrt -pthread
 jobctl00:		LDLIBS += -lutil
 socket_listen:		LDLIBS += -lrt -pthread
 socket_aio:		LDLIBS += -lrt -pthread

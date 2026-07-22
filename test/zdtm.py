@@ -220,7 +220,7 @@ class ns_flavor:
         "/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev",
         "/tmp", "/usr", "/proc", "/run"
     ]
-    __dev_dirs = ["pts", "net"]
+    __dev_dirs = ["pts", "net", "shm"]
 
     def __init__(self, opts, name="ns", uns=False):
         self.name = name
@@ -300,6 +300,9 @@ class ns_flavor:
         for dir in self.__dev_dirs:
             os.mkdir(os.path.join(self.devpath, dir))
             os.chmod(os.path.join(self.devpath, dir), 0o755)
+        # /dev/shm needs the sticky bit, like on a real system, so
+        # POSIX shm_open() users can't unlink each other's segments.
+        os.chmod(os.path.join(self.devpath, "shm"), 0o1777)
         self.__mknod("tty", os.makedev(5, 0))
         self.__mknod("null", os.makedev(1, 3))
         self.__mknod("net/tun")
