@@ -3,6 +3,7 @@
 syntax = "proto2";
 
 import "fown.proto";
+import "pidfs.proto";
 
 message pidfd_entry {
 	required uint32		id		= 1;
@@ -10,4 +11,8 @@ message pidfd_entry {
 	required uint32		flags		= 3;
 	required int32		nspid		= 4;
 	required fown_entry	fown		= 5;
+	// pidfs state of the struct pid this pidfd refers to, mirroring
+	// pid->attr. Only set when the task has already been reaped
+	// (nspid == -1), as that is the only case restore has to reproduce.
+	optional pidfs_attr_entry	attr		= 6;
 }
