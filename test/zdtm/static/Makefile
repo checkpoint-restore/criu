@@ -573,6 +573,18 @@ env00.pid:	env00
 umask00.pid:	umask00
 	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --mask=0345
 
+CUDA_TST	=				\
+		cuda00				\
+		cuda_streams00			\
+		cuda_zerocopy00			\
+		cuda_mempool00			\
+		cuda_graph00			\
+		cuda_cublas00			\
+		cuda_multigpu00
+
+$(CUDA_TST:%=%.pid):	%.pid:	%
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out
+
 fifo-rowo-pair.pid: fifo-rowo-pair
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --name_master=$<.master.test --name_slave=$<.slave.test
 
@@ -765,6 +777,23 @@ sk-unix-listen04: CFLAGS += -DSK_UNIX_LISTEN02 -DSK_UNIX_LISTEN03
 
 cgroupv2_01:		LDLIBS += -pthread
 
+NVCC ?= nvcc
+NVCC_PATH := $(shell command -v $(NVCC) 2>/dev/null || echo $(NVCC))
+CUDA_HOME ?= $(patsubst %/bin/nvcc,%,$(NVCC_PATH))
+CUDA_LIBDIR ?= $(firstword $(wildcard $(CUDA_HOME)/lib64 $(CUDA_HOME)/lib) $(CUDA_HOME)/lib64)
+CUDA_RPATH_LDFLAGS := -L$(CUDA_LIBDIR) -Xlinker -rpath -Xlinker $(CUDA_LIBDIR)
+CUDA_LDFLAGS := $(if $(wildcard $(CUDA_LIBDIR)/libcudart.so*),$(CUDA_RPATH_LDFLAGS))
+NVCCFLAGS ?= -allow-unsupported-compiler
+cuda_cublas00: CUDA_NVCC_LDLIBS += -lcublas
+cuda_streams00: NVCCFLAGS += -Xcompiler=-pthread
+
+$(CUDA_TST):	%: %.cu $(LIB) cuda_zdtm.h
+	@echo $@ >> .gitignore
+	$(E) " NVCC     " $@
+	$(Q)command -v $(NVCC) >/dev/null 2>&1 || test -x $(NVCC) || { echo "nvcc not found"; exit 1; }
+	$(Q)$(NVCC) $(NVCCFLAGS) -std=c++17 -g -O2 -lineinfo -I$(LIBDIR) \
+		$< $(LIB) $(CUDA_LDFLAGS) $(CUDA_NVCC_LDLIBS) -o $@
+
 uprobes:		CFLAGS += $(call pkg-cflags, libtracefs libtraceevent)
 uprobes:		LDLIBS += $(call pkg-libs, libtracefs libelf)
 
@@ -772,7 +801,7 @@ $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
 clean-more:
-	$(RM) criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h
+	$(RM) criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h $(CUDA_TST)
 .PHONY: clean-more
 clean: clean-more
 
