@@ -15,8 +15,43 @@
 #include "compression.h"
 #include "page.h"
 #include "pagemap.h"
+#include "plugin.h"
 
 int parse_statement(int i, char *line, char **configuration);
+
+static void test_plugin_implementation_versions(void)
+{
+	cr_plugin_desc_t legacy = {
+		.name = "cuda",
+		.version = CRIU_PLUGIN_VERSION,
+	};
+	cr_plugin_desc_t v1 = {
+		.name = "cuda",
+		.version = CRIU_PLUGIN_VERSION,
+		.implementation_version = 1,
+	};
+	cr_plugin_desc_t v2 = {
+		.name = "cuda",
+		.version = CRIU_PLUGIN_VERSION,
+		.implementation_version = 2,
+	};
+	plugin_desc_t p1 = { .d = &v1, .implementation_version = 1 };
+	plugin_desc_t p2 = { .d = &v2, .implementation_version = 2 };
+	LIST_HEAD(plugins);
+
+	INIT_LIST_HEAD(&p1.list);
+	INIT_LIST_HEAD(&p2.list);
+	list_add_tail(&p1.list, &plugins);
+	list_add_tail(&p2.list, &plugins);
+
+	assert(cr_plugin_implementation_version(&legacy) == CR_PLUGIN_IMPLEMENTATION_VERSION_DEFAULT);
+	assert(cr_plugin_find_in_list(&plugins, "cuda", 1) == &p1);
+	assert(cr_plugin_find_in_list(&plugins, "cuda", 2) == &p2);
+	assert(cr_plugin_find_in_list(&plugins, "cuda", 3) == NULL);
+	assert(cr_plugin_find_latest_in_list(&plugins, "cuda") == &p2);
+	assert(cr_plugin_find_latest_in_list(&plugins, "missing") == NULL);
+	assert(v1.version == v2.version);
+}
 
 static void test_pagemap_offset_alignment(void)
 {
@@ -444,6 +479,7 @@ int main(int argc, char *argv[], char *envp[])
 	test_bfd();
 	test_bwrite();
 	test_pagemap_offset_alignment();
+	test_plugin_implementation_versions();
 
 	i = parse_statement(0, "", configuration);
 	assert(i == 0);

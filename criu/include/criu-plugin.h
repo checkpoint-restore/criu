@@ -35,6 +35,12 @@
 #define CRIU_PLUGIN_VERSION \
 	CRIU_PLUGIN_GEN_VERSION(CRIU_PLUGIN_VERSION_MAJOR, CRIU_PLUGIN_VERSION_MINOR, CRIU_PLUGIN_VERSION_SUBLEVEL)
 
+/* The implementation version identifies different implementations of the
+ * same logical plugin. It is independent from CRIU_PLUGIN_VERSION, which
+ * describes the plugin API compatibility.
+ */
+#define CR_PLUGIN_IMPLEMENTATION_VERSION_DEFAULT 1
+
 /*
  * Plugin hook points and their arguments in hooks.
  */
@@ -101,6 +107,10 @@ enum {
 
 /*
  * Plugin descriptor.
+ *
+ * name is the stable logical plugin identity. It must not be derived from
+ * the shared-object filename. version describes the CRIU plugin API, while
+ * implementation_version identifies the implementation of that plugin.
  */
 typedef struct {
 	const char *name;
@@ -109,18 +119,24 @@ typedef struct {
 	unsigned int version;
 	unsigned int max_hooks;
 	void *hooks[CR_PLUGIN_HOOK__MAX];
+	unsigned int implementation_version;
 } cr_plugin_desc_t;
 
 extern cr_plugin_desc_t CR_PLUGIN_DESC;
 
-#define CR_PLUGIN_REGISTER(___name, ___init, ___exit) \
+#define CR_PLUGIN_REGISTER_VERSIONED(___name, ___implementation_version, ___init, ___exit) \
 	cr_plugin_desc_t CR_PLUGIN_DESC = {           \
 		.name = ___name,                      \
 		.init = ___init,                      \
 		.exit = ___exit,                      \
 		.version = CRIU_PLUGIN_VERSION,       \
 		.max_hooks = CR_PLUGIN_HOOK__MAX,     \
-	};
+		.implementation_version = ___implementation_version, \
+	};                                           \
+	const unsigned int CR_PLUGIN_DESC_SIZE = sizeof(CR_PLUGIN_DESC);
+
+#define CR_PLUGIN_REGISTER(___name, ___init, ___exit) \
+	CR_PLUGIN_REGISTER_VERSIONED(___name, CR_PLUGIN_IMPLEMENTATION_VERSION_DEFAULT, ___init, ___exit)
 
 static inline int cr_plugin_dummy_init(int stage)
 {
@@ -130,14 +146,19 @@ static inline void cr_plugin_dummy_exit(int stage, int ret)
 {
 }
 
-#define CR_PLUGIN_REGISTER_DUMMY(___name)         \
+#define CR_PLUGIN_REGISTER_DUMMY_VERSIONED(___name, ___implementation_version) \
 	cr_plugin_desc_t CR_PLUGIN_DESC = {       \
 		.name = ___name,                  \
 		.init = cr_plugin_dummy_init,     \
 		.exit = cr_plugin_dummy_exit,     \
 		.version = CRIU_PLUGIN_VERSION,   \
 		.max_hooks = CR_PLUGIN_HOOK__MAX, \
-	};
+		.implementation_version = ___implementation_version, \
+	};                                           \
+	const unsigned int CR_PLUGIN_DESC_SIZE = sizeof(CR_PLUGIN_DESC);
+
+#define CR_PLUGIN_REGISTER_DUMMY(___name) \
+	CR_PLUGIN_REGISTER_DUMMY_VERSIONED(___name, CR_PLUGIN_IMPLEMENTATION_VERSION_DEFAULT)
 
 #define CR_PLUGIN_REGISTER_HOOK(__hook, __func)                                         \
 	static void __attribute__((constructor)) cr_plugin_register_hook_##__func(void) \

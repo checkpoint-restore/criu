@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <dlfcn.h>
+#include <stddef.h>
 
 #include "cr_options.h"
 #include "common/compiler.h"
@@ -33,6 +34,7 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 	d->name = xstrdup(path);
 	d->max_hooks = CR_PLUGIN_HOOK__MAX;
 	d->version = CRIU_PLUGIN_VERSION_OLD;
+	d->implementation_version = CR_PLUGIN_IMPLEMENTATION_VERSION_DEFAULT;
 
 	pr_warn("Generating dynamic descriptor for plugin `%s'."
 		"Won't work in next version of the program."
@@ -72,15 +74,47 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 	return d;
 }
 
-static void show_plugin_desc(cr_plugin_desc_t *d)
+static void show_plugin_desc(const plugin_desc_t *plugin)
 {
 	size_t i;
+	cr_plugin_desc_t *d = plugin->d;
 
-	pr_debug("Plugin \"%s\" (version %u hooks %u)\n", d->name, d->version, d->max_hooks);
+	pr_debug("Plugin \"%s\" (API version %u, implementation version %u, hooks %u)\n",
+		d->name, d->version, plugin->implementation_version, d->max_hooks);
 	for (i = 0; i < d->max_hooks; i++) {
 		if (d->hooks[i])
 			pr_debug("\t%4zu -> %p\n", i, d->hooks[i]);
 	}
+}
+
+static bool cr_plugin_has_implementation_version(void *h, cr_plugin_desc_t *d)
+{
+	const unsigned int *desc_size;
+	size_t required_size;
+
+	required_size = offsetof(cr_plugin_desc_t, implementation_version);
+	required_size += sizeof(d->implementation_version);
+
+	/*
+	 * Plugins built before implementation versions were added do not export
+	 * CR_PLUGIN_DESC_SIZE and therefore have no field that can be read safely.
+	 */
+	desc_size = dlsym(h, "CR_PLUGIN_DESC_SIZE");
+
+	return desc_size && *desc_size >= required_size;
+}
+
+static unsigned int cr_plugin_get_implementation_version(void *h, cr_plugin_desc_t *d)
+{
+	if (!cr_plugin_has_implementation_version(h, d))
+		return CR_PLUGIN_IMPLEMENTATION_VERSION_DEFAULT;
+
+	return cr_plugin_implementation_version(d);
+}
+
+plugin_desc_t *cr_plugin_find(const char *name, unsigned int implementation_version)
+{
+	return cr_plugin_find_in_list(&cr_plugin_ctl.head, name, implementation_version);
 }
 
 static int verify_plugin(cr_plugin_desc_t *d)
@@ -104,7 +138,7 @@ int criu_get_image_dir(void)
 	return get_service_fd(IMG_FD_OFF);
 }
 
-static int cr_lib_load(int stage, char *path)
+static int cr_lib_load(char *path)
 {
 	cr_plugin_desc_t *d;
 	plugin_desc_t *this;
@@ -144,30 +178,19 @@ static int cr_lib_load(int stage, char *path)
 	}
 
 	this->d = d;
+	this->implementation_version = cr_plugin_get_implementation_version(h, d);
 	this->dlhandle = h;
 	INIT_LIST_HEAD(&this->list);
+
+	if (cr_plugin_find(d->name, this->implementation_version)) {
+		pr_err("Plugin %s implementation version %u is already loaded\n", d->name, this->implementation_version);
+		goto error_free;
+	}
 
 	for (i = 0; i < d->max_hooks; i++)
 		INIT_LIST_HEAD(&this->link[i]);
 
 	list_add_tail(&this->list, &cr_plugin_ctl.head);
-	show_plugin_desc(d);
-
-	if (d->init && d->init(stage)) {
-		pr_err("Failed in init(%d) of \"%s\"\n", stage, d->name);
-		list_del(&this->list);
-		goto error_free;
-	}
-
-	/*
-	 * Chain hooks into appropriate places for
-	 * fast handler access.
-	 */
-	for (i = 0; i < d->max_hooks; i++) {
-		if (!d->hooks[i])
-			continue;
-		list_add_tail(&this->link[i], &cr_plugin_ctl.hook_chain[i]);
-	}
 
 	return 0;
 
@@ -180,26 +203,77 @@ error_close:
 	return -1;
 }
 
+static void cr_plugin_unload(plugin_desc_t *plugin, int stage, int ret)
+{
+	size_t i;
+
+	list_del(&plugin->list);
+
+	if (plugin->initialized && plugin->d->exit)
+		plugin->d->exit(stage, ret);
+
+	for (i = 0; i < plugin->d->max_hooks; i++) {
+		if (!list_empty(&plugin->link[i]))
+			list_del(&plugin->link[i]);
+	}
+
+	if (plugin->d->version == CRIU_PLUGIN_VERSION_OLD)
+		xfree(plugin->d);
+	dlclose(plugin->dlhandle);
+	xfree(plugin);
+}
+
+static void cr_plugin_select_versions(void)
+{
+	plugin_desc_t *plugin, *tmp, *latest;
+
+	list_for_each_entry_safe(plugin, tmp, &cr_plugin_ctl.head, list) {
+		latest = cr_plugin_find_latest_in_list(&cr_plugin_ctl.head, plugin->d->name);
+		if (latest == plugin)
+			continue;
+
+		pr_debug("Skipping plugin %s implementation version %u; "
+			 "version %u is newer\n",
+			 plugin->d->name, plugin->implementation_version,
+			 latest->implementation_version);
+		cr_plugin_unload(plugin, 0, 0);
+	}
+}
+
+static int cr_plugin_activate(int stage)
+{
+	plugin_desc_t *plugin;
+	size_t i;
+
+	list_for_each_entry(plugin, &cr_plugin_ctl.head, list) {
+		show_plugin_desc(plugin);
+
+		if (plugin->d->init && plugin->d->init(stage)) {
+			pr_err("Failed in init(%d) of \"%s\"\n", stage, plugin->d->name);
+			return -1;
+		}
+		plugin->initialized = true;
+
+		/*
+		 * Chain hooks into appropriate places for
+		 * fast handler access.
+		 */
+		for (i = 0; i < plugin->d->max_hooks; i++) {
+			if (!plugin->d->hooks[i])
+				continue;
+			list_add_tail(&plugin->link[i], &cr_plugin_ctl.hook_chain[i]);
+		}
+	}
+
+	return 0;
+}
+
 void cr_plugin_fini(int stage, int ret)
 {
 	plugin_desc_t *this, *tmp;
 
 	list_for_each_entry_safe(this, tmp, &cr_plugin_ctl.head, list) {
-		void *h = this->dlhandle;
-		size_t i;
-
-		list_del(&this->list);
-		if (this->d->exit)
-			this->d->exit(stage, ret);
-
-		for (i = 0; i < this->d->max_hooks; i++) {
-			if (!list_empty(&this->link[i]))
-				list_del(&this->link[i]);
-		}
-
-		if (this->d->version == CRIU_PLUGIN_VERSION_OLD)
-			xfree(this->d);
-		dlclose(h);
+		cr_plugin_unload(this, stage, ret);
 	}
 }
 
@@ -256,9 +330,14 @@ int cr_plugin_init(int stage)
 			goto err;
 		}
 
-		if (cr_lib_load(stage, path))
+		if (cr_lib_load(path))
 			goto err;
 	}
+
+	/* Select implementations before calling init or registering hooks. */
+	cr_plugin_select_versions();
+	if (cr_plugin_activate(stage))
+		goto err;
 
 	if (stage == CR_PLUGIN_STAGE__RESTORE) {
 		int ret;
