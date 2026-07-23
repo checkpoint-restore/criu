@@ -2,20 +2,34 @@ Checkpoint and Restore for CUDA applications with CRIU
 ======================================================
 
 # Requirements
-The cuda-checkpoint utility should be placed somewhere in your $PATH and an r555
-or higher GPU driver is required for CUDA CRIU integration support.
+The NVIDIA CUDA driver library, `libcuda.so.1`, must be available at runtime and
+an r570 or higher GPU driver is required for CUDA CRIU integration support.
 
-## cuda-checkpoint
-The cuda-checkpoint utility can be found at:
-https://github.com/NVIDIA/cuda-checkpoint
+## CUDA Driver API
+The CUDA plugin loads `libcuda.so.1` dynamically and uses the CUDA checkpoint
+Driver API symbols:
 
-cuda-checkpoint is a binary utility used to issue checkpointing commands to CUDA
-applications. Updating the cuda-checkpoint utility between driver releases
-should not be necessary as the utility simply exposes some extra driver behavior
-so driver updates are all that's needed to get access to newer features.
+* `cuInit`
+* `cuCheckpointProcessLock`
+* `cuCheckpointProcessCheckpoint`
+* `cuCheckpointProcessRestore`
+* `cuCheckpointProcessUnlock`
+* `cuCheckpointProcessGetState`
+* `cuCheckpointProcessGetRestoreThreadId`
+
+The plugin does not require the `cuda-checkpoint` utility or CUDA toolkit
+headers at build time. Updating the NVIDIA driver is enough to get newer
+checkpoint API behavior.
+
+The plugin contains independently authored declarations for the CUDA checkpoint
+argument structures because CRIU does not build against the CUDA toolkit
+headers. These declarations describe the ABI used by the plugin; they are not a
+general-purpose CUDA header. Reserved fields are zeroed and must not be
+repurposed without an explicit driver-version check and verification of the
+corresponding CUDA release.
 
 # Checkpointing Procedure
-cuda-checkpoint exposes 4 actions used in the checkpointing process: lock,
+The CUDA Driver API exposes 4 actions used in the checkpointing process: lock,
 checkpoint, restore, unlock.
 
 * lock - Used with the PAUSE_DEVICES hook while a process is still running to
@@ -37,8 +51,8 @@ plugin will re-wake when needed.
 * There's currently a small race between when a PAUSE_DEVICES hook is called on
   a running process and a process calls cuInit() and finishes initializing CUDA
   after the PAUSE is issued but before the process is frozen to checkpoint. This
-  will cause cuda-checkpoint to report that the process is in an illegal state
-  for checkpointing and it's recommended to just attempt the CRIU procedure
+  will cause the CUDA Driver API to report that the process is in an illegal
+  state for checkpointing and it's recommended to just attempt the CRIU procedure
   again, this should be very rare.
 * Applications that use NVML will leave some leftover device references as NVML
   is not currently supported for checkpointing. There will be support for this

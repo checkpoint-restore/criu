@@ -1,5 +1,5 @@
 SRC_DIR := ../../plugins
-PLUGIN_TARGETS := inventory_test_enabled_plugin.so inventory_test_disabled_plugin.so amdgpu_plugin.so cuda_plugin_v1.so
+PLUGIN_TARGETS := inventory_test_enabled_plugin.so inventory_test_disabled_plugin.so amdgpu_plugin.so cuda_plugin_v1.so cuda_plugin_v2.so
 
 ARCH	:= x86
 
@@ -18,6 +18,9 @@ amdgpu_plugin.so: $(SRC_DIR)/amdgpu/amdgpu_plugin.so
 	$(Q) cp $< $@
 
 cuda_plugin_v1.so: $(SRC_DIR)/cuda/cuda_plugin_v1.so
+	$(Q) cp $< $@
+
+cuda_plugin_v2.so: $(SRC_DIR)/cuda/cuda_plugin_v2.so
 	$(Q) cp $< $@
 
 inventory_test_enabled_plugin.so: inventory_test_enabled_plugin.c

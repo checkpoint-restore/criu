@@ -2370,7 +2370,11 @@ class Launcher:
             os.setuid(NON_ROOT_UID)
         env = dict(os.environ, CR_CT_TEST_INFO=arg)
         if opts['mocked_cuda_checkpoint']:
-            env['PATH'] = os.path.join(os.getcwd(), "cuda-checkpoint") + ":" + env["PATH"]
+            cuda_mock_dir = os.path.join(os.getcwd(), "cuda-checkpoint")
+            if "LD_LIBRARY_PATH" in env:
+                env["LD_LIBRARY_PATH"] = cuda_mock_dir + ":" + env["LD_LIBRARY_PATH"]
+            else:
+                env["LD_LIBRARY_PATH"] = cuda_mock_dir
         sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"],
                                env=env,
                                stdout=log,
@@ -3085,7 +3089,7 @@ def get_cli_args():
                     type=int, default=0)
     rp.add_argument("--mocked-cuda-checkpoint",
                     action="store_true",
-                    help="Run criu with the cuda plugin and the mocked cuda-checkpoint tool")
+                    help="Run criu with the cuda plugin and the mocked CUDA Driver API")
 
     lp = sp.add_parser("list", help="List tests")
     lp.set_defaults(action=list_tests)

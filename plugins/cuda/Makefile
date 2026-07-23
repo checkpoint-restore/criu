@@ -1,7 +1,7 @@
-PLUGIN_NAME := cuda_plugin_v1
-PLUGIN_SOBJ := cuda_plugin_v1.so
+PLUGIN_NAME := cuda_plugin
+PLUGIN_SOBJS := cuda_plugin_v1.so cuda_plugin_v2.so
 
-DEPS_CUDA := $(PLUGIN_SOBJ)
+DEPS_CUDA := $(PLUGIN_SOBJS)
 
 PLUGIN_INCLUDE  	:= -iquote../../include
 PLUGIN_INCLUDE  	+= -iquote../../criu/include
@@ -21,9 +21,13 @@ cuda_plugin_v1.so: cuda_plugin_v1.c
 	$(call msg-gen, $@)
 	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS)
 
+cuda_plugin_v2.so: cuda_plugin_v2.c
+	$(call msg-gen, $@)
+	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl
+
 clean:
 	$(call msg-clean, $@)
-	$(Q) $(RM) $(PLUGIN_SOBJ)
+	$(Q) $(RM) $(PLUGIN_SOBJS)
 .PHONY: clean
 
 mrproper: clean
@@ -31,10 +35,10 @@ mrproper: clean
 install:
 	$(Q) mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(E) "  INSTALL " $(PLUGIN_NAME)
-	$(Q) install -m 755 $(PLUGIN_SOBJ) $(DESTDIR)$(PLUGINDIR)
+	$(Q) install -m 755 $(PLUGIN_SOBJS) $(DESTDIR)$(PLUGINDIR)
 .PHONY: install
 
 uninstall:
 	$(E) " UNINSTALL" $(PLUGIN_NAME)
-	$(Q) $(RM) $(DESTDIR)$(PLUGINDIR)/$(PLUGIN_SOBJ)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(PLUGINDIR)/,$(PLUGIN_SOBJS))
 .PHONY: uninstall
