@@ -23,41 +23,6 @@ typedef enum {
 	MOCK_CUDA_PROCESS_STATE_FAILED,
 } mock_cuda_process_state_t;
 
-typedef struct {
-	unsigned int timeout_ms;
-	unsigned int reserved0;
-	unsigned long long reserved1[7];
-} mock_cuda_lock_args_t;
-
-typedef struct {
-	unsigned long long reserved[8];
-} mock_cuda_checkpoint_args_t;
-
-typedef struct {
-	unsigned char old_uuid[16];
-	unsigned char new_uuid[16];
-} mock_cuda_gpu_pair_t;
-
-typedef struct {
-	mock_cuda_gpu_pair_t *gpu_pairs;
-	unsigned int gpu_pairs_count;
-	char reserved[52 - sizeof(mock_cuda_gpu_pair_t *)];
-	unsigned long long reserved1;
-} mock_cuda_restore_args_t;
-
-typedef struct {
-	unsigned long long reserved[8];
-} mock_cuda_unlock_args_t;
-
-_Static_assert(sizeof(mock_cuda_lock_args_t) == 64,
-	       "mock_cuda_lock_args_t must be 64 bytes");
-_Static_assert(sizeof(mock_cuda_checkpoint_args_t) == 64,
-	       "mock_cuda_checkpoint_args_t must be 64 bytes");
-_Static_assert(sizeof(mock_cuda_restore_args_t) == 64,
-	       "mock_cuda_restore_args_t must be 64 bytes");
-_Static_assert(sizeof(mock_cuda_unlock_args_t) == 64,
-	       "mock_cuda_unlock_args_t must be 64 bytes");
-
 struct mock_process {
 	int pid;
 	mock_cuda_process_state_t state;
@@ -85,6 +50,7 @@ static struct mock_process *get_process(int pid)
 
 mock_cuda_result_t cuInit(unsigned int flags)
 {
+	(void)flags;
 	return MOCK_CUDA_SUCCESS;
 }
 
@@ -116,9 +82,11 @@ mock_cuda_result_t cuCheckpointProcessGetState(int pid, mock_cuda_process_state_
 	return MOCK_CUDA_SUCCESS;
 }
 
-mock_cuda_result_t cuCheckpointProcessLock(int pid, mock_cuda_lock_args_t *args)
+mock_cuda_result_t cuCheckpointProcessLock(int pid, void *args)
 {
 	struct mock_process *process = get_process(pid);
+
+	(void)args;
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_RUNNING)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
@@ -126,9 +94,11 @@ mock_cuda_result_t cuCheckpointProcessLock(int pid, mock_cuda_lock_args_t *args)
 	return MOCK_CUDA_SUCCESS;
 }
 
-mock_cuda_result_t cuCheckpointProcessCheckpoint(int pid, mock_cuda_checkpoint_args_t *args)
+mock_cuda_result_t cuCheckpointProcessCheckpoint(int pid, void *args)
 {
 	struct mock_process *process = get_process(pid);
+
+	(void)args;
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_LOCKED)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
@@ -139,9 +109,11 @@ mock_cuda_result_t cuCheckpointProcessCheckpoint(int pid, mock_cuda_checkpoint_a
 	return MOCK_CUDA_SUCCESS;
 }
 
-mock_cuda_result_t cuCheckpointProcessRestore(int pid, mock_cuda_restore_args_t *args)
+mock_cuda_result_t cuCheckpointProcessRestore(int pid, void *args)
 {
 	struct mock_process *process = get_process(pid);
+
+	(void)args;
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_CHECKPOINTED)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
@@ -149,9 +121,11 @@ mock_cuda_result_t cuCheckpointProcessRestore(int pid, mock_cuda_restore_args_t 
 	return MOCK_CUDA_SUCCESS;
 }
 
-mock_cuda_result_t cuCheckpointProcessUnlock(int pid, mock_cuda_unlock_args_t *args)
+mock_cuda_result_t cuCheckpointProcessUnlock(int pid, void *args)
 {
 	struct mock_process *process = get_process(pid);
+
+	(void)args;
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_LOCKED)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
