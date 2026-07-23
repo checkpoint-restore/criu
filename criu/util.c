@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -22,6 +23,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sched.h>
@@ -948,6 +950,38 @@ bool is_path_prefix(const char *path, const char *prefix)
 	}
 
 	return false;
+}
+
+bool in_noninitial_userns(void)
+{
+	unsigned long ns_id, parent_id, count;
+	char buf[128], *end;
+	int fd, len;
+
+	fd = open_proc(PROC_SELF, "uid_map");
+	if (fd < 0)
+		return false;
+
+	len = read(fd, buf, sizeof(buf) - 1);
+	close(fd);
+	if (len <= 0)
+		return false;
+	buf[len] = '\0';
+
+	errno = 0;
+	ns_id = strtoul(buf, &end, 10);
+	if (errno || end == buf)
+		return false;
+
+	parent_id = strtoul(end, &end, 10);
+	if (errno)
+		return false;
+
+	count = strtoul(end, &end, 10);
+	if (errno)
+		return false;
+
+	return !(ns_id == 0 && parent_id == 0 && count == UINT_MAX);
 }
 
 FILE *fopenat(int dirfd, char *path, char *cflags)
