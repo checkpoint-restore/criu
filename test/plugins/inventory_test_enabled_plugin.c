@@ -4,7 +4,7 @@
 int inventory_test_enabled_plugin_init(int stage)
 {
 	if (stage == CR_PLUGIN_STAGE__RESTORE)
-		return !check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name, strlen(CR_PLUGIN_DESC.name));
+		return !check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name);
 
 	return add_inventory_plugin(CR_PLUGIN_DESC.name);
 }

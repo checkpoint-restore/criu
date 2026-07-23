@@ -238,31 +238,50 @@ out_close:
 	return ret;
 }
 
+static struct inventory_plugin *find_inventory_plugin(const char *name)
+{
+	struct inventory_plugin *p;
+
+	list_for_each_entry(p, &inventory_plugins_list, node) {
+		if (!strcmp(name, p->name))
+			return p;
+	}
+
+	return NULL;
+}
+
 /**
- * Check if the 'plugins' field in the inventory image contains
- * the specified plugin name. If found, the plugin is removed
- * from the linked list.
+ * Check whether the 'plugins' field in the inventory image contains an exact
+ * match for the specified logical plugin name without consuming it.
  */
-bool check_and_remove_inventory_plugin(const char *name, size_t n)
+bool has_inventory_plugin(const char *name)
 {
 	if (n_inventory_plugins == -1)
 		return true; /* backwards compatibility */
 
-	if (n_inventory_plugins > 0) {
-		struct inventory_plugin *p, *tmp;
+	return n_inventory_plugins > 0 && find_inventory_plugin(name);
+}
 
-		list_for_each_entry_safe(p, tmp, &inventory_plugins_list, node) {
-			if (!strncmp(name, p->name, n)) {
-				xfree(p->name);
-				list_del(&p->node);
-				xfree(p);
-				n_inventory_plugins--;
-				return true;
-			}
-		}
-	}
+/**
+ * Check if the 'plugins' field in the inventory image contains an exact match
+ * for the specified logical plugin name. If found, remove it from the list.
+ */
+bool check_and_remove_inventory_plugin(const char *name)
+{
+	struct inventory_plugin *p;
 
-	return false;
+	if (n_inventory_plugins == -1)
+		return true; /* backwards compatibility */
+
+	p = find_inventory_plugin(name);
+	if (!p)
+		return false;
+
+	xfree(p->name);
+	list_del(&p->node);
+	xfree(p);
+	n_inventory_plugins--;
+	return true;
 }
 
 /**
