@@ -2,21 +2,63 @@ Checkpoint and Restore for CUDA applications with CRIU
 ======================================================
 
 # Requirements
-The cuda-checkpoint utility should be placed somewhere in your $PATH and an r555
-or higher GPU driver is required for CUDA CRIU integration support.
+The `cuda_plugin` build and install targets provide one CRIU plugin,
+`cuda_plugin.so`. It contains two private checkpoint backends so the same CRIU
+deployment can run on nodes with different NVIDIA driver versions:
 
-## cuda-checkpoint
-The cuda-checkpoint utility can be found at:
-https://github.com/NVIDIA/cuda-checkpoint
+* On r580 and newer drivers, the plugin uses the CUDA Driver API directly.
+* On older supported drivers, such as r565 and r570, it invokes the
+  `cuda-checkpoint` utility. That utility must be in `PATH` and must support the
+  `--action` option.
 
-cuda-checkpoint is a binary utility used to issue checkpointing commands to CUDA
-applications. Updating the cuda-checkpoint utility between driver releases
-should not be necessary as the utility simply exposes some extra driver behavior
-so driver updates are all that's needed to get access to newer features.
+Backend selection happens once when the plugin is initialized. The Driver API
+backend is preferred when `libcuda.so.1` reports CUDA Driver API version 13000
+or newer and exports every required checkpoint symbol. Otherwise the plugin
+probes the CLI backend. A selected backend is never replaced after an operation
+starts: lock, checkpoint, restore, and unlock errors are fatal and do not cause
+fallback.
+
+CRIU records the stable logical name `cuda_plugin` in its image inventory. It
+does not record the selected backend or NVIDIA driver version, so an image
+dumped with one backend can be restored with the other. Workloads that depend
+on capabilities from a newer driver still require those capabilities on the
+restore host.
+
+During restore, the plugin does not probe either backend unless the image
+requires `cuda_plugin`. It consumes that requirement only after one backend has
+been selected and initialized. If neither backend is supported, normal CRIU
+inventory validation reports the missing required plugin.
+
+Images created before plugin inventory was introduced retain CRIU's legacy
+compatibility behavior and initialize every available plugin during restore.
+
+## CUDA Driver API backend
+The direct backend loads `libcuda.so.1` dynamically and uses these symbols:
+
+* `cuDriverGetVersion`
+* `cuInit`
+* `cuCheckpointProcessLock`
+* `cuCheckpointProcessCheckpoint`
+* `cuCheckpointProcessRestore`
+* `cuCheckpointProcessUnlock`
+* `cuCheckpointProcessGetState`
+* `cuCheckpointProcessGetRestoreThreadId`
+
+The direct backend does not require CUDA toolkit headers at build time. The
+`cuDriverGetVersion` threshold deliberately prevents it from using the mirrored
+CUDA 13.0 restore ABI on older drivers merely because checkpoint symbols are
+present.
+
+The plugin contains independently authored declarations for the CUDA checkpoint
+argument structures because CRIU does not build against the CUDA toolkit
+headers. These declarations describe the ABI used by the plugin; they are not a
+general-purpose CUDA header. Reserved fields are zeroed and must not be
+repurposed without an explicit driver-version check and verification of the
+corresponding CUDA release.
 
 # Checkpointing Procedure
-cuda-checkpoint exposes 4 actions used in the checkpointing process: lock,
-checkpoint, restore, unlock.
+Both backends expose 4 actions used in the checkpointing process: lock,
+checkpoint, restore, and unlock.
 
 * lock - Used with the PAUSE_DEVICES hook while a process is still running to
   quiesce the application into a state where it can be checkpointed
@@ -37,8 +79,8 @@ plugin will re-wake when needed.
 * There's currently a small race between when a PAUSE_DEVICES hook is called on
   a running process and a process calls cuInit() and finishes initializing CUDA
   after the PAUSE is issued but before the process is frozen to checkpoint. This
-  will cause cuda-checkpoint to report that the process is in an illegal state
-  for checkpointing and it's recommended to just attempt the CRIU procedure
+  will cause the CUDA Driver API to report that the process is in an illegal
+  state for checkpointing and it's recommended to just attempt the CRIU procedure
   again, this should be very rare.
 * Applications that use NVML will leave some leftover device references as NVML
   is not currently supported for checkpointing. There will be support for this
