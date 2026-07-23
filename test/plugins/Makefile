@@ -1,5 +1,10 @@
 SRC_DIR := ../../plugins
-PLUGIN_TARGETS := inventory_test_enabled_plugin.so inventory_test_disabled_plugin.so amdgpu_plugin.so cuda_plugin.so
+PLUGIN_TARGETS := \
+	inventory_test_enabled_plugin.so \
+	inventory_test_disabled_plugin.so \
+	inventory_exact_match.so \
+	amdgpu_plugin.so \
+	cuda_plugin.so
 
 ARCH	:= x86
 
@@ -24,6 +29,9 @@ inventory_test_enabled_plugin.so: inventory_test_enabled_plugin.c
 	$(Q) $(CC) $(PLUGIN_CFLAGS) $< -o $@ $(PLUGIN_INCLUDE)
 
 inventory_test_disabled_plugin.so: inventory_test_disabled_plugin.c
+	$(Q) $(CC) $(PLUGIN_CFLAGS) $< -o $@ $(PLUGIN_INCLUDE)
+
+inventory_exact_match.so: inventory_exact_match.c
 	$(Q) $(CC) $(PLUGIN_CFLAGS) $< -o $@ $(PLUGIN_INCLUDE)
 
 clean:
