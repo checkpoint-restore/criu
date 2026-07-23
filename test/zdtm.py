@@ -701,7 +701,10 @@ class zdtm_test:
         subprocess.check_call(["make", '--no-print-directory', "-C", "plugins/", "clean"])
         if 'criu_plugin' in opts and opts['criu_plugin']:
             for name in opts['criu_plugin']:
-                subprocess.check_call(["make", '--no-print-directory', "-C", "plugins/", f"{name}_plugin.so"])
+                plugin = f"{name}_plugin"
+                if name == 'cuda':
+                    plugin += "_v1"
+                subprocess.check_call(["make", '--no-print-directory', "-C", "plugins/", f"{plugin}.so"])
 
         if 'mocked_cuda_checkpoint' in opts and opts['mocked_cuda_checkpoint']:
             subprocess.check_call(["make", "-C", "cuda-checkpoint/"])

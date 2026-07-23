@@ -679,4 +679,4 @@ void cuda_plugin_fini(int stage, int ret)
 		dealloc_pid_buffer(&cuda_pids);
 	}
 }
-CR_PLUGIN_REGISTER("cuda_plugin", cuda_plugin_init, cuda_plugin_fini)
+CR_PLUGIN_REGISTER_VERSIONED("cuda", 1, cuda_plugin_init, cuda_plugin_fini)

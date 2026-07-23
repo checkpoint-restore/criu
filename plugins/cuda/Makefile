@@ -1,5 +1,5 @@
-PLUGIN_NAME := cuda_plugin
-PLUGIN_SOBJ := cuda_plugin.so
+PLUGIN_NAME := cuda_plugin_v1
+PLUGIN_SOBJ := cuda_plugin_v1.so
 
 DEPS_CUDA := $(PLUGIN_SOBJ)
 
@@ -17,7 +17,7 @@ include $(__nmk_dir)msg.mk
 
 all: $(DEPS_CUDA)
 
-cuda_plugin.so: cuda_plugin.c
+cuda_plugin_v1.so: cuda_plugin_v1.c
 	$(call msg-gen, $@)
 	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS)
 
