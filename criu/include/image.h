@@ -196,6 +196,7 @@ extern void close_image(struct cr_img *);
 
 extern int add_inventory_plugin(const char *name);
 extern int check_inventory_plugins(void);
-extern bool check_and_remove_inventory_plugin(const char *name, size_t n);
+extern bool has_inventory_plugin(const char *name);
+extern bool check_and_remove_inventory_plugin(const char *name);
 
 #endif /* __CR_IMAGE_H__ */
