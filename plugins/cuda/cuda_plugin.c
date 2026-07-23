@@ -568,7 +568,7 @@ int cuda_plugin_init(int stage)
 	}
 
 	if (stage == CR_PLUGIN_STAGE__RESTORE) {
-		if (!check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name, strlen(CR_PLUGIN_DESC.name))) {
+		if (!check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name)) {
 			plugin_disabled = true;
 			return 0;
 		}
