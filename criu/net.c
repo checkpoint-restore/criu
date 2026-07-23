@@ -46,6 +46,7 @@
 #include "external.h"
 #include "fdstore.h"
 #include "netfilter.h"
+#include "netns-broker.h"
 
 #include "protobuf.h"
 #include "images/netdev.pb-c.h"
@@ -3632,12 +3633,107 @@ int macvlan_ext_add(struct external *ext)
  * needed other-ns sockets in advance.
  */
 
+static int open_netns_fd(struct ns_id *ns)
+{
+	if (ns->ext_key) {
+		int fd;
+
+		fd = inherit_fd_lookup_id(ns->ext_key);
+		if (fd >= 0)
+			return fd;
+
+		pr_debug("net: %s not in inherit fds, trying /proc\n", ns->ext_key);
+	}
+
+	return do_open_proc(ns->ns_pid, O_RDONLY, "ns/net");
+}
+
+static bool netns_fd_direct_roundtrip_works(int netns_fd)
+{
+	int old_netns_fd;
+	bool ret = false;
+
+	old_netns_fd = open_proc(PROC_SELF, "ns/net");
+	if (old_netns_fd < 0)
+		return false;
+
+	if (setns(netns_fd, CLONE_NEWNET))
+		goto out;
+
+	if (setns(old_netns_fd, CLONE_NEWNET))
+		goto out;
+
+	ret = true;
+out:
+	close(old_netns_fd);
+	return ret;
+}
+
+static bool netns_direct_roundtrip_works(struct ns_id *ns)
+{
+	int pid, status;
+
+	if (ns->type == NS_CRIU)
+		return true;
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("net: can't fork netns roundtrip probe");
+		return false;
+	}
+
+	if (pid == 0) {
+		int netns_fd = -1;
+
+		netns_fd = open_netns_fd(ns);
+		if (netns_fd < 0)
+			_exit(1);
+
+		if (!netns_fd_direct_roundtrip_works(netns_fd))
+			_exit(1);
+
+		_exit(0);
+	}
+
+	if (waitpid(pid, &status, 0) < 0) {
+		pr_perror("net: can't wait netns roundtrip probe");
+		return false;
+	}
+
+	return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static bool netns_needs_userns_broker(struct ns_id *ns)
+{
+	if (ns->type == NS_CRIU)
+		return false;
+
+	if (netns_direct_roundtrip_works(ns))
+		return false;
+
+	pr_info("Using netns broker because direct netns roundtrip is not permitted\n");
+	return true;
+}
+
 static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 {
 	int nsret = -1, ret;
 #ifdef CONFIG_HAS_SELINUX
 	char *ctx;
 #endif
+
+	if (netns_needs_userns_broker(ns)) {
+		struct netns_broker_resp resp;
+
+		pr_info("Using netns broker for %d's net (collecting sockets)\n", ns->ns_pid);
+
+		if (netns_broker_prep(ns, for_dump, &resp))
+			return -1;
+
+		ns->net.nlsk = resp.nlsk;
+		ns->net.seqsk = resp.seqsk;
+		return 0;
+	}
 
 	if (ns->type != NS_CRIU) {
 		pr_info("Switching to %d's net for collecting sockets\n", ns->ns_pid);
