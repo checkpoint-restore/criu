@@ -1,12 +1,46 @@
+PLUGIN_HELP_DIR := build/plugin-help
+PLUGIN_HELP_TESTS := $(addprefix $(PLUGIN_HELP_DIR)/,test-plugin.so \
+		    test-help-plugin.so test-legacy-plugin.so)
+
 all: test-c test-ps-addr test-plugin.so rpc_pb2.py criu
-.PHONY: all
+.PHONY: all plugin-help
 
 CFLAGS += -g -Werror -Wall -I.
 LDLIBS +=  -lprotobuf-c
 
 PYTHON ?= python3
 
-run: all
+plugin-help: $(PLUGIN_HELP_TESTS) criu
+	mkdir -p build
+	env CRIU_PLUGIN_HELP_TEST=1 ./criu --no-default-config \
+		--libdir "$(CURDIR)/$(PLUGIN_HELP_DIR)" --help > build/criu-help
+	grep -F -- "--plugin-option=test-plugin.test-option=VALUE" build/criu-help
+	grep -Fx -- "Second plugin help" build/criu-help
+	env CRIU_PLUGIN_HELP_TEST=1 ./criu --help \
+		-L"$(CURDIR)/$(PLUGIN_HELP_DIR)" > build/criu-help-after
+	cmp build/criu-help build/criu-help-after
+	env CRIU_PLUGIN_HELP_TEST=1 ./criu --help \
+		-jL"$(CURDIR)/$(PLUGIN_HELP_DIR)" --config build/missing-config > build/criu-help-cluster
+	cmp build/criu-help build/criu-help-cluster
+	env CRIU_PLUGIN_HELP_TEST=1 ./criu --help \
+		--libd="$(CURDIR)/$(PLUGIN_HELP_DIR)" > build/criu-help-abbrev
+	cmp build/criu-help build/criu-help-abbrev
+	env CRIU_PLUGIN_HELP_TEST=1 ./criu --help -L"$(CURDIR)/$(PLUGIN_HELP_DIR)" \
+		--log-file -Lbuild/missing-plugins > build/criu-help-argument
+	cmp build/criu-help build/criu-help-argument
+	env CRIU_PLUGIN_HELP_TEST=1 ./criu --help -L"$(CURDIR)/$(PLUGIN_HELP_DIR)" \
+		-- -Lbuild/missing-plugins > build/criu-help-operand
+	cmp build/criu-help build/criu-help-operand
+	env CRIU_PLUGIN_HELP_TEST=1 CRIU_LIBS_DIR="$(CURDIR)/$(PLUGIN_HELP_DIR)" \
+		./criu --help > build/criu-help-env
+	cmp build/criu-help build/criu-help-env
+	mkdir -p build/empty-plugins
+	./criu -L build/empty-plugins --help > build/criu-help-empty
+	! grep -F -- "--plugin-option=test-plugin.test-option=VALUE" build/criu-help-empty
+	! ./criu -L build/missing-plugins --help > build/criu-help-error 2>&1
+	grep -F -- "Unable to open directory" build/criu-help-error
+
+run: all plugin-help
 	@make -C .. loop
 	mkdir -p build/{imgs_errno,imgs_ps,imgs_c,imgs_loop,imgs_py}
 	chmod a+rwx build
@@ -57,6 +91,13 @@ test-ps-addr.o: test-ps-addr.c rpc.pb-c.c
 test-plugin.so: test-plugin.c ../../../criu/include/criu-plugin.h
 	$(CC) $(CFLAGS) -iquote../../../criu/include -shared -fPIC $< -o $@
 
+$(PLUGIN_HELP_DIR):
+	mkdir -p $@
+
+$(PLUGIN_HELP_TESTS): $(PLUGIN_HELP_DIR)/%.so: %.c \
+		../../../criu/include/criu-plugin.h | $(PLUGIN_HELP_DIR)
+	$(CC) $(CFLAGS) -iquote../../../criu/include -shared -fPIC $< -o $@
+
 rpc_pb2.py: rpc.proto
 	protoc --proto_path=. --python_out=. rpc.proto
 
@@ -64,5 +105,6 @@ rpc.pb-c.c: rpc.proto
 	protoc --proto_path=. --c_out=. rpc.proto
 
 clean:
-	rm -rf build rpc.pb-c.o test-c.o test-c test-ps-addr.o test-ps-addr test-plugin.so rpc.pb-c.c rpc.pb-c.h rpc_pb2.py rpc_pb2.pyc criu
+	rm -rf build rpc.pb-c.o test-c.o test-c test-ps-addr.o test-ps-addr \
+		test-plugin.so rpc.pb-c.c rpc.pb-c.h rpc_pb2.py rpc_pb2.pyc criu
 .PHONY: clean

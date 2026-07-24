@@ -11,6 +11,15 @@
 #define TEST_OPTION_VALUE "test-value"
 #define TEST_LONG_OPTION  TEST_PLUGIN_NAME "." TEST_OPTION_NAME
 
+static int test_plugin_print_help(void)
+{
+	printf("\nTest plugin options:\n"
+	       "  --plugin-option=test-plugin.test-option=VALUE\n"
+	       "                        Set the RPC plugin test value\n");
+	return 0;
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__PRINT_HELP, test_plugin_print_help)
+
 static bool test_plugin_option_matches(const char *arg, const char *name)
 {
 	size_t len = strlen(name);
@@ -56,6 +65,9 @@ static int test_plugin_init(int stage)
 	int ret = 0;
 
 	(void)stage;
+	if (getenv("CRIU_PLUGIN_HELP_TEST"))
+		return -EINVAL;
+
 	ret = criu_plugin_get_options(&argc, &argv);
 	if (ret)
 		return ret;
@@ -100,6 +112,8 @@ static void test_plugin_exit(int stage, int ret)
 {
 	(void)stage;
 	(void)ret;
+	if (getenv("CRIU_PLUGIN_HELP_TEST"))
+		abort();
 }
 
 CR_PLUGIN_REGISTER(TEST_PLUGIN_NAME, test_plugin_init, test_plugin_exit)

@@ -781,8 +781,19 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 
 	ret = pre_parse(argc, argv, usage_error, &no_default_config, &cfg_file);
 
-	if (ret)
+	if (ret) {
+		int saved_opterr = opterr;
+
+		/* Honor the plugin directory without reading configuration files. */
+		opterr = 0;
+		optind = 0;
+		while ((opt = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
+			if (opt == 'L')
+				SET_CHAR_OPTS(libdir, optarg);
+		}
+		opterr = saved_opterr;
 		return 2;
+	}
 
 	while (1) {
 		idx = -1;
