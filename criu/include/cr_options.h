@@ -124,6 +124,13 @@ struct irmap_path_opt {
 	struct irmap *ir;
 };
 
+struct cr_plugin_option {
+	struct list_head node;
+	char *plugin;
+	char *name;
+	char *value;
+};
+
 enum criu_mode {
 	CR_UNSET = 0,
 	CR_DUMP,
@@ -168,6 +175,7 @@ struct cr_options {
 	struct list_head inherit_fds;
 	struct list_head external;
 	struct list_head join_ns;
+	struct list_head plugin_options;
 	char *libdir;
 	int use_page_server;
 	unsigned short port;

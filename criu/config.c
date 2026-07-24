@@ -31,6 +31,7 @@
 #include "sockets.h"
 #include "tty.h"
 #include "version.h"
+#include "plugin.h"
 
 #include "common/xmalloc.h"
 
@@ -420,6 +421,7 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.inherit_fds);
 	INIT_LIST_HEAD(&opts.external);
 	INIT_LIST_HEAD(&opts.join_ns);
+	INIT_LIST_HEAD(&opts.plugin_options);
 	INIT_LIST_HEAD(&opts.new_cgroup_roots);
 	INIT_LIST_HEAD(&opts.irmap_scan_paths);
 
@@ -764,6 +766,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "compress-acceleration",   required_argument, 0, 1102 },
 		{ "compress-region",         required_argument, 0, 1103 },
 		{ "decompress-threads",      required_argument, 0, 1104 },
+		{ "plugin-option",            required_argument, 0, 1105 },
 		{},
 	};
 
@@ -925,6 +928,10 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			opts.decompress_threads = (unsigned int)n;
 			break;
 		}
+		case 1105:
+			if (cr_plugin_option_add_arg(optarg))
+				return 1;
+			break;
 		case 1043: {
 			int fd;
 

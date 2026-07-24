@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <dirent.h>
+#include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -15,6 +16,7 @@
 #include "compression.h"
 #include "page.h"
 #include "pagemap.h"
+#include "cr_options.h"
 #include "plugin.h"
 
 int parse_statement(int i, char *line, char **configuration);
@@ -51,6 +53,43 @@ static void test_plugin_implementation_versions(void)
 	assert(cr_plugin_find_latest_in_list(&plugins, "cuda") == &p2);
 	assert(cr_plugin_find_latest_in_list(&plugins, "missing") == NULL);
 	assert(v1.version == v2.version);
+}
+
+static void test_plugin_options(void)
+{
+	const char *value;
+	bool usage_error = true;
+	bool has_exec_cmd = false;
+	char *argv[] = {
+		(char *)"criu",
+		(char *)"--no-default-config",
+		(char *)"--plugin-option",
+		(char *)"example.option=first",
+		(char *)"check",
+		NULL,
+	};
+
+	init_opts();
+	assert(parse_options(5, argv, &usage_error, &has_exec_cmd, PARSING_GLOBAL_CONF) == 0);
+	assert(criu_plugin_get_option("example", "option", &value) == 0);
+	assert(!strcmp(value, "first"));
+	cr_plugin_options_clear();
+
+	assert(cr_plugin_option_add_arg("example.option=first") == 0);
+	assert(criu_plugin_get_option("example", "option", &value) == 0);
+	assert(!strcmp(value, "first"));
+
+	assert(cr_plugin_option_add_arg("example.empty=") == 0);
+	assert(criu_plugin_get_option("example", "empty", &value) == 0);
+	assert(!strcmp(value, ""));
+	assert(criu_plugin_get_option("example", "missing", &value) == -ENOENT);
+
+	assert(cr_plugin_option_add_arg("example.option") == -EINVAL);
+	assert(cr_plugin_option_add_arg(".option=value") == -EINVAL);
+	assert(cr_plugin_option_add_arg("example.=value") == -EINVAL);
+
+	cr_plugin_options_clear();
+	assert(criu_plugin_get_option("example", "option", &value) == -ENOENT);
 }
 
 static void test_pagemap_offset_alignment(void)
@@ -480,6 +519,7 @@ int main(int argc, char *argv[], char *envp[])
 	test_bwrite();
 	test_pagemap_offset_alignment();
 	test_plugin_implementation_versions();
+	test_plugin_options();
 
 	i = parse_statement(0, "", configuration);
 	assert(i == 0);

@@ -214,6 +214,19 @@ void criu_local_free_opts(criu_opts *opts)
 	}
 	opts->rpc->n_external = 0;
 
+	if (opts->rpc->plugin_options) {
+		for (i = 0; i < opts->rpc->n_plugin_options; i++) {
+			if (opts->rpc->plugin_options[i]) {
+				free(opts->rpc->plugin_options[i]->plugin);
+				free(opts->rpc->plugin_options[i]->name);
+				free(opts->rpc->plugin_options[i]->value);
+				free(opts->rpc->plugin_options[i]);
+			}
+		}
+		free(opts->rpc->plugin_options);
+	}
+	opts->rpc->n_plugin_options = 0;
+
 	if (opts->rpc->join_ns) {
 		for (i = 0; i < opts->rpc->n_join_ns; i++) {
 			free(opts->rpc->join_ns[i]->ns);
@@ -1256,6 +1269,49 @@ err:
 int criu_add_external(const char *key)
 {
 	return criu_local_add_external(global_opts, key);
+}
+
+int criu_local_set_plugin_option(criu_opts *opts, const char *plugin, const char *name, const char *value)
+{
+	CriuPluginOption *option;
+	CriuPluginOption **a;
+	int nr;
+
+	if (!opts || !opts->rpc || !plugin || !plugin[0] || !name || !name[0] || !value)
+		return -EINVAL;
+
+	option = malloc(sizeof(*option));
+	if (!option)
+		return -ENOMEM;
+	criu_plugin_option__init(option);
+
+	option->plugin = strdup(plugin);
+	option->name = strdup(name);
+	option->value = strdup(value);
+	if (!option->plugin || !option->name || !option->value)
+		goto err;
+
+	nr = opts->rpc->n_plugin_options + 1;
+	a = realloc(opts->rpc->plugin_options, nr * sizeof(*a));
+	if (!a)
+		goto err;
+
+	a[nr - 1] = option;
+	opts->rpc->plugin_options = a;
+	opts->rpc->n_plugin_options = nr;
+	return 0;
+
+err:
+	free(option->plugin);
+	free(option->name);
+	free(option->value);
+	free(option);
+	return -ENOMEM;
+}
+
+int criu_set_plugin_option(const char *plugin, const char *name, const char *value)
+{
+	return criu_local_set_plugin_option(global_opts, plugin, name, value);
 }
 
 int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port)

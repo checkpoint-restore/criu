@@ -9,6 +9,12 @@ message criu_page_server_info {
 	optional int32		fd	= 4;
 }
 
+message criu_plugin_option {
+	required string		plugin	= 1;
+	required string		name	= 2;
+	required string		value	= 3;
+}
+
 message criu_veth_pair {
 	required string		if_in	= 1;
 	required string		if_out	= 2;
@@ -167,6 +173,8 @@ message criu_opts {
 	 * through 1024. Restore-time only.
 	 */
 	optional uint32			decompress_threads	= 76 [default = 1];
+	/* Plugin-owned namespaced options. */
+	repeated criu_plugin_option	plugin_options		= 77;
 /*	optional bool			check_mounts		= 128;	*/
 }
 

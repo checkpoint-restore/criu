@@ -11,6 +11,9 @@
 
 void cr_plugin_fini(int stage, int err);
 int cr_plugin_init(int stage);
+int cr_plugin_option_add(const char *plugin, const char *name, const char *value);
+int cr_plugin_option_add_arg(const char *arg);
+void cr_plugin_options_clear(void);
 
 typedef struct {
 	struct list_head head;

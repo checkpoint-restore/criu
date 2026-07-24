@@ -42,6 +42,7 @@
 #include "common/scm.h"
 #include "uffd.h"
 #include "pidfd-store.h"
+#include "plugin.h"
 
 #include "setproctitle.h"
 
@@ -436,6 +437,15 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	BUG_ON(st.st_ino == -1);
 	service_sk_ino = st.st_ino;
+
+	/* A service worker can handle multiple requests on one connection. */
+	cr_plugin_options_clear();
+	for (i = 0; i < req->n_plugin_options; i++) {
+		CriuPluginOption *option = req->plugin_options[i];
+
+		if (!option || cr_plugin_option_add(option->plugin, option->name, option->value))
+			goto err;
+	}
 
 	if (req->has_unprivileged)
 		opts.unprivileged = req->unprivileged;

@@ -20,6 +20,7 @@
 #ifndef __CRIU_PLUGIN_H__
 #define __CRIU_PLUGIN_H__
 
+#include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -27,7 +28,7 @@
 
 #define CRIU_PLUGIN_GEN_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
 #define CRIU_PLUGIN_VERSION_MAJOR	 0
-#define CRIU_PLUGIN_VERSION_MINOR	 2
+#define CRIU_PLUGIN_VERSION_MINOR	 3
 #define CRIU_PLUGIN_VERSION_SUBLEVEL	 0
 
 #define CRIU_PLUGIN_VERSION_OLD CRIU_PLUGIN_GEN_VERSION(0, 1, 0)
@@ -168,6 +169,13 @@ static inline void cr_plugin_dummy_exit(int stage, int ret)
 
 /* Public API */
 extern int criu_get_image_dir(void);
+
+/*
+ * Look up a namespaced option supplied through --plugin-option or RPC.
+ * Returns 0 on success, -ENOENT when the option is absent, and -EINVAL for
+ * invalid arguments. The returned value is owned by CRIU.
+ */
+extern int criu_plugin_get_option(const char *plugin, const char *name, const char **value);
 
 /*
  * Deprecated, will be removed in next version.
