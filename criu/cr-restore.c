@@ -2320,15 +2320,13 @@ skip_ns_bouncing:
 			continue;
 		ret = run_plugins(RESUME_DEVICES_LATE, item->pid->real);
 		/*
-		 * This may not really be an error. Only certain plugin hooks
-		 * (if available) will return success such as amdgpu_plugin that
-		 * validates the pid of the resuming tasks in the kernel mode.
-		 * Most of the times, it'll be -ENOTSUP and in few cases, it
-		 * might actually be a true error code but that would be also
-		 * captured in the plugin so no need to print the error here.
+		 * -ENOTSUP means that no plugin claimed this task and is expected
+		 * for tasks without external device state. Any other value is a
+		 * restore failure. The plugin should report details and CRIU must
+		 * not resume a partially restored task.
 		 */
-		if (ret < 0 && ret != -ENOTSUP)
-			pr_debug("restore late stage hook for external plugin failed\n");
+		if (ret && ret != -ENOTSUP)
+			goto out_kill_network_unlocked;
 	}
 
 	ret = run_scripts(ACT_PRE_RESUME);
