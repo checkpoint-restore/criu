@@ -62,6 +62,8 @@ _Static_assert(sizeof(CUcheckpointLockArgs) == 64,
 	       "CUcheckpointLockArgs must be 64 bytes");
 _Static_assert(sizeof(CUcheckpointCheckpointArgs) == 64,
 	       "CUcheckpointCheckpointArgs must be 64 bytes");
+_Static_assert(sizeof(CUcheckpointGpuPair) == 32,
+	       "CUcheckpointGpuPair must be 32 bytes");
 _Static_assert(sizeof(CUcheckpointRestoreArgs) == 64,
 	       "CUcheckpointRestoreArgs must be 64 bytes");
 _Static_assert(sizeof(CUcheckpointUnlockArgs) == 64,
@@ -75,5 +77,7 @@ _Static_assert(offsetof(CUcheckpointRestoreArgs, gpuPairs) == 0,
 	       "CUcheckpointRestoreArgs.gpuPairs has an unexpected offset");
 _Static_assert(offsetof(CUcheckpointRestoreArgs, gpuPairsCount) == sizeof(void *),
 	       "CUcheckpointRestoreArgs.gpuPairsCount has an unexpected offset");
+_Static_assert(offsetof(CUcheckpointGpuPair, newUuid) == 16,
+	       "CUcheckpointGpuPair.newUuid has an unexpected offset");
 
 #endif /* CUDA_CHECKPOINT_H */

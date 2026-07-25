@@ -39,6 +39,26 @@ checkpoint, restore, unlock.
 * restore/unlock - Used with the RESUME_DEVICES_LATE hook to restore the CUDA
   state and release the process back to it's running state
 
+## GPU device mapping
+
+The v2 plugin accepts GPU mappings through CRIU's `cuda.device-map` plugin
+option during restore:
+
+```bash
+i=0
+for uuid in $(nvidia-smi --list-gpus | grep -oP 'UUID: \K[^)]+'); do
+    export GPU_$i=$uuid
+    i=$((i+1))
+done
+
+criu restore ... --plugin-option \
+  "cuda.device-map=$GPU_0=$GPU_1,$GPU_1=$GPU_0,$GPU_2=$GPU_2,$GPU_3=$GPU_3"
+```
+
+The value is a comma-separated list of `oldUuid=newUuid` pairs and must
+contain every GPU referenced by the checkpoint. The v2 plugin converts it to
+the CUDA Driver API's `CUcheckpointGpuPair` array.
+
 These actions are facilitated by a CUDA checkpoint+restore thread that the CUDA
 plugin will re-wake when needed.
 
@@ -66,8 +86,9 @@ plugin will re-wake when needed.
   checkpoint as a result. This can be worked around in a similar fashion to the
   NVML case where the leftover references can be ignored as CUDA is not fork()
   safe anyway.
-* Restore currently requires that you restore on a system with similar GPU's and
-  same GPU count.
+* Restore without a device map requires a system with similar GPUs and the same
+  GPU count. A device map can remap checkpointed GPU UUIDs to restore-host GPU
+  UUIDs, but the target GPUs must still be compatible with the checkpoint.
 * NVIDIA UVM Managed Memory, MIG (Multi Instance GPU), and MPS (Multi-Process
   Service) are currently not supported for checkpointing. Future CUDA releases
   will add support for these.
