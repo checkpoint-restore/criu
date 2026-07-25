@@ -24,7 +24,7 @@ cuda_plugin_v1.so: cuda_plugin_v1.c
 	$(call msg-gen, $@)
 	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS)
 
-cuda_plugin_v2.so: cuda_plugin_v2.c cuda.pb-c.c
+cuda_plugin_v2.so: cuda_plugin_v2.c cuda_device_map.c cuda.pb-c.c
 	$(call msg-gen, $@)
 	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl
 

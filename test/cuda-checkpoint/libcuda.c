@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 /*
  * Mock implementation of the CUDA checkpoint Driver API used by CRIU tests.
@@ -12,6 +13,7 @@
 #define MOCK_CUDA_SUCCESS 0
 #define MOCK_CUDA_ERROR_INVALID_VALUE 1
 #define MOCK_PROCESS_MAX 64
+#define MOCK_GPU_COUNT 1
 
 /* Keep these test-local declarations ABI-compatible with the plugin. */
 typedef int mock_cuda_result_t;
@@ -51,6 +53,27 @@ static struct mock_process *get_process(int pid)
 mock_cuda_result_t cuInit(unsigned int flags)
 {
 	(void)flags;
+	return MOCK_CUDA_SUCCESS;
+}
+
+mock_cuda_result_t cuDeviceGetCount(int *count)
+{
+	if (!count)
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+	*count = MOCK_GPU_COUNT;
+	return MOCK_CUDA_SUCCESS;
+}
+
+mock_cuda_result_t cuDeviceGetUuid(void *uuid, int device)
+{
+	static const unsigned char mock_uuid[16] = {
+		0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+		0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef,
+	};
+
+	if (!uuid || device != 0)
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+	memcpy(uuid, mock_uuid, sizeof(mock_uuid));
 	return MOCK_CUDA_SUCCESS;
 }
 

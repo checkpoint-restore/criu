@@ -2101,7 +2101,12 @@ int cr_dump_tasks(pid_t pid)
 			goto err;
 	}
 
-	ret = run_plugins(DUMP_DEVICES_LATE, pid);
+	/*
+	 * This hook finalizes global device state. Run every implementation so,
+	 * for example, AMDGPU can unpause its processes while CUDA writes its
+	 * GPU inventory.
+	 */
+	ret = run_plugins_all(DUMP_DEVICES_LATE, pid);
 	if (ret && ret != -ENOTSUP)
 		goto err;
 

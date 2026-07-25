@@ -104,4 +104,28 @@ plugin_desc_t *cr_plugin_find(const char *name, unsigned int implementation_vers
 		__ret;                                                                                      \
 	})
 
+#define run_plugins_all(__hook, ...)                                                                        \
+	({                                                                                                  \
+		plugin_desc_t *this;                                                                        \
+		bool __handled = false;                                                                     \
+		int __ret = 0;                                                                              \
+                                                                                                            \
+		list_for_each_entry(this, &cr_plugin_ctl.hook_chain[CR_PLUGIN_HOOK__##__hook],              \
+				    link[CR_PLUGIN_HOOK__##__hook]) {                                       \
+			int __hook_ret;                                                                     \
+                                                                                                            \
+			pr_debug("plugin: `%s' hook %u -> %p\n", this->d->name, CR_PLUGIN_HOOK__##__hook,   \
+				 this->d->hooks[CR_PLUGIN_HOOK__##__hook]);                                 \
+			__hook_ret =                                                                         \
+				((CR_PLUGIN_HOOK__##__hook##_t *)this->d->hooks[CR_PLUGIN_HOOK__##__hook])( \
+					__VA_ARGS__);                                                        \
+			if (__hook_ret == -ENOTSUP)                                                         \
+				continue;                                                                   \
+			__handled = true;                                                                   \
+			if (__hook_ret && !__ret)                                                           \
+				__ret = __hook_ret;                                                         \
+		}                                                                                           \
+		__handled ? __ret : -ENOTSUP;                                                               \
+	})
+
 #endif

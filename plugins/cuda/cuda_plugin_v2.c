@@ -7,6 +7,7 @@
 #include "proc_parse.h"
 #include "seize.h"
 #include "fault-injection.h"
+#include "cuda_device_map.h"
 
 #include <common/list.h>
 #include <compel/infect.h>
@@ -844,6 +845,17 @@ int cuda_plugin_pause_devices(int pid)
 	return 0;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__PAUSE_DEVICES, cuda_plugin_pause_devices)
+
+int cuda_plugin_dump_devices_late(int id)
+{
+	(void)id;
+
+	if (plugin_disabled || !plugin_added_to_inventory)
+		return -ENOTSUP;
+
+	return cuda_gpu_inventory_dump();
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_DEVICES_LATE, cuda_plugin_dump_devices_late)
 
 static int cuda_hex_value(char c)
 {
