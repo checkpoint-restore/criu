@@ -857,123 +857,6 @@ int cuda_plugin_dump_devices_late(int id)
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_DEVICES_LATE, cuda_plugin_dump_devices_late)
 
-static int cuda_hex_value(char c)
-{
-	if (c >= '0' && c <= '9')
-		return c - '0';
-	if (c >= 'a' && c <= 'f')
-		return c - 'a' + 10;
-	if (c >= 'A' && c <= 'F')
-		return c - 'A' + 10;
-	return -1;
-}
-
-static int cuda_parse_uuid(const char *text, size_t length, unsigned char uuid[16])
-{
-	size_t i = 0;
-	size_t digits = 0;
-
-	if (length >= 4 && !memcmp(text, "GPU-", 4))
-		i = 4;
-
-	memset(uuid, 0, 16);
-	for (; i < length; i++) {
-		int value;
-
-		if (text[i] == '-')
-			continue;
-
-		value = cuda_hex_value(text[i]);
-		if (value < 0 || digits >= 32)
-			return -EINVAL;
-
-		if ((digits & 1) == 0)
-			uuid[digits / 2] = (unsigned char)(value << 4);
-		else
-			uuid[digits / 2] |= (unsigned char)value;
-		digits++;
-	}
-
-	return digits == 32 ? 0 : -EINVAL;
-}
-
-static int cuda_parse_device_map(const char *map, CUcheckpointGpuPair **pairs_out,
-				 unsigned int *count_out)
-{
-	const char *entry;
-	CUcheckpointGpuPair *pairs;
-	size_t entry_count = 1;
-	size_t allocation_size;
-	unsigned int i = 0;
-
-	*pairs_out = NULL;
-	*count_out = 0;
-
-	if (!map || !map[0])
-		return -EINVAL;
-
-	for (entry = map; *entry; entry++) {
-		if (*entry == ',')
-			entry_count++;
-	}
-	if (entry_count > UINT_MAX || __builtin_mul_overflow(entry_count, sizeof(*pairs), &allocation_size))
-		return -EINVAL;
-
-	pairs = xzalloc(allocation_size);
-	if (!pairs)
-		return -ENOMEM;
-
-	entry = map;
-	for (;;) {
-		const char *comma = strchr(entry, ',');
-		size_t entry_length = comma ? (size_t)(comma - entry) : strlen(entry);
-		const char *equal = memchr(entry, '=', entry_length);
-
-		if (!equal || equal == entry || equal == entry + entry_length - 1 ||
-		    memchr(equal + 1, '=', (size_t)(entry + entry_length - equal - 1)) ||
-		    cuda_parse_uuid(entry, (size_t)(equal - entry), pairs[i].oldUuid) ||
-		    cuda_parse_uuid(equal + 1, (size_t)(entry + entry_length - equal - 1), pairs[i].newUuid)) {
-			xfree(pairs);
-			return -EINVAL;
-		}
-
-		i++;
-		if (!comma)
-			break;
-		entry = comma + 1;
-	}
-
-	*pairs_out = pairs;
-	*count_out = i;
-	return 0;
-}
-
-static int cuda_get_device_map(CUcheckpointGpuPair **pairs, unsigned int *count)
-{
-	const char *map;
-	int ret;
-
-	*pairs = NULL;
-	*count = 0;
-
-	ret = criu_plugin_get_option(CR_PLUGIN_DESC.name, "device-map", &map);
-	if (ret == -ENOENT)
-		return 0;
-	if (ret) {
-		pr_err("Unable to read CUDA device map option: %d\n", ret);
-		return ret;
-	}
-
-	ret = cuda_parse_device_map(map, pairs, count);
-	if (ret) {
-		pr_err("Invalid CUDA device map; expected UUID=UUID[,UUID=UUID...]\n");
-		return ret;
-	}
-
-	pr_debug("Using %u CUDA GPU device mappings\n", *count);
-	return 0;
-}
-
 static int resume_device(int pid, cuda_task_state_t current_task_state,
 			 cuda_task_state_t initial_task_state)
 {
@@ -1144,6 +1027,21 @@ int cuda_plugin_resume_devices_late(int pid)
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, cuda_plugin_resume_devices_late)
 
+int cuda_plugin_restore_init(void)
+{
+	int ret;
+
+	if (plugin_disabled)
+		return -ENOTSUP;
+
+	ret = cuda_gpu_inventory_restore_init();
+	if (ret)
+		return ret;
+
+	return cuda_get_device_map(&cuda_restore_gpu_pairs, &cuda_restore_gpu_pairs_count);
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESTORE_INIT, cuda_plugin_restore_init)
+
 /**
  * Check if a CUDA device is available on the system
  */
@@ -1197,12 +1095,6 @@ int cuda_plugin_init(int stage)
 		return 0;
 	}
 
-	if (stage == CR_PLUGIN_STAGE__RESTORE &&
-	    cuda_get_device_map(&cuda_restore_gpu_pairs, &cuda_restore_gpu_pairs_count)) {
-		cuda_api_fini();
-		return -1;
-	}
-
 	pr_info("initialized: %s stage %d\n", CR_PLUGIN_DESC.name, stage);
 
 	/* In the DUMP stage track all the PID's we've paused CUDA operations on to
@@ -1219,9 +1111,10 @@ int cuda_plugin_init(int stage)
 
 void cuda_plugin_fini(int stage, int ret)
 {
-	xfree(cuda_restore_gpu_pairs);
+	cuda_free_device_map(cuda_restore_gpu_pairs);
 	cuda_restore_gpu_pairs = NULL;
 	cuda_restore_gpu_pairs_count = 0;
+	cuda_gpu_inventory_fini();
 
 	if (plugin_disabled) {
 		cuda_api_fini();

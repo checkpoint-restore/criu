@@ -41,8 +41,15 @@ checkpoint, restore, unlock.
 
 ## GPU device mapping
 
-The v2 plugin accepts GPU mappings through CRIU's `cuda.device-map` plugin
-option during restore:
+During a dump, the v2 plugin saves the ordinal and UUID of every CUDA GPU in
+the `cuda-gpu-inventory.img` plugin image. During restore, the v2 plugin
+accepts mappings through CRIU's `cuda.device-map` plugin option. A device map
+is optional. Without one, CUDA uses the original UUIDs from the checkpoint.
+When a map is supplied, it must specify every GPU in the checkpoint.
+
+The UUID form is compatible with the `cuda-checkpoint` tool. This example
+swaps the first two GPUs and leaves the rest unchanged; the list must be
+extended to include all GPUs in the checkpoint:
 
 ```bash
 i=0
@@ -55,9 +62,29 @@ criu restore ... --plugin-option \
   "cuda.device-map=$GPU_0=$GPU_1,$GPU_1=$GPU_0,$GPU_2=$GPU_2,$GPU_3=$GPU_3"
 ```
 
-The value is a comma-separated list of `oldUuid=newUuid` pairs and must
-contain every GPU referenced by the checkpoint. The v2 plugin converts it to
-the CUDA Driver API's `CUcheckpointGpuPair` array.
+The saved inventory also allows ordinal mappings, so the old UUIDs do not need
+to be copied from the dump host. The left ordinal is the GPU ordinal at dump
+time and the right ordinal is the GPU ordinal on the restore host:
+
+```bash
+criu restore ... --plugin-option \
+  "cuda.device-map=0=1,1=0,2=2,3=3"
+```
+
+`cuda.device-map=auto` maps each checkpoint GPU to the destination GPU with the
+same ordinal:
+
+```bash
+criu restore ... --plugin-option cuda.device-map=auto
+```
+
+This differs from omitting the option. Omitting it keeps the original UUIDs;
+`auto` allows the destination UUIDs to differ while preserving the ordinal
+order.
+
+The v2 plugin passes the resolved `CUcheckpointGpuPair` array to the CUDA
+Driver API. Every map requires a driver with GPU device-map support. Numeric
+mappings and `auto` also require the saved inventory.
 
 These actions are facilitated by a CUDA checkpoint+restore thread that the CUDA
 plugin will re-wake when needed.
