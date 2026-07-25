@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+message cuda_gpu {
+	optional uint32 ordinal = 1;
+	optional bytes uuid = 2;
+}
+
+message cuda_gpu_inventory {
+	optional uint32 version = 1 [default = 1];
+	repeated cuda_gpu gpus = 2;
+}
