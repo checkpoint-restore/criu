@@ -23,6 +23,10 @@ centos-stream-setup() {
 	dnf config-manager --set-enabled crb
 	# Install EPEL
 	dnf -y install epel-release
+	# CentOS Stream 10+ defaults to nftables
+	if [ "$(rpm -E '%{rhel}')" -ge 10 ] 2>/dev/null; then
+		dnf -y install nftables-devel
+	fi
 	# Install build/test dependencies
 	"${CRIU_DIR}"/contrib/dependencies/dnf-packages.sh
 	# Disable sssd to avoid zdtm test failures in pty04
@@ -42,10 +46,17 @@ centos-stream-test() {
 	# cgroup pids controller. Remove the limit for the root user.
 	systemctl set-property user-0.slice TasksMax=infinity
 
+	local compile_flags=""
+	# CentOS Stream 10+ defaults to nftables
+	if [ "$(rpm -E '%{rhel}')" -ge 10 ] 2>/dev/null; then
+		compile_flags="NETWORK_LOCK_DEFAULT=NETWORK_LOCK_NFTABLES"
+	fi
+
 	cd "${CRIU_DIR}"
 	make -C scripts/ci local \
 		SKIP_CI_PREP=1 CC=gcc CD_TO_TOP=1 \
-		ZDTM_OPTS="-x zdtm/static/socket-raw"
+		ZDTM_OPTS="-x zdtm/static/socket-raw" \
+		COMPILE_FLAGS="${compile_flags}"
 }
 
 _common_setup() {
