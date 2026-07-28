@@ -20,12 +20,10 @@ export CONTAINER_RUNTIME
 
 alpine: ZDTM_OPTS=-x zdtm/static/sched_policy00
 
-ifeq ($(GITHUB_ACTIONS),true)
-	# GitHub Actions does not give us a real TTY and errors out with
-	# 'the input device is not a TTY' if using '-t'
-	CONTAINER_TERMINAL := -i
-else
+ifeq ($(shell test -t 0 && echo y),y)
 	CONTAINER_TERMINAL := -it
+else
+	CONTAINER_TERMINAL := -i
 endif
 
 export CONTAINER_TERMINAL
