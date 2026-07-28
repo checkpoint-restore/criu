@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04]
+        os: [ubuntu-26.04]
         target: [GCC=1, CLANG=1]
         shard: [0, 1, 2, 3, 4]
         include:
