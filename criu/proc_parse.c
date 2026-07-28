@@ -324,6 +324,8 @@ static int open_mapped_file(pid_t pid, const char *fname)
 	if (opts.unprivileged && fname[0] == '/') {
 		root = open_proc(pid, "root");
 		if (root >= 0) {
+			int root_errno;
+
 			/*
 			 * openat() ignores dirfd when pathname is absolute; paths from
 			 * smaps are absolute container paths (e.g. /bin/busybox).
@@ -332,9 +334,18 @@ static int open_mapped_file(pid_t pid, const char *fname)
 				rel++;
 
 			fd = openat(root, rel, O_RDONLY);
+			root_errno = errno;
 			close(root);
 			if (fd >= 0)
 				return fd;
+
+			pr_warn("Can't open mapped file [%s] through /proc/%d/root: %s; "
+				"falling back to host path\n",
+				fname, pid, strerror(root_errno));
+		} else {
+			pr_warn("Can't open /proc/%d/root for mapped file [%s]: %s; "
+				"falling back to host path\n",
+				pid, fname, strerror(errno));
 		}
 	}
 
