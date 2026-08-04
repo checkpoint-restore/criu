@@ -1030,6 +1030,8 @@ class criu_rpc:
                 criu.opts.ps.port = int(args.pop(0))
             elif "--address" == arg:
                 criu.opts.ps.address = args.pop(0)
+            elif "--ps-socket" == arg:
+                criu.opts.ps.fd = int(args.pop(0))
             elif "--page-server" == arg:
                 continue
             elif "--prev-images-dir" == arg:
@@ -1170,7 +1172,9 @@ class criu:
         self.__dump_path = None
         self.__iter = 0
         self.__prev_dump_iter = None
-        self.__page_server = bool(opts['page_server'])
+        self.__page_server_socket = bool(opts['page_server_socket'])
+        self.__page_server = (bool(opts['page_server']) or
+                              self.__page_server_socket)
         self.__remote_lazy_pages = bool(opts['remote_lazy_pages'])
         self.__lazy_pages = (self.__remote_lazy_pages or
                              bool(opts['lazy_pages']))
@@ -1604,6 +1608,9 @@ class criu:
         return ret
 
     def dump(self, action, opts=[]):
+        page_server_server = None
+        page_server_client = None
+
         self.__iter += 1
         os.mkdir(self.__ddir())
         os.chmod(self.__ddir(), 0o777)
@@ -1619,7 +1626,14 @@ class criu:
         if self.__page_server:
             print("Adding page server")
 
-            ps_opts = ["--port", "12345"] + self.__tls
+            if self.__page_server_socket:
+                page_server_server, page_server_client = socket.socketpair()
+                page_server_server.set_inheritable(True)
+                ps_opts = [
+                    "--ps-socket", str(page_server_server.fileno())
+                ] + self.__tls
+            else:
+                ps_opts = ["--port", "12345"] + self.__tls
             if self.__dedup:
                 ps_opts += ["--auto-dedup"]
 
@@ -1627,12 +1641,29 @@ class criu:
             # compressed. Keep the server deliberately unconfigured so
             # page-server tests also exercise asymmetric client/server options.
 
-            self.__page_server_p = self.__criu_act("page-server",
-                                                   opts=ps_opts,
-                                                   nowait=True)
-            a_opts += [
-                "--page-server", "--address", "127.0.0.1", "--port", "12345"
-            ] + self.__tls
+            try:
+                self.__page_server_p = self.__criu_act("page-server",
+                                                       opts=ps_opts,
+                                                       nowait=True)
+            except BaseException:
+                if page_server_client is not None:
+                    page_server_client.close()
+                raise
+            finally:
+                if page_server_server is not None:
+                    page_server_server.close()
+
+            if self.__page_server_socket:
+                page_server_client.set_inheritable(True)
+                a_opts += [
+                    "--page-server", "--ps-socket",
+                    str(page_server_client.fileno()),
+                ] + self.__tls
+            else:
+                a_opts += [
+                    "--page-server", "--address", "127.0.0.1",
+                    "--port", "12345",
+                ] + self.__tls
 
         a_opts += self.__test.getdopts()
 
@@ -1670,9 +1701,13 @@ class criu:
         if self.__lazy_migrate and action == "dump":
             a_opts += ["--lazy-pages", "--port", "12345"] + self.__tls
             nowait = True
-        self.__dump_process = self.__criu_act(action,
-                                              opts=a_opts + opts,
-                                              nowait=nowait)
+        try:
+            self.__dump_process = self.__criu_act(action,
+                                                  opts=a_opts + opts,
+                                                  nowait=nowait)
+        finally:
+            if page_server_client is not None:
+                page_server_client.close()
         if self.__stream:
             ret = self.wait_for_criu_image_streamer()
             if ret:
@@ -2348,7 +2383,8 @@ class Launcher:
         self.__nr += 1
         self.__show_progress(name)
 
-        nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling',
+        nd = ('nocr', 'norst', 'pre', 'iters', 'page_server',
+              'page_server_socket', 'sibling',
               'stop', 'empty_ns', 'fault', 'keep_img', 'report', 'snaps',
               'sat', 'script', 'rpc', 'criu_config', 'lazy_pages', 'join_ns',
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
@@ -3006,6 +3042,9 @@ def get_cli_args():
                     action='store_true')
     rp.add_argument("--page-server",
                     help="Use page server dump",
+                    action='store_true')
+    rp.add_argument("--page-server-socket",
+                    help="Use an inherited socket for the page server dump",
                     action='store_true')
     rp.add_argument("--stream",
                     help="Use criu-image-streamer",

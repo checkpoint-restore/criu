@@ -386,7 +386,7 @@ mount -t cgroup -o devices,freezer none devices,freezer
     are stored raw to avoid decompression overhead on *restore*. The
     compression config is recorded in the inventory image and applied
     automatically on *restore*. This functionality is compatible with
-    *--page-server* when *--tls* is not used, *--stream*, *--lazy-pages*,
+    *--page-server*, *--stream*, *--lazy-pages*,
     iterative checkpointing, *--auto-dedup*, and the *dedup* command.
 
 *--compress-block* 'size'::
@@ -398,10 +398,10 @@ mount -t cgroup -o devices,freezer none devices,freezer
     suffixes (e.g. *256K*, *1M*); it must be a multiple of the system
     page size and at most 4M. When both this option and *--compress* are
     specified, the last option takes precedence.
-    Currently supports only the local image path (no
-    *--page-server* / *--stream*). Hole-punching deduplication is
-    skipped for compressed images since compressed pages are
-    variably-sized.
+    Page-sized blocks are compatible with *--page-server* and *--stream*;
+    multi-page blocks currently support only the local image path.
+    Hole-punching deduplication is skipped for compressed images since
+    compressed blocks are variably-sized.
 
 *--compress-acceleration* 'N'::
     Set the LZ4 acceleration level for page compression (1 to 65537).

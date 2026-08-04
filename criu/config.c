@@ -1244,16 +1244,6 @@ int check_options(void)
 		}
 	}
 
-	/*
-	 * The compressed page-server sender writes its records straight to
-	 * the socket and does not route them through the TLS helpers, so a
-	 * TLS page-server would receive plaintext into the encrypted stream.
-	 * Reject the combination until compressed sends learn to use TLS.
-	 */
-	if (opts.compress_mode && opts.tls && (opts.use_page_server || opts.addr)) {
-		pr_err("Memory page compression is not supported with a TLS page-server\n");
-		return 1;
-	}
 	if (opts.tcp_established_ok)
 		pr_info("Will dump/restore TCP connections\n");
 	if (opts.tcp_skip_in_flight)

@@ -276,6 +276,9 @@ run_non_shardable_tests() {
 	if criu/criu check --feature compress; then
 		./test/zdtm.py run -t zdtm/static/maps00 --lazy-pages --compress
 		./test/zdtm.py run -t zdtm/static/compress_pages00 --remote-lazy-pages --compress
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --page-server --tls --compress
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --page-server-socket --tls --compress
+		./test/zdtm.py run -t zdtm/static/compress_pages00 --page-server-socket --rpc --compress
 	else
 		echo "Skipping lazy-pages compression tests"
 	fi
