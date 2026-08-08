@@ -2218,6 +2218,59 @@ static bool page_read_has_compressed_entries(struct page_read *pr)
 	return false;
 }
 
+bool page_read_parallel_drainable(struct page_read *pr)
+{
+	/*
+	 * The parallel lazy-pages drain reads page content with a plain
+	 * pread() from a worker thread, so it is only usable when the data
+	 * lives verbatim in a raw local pages image: no remote source, no
+	 * parent chain to follow, no compression to decode and no streamed
+	 * layout with its sequential-only reader.
+	 */
+	if (img_raw_fd(pr->pi) < 0)
+		return false;
+
+	if (pr->parent)
+		return false;
+
+	if (opts.stream)
+		return false;
+
+	if (page_read_has_compressed_entries(pr))
+		return false;
+
+	return true;
+}
+
+int page_read_resolve_offset(struct page_read *pr, unsigned long vaddr,
+			     int *fd_out, off_t *off_out)
+{
+	int ret;
+
+	/*
+	 * seek_pagemap() only moves forward, so reset first to resolve an
+	 * arbitrary address regardless of the order of previous lookups.
+	 * This mirrors uffd_seek_pages() on the serial path.
+	 */
+	pr->reset(pr);
+
+	ret = pr->seek_pagemap(pr, vaddr);
+	if (!ret) {
+		/* No pagemap entry covers vaddr: it is a zero page. */
+		return 1;
+	}
+
+	if (!pagemap_present(pr->pe)) {
+		pr_err("pr%lu-%u: %lx has no present pages image content\n", pr->img_id, pr->id, vaddr);
+		return -1;
+	}
+
+	*fd_out = img_raw_fd(pr->pi);
+	*off_out = pr->pi_off;
+
+	return 0;
+}
+
 /*
  * Inspect [start, end) without advancing any page-reader cursor.  Return 1
  * when an overlapping block requires LZ4 decoding.  With @premap_mixed, also

@@ -14,6 +14,8 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <pthread.h>
+#include <sched.h>
 
 #include "linux/userfaultfd.h"
 
@@ -79,6 +81,7 @@ struct lazy_iov {
 struct lazy_pages_info {
 	int pid;
 	bool exited;
+	bool parallel; /* content can be drained with the worker pool */
 
 	struct list_head iovs;
 	struct list_head reqs;
@@ -780,6 +783,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 	}
 
 	lpi->pr.io_complete = uffd_io_complete;
+	lpi->parallel = page_read_parallel_drainable(&lpi->pr);
 
 	/*
 	 * Find the memory pages belonging to the restored process
@@ -818,9 +822,9 @@ static int handle_exit(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static bool uffd_recoverable_error(int mcopy_rc)
+static bool uffd_recoverable_error(int err, long mcopy_rc)
 {
-	if (errno == EAGAIN || errno == ENOENT || errno == EEXIST)
+	if (err == EAGAIN || err == ENOENT || err == EEXIST)
 		return true;
 
 	if (mcopy_rc == -ENOENT || mcopy_rc == -EEXIST)
@@ -829,19 +833,21 @@ static bool uffd_recoverable_error(int mcopy_rc)
 	return false;
 }
 
-static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsigned long *nr_pages, long mcopy_rc)
+static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op, unsigned long *nr_pages, int err,
+			       long mcopy_rc)
 {
-	if (errno == ENOSPC || errno == ESRCH) {
+	if (err == ENOSPC || err == ESRCH) {
 		handle_exit(lpi);
 		return 0;
 	}
 
-	if (!uffd_recoverable_error(mcopy_rc)) {
+	if (!uffd_recoverable_error(err, mcopy_rc)) {
+		errno = err;
 		lp_perror(lpi, "%s: mcopy_rc:%ld", op, mcopy_rc);
 		return -1;
 	}
 
-	lp_debug(lpi, "%s: mcopy_rc:%ld, errno:%d\n", op, mcopy_rc, errno);
+	lp_debug(lpi, "%s: mcopy_rc:%ld, errno:%d\n", op, mcopy_rc, err);
 
 	if (mcopy_rc <= 0)
 		*nr_pages = 0;
@@ -864,7 +870,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, unsigned long *
 
 	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) &&
-	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy))
+	    uffd_check_op_error(lpi, "copy", nr_pages, errno, uffdio_copy.copy))
 		return -1;
 
 	lpi->copied_pages += *nr_pages;
@@ -938,7 +944,7 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, unsigned long n
 
 	lp_debug(lpi, "zero page at 0x%llx\n", address);
 	if (ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage) &&
-	    uffd_check_op_error(lpi, "zero", &nr_pages, uffdio_zeropage.zeropage))
+	    uffd_check_op_error(lpi, "zero", &nr_pages, errno, uffdio_zeropage.zeropage))
 		return -1;
 
 	return 0;
@@ -1033,6 +1039,314 @@ static int xfer_pages(struct lazy_pages_info *lpi)
 	if (err < 0) {
 		lp_err(lpi, "Error during UFFD copy\n");
 		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Parallel background drain.
+ *
+ * After restore finished, the remaining lazy ranges of a task backed by a
+ * raw local pages image are filled by a pool of worker threads. UFFDIO_COPY
+ * is safe for concurrent callers on one uffd (races lose with EEXIST), so
+ * workers fill disjoint ranges through the same fd at once.
+ *
+ * The main epoll thread keeps ownership of all page_read cursor state and all
+ * lazy_iov list surgery: it resolves each range's file offset, hands workers
+ * self-contained {fd, offset, dst, nr} jobs, waits for the batch, then
+ * accounts the results. Workers only pread() image content and issue the
+ * ioctl; they never touch the page_read or the iov lists. Draining one batch
+ * at a time and returning to epoll between batches keeps demand faults and
+ * non-cooperative events serviced.
+ */
+#define DRAIN_THREAD_NR_MAX 16
+
+struct drain_job {
+	/* inputs, read by workers */
+	int uffd;
+	int src_fd;
+	off_t src_off;
+	unsigned long dst;
+	unsigned long nr_pages;
+
+	/* outputs, written by workers */
+	int result;    /* 0 ok, -1 ioctl error, -2 read error */
+	int err;       /* errno of a failed operation */
+	long mcopy_rc; /* uffdio_copy.copy */
+
+	/* main-thread bookkeeping, ignored by workers */
+	struct lazy_iov *req;
+	unsigned long req_start;
+};
+
+static pthread_t drain_threads[DRAIN_THREAD_NR_MAX];
+static void *drain_bufs[DRAIN_THREAD_NR_MAX];
+static int nr_drain_threads;
+static bool drain_pool_failed;
+
+static pthread_mutex_t drain_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t drain_work_cond = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t drain_done_cond = PTHREAD_COND_INITIALIZER;
+static struct drain_job *drain_jobs;
+static int drain_nr_jobs;
+static int drain_next_job;
+static int drain_done_jobs;
+static bool drain_stop;
+
+static void drain_do_job(struct drain_job *j, void *buf)
+{
+	unsigned long len = j->nr_pages * page_size();
+	struct uffdio_copy uffdio_copy;
+	size_t rd = 0;
+
+	while (rd < len) {
+		ssize_t r = pread(j->src_fd, (char *)buf + rd, len - rd, j->src_off + rd);
+		if (r < 0) {
+			if (errno == EINTR)
+				continue;
+			j->result = -2;
+			j->err = errno;
+			return;
+		}
+		if (r == 0) {
+			j->result = -2;
+			j->err = EIO;
+			return;
+		}
+		rd += r;
+	}
+
+	uffdio_copy.dst = j->dst;
+	uffdio_copy.src = (unsigned long)buf;
+	uffdio_copy.len = len;
+	uffdio_copy.mode = 0;
+	uffdio_copy.copy = 0;
+
+	if (ioctl(j->uffd, UFFDIO_COPY, &uffdio_copy)) {
+		j->result = -1;
+		j->err = errno;
+	} else {
+		j->result = 0;
+	}
+	j->mcopy_rc = uffdio_copy.copy;
+}
+
+static void *drain_worker(void *arg)
+{
+	long idx = (long)arg;
+	void *buf = drain_bufs[idx];
+
+	pthread_mutex_lock(&drain_lock);
+	while (1) {
+		int job;
+
+		while (drain_next_job >= drain_nr_jobs && !drain_stop)
+			pthread_cond_wait(&drain_work_cond, &drain_lock);
+		if (drain_stop)
+			break;
+
+		job = drain_next_job++;
+		pthread_mutex_unlock(&drain_lock);
+
+		drain_do_job(&drain_jobs[job], buf);
+
+		pthread_mutex_lock(&drain_lock);
+		if (++drain_done_jobs == drain_nr_jobs)
+			pthread_cond_broadcast(&drain_done_cond);
+	}
+	pthread_mutex_unlock(&drain_lock);
+
+	return NULL;
+}
+
+static void stop_drain_pool(void)
+{
+	int i;
+
+	if (nr_drain_threads == 0)
+		return;
+
+	pthread_mutex_lock(&drain_lock);
+	drain_stop = true;
+	pthread_cond_broadcast(&drain_work_cond);
+	pthread_mutex_unlock(&drain_lock);
+
+	for (i = 0; i < nr_drain_threads; i++)
+		pthread_join(drain_threads[i], NULL);
+
+	for (i = 0; i < nr_drain_threads; i++)
+		free(drain_bufs[i]);
+
+	xfree(drain_jobs);
+	drain_jobs = NULL;
+	nr_drain_threads = 0;
+}
+
+static int drain_pool_size(void)
+{
+	cpu_set_t set;
+	int n = -1;
+
+	CPU_ZERO(&set);
+	if (sched_getaffinity(0, sizeof(set), &set) == 0)
+		n = CPU_COUNT(&set);
+	if (n < 1)
+		n = sysconf(_SC_NPROCESSORS_ONLN);
+	if (n < 1)
+		n = 1;
+
+	return min_t(int, n, DRAIN_THREAD_NR_MAX);
+}
+
+static int start_drain_pool(void)
+{
+	int i, n;
+
+	if (nr_drain_threads > 0)
+		return 0;
+	if (drain_pool_failed)
+		return -1;
+
+	n = drain_pool_size();
+
+	drain_jobs = xmalloc(sizeof(*drain_jobs) * n);
+	if (!drain_jobs)
+		goto fail;
+
+	for (i = 0; i < n; i++) {
+		if (posix_memalign(&drain_bufs[i], PAGE_SIZE, MAX_XFER_LEN)) {
+			drain_bufs[i] = NULL;
+			goto fail;
+		}
+	}
+
+	drain_stop = false;
+	drain_nr_jobs = 0;
+	drain_next_job = 0;
+	drain_done_jobs = 0;
+
+	for (i = 0; i < n; i++) {
+		if (pthread_create(&drain_threads[i], NULL, drain_worker, (void *)(long)i)) {
+			int j;
+
+			pr_perror("Can't create lazy-pages drain thread");
+			/* Release the threads already started, then clean up. */
+			pthread_mutex_lock(&drain_lock);
+			drain_stop = true;
+			pthread_cond_broadcast(&drain_work_cond);
+			pthread_mutex_unlock(&drain_lock);
+			for (j = 0; j < i; j++)
+				pthread_join(drain_threads[j], NULL);
+			goto fail;
+		}
+	}
+
+	nr_drain_threads = n;
+	pr_info("lazy-pages drain pool started with %d threads\n", n);
+
+	return 0;
+
+fail:
+	for (i = 0; i < n; i++) {
+		free(drain_bufs[i]);
+		drain_bufs[i] = NULL;
+	}
+	xfree(drain_jobs);
+	drain_jobs = NULL;
+	drain_pool_failed = true;
+	pr_warn("Falling back to serial lazy-pages drain\n");
+
+	return -1;
+}
+
+static int drain_run_batch(int nr_jobs)
+{
+	pthread_mutex_lock(&drain_lock);
+	drain_nr_jobs = nr_jobs;
+	drain_next_job = 0;
+	drain_done_jobs = 0;
+	pthread_cond_broadcast(&drain_work_cond);
+
+	while (drain_done_jobs < drain_nr_jobs)
+		pthread_cond_wait(&drain_done_cond, &drain_lock);
+	pthread_mutex_unlock(&drain_lock);
+
+	return 0;
+}
+
+static int drain_parallel(struct lazy_pages_info *lpi)
+{
+	int nr_jobs = 0;
+	int i;
+
+	while (nr_jobs < nr_drain_threads) {
+		struct lazy_iov *iov;
+		unsigned long len;
+		int fd = -1, ret;
+		off_t off = 0;
+
+		if (list_empty(&lpi->iovs))
+			break;
+
+		iov = pick_next_range(lpi);
+
+		len = min(iov->end - iov->start, (unsigned long)MAX_XFER_LEN);
+		iov = extract_range(iov, iov->start, iov->start + len);
+		if (!iov)
+			return -1;
+
+		ret = page_read_resolve_offset(&lpi->pr, iov->img_start, &fd, &off);
+		if (ret != 0) {
+			/*
+			 * A lazy range is always backed by present page
+			 * content, so a seek miss (ret == 1) is as much an
+			 * error here as it is on the serial path.
+			 */
+			lp_err(lpi, "no pagemap content for %lx\n", iov->img_start);
+			return -1;
+		}
+
+		list_move(&iov->l, &lpi->reqs);
+
+		drain_jobs[nr_jobs++] = (struct drain_job){
+			.uffd = lpi->lpfd.fd,
+			.src_fd = fd,
+			.src_off = off,
+			.dst = iov->start,
+			.nr_pages = (iov->end - iov->start) / PAGE_SIZE,
+			.req = iov,
+			.req_start = iov->start,
+		};
+	}
+
+	if (nr_jobs == 0)
+		return 0;
+
+	drain_run_batch(nr_jobs);
+
+	for (i = 0; i < nr_jobs; i++) {
+		struct drain_job *j = &drain_jobs[i];
+		unsigned long nr = j->nr_pages;
+
+		if (j->result == -2) {
+			errno = j->err;
+			lp_perror(lpi, "Read error draining %lx", j->req_start);
+			return -1;
+		}
+
+		if (j->result == -1) {
+			if (uffd_check_op_error(lpi, "copy", &nr, j->err, j->mcopy_rc))
+				return -1;
+			/* handle_exit() freed the iovs, including our reqs */
+			if (lpi->exited)
+				return 0;
+		}
+
+		lpi->copied_pages += nr;
+		iov_list_insert(j->req, &lpi->iovs);
+		if (drop_iovs(lpi, j->req_start, nr * PAGE_SIZE))
+			return -1;
 	}
 
 	return 0;
@@ -1274,7 +1588,10 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
 			if (!list_empty(&lpi->iovs) && list_empty(&lpi->reqs)) {
-				ret = xfer_pages(lpi);
+				if (lpi->parallel && start_drain_pool() == 0)
+					ret = drain_parallel(lpi);
+				else
+					ret = xfer_pages(lpi);
 				if (ret < 0)
 					goto out;
 				break;
@@ -1292,6 +1609,7 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 	}
 
 out:
+	stop_drain_pool();
 	return ret;
 }
 

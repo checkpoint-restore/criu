@@ -240,6 +240,22 @@ int page_read_range_has_parent(struct page_read *pr, unsigned long start,
 				unsigned long end);
 
 /*
+ * Return whether page content can be read straight from a raw local pages
+ * image with a plain pread(), which the parallel lazy-pages drain requires.
+ */
+bool page_read_parallel_drainable(struct page_read *pr);
+
+/*
+ * Resolve the raw pages-image file offset of @vaddr and return it via
+ * @off_out together with the image fd via @fd_out. Only valid for a page_read
+ * where page_read_parallel_drainable() holds. Returns 0 on a resolved present
+ * page, 1 for a zero page (no file content, outputs untouched) and -1 on
+ * error.
+ */
+int page_read_resolve_offset(struct page_read *pr, unsigned long vaddr,
+			     int *fd_out, off_t *off_out);
+
+/*
  * Try to enable O_DIRECT on a pages-image fd and verify with one
  * aligned probe read.
  *
