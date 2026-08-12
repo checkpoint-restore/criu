@@ -9,6 +9,10 @@
 #include "rst-malloc.h"
 #include "restorer.h"
 
+#ifndef SIGEV_NONE
+#define SIGEV_NONE 1 /* other notification: meaningless */
+#endif
+
 static inline int timeval_valid(struct timeval *tv)
 {
 	return (tv->tv_sec >= 0) && ((unsigned long)tv->tv_usec < USEC_PER_SEC);
@@ -298,11 +302,21 @@ static int core_alloc_posix_timers(TaskTimersEntry *tte, int n, PosixTimerEntry 
 
 static int encode_notify_thread_id(pid_t rtid, struct pstree_item *item, PosixTimerEntry *pte)
 {
-	pid_t vtid = 0;
+	pid_t vtid;
 	int i;
 
 	if (rtid == 0)
 		return 0;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		if (item->threads[i].real == rtid)
+			break;
+	}
+
+	if (i == item->nr_threads) {
+		pr_warn("Notify thread %d is dead, restoring timer as inert (SIGEV_NONE)\n", rtid);
+		return 1;
+	}
 
 	if (!(root_ns_mask & CLONE_NEWPID)) {
 		/* Non-pid-namespace case */
@@ -317,15 +331,8 @@ static int encode_notify_thread_id(pid_t rtid, struct pstree_item *item, PosixTi
 		return -1;
 	}
 
-	for (i = 0; i < item->nr_threads; i++) {
-		if (item->threads[i].real != rtid)
-			continue;
-
-		vtid = item->threads[i].ns[0].virt;
-		break;
-	}
-
-	if (vtid == 0) {
+	vtid = item->threads[i].ns[0].virt;
+	if (vtid <= 0) {
 		pr_err("Unable to convert the notify thread id %d\n", rtid);
 		return -1;
 	}
@@ -338,6 +345,8 @@ static int encode_notify_thread_id(pid_t rtid, struct pstree_item *item, PosixTi
 static int encode_posix_timer(struct pstree_item *item, struct posix_timer *v, struct proc_posix_timer *vp,
 			      PosixTimerEntry *pte)
 {
+	int ret;
+
 	pte->it_id = vp->spt.it_id;
 	pte->clock_id = vp->spt.clock_id;
 	pte->si_signo = vp->spt.si_signo;
@@ -351,8 +360,18 @@ static int encode_posix_timer(struct pstree_item *item, struct posix_timer *v, s
 	pte->vsec = v->val.it_value.tv_sec;
 	pte->vnsec = v->val.it_value.tv_nsec;
 
-	if (encode_notify_thread_id(vp->spt.notify_thread_id, item, pte))
-		return -1;
+	ret = encode_notify_thread_id(vp->spt.notify_thread_id, item, pte);
+	if (ret < 0)
+		return ret;
+	if (ret == 1) {
+		/*
+		 * The target thread is dead so we can't notify, but the
+		 * timer can still be polled by the application. Downgrade
+		 * it to SIGEV_NONE.
+		 */
+		pte->it_sigev_notify = SIGEV_NONE;
+		pte->has_notify_thread_id = false;
+	}
 
 	return 0;
 }
@@ -389,7 +408,8 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, 
 	i = 0;
 	list_for_each_entry(temp, &proc_args->timers, list) {
 		posix_timer_entry__init(&pte[i]);
-		if (encode_posix_timer(item, &args->timer[i], temp, &pte[i]))
+		ret = encode_posix_timer(item, &args->timer[i], temp, &pte[i]);
+		if (ret < 0)
 			goto end_posix;
 		tte->posix[i] = &pte[i];
 		i++;
