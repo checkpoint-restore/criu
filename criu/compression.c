@@ -1530,7 +1530,7 @@ int encoded_stream_read_batch(int fd, void *buf, const uint32_t *block_sizes,
 	    decompress_jobs_parallel_pool(&ctx->pool, ctx->jobs, nr_jobs,
 					  jobs_uncompressed,
 					  opts.decompress_threads)) {
-		pr_err("Unable to decompress streaming batch at page %zu\n",
+		pr_err("Unable to decompress streaming batch at page %lu\n",
 		       first_page_idx);
 		return -1;
 	}
