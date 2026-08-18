@@ -1,5 +1,9 @@
 #!/bin/bash
 set -e -x
+# Disable fedora-cisco-openh264 repo because openh264 package signature verification
+# fails on Fedora Rawhide due to mismatched GPG keys.
+dnf config-manager setopt fedora-cisco-openh264.enabled=0 2>/dev/null || \
+dnf config-manager --set-disabled fedora-cisco-openh264 2>/dev/null || true
 
 contrib/dependencies/dnf-packages.sh
 dnf install -y \

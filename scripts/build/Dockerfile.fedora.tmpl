@@ -4,7 +4,7 @@ COPY contrib/dependencies/dnf-packages.sh /criu/contrib/dependencies/dnf-package
 COPY scripts/ci/prepare-for-fedora-rawhide.sh /criu/scripts/ci/prepare-for-fedora-rawhide.sh
 # prepare-for-fedora-rawhide.sh assumes we are in the criu directory
 WORKDIR /criu
-RUN dnf install -y "$CC" && /criu/scripts/ci/prepare-for-fedora-rawhide.sh
+RUN /criu/scripts/ci/prepare-for-fedora-rawhide.sh && dnf install -y "$CC"
 
 COPY . /criu
 
