@@ -27,6 +27,7 @@
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
 #include "kerndat.h"
+#include "mount-v2.h"
 #include "linux/mount.h"
 
 /*
@@ -630,6 +631,15 @@ static int open_cgroupfs(struct cg_ctl *cc)
 	char prefix[] = ".criu.cgmounts.XXXXXX";
 	char mopts[1024];
 	int fd;
+
+	if (cc->name[0] == 0 && kdat.has_root_cgroupv2_mount) {
+		fd = sys_open_tree(AT_FDCWD, SYS_FS_CGROUP_PATH, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+		if (fd < 0) {
+			pr_perror("Unable to open tree %s", SYS_FS_CGROUP_PATH);
+			return -1;
+		}
+		return fd;
+	}
 
 	if (kdat.has_fsopen)
 		return __new_open_cgroupfs(cc);
