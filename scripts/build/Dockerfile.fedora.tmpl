@@ -3,7 +3,7 @@ ARG CC=gcc
 COPY . /criu
 WORKDIR /criu
 
-RUN dnf install -y "$CC" && scripts/ci/prepare-for-fedora-rawhide.sh
+RUN scripts/ci/prepare-for-fedora-rawhide.sh && dnf install -y "$CC"
 
 RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
