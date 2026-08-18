@@ -366,14 +366,90 @@ struct apparmor_parser_args {
 	char *ns;
 };
 
+struct apparmor_parser_replace_args {
+	char *file;
+	char *ns;
+	bool is_binary;
+};
+
+static int apparmor_parser_replace_exec(void *data)
+{
+	struct apparmor_parser_replace_args *args = data;
+	bool has_features = access(AA_SECURITYFS_PATH "/features", F_OK) == 0;
+
+	if (args->ns && args->ns[0]) {
+		char change_buf[PATH_MAX];
+		int fd, len;
+
+		len = snprintf(change_buf, sizeof(change_buf), "changeprofile :%s:", args->ns);
+		if (len > 0 && len < sizeof(change_buf)) {
+			fd = open("/proc/self/attr/current", O_WRONLY);
+			if (fd >= 0) {
+				if (write(fd, change_buf, len) == len) {
+					close(fd);
+					if (args->is_binary)
+						execlp("apparmor_parser", "apparmor_parser", "-r", "-B",
+						       args->file, NULL);
+					else if (has_features)
+						execlp("apparmor_parser", "apparmor_parser", "-r", "-K",
+						       "-M", AA_SECURITYFS_PATH "/features",
+						       args->file, NULL);
+					else
+						execlp("apparmor_parser", "apparmor_parser", "-r", "-K",
+						       args->file, NULL);
+					return -1;
+				}
+				close(fd);
+			}
+		}
+
+		/* If changeprofile failed, try with -n flag */
+		if (args->is_binary)
+			execlp("apparmor_parser", "apparmor_parser", "-r", "-B",
+			       "-n", args->ns, args->file, NULL);
+		else if (has_features)
+			execlp("apparmor_parser", "apparmor_parser", "-r", "-K",
+			       "-M", AA_SECURITYFS_PATH "/features",
+			       "-n", args->ns, args->file, NULL);
+		else
+			execlp("apparmor_parser", "apparmor_parser", "-r", "-K",
+			       "-n", args->ns, args->file, NULL);
+	} else {
+		if (args->is_binary)
+			execlp("apparmor_parser", "apparmor_parser", "-r", "-B",
+			       args->file, NULL);
+		else if (has_features)
+			execlp("apparmor_parser", "apparmor_parser", "-r", "-K",
+			       "-M", AA_SECURITYFS_PATH "/features",
+			       args->file, NULL);
+		else
+			execlp("apparmor_parser", "apparmor_parser", "-r", "-K",
+			       args->file, NULL);
+	}
+
+	return -1;
+}
+
 static int apparmor_parser_exec(void *data)
 {
 	struct apparmor_parser_args *args = data;
+	bool has_features = access(AA_SECURITYFS_PATH "/features", F_OK) == 0;
 
-	if (args->ns)
-		execlp("apparmor_parser", "apparmor_parser", "-n", args->ns, "-o", args->bin_file, args->file, NULL);
-	else
-		execlp("apparmor_parser", "apparmor_parser", "-o", args->bin_file, args->file, NULL);
+	if (args->ns) {
+		if (has_features)
+			execlp("apparmor_parser", "apparmor_parser", "-K", "-M", AA_SECURITYFS_PATH "/features",
+			       "-n", args->ns, "-o", args->bin_file, args->file, NULL);
+		else
+			execlp("apparmor_parser", "apparmor_parser", "-K", "-n", args->ns,
+			       "-o", args->bin_file, args->file, NULL);
+	} else {
+		if (has_features)
+			execlp("apparmor_parser", "apparmor_parser", "-K", "-M", AA_SECURITYFS_PATH "/features",
+			       "-o", args->bin_file, args->file, NULL);
+		else
+			execlp("apparmor_parser", "apparmor_parser", "-K",
+			       "-o", args->bin_file, args->file, NULL);
+	}
 
 	return -1;
 }
@@ -570,22 +646,53 @@ static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrit
 	for (i = 0; i < ns->n_policies; i++) {
 		AaPolicy *p = ns->policies[i];
 		void *data = p->blob.data;
-		int fd, n;
+		int fd, n = -1;
 		off_t len = p->blob.len;
+
+		if (suspend) {
+			char file[PATH_MAX], clean_name[PATH_MAX], policy[1024];
+			struct apparmor_parser_replace_args r_args = {
+				.file = file,
+				.ns = namespace,
+				.is_binary = false,
+			};
+			int policy_len, j;
+
+			pr_info("suspending policy %s (namespace %s)\n", p->name, namespace);
+
+			policy_len = snprintf(policy, sizeof(policy), PARASITE_PROFILE, p->name);
+			if (policy_len > 0 && policy_len < sizeof(policy)) {
+				for (j = 0; p->name[j]; j++)
+					clean_name[j] = p->name[j] == '/' ? '.' : p->name[j];
+				clean_name[j] = '\0';
+
+				if (snprintf(file, sizeof(file), "%s/%s", policydir, clean_name) < sizeof(file)) {
+					int p_fd = open(file, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+					if (p_fd >= 0) {
+						if (write(p_fd, policy, policy_len) == policy_len) {
+							close(p_fd);
+							if (run_command(NULL, 0, apparmor_parser_replace_exec, &r_args) == 0) {
+								pr_info("suspended policy %s via apparmor_parser -r\n", p->name);
+								continue;
+							}
+						} else {
+							close(p_fd);
+						}
+					}
+				}
+			}
+
+			data = get_suspend_policy(p->name, namespace, false, &len);
+			if (!data)
+				goto fail;
+		}
 
 		fd = open(path, O_WRONLY);
 		if (fd < 0) {
 			pr_perror("couldn't open apparmor load file %s", path);
+			if (suspend && munmap(data, len) < 0)
+				pr_perror("failed to munmap");
 			goto fail;
-		}
-
-		if (suspend) {
-			pr_info("suspending policy %s (namespace %s)\n", p->name, namespace);
-			data = get_suspend_policy(p->name, namespace, false, &len);
-			if (!data) {
-				close(fd);
-				goto fail;
-			}
 		}
 
 		n = write(fd, data, len);
@@ -598,9 +705,11 @@ static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrit
 				pr_perror("failed to munmap attempt 1");
 
 			pr_err("retrying suspend policy compilation with -n %s via root interface\n", namespace);
-			fd = open(AA_SECURITYFS_PATH "/policy/.replace", O_WRONLY);
+			fd = open(AA_SECURITYFS_PATH "/.replace", O_WRONLY);
+			if (fd < 0)
+				fd = open(AA_SECURITYFS_PATH "/policy/.replace", O_WRONLY);
 			if (fd < 0) {
-				pr_perror("couldn't open root replace interface " AA_SECURITYFS_PATH "/policy/.replace");
+				pr_perror("couldn't open root replace interface " AA_SECURITYFS_PATH "/.replace");
 				goto fail;
 			}
 			data = get_suspend_policy(p->name, namespace, true, &len);
@@ -620,6 +729,28 @@ static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrit
 		if (suspend && munmap(data, len) < 0) {
 			pr_perror("failed to munmap");
 			goto fail;
+		}
+
+		if (!suspend && n < 0) {
+			char tmp_bin[] = "/tmp/.criu.aa.XXXXXX";
+			int tfd = mkstemp(tmp_bin);
+			if (tfd >= 0) {
+				if (write(tfd, data, len) == len) {
+					struct apparmor_parser_replace_args r_args = {
+						.file = tmp_bin,
+						.ns = namespace,
+						.is_binary = true,
+					};
+					close(tfd);
+					if (run_command(NULL, 0, apparmor_parser_replace_exec, &r_args) == 0) {
+						pr_info("loaded aa policy %s via apparmor_parser -r -B\n", p->name);
+						n = len;
+					}
+				} else {
+					close(tfd);
+				}
+				unlink(tmp_bin);
+			}
 		}
 
 		/*
