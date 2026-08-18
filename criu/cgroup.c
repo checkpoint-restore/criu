@@ -26,7 +26,10 @@
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
+#include <sys/syscall.h>
 #include "kerndat.h"
+#include "fs-magic.h"
+#include "mount-v2.h"
 #include "linux/mount.h"
 
 /*
@@ -624,12 +627,84 @@ err:
 	return -1;
 }
 
+static int has_root_cgroupv2 = -1;
+
+static bool has_root_cgroupv2_mount(void)
+{
+	union {
+		struct cr_statmount sm;
+		char buf[sizeof(struct cr_statmount) + 64];
+	} smbuf = {};
+	struct cr_statx stx = {};
+	struct cr_mnt_id_req req = {
+		.size = MNT_ID_REQ_SIZE_VER1,
+		.param = STATMOUNT_SB_BASIC | STATMOUNT_MNT_ROOT,
+	};
+	int ret;
+
+	if (has_root_cgroupv2 >= 0)
+		return has_root_cgroupv2;
+
+	has_root_cgroupv2 = 0;
+	if (!kdat.has_statmount)
+		return false;
+
+	if (!(kdat.statmount_supported_mask & STATMOUNT_MNT_ROOT) ||
+	    !(kdat.statmount_supported_mask & STATMOUNT_SB_BASIC))
+		return false;
+
+	ret = syscall(SYS_statx, AT_FDCWD, SYS_FS_CGROUP_PATH, 0, STATX_MNT_ID_UNIQUE, &stx);
+	if (ret < 0) {
+		pr_debug("statx(%s) failed: %s\n", SYS_FS_CGROUP_PATH, strerror(errno));
+		return false;
+	}
+
+	if (!(stx.stx_mask & STATX_MNT_ID_UNIQUE) ||
+	    !(stx.stx_attributes_mask & STATX_ATTR_MOUNT_ROOT))
+		return false;
+
+	if (!(stx.stx_attributes & STATX_ATTR_MOUNT_ROOT))
+		goto out;
+
+	req.mnt_id = stx.stx_mnt_id;
+
+	if (sys_statmount(&req, &smbuf.sm, sizeof(smbuf), 0)) {
+		if (errno == EOVERFLOW)
+			goto out;
+		pr_debug("statmount(%s) failed: %s\n", SYS_FS_CGROUP_PATH, strerror(errno));
+		return false;
+	}
+
+	if ((smbuf.sm.mask & (STATMOUNT_SB_BASIC | STATMOUNT_MNT_ROOT)) ==
+	    (STATMOUNT_SB_BASIC | STATMOUNT_MNT_ROOT)) {
+		const char *mnt_root = smbuf.sm.str + smbuf.sm.mnt_root;
+
+		if (smbuf.sm.sb_magic == CGROUP2_SUPER_MAGIC && !strcmp(mnt_root, "/"))
+			has_root_cgroupv2 = 1;
+	}
+
+out:
+	pr_info("%s %s the root cgroupv2 mount\n",
+		SYS_FS_CGROUP_PATH,
+		has_root_cgroupv2 ? "is" : "is not");
+
+	return has_root_cgroupv2;
+}
+
 static int open_cgroupfs(struct cg_ctl *cc)
 {
 	const char *fstype = cc->name[0] == 0 ? "cgroup2" : "cgroup";
 	char prefix[] = ".criu.cgmounts.XXXXXX";
 	char mopts[1024];
 	int fd;
+
+	if (cc->name[0] == 0 && has_root_cgroupv2_mount()) {
+		fd = sys_open_tree(AT_FDCWD, SYS_FS_CGROUP_PATH, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+		if (fd >= 0)
+			return fd;
+		pr_perror("Unable to open tree %s, falling back to mounting cgroup2", SYS_FS_CGROUP_PATH);
+		has_root_cgroupv2 = 0;
+	}
 
 	if (kdat.has_fsopen)
 		return __new_open_cgroupfs(cc);

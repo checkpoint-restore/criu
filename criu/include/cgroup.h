@@ -4,6 +4,8 @@
 #include "int.h"
 #include "images/core.pb-c.h"
 
+#define SYS_FS_CGROUP_PATH "/sys/fs/cgroup"
+
 struct pstree_item;
 struct parasite_dump_cgroup_args;
 extern u32 root_cg_set;

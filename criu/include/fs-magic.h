@@ -61,4 +61,8 @@
 #define PID_FS_MAGIC 0x50494446
 #endif
 
+#ifndef CGROUP2_SUPER_MAGIC
+#define CGROUP2_SUPER_MAGIC 0x63677270
+#endif
+
 #endif /* __CR_FS_MAGIC_H__ */
