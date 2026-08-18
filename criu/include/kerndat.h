@@ -96,6 +96,7 @@ struct kerndat_s {
 	u64 statmount_supported_mask;
 	bool has_statmount;
 	bool has_statmount_by_fd;
+	bool has_root_cgroupv2_mount;
 };
 
 extern struct kerndat_s kdat;
