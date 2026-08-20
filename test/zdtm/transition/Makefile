@@ -16,7 +16,6 @@ TST_NOFILE	=	\
 		pipe_shared00   \
 		socket_loop00   \
 		netlink00       \
-		file_aio        \
 		socket-tcp      \
 		socket-tcp6     \
 		shmem		\
@@ -34,6 +33,7 @@ TST_FILE	=	\
 		unix_sock       \
 		fifo_dyn        \
 		fifo_loop       \
+		file_aio        \
 
 
 TST	= $(TST_NOFILE) $(TST_FILE)
