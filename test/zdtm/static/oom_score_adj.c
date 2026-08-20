@@ -13,7 +13,6 @@ const char *test_doc = "Check for /proc/self/oom_score_adj restore";
 const char *test_author = "Dmitry Safonov <dsafonov@odin.com>";
 
 const char oom_score_adj_self[] = "/proc/self/oom_score_adj";
-const int test_value = 400;
 
 int get_oom_score_adj(const char *path, int *err)
 {
@@ -56,7 +55,7 @@ int set_oom_score_adj(const char *path, int value)
 
 	snprintf(buf, 11, "%d", value);
 
-	if (write(fd, buf, 11) < 0) {
+	if (write(fd, buf, strlen(buf)) < 0) {
 		pr_perror("Write %s to %s failed", buf, path);
 		ret = -1;
 	}
@@ -68,9 +67,21 @@ int set_oom_score_adj(const char *path, int value)
 int main(int argc, char *argv[])
 {
 	int ret;
+	int cur, test_value;
 	int new_oom_score_adj;
 
 	test_init(argc, argv);
+
+	cur = get_oom_score_adj(oom_score_adj_self, &ret);
+	if (ret < 0)
+		return -1;
+
+	if (cur < 0)
+		test_value = 400;
+	else if (cur < 1000)
+		test_value = cur + 1;
+	else
+		test_value = 1000;
 
 	if (set_oom_score_adj(oom_score_adj_self, test_value) < 0)
 		return -1;
