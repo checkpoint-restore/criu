@@ -21,7 +21,7 @@ const char *test_author = "Kirill Tkhai <ktkhai@virtuozzo.com>";
 int main(int argc, char **argv)
 {
 	unsigned int i, max_nr, flags;
-	int fd, status, ret;
+	int fd, src_fd, status, ret;
 	struct rlimit rlim;
 	futex_t *futex;
 	char buf[16];
@@ -47,6 +47,7 @@ int main(int argc, char **argv)
 		fail("Can't read");
 		exit(1);
 	}
+	close(fd);
 	buf[ret] = '\0';
 
 	max_nr = (unsigned int)atol(buf);
@@ -69,18 +70,18 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	for (i = 1; (fd = (1 << i)) < (rlim.rlim_cur >> 1); i++) {
-		FILE *fp = tmpfile();
-		if (!fp) {
-			fail("tmpfile");
-			exit(1);
-		}
+	src_fd = open("/dev/null", O_RDONLY);
+	if (src_fd < 0) {
+		fail("Can't open /dev/null");
+		exit(1);
+	}
 
+	for (i = 1; (fd = (1 << i)) < (rlim.rlim_cur >> 1); i++) {
 		/* This fd really exists, skip it */
 		if (fcntl(fd, F_GETFL) >= 0)
 			continue;
 
-		if (dup2(fileno(fp), fd) < 0) {
+		if (dup2(src_fd, fd) < 0) {
 			fail("dup2");
 			exit(1);
 		}
