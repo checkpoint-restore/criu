@@ -7,8 +7,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fsuid.h>
+#include <sys/prctl.h>
 #include <sys/sysmacros.h>
 
+#include "prctl.h"
 #include "cr_options.h"
 #include "imgset.h"
 #include "files.h"
@@ -521,6 +523,9 @@ static int set_file_lease(int fd, int type, bool can_fail)
 	}
 
 	setfsuid(old_fsuid);
+	if (prctl(PR_SET_DUMPABLE, 1, 0))
+		pr_perror("Unable to set PR_SET_DUMPABLE");
+
 	errno = saved_errno;
 	return ret;
 }
