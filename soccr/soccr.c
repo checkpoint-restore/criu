@@ -729,9 +729,13 @@ int libsoccr_restore(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsi
 	if (libsoccr_restore_queue(sk, data, sizeof(*data), TCP_RECV_QUEUE, sk->recv_queue))
 		return -1;
 
-	if (libsoccr_restore_queue(sk, data, sizeof(*data), TCP_SEND_QUEUE, sk->send_queue))
-		return -1;
-
+	/*
+	 * Window parameters must be restored after the receive queue
+	 * (so rcv_nxt is updated to inq_seq) and before the send queue
+	 * because restoring unsent data in the send queue temporarily
+	 * turns repair mode off and transmits data, which requires the
+	 * window to be set and may alter sequence numbers.
+	 */
 	if (data->flags & SOCCR_FLAGS_WINDOW) {
 		struct tcp_repair_window wopt = {
 			.snd_wl1 = data->snd_wl1,
@@ -751,6 +755,9 @@ int libsoccr_restore(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsi
 			return -1;
 		}
 	}
+
+	if (libsoccr_restore_queue(sk, data, sizeof(*data), TCP_SEND_QUEUE, sk->send_queue))
+		return -1;
 
 	/*
 	 * To restore a half closed sockets, fin packets has to be restored in
