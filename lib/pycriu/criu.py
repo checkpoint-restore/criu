@@ -48,10 +48,8 @@ class _criu_comm_sk(_criu_comm):
         self.sk = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
         try:
             self.sk.connect(self.comm)
-            
         except FileNotFoundError:
             raise FileNotFoundError("Socket file not found.")
-        
         except ConnectionRefusedError:
             raise ConnectionRefusedError("Service not running.")
 
