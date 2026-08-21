@@ -476,7 +476,7 @@ static void *get_suspend_policy(char *name, char *ns_name, bool use_ns_flag, off
 
 	/* policy names can have /s, but file paths can't */
 	for (i = 0; name[i]; i++) {
-		if (i == PATH_MAX) {
+		if (i >= sizeof(clean_name) - 1) {
 			pr_err("name %s too long\n", name);
 			return NULL;
 		}
@@ -662,21 +662,27 @@ static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrit
 
 			policy_len = snprintf(policy, sizeof(policy), PARASITE_PROFILE, p->name);
 			if (policy_len > 0 && policy_len < sizeof(policy)) {
-				for (j = 0; p->name[j]; j++)
+				for (j = 0; p->name[j]; j++) {
+					if (j >= sizeof(clean_name) - 1)
+						break;
 					clean_name[j] = p->name[j] == '/' ? '.' : p->name[j];
+				}
 				clean_name[j] = '\0';
 
-				if (snprintf(file, sizeof(file), "%s/%s", policydir, clean_name) < sizeof(file)) {
-					int p_fd = open(file, O_CREAT | O_WRONLY | O_TRUNC, 0600);
-					if (p_fd >= 0) {
-						if (write(p_fd, policy, policy_len) == policy_len) {
-							close(p_fd);
-							if (run_command(NULL, 0, apparmor_parser_replace_exec, &r_args) == 0) {
-								pr_info("suspended policy %s via apparmor_parser -r\n", p->name);
-								continue;
+				if (!p->name[j]) {
+					int n_file = snprintf(file, sizeof(file), "%s/%s", policydir, clean_name);
+					if (n_file >= 0 && n_file < sizeof(file)) {
+						int p_fd = open(file, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+						if (p_fd >= 0) {
+							if (write(p_fd, policy, policy_len) == policy_len) {
+								close(p_fd);
+								if (run_command(NULL, 0, apparmor_parser_replace_exec, &r_args) == 0) {
+									pr_info("suspended policy %s via apparmor_parser -r\n", p->name);
+									continue;
+								}
+							} else {
+								close(p_fd);
 							}
-						} else {
-							close(p_fd);
 						}
 					}
 				}
