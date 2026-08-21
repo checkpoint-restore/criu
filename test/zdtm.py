@@ -2321,8 +2321,6 @@ class Launcher:
             print(u"# ", file=self.__file_report)
             print(u"1.." + str(nr_tests), file=self.__file_report)
         self.__taint = self.__read_kernel_tainted()
-        if int(self.__taint, 0) != 0:
-            self.__report_kernel_taint("The kernel is tainted: %r" % self.__taint)
 
     @staticmethod
     def __read_kernel_tainted():
@@ -2334,6 +2332,14 @@ class Launcher:
         print(msg)
         if not opts["ignore_taint"] and os.getenv("ZDTM_IGNORE_TAINT") != "1":
             raise Exception(msg)
+
+    def __check_kernel_taint(self):
+        taint = self.__read_kernel_tainted()
+        if self.__taint != taint:
+            prev_taint = self.__taint
+            self.__taint = taint
+            self.__report_kernel_taint(
+                "The kernel is tainted: %r (was %r)" % (taint, prev_taint))
 
     def __show_progress(self, msg):
         perc = int(self.__nr * 16 / self.__total)
@@ -2355,12 +2361,7 @@ class Launcher:
         if len(self.__subs) >= self.__max:
             self.wait()
 
-        taint = self.__read_kernel_tainted()
-        if self.__taint != taint:
-            prev_taint = self.__taint
-            self.__taint = taint
-            self.__report_kernel_taint(
-                "The kernel is tainted: %r (was %r)" % (taint, prev_taint))
+        self.__check_kernel_taint()
 
         '''
         The option --link-remap allows criu to hardlink open files back to the
@@ -2447,6 +2448,7 @@ class Launcher:
             # The following wait() is not useful for our domain logic.
             # It's useful for taming warnings in subprocess.Popen.__del__()
             sub['sub'].wait()
+            self.__check_kernel_taint()
             if status != 0:
                 self.__fail = True
                 failed_flavor = decode_flav(os.WEXITSTATUS(status))
@@ -2499,6 +2501,7 @@ class Launcher:
 
     def finish(self):
         self.__wait_all()
+        self.__check_kernel_taint()
         if not opts['fault'] and check_core_files():
             self.__fail = True
         if self.__file_report:
@@ -3064,7 +3067,7 @@ def get_cli_args():
                     help="Keep running tests in spite of failures",
                     action='store_true')
     rp.add_argument("--ignore-taint",
-                    help="Don't care about a non-zero kernel taint flag",
+                    help="Don't care about kernel taint changes",
                     action='store_true')
     rp.add_argument("--lazy-pages",
                     help="restore pages on demand",
