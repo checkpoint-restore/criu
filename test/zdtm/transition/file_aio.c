@@ -20,11 +20,11 @@ TEST_OPTION(filename, string, "file name", 1);
 
 int main(int argc, char **argv)
 {
-	char buf[BUF_SIZE];
-	int fd;
+	uint8_t buf[BUF_SIZE];
 	struct aiocb aiocb;
 	const struct aiocb *aioary[1];
-	int ret;
+	uint32_t crc;
+	int ret, fd;
 
 	test_init(argc, argv);
 
@@ -34,6 +34,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	crc = ~0;
+	datagen(buf, sizeof(buf), &crc);
 	if (write(fd, buf, BUF_SIZE) != BUF_SIZE) {
 		pr_perror("Error at write()");
 		exit(1);
@@ -90,6 +92,11 @@ int main(int argc, char **argv)
 		}
 		if (ret != BUF_SIZE) {
 			pr_perror("Error at aio_return()");
+			exit(1);
+		}
+		crc = ~0;
+		if (datachk(buf, sizeof(buf), &crc)) {
+			fail("CRC mismatch");
 			exit(1);
 		}
 	}
