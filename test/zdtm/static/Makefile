@@ -305,6 +305,11 @@ TST_NOFILE	:=				\
 		sigtrap01			\
 		change_mnt_context		\
 		fd_offset			\
+		extmem_image_fallback		\
+		extmem_vma_fallback		\
+		extmem_cow_fallback		\
+		extmem_hugetlb			\
+		extmem_recheckpoint		\
 #		jobctl00			\
 
 PKG_CONFIG ?= pkg-config

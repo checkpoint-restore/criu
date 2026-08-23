@@ -326,6 +326,15 @@ run_non_shardable_tests() {
 	make -C test/others/criu-ns/ run
 	make -C test/others/skip-file-rwx-check/ run
 	make -C test/others/rpc/ run
+	./test/zdtm.py run -t zdtm/static/extmem_recheckpoint --extmem-provider
+	./test/zdtm.py run -t zdtm/static/extmem_image_fallback --extmem-provider-image-fallback
+	./test/zdtm.py run -t zdtm/static/extmem_vma_fallback --extmem-provider-vma-fallback
+	./test/zdtm.py run -t zdtm/static/extmem_cow_fallback --extmem-provider-image-fallback
+	./test/zdtm.py run -t zdtm/static/aio00 -t zdtm/static/aio01 --extmem-provider-image-fallback
+	if [ -r /sys/kernel/mm/hugepages/hugepages-2048kB/free_hugepages ] &&
+	   [ "$(cat /sys/kernel/mm/hugepages/hugepages-2048kB/free_hugepages)" -ge 2 ]; then
+		./test/zdtm.py run -t zdtm/static/extmem_hugetlb --extmem-provider
+	fi
 
 	./test/zdtm.py run -t zdtm/static/env00 --sibling
 
