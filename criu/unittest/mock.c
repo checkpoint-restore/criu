@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 
 #include "compel/infect-util.h"
@@ -81,11 +82,6 @@ int check_namespace_opts(void)
 
 static int extmem_provider_fd = -1;
 
-__attribute__((weak)) int inherit_fd_take(char *id)
-{
-	return -1;
-}
-
 int get_service_fd(enum sfd_type type)
 {
 	if (type == EXTMEM_PROVIDER_FD_OFF)
@@ -110,9 +106,13 @@ int close_service_fd(enum sfd_type type)
 	return 0;
 }
 
+/* Shared, so that forked test processes see the same objects. */
 void *shmalloc(size_t bytes)
 {
-	return malloc(bytes);
+	void *mem;
+
+	mem = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	return mem == MAP_FAILED ? NULL : mem;
 }
 
 void compel_log_init(int log_fn, unsigned int level)
