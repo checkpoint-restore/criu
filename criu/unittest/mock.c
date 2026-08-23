@@ -81,11 +81,6 @@ int check_namespace_opts(void)
 
 static int extmem_provider_fd = -1;
 
-__attribute__((weak)) int inherit_fd_lookup_id(char *id)
-{
-	return -1;
-}
-
 int get_service_fd(enum sfd_type type)
 {
 	if (type == EXTMEM_PROVIDER_FD_OFF)
