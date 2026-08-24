@@ -147,6 +147,9 @@ struct page_read {
 	 * that. Cached here to avoid a fcntl(F_GETFL) syscall per page read. */
 	bool use_direct;
 
+	/* Whether this page read is served by the image streamer, not by disk */
+	bool streamed;
+
 	/* Private data of reader */
 	struct cr_img *pmi;
 	struct cr_img *pi;
@@ -196,6 +199,7 @@ struct page_read {
 #define PR_TYPE_MASK 0x3
 #define PR_MOD	     0x4 /* Will need to modify */
 #define PR_REMOTE    0x8
+#define PR_FORCE_LOCAL 0x10 /* Read the images from disk, not from the streamer */
 
 /*
  * -1 -- error
