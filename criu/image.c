@@ -924,7 +924,9 @@ void up_page_ids_base(void)
 
 struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi, u32 *id)
 {
-	if (flags == O_RDONLY || flags == O_RDWR) {
+	unsigned long mode = flags & ~O_FORCE_LOCAL;
+
+	if (mode == O_RDONLY || mode == O_RDWR) {
 		PagemapHead *h;
 		if (pb_read_one(pmi, &h, PB_PAGEMAP_HEAD) < 0)
 			return NULL;
