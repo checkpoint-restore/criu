@@ -882,6 +882,8 @@ int image_dir_mode(void)
 	case CR_PRE_DUMP:
 		return O_DUMP;
 	case CR_RESTORE:
+		/* fallthrough */
+	case CR_LAZY_PAGES:
 		return O_RSTR;
 	default:
 		return -1;
