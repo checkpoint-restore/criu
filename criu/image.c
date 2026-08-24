@@ -411,7 +411,8 @@ int get_parent_inventory(InventoryEntry **parent_ie)
 	if (dir < 0)
 		return 0;
 
-	img = open_image_at(dir, CR_FD_INVENTORY, O_RSTR);
+	/* The parent snapshot is always on disk, even when streaming */
+	img = open_image_at(dir, CR_FD_INVENTORY, O_RSTR | O_FORCE_LOCAL);
 	if (!img) {
 		pr_err("Failed to open parent pre-dump inventory image\n");
 		close(dir);
@@ -855,7 +856,9 @@ int open_image_dir(const char *dir, int mode)
 	if (opts.stream) {
 		if (img_streamer_init(dir, mode) < 0)
 			goto err;
-	} else if (opts.img_parent) {
+	}
+
+	if (opts.img_parent) {
 		if (faccessat(fd, opts.img_parent, R_OK, 0)) {
 			pr_perror("Invalid parent image directory provided");
 			goto err;
