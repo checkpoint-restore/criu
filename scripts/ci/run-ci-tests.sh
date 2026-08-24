@@ -100,6 +100,16 @@ test_stream() {
 	else
 		echo "Skipping streamed compression tests"
 	fi
+
+	# Streaming on top of a parent snapshot. The pre-dump iterations are
+	# left on disk, only the final dump is streamed.
+	./test/zdtm.py run --stream --pre 2 -p 2 --keep-going -a "${STREAM_TEST_EXCLUDE[@]}" "${ZDTM_OPTS[@]}"
+
+	./test/zdtm.py run -t zdtm/transition/maps007 --stream --pre 5 "${ZDTM_OPTS[@]}"
+	./test/zdtm.py run -t zdtm/transition/maps007 --stream --pre 2 --snaps "${ZDTM_OPTS[@]}"
+	./test/zdtm.py run -t zdtm/transition/maps007 --stream --pre 2 --pre-dump-mode read "${ZDTM_OPTS[@]}"
+
+	./test/zdtm.py run -t zdtm/transition/maps007 --stream --dedup "${ZDTM_OPTS[@]}"
 }
 
 print_header() {
