@@ -886,11 +886,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, unsigned lo
 	if (fd_type == CR_FD_PAGEMAP || fd_type == CR_FD_SHMEM_PAGEMAP) {
 		int ret;
 		int pfd;
-		int pr_flags = (fd_type == CR_FD_PAGEMAP) ? PR_TASK : PR_SHMEM;
-
-		/* Image streaming lacks support for incremental images */
-		if (opts.stream)
-			goto out;
+		int pr_flags = PR_FORCE_LOCAL | ((fd_type == CR_FD_PAGEMAP) ? PR_TASK : PR_SHMEM);
 
 		if (open_parent(get_service_fd(IMG_FD_OFF), &pfd))
 			goto err_pi;
@@ -1453,10 +1449,6 @@ int check_parent_local_xfer(int fd_type, unsigned long img_id)
 	char path[PATH_MAX];
 	struct stat st;
 	int ret, pfd;
-
-	/* Image streaming lacks support for incremental images */
-	if (opts.stream)
-		return 0;
 
 	if (open_parent(get_service_fd(IMG_FD_OFF), &pfd))
 		return -1;
