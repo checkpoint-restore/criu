@@ -179,6 +179,56 @@ static int advance(struct page_read *pr)
 	return 1;
 }
 
+static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vaddr, unsigned long nr, void *buf,
+					unsigned flags);
+static int maybe_read_page_img_streamer_compressed(struct page_read *pr, unsigned long vaddr, unsigned long nr,
+						   void *buf, unsigned flags);
+
+/*
+ * Whether the pages image itself is a stream. A remote page read has
+ * pr->streamed set too, because its pagemap comes from the streamer, but its
+ * pages arrive over the page server.
+ */
+static inline bool page_read_streamed(struct page_read *pr)
+{
+	return pr->maybe_read_page == maybe_read_page_img_streamer ||
+	       pr->maybe_read_page == maybe_read_page_img_streamer_compressed;
+}
+
+/*
+ * A streamed pages image is read straight out of a pipe and cannot be seeked,
+ * so pages that are skipped have to be read out and dropped.
+ */
+static int drop_streamed_pages(struct page_read *pr, unsigned long len)
+{
+	char buf[PAGE_SIZE];
+	int fd;
+
+	fd = img_raw_fd(pr->pi);
+	if (fd < 0) {
+		pr_err("Getting raw FD failed\n");
+		return -1;
+	}
+
+	while (len > 0) {
+		size_t chunk = min(len, (unsigned long)sizeof(buf));
+		ssize_t ret;
+
+		ret = read_all(fd, buf, chunk);
+		if (ret < 0) {
+			pr_perror("Can't drop %lu skipped bytes", len);
+			return -1;
+		}
+		if (ret != (ssize_t)chunk) {
+			pr_err("Short read dropping skipped pages: %zd of %zu\n", ret, chunk);
+			return -1;
+		}
+		len -= ret;
+	}
+
+	return 0;
+}
+
 /*
  * Return the page count of the current compressed block.
  * The last block of an entry may be shorter than pages_per_block when the
@@ -198,10 +248,12 @@ static unsigned int current_block_pages(struct page_read *pr)
  * the page data. Used by seek_pagemap() to skip over pages that
  * are not needed for the current read request.
  */
-static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
+static int skip_pagemap_pages(struct page_read *pr, unsigned long len)
 {
+	off_t was = pr->pi_off;
+
 	if (!len)
-		return;
+		return 0;
 
 	if (pagemap_present(pr->pe)) {
 		if (!pr->pe->blocks || !pr->pe->blocks->n_block_sizes) {
@@ -254,7 +306,16 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 			}
 		}
 	}
+
+	/*
+	 * Each branch above moves pi_off by what the skipped pages occupy in
+	 * the image, which is not len once the entry is compressed.
+	 */
+	if (page_read_streamed(pr) && drop_streamed_pages(pr, pr->pi_off - was))
+		return -1;
+
 	pr->cvaddr += len;
+	return 0;
 }
 
 static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
@@ -270,12 +331,15 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 			break;
 
 		if (vaddr >= start && vaddr < end) {
-			skip_pagemap_pages(pr, vaddr - pr->cvaddr);
+			if (skip_pagemap_pages(pr, vaddr - pr->cvaddr))
+				return 0;
 			return 1;
 		}
 
-		if (end <= vaddr)
-			skip_pagemap_pages(pr, end - pr->cvaddr);
+		if (end <= vaddr) {
+			if (skip_pagemap_pages(pr, end - pr->cvaddr))
+				return 0;
+		}
 	adv:; /* otherwise "label at end of compound stmt" gcc error */
 	} while (advance(pr));
 
