@@ -1581,8 +1581,10 @@ class criu:
                   (stats_written, r_pages, r_off))
             raise test_fail_exc("page counts mismatch")
 
-    # action can be "capture", "extract", or "serve"
-    def spawn_criu_image_streamer(self, action):
+    # action can be "capture", "extract", or "serve". clients is how many CRIU
+    # processes will read a served image: a lazy restore adds the lazy-pages
+    # daemon alongside the restore itself.
+    def spawn_criu_image_streamer(self, action, clients=1):
         print("Run criu-image-streamer in {} mode".format(action))
 
         progress_r, progress_w = os.pipe()
@@ -1602,8 +1604,10 @@ class criu:
             cmd = ["cat {img_file} |",
                    "criu-image-streamer",
                    "--images-dir '{images_dir}'",
-                   "--progress-fd {progress_fd}",
-                   action]
+                   "--progress-fd {progress_fd}"]
+            if action == 'serve' and clients > 1:
+                cmd.append("--criu-clients %d" % clients)
+            cmd.append(action)
 
         log = open(os.path.join(self.__ddir(), "img-streamer.log"), "w")
 
@@ -1788,7 +1792,8 @@ class criu:
             r_opts += ['--action-script', os.getcwd() + '/empty-netns-prep.sh']
 
         if self.__stream:
-            self.spawn_criu_image_streamer("serve")
+            lazy = self.__lazy_pages or self.__lazy_migrate
+            self.spawn_criu_image_streamer("serve", clients=2 if lazy else 1)
             r_opts += ["--stream"]
 
         if self.__dedup:
@@ -1818,6 +1823,8 @@ class criu:
                 self.__page_server_p = self.__criu_act("page-server",
                                                        opts=ps_opts,
                                                        nowait=True)
+            if self.__stream:
+                lp_opts += ["--stream"]
             self.__lazy_pages_p = self.__criu_act("lazy-pages",
                                                   opts=lp_opts,
                                                   nowait=True)
