@@ -1273,7 +1273,8 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 		 */
 		if (opts.lazy_pages && pagemap_lazy(pr->pe)) {
 			pr_debug("Lazy restore skips %ld pages at %lx\n", nr_pages, va);
-			pr->skip_pages(pr, nr_pages * PAGE_SIZE);
+			if (pr->skip_pages(pr, nr_pages * PAGE_SIZE))
+				return -1;
 			nr_lazy += nr_pages;
 			continue;
 		}
@@ -1317,7 +1318,8 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 				if (pagemap_enqueue_iovec(pr, (void *)va, len, vma_io))
 					goto out;
 
-				pr->skip_pages(pr, len);
+				if (pr->skip_pages(pr, len))
+					return -1;
 
 				va += len;
 				len >>= PAGE_SHIFT;
