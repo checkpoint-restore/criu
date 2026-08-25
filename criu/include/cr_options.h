@@ -267,6 +267,13 @@ struct cr_options {
 	 */
 	unsigned int decompress_threads;
 
+	/*
+	 * When non-zero, private VMAs are premapped and populated in the
+	 * restore task before the PIE handoff; values above 1 set the
+	 * number of concurrent page-read threads.
+	 */
+	unsigned int premap_threads;
+
 	/* This stores which method to use for file validation. */
 	int file_validation_method;
 

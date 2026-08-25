@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <pthread.h>
+#include <signal.h>
 #include <string.h>
 #include <linux/falloc.h>
 #include <sys/uio.h>
@@ -860,6 +862,21 @@ static int pagemap_enqueue_iovec_one(struct page_read *pr, void *buf,
 		return enqueue_async_iov(pr, buf, len, to, storage);
 
 	/*
+	 * Bound uncompressed delayed-PIE batches. One contiguous VMA
+	 * otherwise coalesces into a single restore_vma_io record, and
+	 * restore_vma_aio() then drains it through one iocb in
+	 * MAX_RW_COUNT-sized rounds. Splitting the batch lets the AIO
+	 * window keep many reads in flight. In-process async reads get
+	 * the same bound when --premap-threads populates them with
+	 * concurrent readers; a lone caller drains them otherwise and
+	 * needs no cap.
+	 */
+	if (storage == VMA_IO_UNCOMPRESSED &&
+	    (to != &pr->async || opts.premap_threads > 1) &&
+	    cur_async->n_pages + len / PAGE_SIZE > PIE_DIRECT_BATCH_MAX_PAGES)
+		return enqueue_async_iov(pr, buf, len, to, storage);
+
+	/*
 	 * This read is pure continuation of the previous one. Let's
 	 * just add another IOV (or extend one of the existing).
 	 */
@@ -939,9 +956,39 @@ int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, st
 		return -1;
 	}
 
-	if (!pr->pe || !pr->pe->blocks)
-		return pagemap_enqueue_iovec_one(pr, buf, len, to,
-						VMA_IO_UNCOMPRESSED);
+	if (!pr->pe || !pr->pe->blocks) {
+		off_t start_off;
+
+		if ((to == &pr->async && opts.premap_threads <= 1) ||
+		    nr_pages <= PIE_DIRECT_BATCH_MAX_PAGES)
+			return pagemap_enqueue_iovec_one(pr, buf, len, to,
+							 VMA_IO_UNCOMPRESSED);
+
+		/*
+		 * Chunk an oversized delayed-PIE request so each piece gets
+		 * its own restore_vma_io record. The caller advances pi_off
+		 * for the whole request via skip_pages(), so walk it here
+		 * per chunk and put it back after.
+		 */
+		start_off = pr->pi_off;
+		while (done < nr_pages) {
+			unsigned long chunk = nr_pages - done;
+
+			if (chunk > PIE_DIRECT_BATCH_MAX_PAGES)
+				chunk = PIE_DIRECT_BATCH_MAX_PAGES;
+
+			ret = pagemap_enqueue_iovec_one(pr, (char *)buf + done * PAGE_SIZE,
+							chunk * PAGE_SIZE, to,
+							VMA_IO_UNCOMPRESSED);
+			if (ret)
+				break;
+
+			done += chunk;
+			pr->pi_off += chunk * PAGE_SIZE;
+		}
+		pr->pi_off = start_off;
+		return ret;
+	}
 
 	if (compressed_request_has_lz4(pr, nr_pages, &has_lz4,
 					&mixed_direct))
@@ -1703,6 +1750,139 @@ static void drain_async_queue(struct page_read *pr)
 		drain_async_queue(pr->parent);
 }
 
+/*
+ * Populate premapped memory with multiple reader threads. Each async
+ * record covers a disjoint image range and destination, so workers can
+ * take records independently off a shared cursor. Used when
+ * --premap-threads asks for concurrency and every record is a plain
+ * uncompressed read: no parent chain, dedup or compression involved.
+ */
+struct async_drain {
+	struct page_read_iov **piovs;
+	unsigned int nr;
+	unsigned int next;
+	int fd;
+	int err;
+};
+
+static void *async_drain_worker(void *arg)
+{
+	struct async_drain *d = arg;
+
+	for (;;) {
+		struct page_read_iov *piov;
+		unsigned int i;
+
+		i = __atomic_fetch_add(&d->next, 1, __ATOMIC_RELAXED);
+		if (i >= d->nr || __atomic_load_n(&d->err, __ATOMIC_RELAXED))
+			break;
+		piov = d->piovs[i];
+
+		while (piov->end > piov->from) {
+			ssize_t r = preadv(d->fd, piov->to, piov->nr, piov->from);
+
+			if (r < 0) {
+				pr_perror("Can't read async pr bytes (%ju off, %d iovs)",
+					  (uintmax_t)piov->from, piov->nr);
+				goto err;
+			}
+			if (r == 0) {
+				pr_err("Unexpected EOF reading pages: expected %ju more bytes at offset %ju\n",
+				       (uintmax_t)(piov->end - piov->from), (uintmax_t)piov->from);
+				goto err;
+			}
+			if (r == piov->end - piov->from)
+				break;
+			advance_piov(piov, r);
+		}
+	}
+	return NULL;
+err:
+	__atomic_store_n(&d->err, 1, __ATOMIC_RELAXED);
+	return NULL;
+}
+
+static bool async_reads_parallel_ok(struct page_read *pr)
+{
+	struct page_read_iov *piov;
+
+	if (opts.premap_threads <= 1 || pr->parent || opts.auto_dedup ||
+	    opts.stream || pr->io_complete || list_empty(&pr->async))
+		return false;
+
+	list_for_each_entry(piov, &pr->async, l) {
+		if (piov->storage != VMA_IO_UNCOMPRESSED)
+			return false;
+	}
+
+	return true;
+}
+
+/* Consumes and frees every queued record whether reads succeed or fail. */
+static int process_async_reads_parallel(struct page_read *pr, int fd)
+{
+	struct page_read_iov *piov, *n;
+	struct async_drain d = { .fd = fd };
+	pthread_t *tids = NULL;
+	unsigned int nr_threads, started = 0, i = 0;
+	sigset_t set, old;
+
+	list_for_each_entry(piov, &pr->async, l)
+		d.nr++;
+
+	d.piovs = xmalloc(d.nr * sizeof(*d.piovs));
+	if (!d.piovs)
+		goto err_drain;
+	list_for_each_entry(piov, &pr->async, l)
+		d.piovs[i++] = piov;
+
+	nr_threads = d.nr < opts.premap_threads ? d.nr : opts.premap_threads;
+	if (nr_threads > 1) {
+		tids = xmalloc((nr_threads - 1) * sizeof(*tids));
+		if (!tids)
+			goto err_drain;
+	}
+
+	pr_info("Reading %u async page records with %u threads\n", d.nr, nr_threads);
+
+	/*
+	 * Workers must not run the task's signal handlers; block everything
+	 * while spawning so they inherit a full mask, like the LZ4 pool.
+	 */
+	sigfillset(&set);
+	pthread_sigmask(SIG_SETMASK, &set, &old);
+	for (i = 0; i < nr_threads - 1; i++) {
+		if (pthread_create(&tids[i], NULL, async_drain_worker, &d)) {
+			pr_warn("Unable to start async read worker %u\n", i);
+			break;
+		}
+		started++;
+	}
+	pthread_sigmask(SIG_SETMASK, &old, NULL);
+
+	async_drain_worker(&d);
+
+	for (i = 0; i < started; i++)
+		pthread_join(tids[i], NULL);
+	xfree(tids);
+
+	list_for_each_entry_safe(piov, n, &pr->async, l) {
+		list_del(&piov->l);
+		xfree(piov->b_layout.sizes);
+		xfree(piov->block_pages);
+		xfree(piov->to);
+		xfree(piov);
+	}
+	xfree(d.piovs);
+
+	return __atomic_load_n(&d.err, __ATOMIC_RELAXED) ? -1 : 0;
+
+err_drain:
+	xfree(d.piovs);
+	drain_async_queue(pr);
+	return -1;
+}
+
 static bool page_read_chain_has_encoded_async(struct page_read *pr)
 {
 	struct page_read_iov *piov;
@@ -1759,6 +1939,9 @@ static int process_async_reads_ctx(struct page_read *pr,
 				pr_debug("posix_fadvise(WILLNEED) failed for async range\n");
 		}
 	}
+
+	if (async_reads_parallel_ok(pr))
+		return process_async_reads_parallel(pr, fd);
 
 	/* Consume and free each request only after its destination is complete. */
 	list_for_each_entry_safe(piov, n, &pr->async, l) {
@@ -2686,7 +2869,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	} else {
 		pr->maybe_read_page = maybe_read_page_local_compressed;
 		src = "local";
-		if (!pr->parent && !opts.lazy_pages)
+		if (!pr->parent && !opts.lazy_pages && !opts.premap_threads)
 			pr->pieok = true;
 	}
 
