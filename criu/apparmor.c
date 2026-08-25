@@ -570,23 +570,19 @@ static size_t aa_token_len(const char *pos)
 	return p - pos;
 }
 
-static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrite, bool suspend)
+static int resolve_aa_namespace_rewrite(AaNamespace *ns, char *rewrite,
+					char *namespace, size_t ns_sz,
+					char **next_rewrite_out)
 {
-	int i, my_offset, ret;
-	char namespace[PATH_MAX];
 	char *next_rewrite = NULL;
-
-	if (rewrite && suspend) {
-		pr_err("requesting aa rewriting and suspension at the same time is not supported\n");
-		return -1;
-	}
+	int i;
 
 	if (!rewrite) {
-		__strlcpy(namespace, ns->name, sizeof(namespace));
+		__strlcpy(namespace, ns->name, ns_sz);
 	} else {
 		if (*rewrite == ':') {
 			size_t len = strcspn(rewrite + 1, ":/");
-			if (len == 0 || len >= sizeof(namespace)) {
+			if (len == 0 || len >= ns_sz) {
 				pr_err("invalid or too long namespace in rewrite string %s\n", rewrite);
 				return -1;
 			}
@@ -598,7 +594,7 @@ static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrit
 			if (*next_rewrite == '\0')
 				next_rewrite = NULL;
 		} else {
-			__strlcpy(namespace, ns->name, sizeof(namespace));
+			__strlcpy(namespace, ns->name, ns_sz);
 			next_rewrite = rewrite;
 		}
 
@@ -620,6 +616,192 @@ static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrit
 			}
 		}
 	}
+
+	*next_rewrite_out = next_rewrite;
+	return 0;
+}
+
+static int suspend_one_policy(AaPolicy *p, const char *namespace, const char *replace_path)
+{
+	char file[PATH_MAX], clean_name[PATH_MAX], policy[1024];
+	struct apparmor_parser_replace_args r_args = {
+		.file = file,
+		.ns = (char *)namespace,
+		.is_binary = false,
+	};
+	void *data;
+	off_t len = 0;
+	int fd, n = -1, policy_len, j;
+
+	pr_info("suspending policy %s (namespace %s)\n", p->name, namespace);
+
+	policy_len = snprintf(policy, sizeof(policy), PARASITE_PROFILE, p->name);
+	if (policy_len > 0 && policy_len < sizeof(policy)) {
+		for (j = 0; p->name[j]; j++) {
+			if (j >= sizeof(clean_name) - 1)
+				break;
+			clean_name[j] = p->name[j] == '/' ? '.' : p->name[j];
+		}
+		clean_name[j] = '\0';
+
+		if (!p->name[j]) {
+			int n_file = snprintf(file, sizeof(file), "%s/%s", policydir, clean_name);
+			if (n_file >= 0 && n_file < sizeof(file)) {
+				int p_fd = open(file, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+				if (p_fd >= 0) {
+					if (write(p_fd, policy, policy_len) == policy_len) {
+						close(p_fd);
+						if (run_command(NULL, 0, apparmor_parser_replace_exec, &r_args) == 0) {
+							pr_info("suspended policy %s via apparmor_parser -r\n", p->name);
+							return 0;
+						}
+					} else {
+						close(p_fd);
+					}
+				}
+			}
+		}
+	}
+
+	data = get_suspend_policy(p->name, (char *)namespace, false, &len);
+	if (!data)
+		return -1;
+
+	fd = open(replace_path, O_WRONLY);
+	if (fd < 0) {
+		pr_perror("couldn't open apparmor load file %s", replace_path);
+		if (munmap(data, len) < 0)
+			pr_perror("failed to munmap");
+		return -1;
+	}
+
+	n = write(fd, data, len);
+	if (n < 0) {
+		int err1 = errno;
+		pr_err("attempt 1 (without -n, written to %s) failed: n=%d len=%ld errno=%d (%s)\n",
+		       replace_path, n, (long)len, err1, strerror(err1));
+		close(fd);
+		if (munmap(data, len) < 0)
+			pr_perror("failed to munmap attempt 1");
+
+		pr_err("retrying suspend policy compilation with -n %s via root interface\n", namespace);
+		fd = open(AA_SECURITYFS_PATH "/.replace", O_WRONLY);
+		if (fd < 0)
+			fd = open(AA_SECURITYFS_PATH "/policy/.replace", O_WRONLY);
+		if (fd < 0) {
+			pr_perror("couldn't open root replace interface " AA_SECURITYFS_PATH "/.replace");
+			return -1;
+		}
+		data = get_suspend_policy(p->name, (char *)namespace, true, &len);
+		if (!data) {
+			close(fd);
+			return -1;
+		}
+		n = write(fd, data, len);
+		if (n < 0) {
+			int err2 = errno;
+			pr_err("attempt 2 (with -n %s, written to root interface) failed: n=%d len=%ld errno=%d (%s)\n",
+			       namespace, n, (long)len, err2, strerror(err2));
+		}
+	}
+
+	close(fd);
+	if (munmap(data, len) < 0) {
+		pr_perror("failed to munmap");
+		return -1;
+	}
+
+	/*
+	 * When writing a replacement profile to an AppArmor .replace
+	 * interface, the kernel returns the total size of the profile load
+	 * data structure updated in the kernel, rather than the byte length
+	 * of the written input payload. Therefore, only check for negative
+	 * return values indicating write failures.
+	 */
+	if (n < 0) {
+		pr_perror("write AA policy %s in %s failed", p->name, namespace);
+		return -1;
+	}
+	if (n < len) {
+		pr_err("short write while loading AA policy %s in %s (n=%u len=%u)",
+		       p->name, namespace, n, (int)len);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int load_one_policy(AaPolicy *p, const char *namespace, const char *replace_path)
+{
+	void *data = p->blob.data;
+	off_t len = p->blob.len;
+	int fd, n;
+
+	fd = open(replace_path, O_WRONLY);
+	if (fd < 0) {
+		pr_perror("couldn't open apparmor load file %s", replace_path);
+		return -1;
+	}
+
+	n = write(fd, data, len);
+	close(fd);
+
+	if (n < 0) {
+		char tmp_bin[] = "/tmp/.criu.aa.XXXXXX";
+		int tfd = mkstemp(tmp_bin);
+		if (tfd >= 0) {
+			if (write(tfd, data, len) == len) {
+				struct apparmor_parser_replace_args r_args = {
+					.file = tmp_bin,
+					.ns = (char *)namespace,
+					.is_binary = true,
+				};
+				close(tfd);
+				if (run_command(NULL, 0, apparmor_parser_replace_exec, &r_args) == 0) {
+					pr_info("loaded aa policy %s via apparmor_parser -r -B\n", p->name);
+					n = len;
+				}
+			} else {
+				close(tfd);
+			}
+			unlink(tmp_bin);
+		}
+	}
+
+	/*
+	 * When writing a replacement profile to an AppArmor .replace
+	 * interface, the kernel returns the total size of the profile load
+	 * data structure updated in the kernel, rather than the byte length
+	 * of the written input payload. Therefore, only check for negative
+	 * return values indicating write failures.
+	 */
+	if (n < 0) {
+		pr_perror("write AA policy %s in %s failed", p->name, namespace);
+		return -1;
+	}
+	if (n < len) {
+		pr_err("short write while loading AA policy %s in %s (n=%u len=%u)",
+		       p->name, namespace, n, (int)len);
+		return -1;
+	}
+
+	pr_info("wrote aa policy %s: %s %d\n", replace_path, p->name, n);
+	return 0;
+}
+
+static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrite, bool suspend)
+{
+	int i, my_offset, ret;
+	char namespace[PATH_MAX];
+	char *next_rewrite = NULL;
+
+	if (rewrite && suspend) {
+		pr_err("requesting aa rewriting and suspension at the same time is not supported\n");
+		return -1;
+	}
+
+	if (resolve_aa_namespace_rewrite(ns, rewrite, namespace, sizeof(namespace), &next_rewrite) < 0)
+		return -1;
 
 	my_offset = snprintf(path + offset, PATH_MAX - offset, "/namespaces/%s", namespace);
 	if (my_offset < 0 || my_offset >= PATH_MAX - offset) {
@@ -645,139 +827,15 @@ static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrit
 
 	for (i = 0; i < ns->n_policies; i++) {
 		AaPolicy *p = ns->policies[i];
-		void *data = p->blob.data;
-		int fd, n = -1;
-		off_t len = p->blob.len;
+		int res;
 
-		if (suspend) {
-			char file[PATH_MAX], clean_name[PATH_MAX], policy[1024];
-			struct apparmor_parser_replace_args r_args = {
-				.file = file,
-				.ns = namespace,
-				.is_binary = false,
-			};
-			int policy_len, j;
+		if (suspend)
+			res = suspend_one_policy(p, namespace, path);
+		else
+			res = load_one_policy(p, namespace, path);
 
-			pr_info("suspending policy %s (namespace %s)\n", p->name, namespace);
-
-			policy_len = snprintf(policy, sizeof(policy), PARASITE_PROFILE, p->name);
-			if (policy_len > 0 && policy_len < sizeof(policy)) {
-				for (j = 0; p->name[j]; j++) {
-					if (j >= sizeof(clean_name) - 1)
-						break;
-					clean_name[j] = p->name[j] == '/' ? '.' : p->name[j];
-				}
-				clean_name[j] = '\0';
-
-				if (!p->name[j]) {
-					int n_file = snprintf(file, sizeof(file), "%s/%s", policydir, clean_name);
-					if (n_file >= 0 && n_file < sizeof(file)) {
-						int p_fd = open(file, O_CREAT | O_WRONLY | O_TRUNC, 0600);
-						if (p_fd >= 0) {
-							if (write(p_fd, policy, policy_len) == policy_len) {
-								close(p_fd);
-								if (run_command(NULL, 0, apparmor_parser_replace_exec, &r_args) == 0) {
-									pr_info("suspended policy %s via apparmor_parser -r\n", p->name);
-									continue;
-								}
-							} else {
-								close(p_fd);
-							}
-						}
-					}
-				}
-			}
-
-			data = get_suspend_policy(p->name, namespace, false, &len);
-			if (!data)
-				goto fail;
-		}
-
-		fd = open(path, O_WRONLY);
-		if (fd < 0) {
-			pr_perror("couldn't open apparmor load file %s", path);
-			if (suspend && munmap(data, len) < 0)
-				pr_perror("failed to munmap");
+		if (res < 0)
 			goto fail;
-		}
-
-		n = write(fd, data, len);
-		if (n < 0 && suspend) {
-			int err1 = errno;
-			pr_err("attempt 1 (without -n, written to %s) failed: n=%d len=%ld errno=%d (%s)\n",
-			       path, n, (long)len, err1, strerror(err1));
-			close(fd);
-			if (munmap(data, len) < 0)
-				pr_perror("failed to munmap attempt 1");
-
-			pr_err("retrying suspend policy compilation with -n %s via root interface\n", namespace);
-			fd = open(AA_SECURITYFS_PATH "/.replace", O_WRONLY);
-			if (fd < 0)
-				fd = open(AA_SECURITYFS_PATH "/policy/.replace", O_WRONLY);
-			if (fd < 0) {
-				pr_perror("couldn't open root replace interface " AA_SECURITYFS_PATH "/.replace");
-				goto fail;
-			}
-			data = get_suspend_policy(p->name, namespace, true, &len);
-			if (!data) {
-				close(fd);
-				goto fail;
-			}
-			n = write(fd, data, len);
-			if (n < 0) {
-				int err2 = errno;
-				pr_err("attempt 2 (with -n %s, written to root interface) failed: n=%d len=%ld errno=%d (%s)\n",
-				       namespace, n, (long)len, err2, strerror(err2));
-			}
-		}
-
-		close(fd);
-		if (suspend && munmap(data, len) < 0) {
-			pr_perror("failed to munmap");
-			goto fail;
-		}
-
-		if (!suspend && n < 0) {
-			char tmp_bin[] = "/tmp/.criu.aa.XXXXXX";
-			int tfd = mkstemp(tmp_bin);
-			if (tfd >= 0) {
-				if (write(tfd, data, len) == len) {
-					struct apparmor_parser_replace_args r_args = {
-						.file = tmp_bin,
-						.ns = namespace,
-						.is_binary = true,
-					};
-					close(tfd);
-					if (run_command(NULL, 0, apparmor_parser_replace_exec, &r_args) == 0) {
-						pr_info("loaded aa policy %s via apparmor_parser -r -B\n", p->name);
-						n = len;
-					}
-				} else {
-					close(tfd);
-				}
-				unlink(tmp_bin);
-			}
-		}
-
-		/*
-		 * When writing a replacement profile to an AppArmor .replace
-		 * interface, the kernel returns the total size of the profile load
-		 * data structure updated in the kernel, rather than the byte length
-		 * of the written input payload. Therefore, only check for negative
-		 * return values indicating write failures.
-		 */
-		if (n < 0) {
-			pr_perror("write AA policy %s in %s failed", p->name, namespace);
-			goto fail;
-		}
-		if (n < len) {
-			pr_err("short write while loading AA policy %s in %s (n=%u len=%u)",
-			       p->name, namespace, n, (int)len);
-			goto fail;
-		}
-
-		if (!suspend)
-			pr_info("wrote aa policy %s: %s %d\n", path, p->name, n);
 	}
 
 	return 0;
