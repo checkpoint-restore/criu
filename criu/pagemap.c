@@ -1825,6 +1825,7 @@ static int process_async_reads_parallel(struct page_read *pr, int fd)
 	struct async_drain d = { .fd = fd };
 	pthread_t *tids = NULL;
 	unsigned int nr_threads, started = 0, i = 0;
+	uint64_t total = 0, largest = 0;
 	sigset_t set, old;
 
 	list_for_each_entry(piov, &pr->async, l)
@@ -1833,8 +1834,14 @@ static int process_async_reads_parallel(struct page_read *pr, int fd)
 	d.piovs = xmalloc(d.nr * sizeof(*d.piovs));
 	if (!d.piovs)
 		goto err_drain;
-	list_for_each_entry(piov, &pr->async, l)
+	list_for_each_entry(piov, &pr->async, l) {
+		uint64_t sz = piov->end - piov->from;
+
 		d.piovs[i++] = piov;
+		total += sz;
+		if (sz > largest)
+			largest = sz;
+	}
 
 	nr_threads = d.nr < opts.premap_threads ? d.nr : opts.premap_threads;
 	if (nr_threads > 1) {
@@ -1843,7 +1850,14 @@ static int process_async_reads_parallel(struct page_read *pr, int fd)
 			goto err_drain;
 	}
 
-	pr_info("Reading %u async page records with %u threads\n", d.nr, nr_threads);
+	/*
+	 * The record count bounds the usable parallelism and the largest
+	 * record bounds the tail: log both so an unsplit record shows up
+	 * without extra instrumentation.
+	 */
+	pr_info("Reading %u async page records (%ju MB, largest %ju MB) with %u threads\n",
+		d.nr, (uintmax_t)(total >> 20), (uintmax_t)(largest >> 20),
+		nr_threads);
 
 	/*
 	 * Workers must not run the task's signal handlers; block everything
