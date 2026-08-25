@@ -750,6 +750,18 @@ int libsoccr_restore(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsi
 			wopt.rcv_wnd++;
 		}
 
+		/*
+		 * Kernel's tcp_repair_set_window() returns -EINVAL if
+		 * after(opt.snd_wl1, tp->rcv_nxt + opt.rcv_wnd).
+		 *
+		 * When rcv_wnd is zero or retracted, snd_wl1 may legitimately
+		 * exceed data->inq_seq + wopt.rcv_wnd (e.g. zero-window probe
+		 * or out-of-order segment received within previous window).
+		 * Clamp snd_wl1 to pass kernel validation.
+		 */
+		if ((int32_t)(wopt.snd_wl1 - (data->inq_seq + wopt.rcv_wnd)) > 0)
+			wopt.snd_wl1 = data->inq_seq + wopt.rcv_wnd;
+
 		if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_WINDOW, &wopt, sizeof(wopt))) {
 			logerr("Unable to set window parameters");
 			return -1;
