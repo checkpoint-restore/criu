@@ -80,13 +80,28 @@ static int fill_sock_buf(int fd)
 
 static int clean_sk_buf(int fd, int limit)
 {
+	int flags = 0;
 	int size, ret;
 	char buf[BUF_SIZE];
+
+	if (limit) {
+		flags = fcntl(fd, F_GETFL, 0);
+		if (flags == -1) {
+			pr_perror("Can't get flags");
+			return -1;
+		}
+		if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+			pr_perror("Can't set flags");
+			return -1;
+		}
+	}
 
 	size = 0;
 	while (1) {
 		ret = read(fd, buf, sizeof(buf));
 		if (ret == -1) {
+			if (limit && (errno == EAGAIN || errno == EWOULDBLOCK))
+				break;
 			pr_perror("read");
 			return -11;
 		}
@@ -98,6 +113,13 @@ static int clean_sk_buf(int fd, int limit)
 
 		if (limit && size >= limit)
 			break;
+	}
+
+	if (limit) {
+		if (fcntl(fd, F_SETFL, flags) == -1) {
+			pr_perror("Can't set flags");
+			return -1;
+		}
 	}
 
 	return size;
@@ -165,7 +187,7 @@ int main(int argc, char **argv)
 
 			if (rcv_buf_size / 2) {
 				ret = clean_sk_buf(fd, rcv_buf_size / 2);
-				if (ret <= 0)
+				if (ret < 0)
 					return 1;
 			} else
 				ret = 0;
@@ -262,7 +284,7 @@ int main(int argc, char **argv)
 		/* heart beat */
 		if (rcv_buf_size / 2) {
 			ret = clean_sk_buf(fd, rcv_buf_size / 2);
-			if (ret <= 0)
+			if (ret < 0)
 				return 1;
 		} else
 			ret = 0;
