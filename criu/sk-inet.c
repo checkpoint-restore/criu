@@ -528,11 +528,8 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	ie.dst_port = sk->dst_port;
 	ie.backlog = sk->wqlen;
 	ie.flags = p->flags;
-
-	if (sk->uid != 0) {
-		ie.uid = userns_uid(sk->uid);
-		ie.has_uid = true;
-	}
+	ie.uid = userns_uid(sk->uid);
+	ie.has_uid = true;
 
 	ie.fown = (FownEntry *)&p->fown;
 	ie.opts = &skopts;
