@@ -1,7 +1,7 @@
 PLUGIN_NAME := cuda_plugin
 PLUGIN_SOBJ := cuda_plugin.so
-PLUGIN_SRCS := cuda_plugin.c cuda_plugin_driver.c cuda_plugin_cli.c
-PLUGIN_HEADERS := cuda_plugin.h cuda_checkpoint.h
+PLUGIN_SRCS := cuda_plugin.c cuda_plugin_driver.c cuda_plugin_cli.c cuda_device_map.c cuda.pb-c.c
+PLUGIN_HEADERS := cuda_plugin.h cuda_checkpoint.h cuda_device_map.h
 
 DEPS_CUDA := $(PLUGIN_SOBJ)
 
@@ -19,13 +19,16 @@ include $(__nmk_dir)msg.mk
 
 all: $(DEPS_CUDA)
 
+cuda.pb-c.c: cuda.proto
+	$(Q) protoc --proto_path=. --c_out=. cuda.proto
+
 cuda_plugin.so: $(PLUGIN_SRCS) $(PLUGIN_HEADERS)
 	$(call msg-gen, $@)
 	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl
 
 clean:
 	$(call msg-clean, $@)
-	$(Q) $(RM) $(PLUGIN_SOBJ)
+	$(Q) $(RM) $(PLUGIN_SOBJ) cuda.pb-c.c cuda.pb-c.h
 .PHONY: clean
 
 mrproper: clean
