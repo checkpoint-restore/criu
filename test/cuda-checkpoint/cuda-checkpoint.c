@@ -7,10 +7,40 @@
 #include <time.h>
 #include <unistd.h>
 
-static const char *read_state(void)
+static int record_value(const char *environment, const char *value)
+{
+	const char *path = getenv(environment);
+	FILE *file;
+
+	if (!path)
+		return 0;
+
+	file = fopen(path, "a");
+	if (!file) {
+		perror("Unable to open CUDA CLI value marker");
+		return -1;
+	}
+	fprintf(file, "%s\n", value);
+	fclose(file);
+	return 0;
+}
+
+/* Keep one state per task when a test tracks several tasks. */
+static const char *state_path(int pid)
+{
+	static char path[4096];
+	const char *base = getenv("CRIU_CUDA_MOCK_STATE_FILE");
+
+	if (!base || !getenv("CRIU_CUDA_MOCK_STATE_PER_PID"))
+		return base;
+	snprintf(path, sizeof(path), "%s.%d", base, pid);
+	return path;
+}
+
+static const char *read_state(int pid)
 {
 	static char state[32];
-	const char *path = getenv("CRIU_CUDA_MOCK_STATE_FILE");
+	const char *path = state_path(pid);
 	FILE *file;
 	size_t length;
 
@@ -29,9 +59,9 @@ static const char *read_state(void)
 	return state;
 }
 
-static int write_state(const char *state)
+static int write_state(int pid, const char *state)
 {
-	const char *path = getenv("CRIU_CUDA_MOCK_STATE_FILE");
+	const char *path = state_path(pid);
 	FILE *file;
 
 	if (!path)
@@ -53,7 +83,7 @@ int main(int argc, char *argv[])
 	const char *action = NULL;
 	const char *operation = "help";
 	FILE *marker_file;
-	int c, pid = 0;
+	int c, pid = 0, get_state = 0;
 
 	marker = getenv("CRIU_CUDA_MOCK_CLI_MARKER");
 	if (marker) {
@@ -77,11 +107,12 @@ int main(int argc, char *argv[])
 			{ "get-restore-tid", no_argument, 0, 'g' },
 			{ "action", required_argument, 0, 'a' },
 			{ "timeout", required_argument, 0, 't' },
+			{ "device-map", required_argument, 0, 'm' },
 			{ "help", no_argument, 0, 'h' },
 			{ 0, 0, 0, 0 }
 		};
 
-		c = getopt_long(argc, argv, "p:ga:ht:",
+		c = getopt_long(argc, argv, "p:ga:ht:m:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -89,7 +120,8 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'p':
 			pid = atoi(optarg);
-			printf("%s\n", optarg);
+			if (!get_state)
+				printf("%s\n", optarg);
 			break;
 		case 'g':
 			operation = "get-tid";
@@ -108,12 +140,18 @@ int main(int argc, char *argv[])
 				fclose(marker_file);
 			}
 			break;
+		case 'm':
+			if (record_value("CRIU_CUDA_MOCK_DEVICE_MAP_MARKER", optarg))
+				return 1;
+			break;
 		case 's':
 			operation = "get-state";
-			printf("%s\n", read_state());
+			get_state = 1;
 			break;
 		case 'h':
-			printf("--action - execute an action");
+			printf("--action - execute an action\n");
+			if (!getenv("CRIU_CUDA_MOCK_NO_DEVICE_MAP"))
+				printf("--device-map - remap CUDA GPUs\n");
 			break;
 
 		default:
@@ -130,6 +168,10 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	/* The state depends on --pid, which follows --get-state. */
+	if (get_state)
+		printf("%s\n", read_state(pid));
+
 	marker = getenv("CRIU_CUDA_MOCK_API_MARKER");
 	if (marker) {
 		marker_file = fopen(marker, "a");
@@ -144,7 +186,7 @@ int main(int argc, char *argv[])
 		const char *lock_hang = getenv("CRIU_CUDA_MOCK_LOCK_HANG");
 
 		if (!strcmp(action, "lock") && lock_hang) {
-			if (!strncmp(lock_hang, "locked", strlen("locked")) && write_state("locked"))
+			if (!strncmp(lock_hang, "locked", strlen("locked")) && write_state(pid, "locked"))
 				return 1;
 			if (strstr(lock_hang, "closed-output")) {
 				close(STDOUT_FILENO);
@@ -186,15 +228,15 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		if (!strcmp(action, "lock") || !strcmp(action, "restore")) {
-			if (write_state("locked"))
+			if (write_state(pid, "locked"))
 				return 1;
 		} else if (!strcmp(action, "checkpoint")) {
-			if (write_state("checkpointed"))
+			if (write_state(pid, "checkpointed"))
 				return 1;
 			if (getenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION"))
 				return 1;
 		} else if (!strcmp(action, "unlock")) {
-			if (write_state("running"))
+			if (write_state(pid, "running"))
 				return 1;
 		}
 	}
