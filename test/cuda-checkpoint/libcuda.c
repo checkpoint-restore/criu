@@ -20,6 +20,8 @@
 #define MOCK_CUDA_SUCCESS	      0
 #define MOCK_CUDA_ERROR_INVALID_VALUE 1
 #define MOCK_PROCESS_MAX	      64
+#define MOCK_GPU_COUNT		      4
+#define MOCK_DEVICE_HANDLE_BASE	      100
 
 #ifndef MOCK_CUDA_DRIVER_VERSION
 #define MOCK_CUDA_DRIVER_VERSION 13000
@@ -115,6 +117,49 @@ mock_cuda_result_t cuInit(unsigned int flags)
 		for (;;)
 			pause();
 	}
+	return MOCK_CUDA_SUCCESS;
+}
+
+mock_cuda_result_t cuDeviceGetCount(int *count)
+{
+	if (!count)
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+
+	*count = MOCK_GPU_COUNT;
+	return MOCK_CUDA_SUCCESS;
+}
+
+mock_cuda_result_t cuDeviceGet(int *device, int ordinal)
+{
+	if (!device || ordinal < 0 || ordinal >= MOCK_GPU_COUNT)
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+
+	/* Device handles differ from ordinals so callers must use cuDeviceGet(). */
+	*device = MOCK_DEVICE_HANDLE_BASE + ordinal;
+	return MOCK_CUDA_SUCCESS;
+}
+
+/* Like a MIG instance, the original symbol reports only a parent GPU UUID. */
+mock_cuda_result_t cuDeviceGetUuid(void *uuid, int device)
+{
+	if (!uuid || device < MOCK_DEVICE_HANDLE_BASE || device >= MOCK_DEVICE_HANDLE_BASE + MOCK_GPU_COUNT)
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+
+	memset(uuid, 0xee, 16);
+	return MOCK_CUDA_SUCCESS;
+}
+
+mock_cuda_result_t cuDeviceGetUuid_v2(void *uuid, int device)
+{
+	unsigned char *bytes = uuid;
+	unsigned int i;
+
+	if (!uuid || device < MOCK_DEVICE_HANDLE_BASE || device >= MOCK_DEVICE_HANDLE_BASE + MOCK_GPU_COUNT)
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+	device -= MOCK_DEVICE_HANDLE_BASE;
+
+	for (i = 0; i < 16; i++)
+		bytes[i] = (unsigned char)((unsigned int)device * 16 + i);
 	return MOCK_CUDA_SUCCESS;
 }
 
