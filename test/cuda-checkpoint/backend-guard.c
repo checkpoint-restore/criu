@@ -28,6 +28,7 @@
 #include <compel/log.h>
 
 #include "cr_options.h"
+#include "cuda_device_map.h"
 #include "cuda_plugin.h"
 #include "pid.h"
 #include "plugin.h"
@@ -196,6 +197,26 @@ long __wrap_ptrace(int request, ...)
 	return syscall(SYS_ptrace, request, pid, addr, data);
 }
 
+long __real_syscall(long number, ...);
+
+/* Let a test make the worker's SIGSTOP notification fail. */
+long __wrap_syscall(long number, ...)
+{
+	long args[6];
+	va_list list;
+	int i;
+
+	va_start(list, number);
+	for (i = 0; i < 6; i++)
+		args[i] = va_arg(list, long);
+	va_end(list);
+	if (number == SYS_tgkill && args[2] == SIGSTOP && getenv("CRIU_CUDA_TEST_TGKILL_EPERM")) {
+		errno = EPERM;
+		return -1;
+	}
+	return __real_syscall(number, args[0], args[1], args[2], args[3], args[4], args[5]);
+}
+
 struct target_args {
 	const char *trigger;
 	int ready;
@@ -328,8 +349,9 @@ static void check_log(const char *expected)
 static void run_case(const char *directory, const char *behavior,
 		     const struct cuda_plugin_backend *backend)
 {
-	char marker[512], trigger[512], log_path[512], state_path[512];
+	char marker[512], trigger[512], mapping[512], log_path[512], state_path[512];
 	bool success = !strcmp(behavior, "success") || !strcmp(behavior, "unrelated") ||
+		       !strcmp(behavior, "notify-eperm") ||
 		       !strncmp(behavior, "delayed-success", strlen("delayed-success"));
 	bool helper_error = !strcmp(behavior, "exit");
 	bool completed = success || !strcmp(behavior, "api-error") || helper_error;
@@ -341,6 +363,13 @@ static void run_case(const char *directory, const char *behavior,
 	bool init_fault = !strcmp(behavior, "init-fault");
 	bool unrelated = !strcmp(behavior, "unrelated");
 	bool target_dead = !strcmp(behavior, "target-exit") || !strcmp(behavior, "target-kill");
+	CUcheckpointGpuPair pair = { .oldUuid = { 1 }, .newUuid = { 2 } };
+	struct cuda_device_map map = {
+		.pairs = &pair,
+		.count = 1,
+		.cli_value = "GPU-01000000-0000-0000-0000-000000000000="
+			     "GPU-02000000-0000-0000-0000-000000000000",
+	};
 	k_rtsigset_t original_mask, restored_mask;
 	sigset_t original_tracer_mask, tracer_mask;
 	struct sigaction original_action, action;
@@ -354,6 +383,7 @@ static void run_case(const char *directory, const char *behavior,
 
 	assert(snprintf(marker, sizeof(marker), "%s/%s.calls", directory, behavior) > 0);
 	assert(snprintf(trigger, sizeof(trigger), "%s/%s.fault", directory, behavior) > 0);
+	assert(snprintf(mapping, sizeof(mapping), "%s/%s.map", directory, behavior) > 0);
 	assert(snprintf(log_path, sizeof(log_path), "%s/%s.log", directory, behavior) > 0);
 	assert(snprintf(state_path, sizeof(state_path), "%s/%s.state", directory, behavior) > 0);
 	assert(setenv("CRIU_CUDA_MOCK_API_MARKER", marker, 1) == 0);
@@ -365,6 +395,9 @@ static void run_case(const char *directory, const char *behavior,
 	assert(unsetenv("CRIU_CUDA_MOCK_RESTORE_BEHAVIOR") == 0);
 	assert(unsetenv("CRIU_CUDA_MOCK_INIT_FAULT") == 0);
 	assert(unsetenv("CRIU_CUDA_MOCK_RESTORE_TID") == 0);
+	assert(unsetenv("CRIU_CUDA_TEST_TGKILL_EPERM") == 0);
+	if (!strcmp(behavior, "notify-eperm"))
+		assert(setenv("CRIU_CUDA_TEST_TGKILL_EPERM", "1", 1) == 0);
 	if (restore_fault || init_fault)
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "success", 1) == 0);
 	if (restore_fault)
@@ -373,6 +406,7 @@ static void run_case(const char *directory, const char *behavior,
 		assert(setenv("CRIU_CUDA_MOCK_INIT_FAULT", "1", 1) == 0);
 	if (!strcmp(behavior, "blocked-fault"))
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "fault", 1) == 0);
+	assert(unsetenv("CRIU_CUDA_MOCK_DEVICE_MAP_MARKER") == 0);
 	if (!strcmp(behavior, "api-error"))
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION", "1", 1) == 0);
 	if (!strcmp(behavior, "init-hang"))
@@ -384,6 +418,8 @@ static void run_case(const char *directory, const char *behavior,
 		cuda_plugin_timeout = 1;
 	if (stop_timeout)
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "success", 1) == 0);
+	if (success)
+		assert(setenv("CRIU_CUDA_MOCK_DEVICE_MAP_MARKER", mapping, 1) == 0);
 	if (freezing)
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "hang", 1) == 0);
 	if (!strcmp(behavior, "criu-timeout-finite") || !strcmp(behavior, "stop-timeout-finite"))
@@ -498,7 +534,19 @@ static void run_case(const char *directory, const char *behavior,
 		assert(!memcmp(&original_mask, &restored_mask, sizeof(original_mask)));
 	}
 	if (success) {
-		assert(backend->resume_devices_late(pid, NULL) == 0);
+		FILE *file;
+		char line[256];
+
+		assert(backend->resume_devices_late(pid, &map) == 0);
+		file = fopen(mapping, "r");
+		assert(file);
+		assert(fgets(line, sizeof(line), file));
+		assert(!strcmp(line, "GPU-01000000-0000-0000-0000-000000000000="
+				     "GPU-02000000-0000-0000-0000-000000000000\n"));
+		assert(fgetc(file) == EOF);
+		fclose(file);
+		if (!strcmp(behavior, "notify-eperm"))
+			check_log("Unable to stop CUDA restore tid");
 	} else if (!completed) {
 		if (stop_timeout) {
 			check_log("stop CUDA restore thread");
@@ -550,8 +598,170 @@ static void run_case(const char *directory, const char *behavior,
 	fclose(log_file);
 	unlink(marker);
 	unlink(trigger);
+	unlink(mapping);
 	unlink(log_path);
 	unlink(state_path);
+}
+
+static int count_api_calls(const char *path, const char *operation, pid_t pid)
+{
+	FILE *file = fopen(path, "r");
+	char name[32];
+	int target, caller, count = 0;
+
+	assert(file);
+	while (fscanf(file, "%31s %d %d", name, &target, &caller) == 3)
+		count += !strcmp(name, operation) && target == pid;
+	assert(feof(file));
+	fclose(file);
+	return count;
+}
+
+static void reset_mock_environment(const char *directory, const char *name, char *marker, size_t size)
+{
+	char path[512];
+
+	assert(snprintf(marker, size, "%s/%s.calls", directory, name) < (int)size);
+	assert(snprintf(path, sizeof(path), "%s/%s.state", directory, name) < (int)sizeof(path));
+	assert(setenv("CRIU_CUDA_MOCK_API_MARKER", marker, 1) == 0);
+	assert(setenv("CRIU_CUDA_MOCK_STATE_FILE", path, 1) == 0);
+	assert(setenv("CRIU_CUDA_MOCK_STATE_PER_PID", "1", 1) == 0);
+	assert(unsetenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR") == 0);
+	assert(unsetenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION") == 0);
+	assert(unsetenv("CRIU_CUDA_MOCK_RESTORE_BEHAVIOR") == 0);
+	assert(unsetenv("CRIU_CUDA_MOCK_RESTORE_TID") == 0);
+	assert(unsetenv("CRIU_CUDA_MOCK_DEVICE_MAP_MARKER") == 0);
+	assert(snprintf(path, sizeof(path), "%s/%s.log", directory, name) < (int)sizeof(path));
+	log_file = fopen(path, "w+");
+	assert(log_file);
+	cuda_plugin_timeout = 0;
+}
+
+static void reap_killed(pid_t pid)
+{
+	int status;
+
+	kill(pid, SIGKILL);
+	assert(waitpid(pid, &status, __WALL) == pid);
+	assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL);
+}
+
+/* PAUSE_DEVICES locked a task, but CRIU failed to seize it. Rollback must
+ * unlock it without ptrace because its restore thread is still running.
+ */
+static void run_unseized_rollback(const char *directory, const struct cuda_plugin_backend *backend)
+{
+	char marker[512], trigger[512];
+	pid_t pid, tid;
+
+	reset_mock_environment(directory, "unseized", marker, sizeof(marker));
+	assert(snprintf(trigger, sizeof(trigger), "%s/unseized.fault", directory) < (int)sizeof(trigger));
+	assert(pipe(target_pipe) == 0);
+	pid = start_target(trigger, false, false, &tid);
+	close(target_pipe[0]);
+
+	assert(backend->init(CR_PLUGIN_STAGE__DUMP) == 0);
+	assert(backend->probe(false) == 0);
+	assert(backend->pause_devices(pid) == 0);
+	assert(backend->dump_finish(-1) == 0);
+	assert(count_api_calls(marker, "lock", pid) == 1);
+	assert(count_api_calls(marker, "unlock", pid) == 1);
+	check_log("was not seized");
+	backend->fini(CR_PLUGIN_STAGE__DUMP, -1);
+
+	reap_killed(pid);
+	fclose(log_file);
+}
+
+/* A fault on one task must not prevent rollback of the other tasks. */
+static void run_sibling_rollback(const char *directory, const struct cuda_plugin_backend *backend)
+{
+	char marker[512], trigger_a[512], trigger_b[512], value[32];
+	pid_t pid_a, pid_b, tid;
+	int ret;
+
+	reset_mock_environment(directory, "sibling", marker, sizeof(marker));
+	assert(snprintf(trigger_a, sizeof(trigger_a), "%s/sibling-a.fault", directory) <
+	       (int)sizeof(trigger_a));
+	assert(snprintf(trigger_b, sizeof(trigger_b), "%s/sibling-b.fault", directory) <
+	       (int)sizeof(trigger_b));
+	assert(pipe(target_pipe) == 0);
+	pid_b = start_target(trigger_b, false, false, &tid);
+	close(target_pipe[0]);
+	assert(pipe(target_pipe) == 0);
+	pid_a = start_target(trigger_a, false, false, &tid);
+	snprintf(value, sizeof(value), "%d", target_pipe[0]);
+	assert(setenv("CRIU_CUDA_MOCK_TARGET_PIPE", value, 1) == 0);
+	snprintf(value, sizeof(value), "%d", pid_a);
+	assert(setenv("CRIU_CUDA_MOCK_TARGET_PID", value, 1) == 0);
+
+	assert(backend->init(CR_PLUGIN_STAGE__DUMP) == 0);
+	assert(backend->probe(false) == 0);
+	assert(backend->pause_devices(pid_b) == 0);
+	assert(backend->pause_devices(pid_a) == 0);
+	stop_target(pid_b);
+	stop_target(pid_a);
+	assert(backend->checkpoint_devices(pid_b) == 0);
+
+	assert(setenv("CRIU_CUDA_MOCK_FAULT_TRIGGER", trigger_a, 1) == 0);
+	assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "fault", 1) == 0);
+	assert(backend->checkpoint_devices(pid_a) != 0);
+	assert(unsetenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR") == 0);
+	/* No new operation starts after the fault. */
+	assert(backend->pause_devices(getpid()) != 0);
+
+	ret = backend->dump_finish(-1);
+	assert(ret != 0);
+	assert(count_api_calls(marker, "restore", pid_b) == 1);
+	assert(count_api_calls(marker, "unlock", pid_b) == 1);
+	assert(count_api_calls(marker, "restore", pid_a) == 0);
+	assert(count_api_calls(marker, "unlock", pid_a) == 0);
+	backend->fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+	close(target_pipe[0]);
+	reap_killed(pid_b);
+	reap_killed(pid_a);
+	fclose(log_file);
+}
+
+/* The multi-task cases leave per-task mock state files behind. */
+static void remove_files(const char *path)
+{
+	DIR *directory = opendir(path);
+	struct dirent *entry;
+
+	assert(directory);
+	while ((entry = readdir(directory))) {
+		if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
+			assert(unlinkat(dirfd(directory), entry->d_name, 0) == 0);
+	}
+	closedir(directory);
+}
+
+static int run_isolated(const char *directory, const char *name, const struct cuda_plugin_backend *backend,
+			void (*test)(const char *directory, const struct cuda_plugin_backend *backend))
+{
+	pid_t child;
+	int status;
+
+	/* Start without a fault trigger or call log from the other backend. */
+	remove_files(directory);
+	child = fork();
+	assert(child >= 0);
+	if (!child) {
+		assert(setpgid(0, 0) == 0);
+		alarm(8);
+		test(directory, backend);
+		_exit(0);
+	}
+	assert(waitpid(child, &status, 0) == child);
+	kill(-child, SIGKILL);
+	if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+		fprintf(stderr, "%s guard case %s failed (status %#x), artifacts: %s\n",
+			backend->name, name, status, directory);
+		return 1;
+	}
+	return 0;
 }
 
 int main(int argc, char **argv)
@@ -560,7 +770,7 @@ int main(int argc, char **argv)
 	char directory[PATH_MAX];
 	const char *driver_cases[] = { "success", "api-error", "fault", "trap", "blocked-fault",
 				       "target-exit", "target-kill", "restore-fault", "init-fault",
-				       "unrelated", NULL };
+				       "unrelated", "notify-eperm", NULL };
 	const char *cli_cases[] = { "success", "api-error", "fault", "late-fault", "late-group-stop",
 				    "hang", "criu-timeout", "criu-timeout-finite", "signal", "exit",
 				    "delayed-success", "delayed-timeout", "delayed-success-closed-output",
@@ -601,6 +811,15 @@ int main(int argc, char **argv)
 			}
 		}
 	}
+	for (j = 0; j < sizeof(backends) / sizeof(backends[0]); j++) {
+		if ((argc <= 1 || !strcmp(argv[1], "unseized")) &&
+		    run_isolated(directory, "unseized", backends[j], run_unseized_rollback))
+			return 1;
+		if ((argc <= 1 || !strcmp(argv[1], "sibling")) &&
+		    run_isolated(directory, "sibling", backends[j], run_sibling_rollback))
+			return 1;
+	}
+	remove_files(directory);
 	assert(rmdir(directory) == 0);
 	puts("CUDA backend guard regression tests PASS");
 	return 0;
