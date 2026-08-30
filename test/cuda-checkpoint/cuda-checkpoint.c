@@ -4,9 +4,50 @@
 #include <stdlib.h>
 #include <string.h>
 
+static const char *read_state(void)
+{
+	static char state[32];
+	const char *path = getenv("CRIU_CUDA_MOCK_STATE_FILE");
+	FILE *file;
+	size_t length;
+
+	if (!path)
+		return "running";
+
+	file = fopen(path, "r");
+	if (!file || !fgets(state, sizeof(state), file)) {
+		if (file)
+			fclose(file);
+		return "running";
+	}
+	fclose(file);
+	length = strcspn(state, "\r\n");
+	state[length] = '\0';
+	return state;
+}
+
+static int write_state(const char *state)
+{
+	const char *path = getenv("CRIU_CUDA_MOCK_STATE_FILE");
+	FILE *file;
+
+	if (!path)
+		return 0;
+
+	file = fopen(path, "w");
+	if (!file) {
+		perror("Unable to open CUDA CLI state file");
+		return -1;
+	}
+	fprintf(file, "%s\n", state);
+	fclose(file);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *marker;
+	const char *action = NULL;
 	FILE *marker_file;
 	int c;
 
@@ -49,6 +90,7 @@ int main(int argc, char *argv[])
 		case 't':
 			break;
 		case 'a':
+			action = optarg;
 			marker = getenv("CRIU_CUDA_MOCK_LOCK_MARKER");
 			if (marker && !strcmp(optarg, "lock")) {
 				marker_file = fopen(marker, "a");
@@ -59,7 +101,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 's':
-			printf("running\n");
+			printf("%s\n", read_state());
 			break;
 		case 'h':
 			printf("--action - execute an action");
@@ -77,6 +119,24 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "%s ", argv[optind++]);
 		fprintf(stderr, "\n");
 		return 1;
+	}
+
+	if (action) {
+		if ((!strcmp(action, "restore") && getenv("CRIU_CUDA_MOCK_RESTORE_ERROR")) ||
+		    (!strcmp(action, "unlock") && getenv("CRIU_CUDA_MOCK_UNLOCK_ERROR"))) {
+			fprintf(stderr, "Injected CUDA %s failure\n", action);
+			return 1;
+		}
+		if (!strcmp(action, "lock") || !strcmp(action, "restore")) {
+			if (write_state("locked"))
+				return 1;
+		} else if (!strcmp(action, "checkpoint")) {
+			if (write_state("checkpointed"))
+				return 1;
+		} else if (!strcmp(action, "unlock")) {
+			if (write_state("running"))
+				return 1;
+		}
 	}
 
 	return 0;
