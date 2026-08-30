@@ -1,5 +1,6 @@
 #include "criu-log.h"
 #include "cuda_checkpoint.h"
+#include "cuda_device_map.h"
 #include "cuda_plugin.h"
 #include "plugin.h"
 #include "util.h"
@@ -217,10 +218,12 @@ static void cuda_log_error(const char *op, int pid, CUresult res)
 		cuda_api.member = (typeof(cuda_api.member))cuda_get_symbol(symbol); \
 	} while (0)
 
-static int cuda_driver_probe(void)
+static int cuda_driver_probe(bool device_map_requested)
 {
 	int driver_version;
 	CUresult res;
+
+	(void)device_map_requested;
 
 	/* RTLD_NODELETE keeps libcuda mapped after dlclose(); once cuInit()
 	 * has run, the driver may have internal threads and state that do not
@@ -818,6 +821,7 @@ struct cuda_resume_operation {
 	int pid;
 	cuda_task_state_t current;
 	cuda_task_state_t initial;
+	const struct cuda_device_map *map;
 };
 
 static int restore_device(void *arg)
@@ -861,6 +865,11 @@ static int restore_device(void *arg)
 	if (current_task_state == CUDA_TASK_CHECKPOINTED) {
 		/* If the process was "locked" or "running" before checkpointing it, we need to restore it */
 		CUcheckpointRestoreArgs args = { 0 };
+
+		if (op->map) {
+			args.gpuPairs = op->map->pairs;
+			args.gpuPairsCount = op->map->count;
+		}
 
 		if (cuda_driver_init()) {
 			if (atomic_load(&operation_aborted))
@@ -926,12 +935,13 @@ out:
 }
 
 static int resume_device(int pid, cuda_task_state_t current_task_state,
-			 cuda_task_state_t initial_task_state)
+			 cuda_task_state_t initial_task_state, const struct cuda_device_map *map)
 {
 	struct cuda_resume_operation op = {
 		.pid = pid,
 		.current = current_task_state,
 		.initial = initial_task_state,
+		.map = map,
 	};
 	enum cuda_restore_tid_result tid_result;
 	int restore_tid;
@@ -985,14 +995,14 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	return run_cuda_operation(pid, restore_tid, restore_device, &op);
 }
 
-static int cuda_driver_resume_devices_late(int pid)
+static int cuda_driver_resume_devices_late(int pid, const struct cuda_device_map *map)
 {
 	/* RESUME_DEVICES_LATE is used during `criu restore`.
 	 * Here, we assume that users expect the target process
 	 * to be in a "running" state after restore, even if it was
 	 * in a "locked" or "checkpointed" state during `criu dump`.
 	 */
-	return resume_device(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_RUNNING);
+	return resume_device(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_RUNNING, map);
 }
 
 static int cuda_driver_backend_init(int stage)
@@ -1047,7 +1057,7 @@ static int cuda_driver_backend_dump_finish(int ret)
 		if (info->lock_pending)
 			status = rollback_pending_lock(info);
 		else
-			status = resume_device(info->pid, info->current_task_state, info->initial_task_state);
+			status = resume_device(info->pid, info->current_task_state, info->initial_task_state, NULL);
 		if (status) {
 			pr_err("Unable to restore CUDA state for pid %d during dump cleanup\n", info->pid);
 			err = -1;
