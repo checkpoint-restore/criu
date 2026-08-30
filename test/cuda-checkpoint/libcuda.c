@@ -175,6 +175,9 @@ mock_cuda_result_t cuCheckpointProcessRestore(int pid, void *args)
 
 	(void)args;
 
+	if (getenv("CRIU_CUDA_MOCK_RESTORE_ERROR"))
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_CHECKPOINTED)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 	process->state = MOCK_CUDA_PROCESS_STATE_LOCKED;
@@ -186,6 +189,9 @@ mock_cuda_result_t cuCheckpointProcessUnlock(int pid, void *args)
 	struct mock_process *process = get_process(pid);
 
 	(void)args;
+
+	if (getenv("CRIU_CUDA_MOCK_UNLOCK_ERROR"))
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_LOCKED)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
