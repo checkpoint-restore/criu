@@ -1898,6 +1898,7 @@ static int cr_lazy_mem_dump(void)
 static int cr_dump_finish(int ret)
 {
 	int post_dump_ret = 0;
+	int plugin_ret;
 
 	if (disconnect_from_page_server())
 		ret = -1;
@@ -1960,7 +1961,29 @@ static int cr_dump_finish(int ret)
 	if (arch_set_thread_regs(root_item, true) < 0)
 		return -1;
 
-	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+	plugin_ret = run_plugins_all(DUMP_FINISH, ret ?: post_dump_ret);
+	if (plugin_ret && plugin_ret != -ENOTSUP) {
+		pr_err("DUMP_FINISH plugin hook failed, ret %d\n", plugin_ret);
+		if (!ret && !post_dump_ret && opts.final_state != TASK_ALIVE) {
+			/*
+			 * The tasks are resumed below, so undo what the
+			 * rollback above skipped for a successful dump.
+			 * Handlers that already saw a successful dump
+			 * must roll back their devices as well.
+			 */
+			unsuspend_lsm();
+			network_unlock();
+			delete_link_remaps();
+			ret = plugin_ret;
+			plugin_ret = run_plugins_all(DUMP_FINISH, ret);
+			if (plugin_ret && plugin_ret != -ENOTSUP)
+				pr_err("DUMP_FINISH plugin rollback failed, ret %d\n", plugin_ret);
+		}
+		if (!ret)
+			ret = plugin_ret;
+	}
+
+	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret ?: post_dump_ret);
 
 	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
 	timing_stop(TIME_FROZEN);
