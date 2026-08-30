@@ -14,10 +14,16 @@
 #include "common/list.h"
 #include "log.h"
 
-cr_plugin_ctl_t cr_plugin_ctl = {
-	.head.next = &cr_plugin_ctl.head,
-	.head.prev = &cr_plugin_ctl.head,
-};
+cr_plugin_ctl_t cr_plugin_ctl;
+
+static void __attribute__((constructor)) cr_plugin_ctl_init(void)
+{
+	size_t i;
+
+	INIT_LIST_HEAD(&cr_plugin_ctl.head);
+	for (i = 0; i < ARRAY_SIZE(cr_plugin_ctl.hook_chain); i++)
+		INIT_LIST_HEAD(&cr_plugin_ctl.hook_chain[i]);
+}
 
 /*
  * If we met old version of a plugin, selfgenerate a plugin descriptor for it.
@@ -207,12 +213,7 @@ int cr_plugin_init(int stage)
 {
 	int exit_code = -1;
 	char *path;
-	size_t i;
 	DIR *d;
-
-	INIT_LIST_HEAD(&cr_plugin_ctl.head);
-	for (i = 0; i < ARRAY_SIZE(cr_plugin_ctl.hook_chain); i++)
-		INIT_LIST_HEAD(&cr_plugin_ctl.hook_chain[i]);
 
 	if (opts.libdir == NULL) {
 		path = getenv("CRIU_LIBS_DIR");
