@@ -512,6 +512,7 @@ run_non_shardable_tests() {
 		python3 ./test/cuda-checkpoint/backend-errors.py
 		./test/cuda-checkpoint/backend-selection.sh
 		./test/cuda-checkpoint/restore-backend-selection.sh
+		./test/cuda-checkpoint/device-map-backends.sh
 	fi
 }
 
