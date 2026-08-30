@@ -285,6 +285,15 @@ static int cuda_plugin_init(int stage)
 	return 0;
 }
 
+static int cuda_plugin_dump_finish(int ret)
+{
+	if (!active_backend)
+		return -ENOTSUP;
+
+	return active_backend->dump_finish(ret);
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_FINISH, cuda_plugin_dump_finish)
+
 static void cuda_plugin_fini(int stage, int ret)
 {
 	if (active_backend) {

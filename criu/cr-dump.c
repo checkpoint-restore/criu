@@ -1898,6 +1898,7 @@ static int cr_lazy_mem_dump(void)
 static int cr_dump_finish(int ret)
 {
 	int post_dump_ret = 0;
+	int plugin_ret;
 
 	if (disconnect_from_page_server())
 		ret = -1;
@@ -1960,7 +1961,11 @@ static int cr_dump_finish(int ret)
 	if (arch_set_thread_regs(root_item, true) < 0)
 		return -1;
 
-	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+	plugin_ret = run_plugins_all(DUMP_FINISH, ret ?: post_dump_ret);
+	if (!ret && plugin_ret != -ENOTSUP)
+		ret = plugin_ret;
+
+	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret ?: post_dump_ret);
 
 	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
 	timing_stop(TIME_FROZEN);
@@ -2101,7 +2106,11 @@ int cr_dump_tasks(pid_t pid)
 			goto err;
 	}
 
-	ret = run_plugins(DUMP_DEVICES_LATE, pid);
+	/*
+	 * This hook finalizes global device state. Run every implementation so
+	 * that one plugin cannot prevent another from completing its work.
+	 */
+	ret = run_plugins_all(DUMP_DEVICES_LATE, pid);
 	if (ret && ret != -ENOTSUP)
 		goto err;
 
