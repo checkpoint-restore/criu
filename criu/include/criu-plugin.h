@@ -67,6 +67,7 @@ enum {
 	CR_PLUGIN_HOOK__DUMP_DEVICES_LATE = 14,
 
 	CR_PLUGIN_HOOK__UPDATE_INETSK = 15,
+	CR_PLUGIN_HOOK__DUMP_FINISH = 16,
 
 	CR_PLUGIN_HOOK__MAX
 };
@@ -90,6 +91,14 @@ DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__POST_FORKING, void);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESTORE_INIT, void);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_DEVICES_LATE, int id);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__UPDATE_INETSK, uint32_t family, uint32_t state, uint32_t *src_ip, uint32_t *dst_ip);
+/*
+ * DUMP_FINISH runs before the dumped tasks are released; ret is non-zero
+ * when they will be resumed because the dump failed. If a handler fails
+ * after a successful dump that would have killed or stopped the tasks,
+ * CRIU resumes them and calls DUMP_FINISH once more with that error, so
+ * handlers must accept a second call and roll back on it.
+ */
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_FINISH, int ret);
 
 enum {
 	CR_PLUGIN_STAGE__DUMP,
