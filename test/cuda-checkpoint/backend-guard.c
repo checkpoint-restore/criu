@@ -403,7 +403,7 @@ static void run_case(const char *directory, const char *behavior,
 	snprintf(value, sizeof(value), "%d", pid);
 	assert(setenv("CRIU_CUDA_MOCK_TARGET_PID", value, 1) == 0);
 	assert(backend->init(CR_PLUGIN_STAGE__DUMP) == 0);
-	assert(backend->probe() == 0);
+	assert(backend->probe(false) == 0);
 	assert(backend->pause_devices(pid) == 0);
 	stop_target(pid);
 	if (tid != pid)
@@ -462,7 +462,7 @@ static void run_case(const char *directory, const char *behavior,
 	ret = backend->checkpoint_devices(pid);
 	if (restore_fault || init_fault || !strcmp(behavior, "init-hang")) {
 		assert(ret == 0);
-		ret = backend->resume_devices_late(pid);
+		ret = backend->resume_devices_late(pid, NULL);
 	}
 	assert(clock_gettime(CLOCK_MONOTONIC, &end) == 0);
 	elapsed = end.tv_sec - start.tv_sec + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -506,7 +506,7 @@ static void run_case(const char *directory, const char *behavior,
 		assert(!memcmp(&original_mask, &restored_mask, sizeof(original_mask)));
 	}
 	if (success) {
-		assert(backend->resume_devices_late(pid) == 0);
+		assert(backend->resume_devices_late(pid, NULL) == 0);
 	} else if (!completed) {
 		if (stop_timeout) {
 			check_log("stop CUDA restore thread");
@@ -543,7 +543,7 @@ static void run_case(const char *directory, const char *behavior,
 	backend->fini(CR_PLUGIN_STAGE__DUMP, ret);
 	if (driver && !completed && !stop_timeout && strcmp(behavior, "late-fault") && strcmp(behavior, "late-group-stop")) {
 		assert(backend->init(CR_PLUGIN_STAGE__DUMP) == -1);
-		assert(backend->probe() == -1);
+		assert(backend->probe(false) == -1);
 		assert(file_size(marker) == before_cleanup);
 	}
 	assert(waitpid(api_caller, &status, __WALL | WNOHANG) == -1 && errno == ECHILD);

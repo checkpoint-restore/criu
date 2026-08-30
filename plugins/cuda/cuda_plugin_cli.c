@@ -1,4 +1,5 @@
 #include "criu-log.h"
+#include "cuda_device_map.h"
 #include "cuda_plugin.h"
 #include "cuda_wait.h"
 #include "plugin.h"
@@ -345,20 +346,31 @@ static cuda_task_state_t get_cuda_state(pid_t pid)
 	return get_task_state_enum(state_str);
 }
 
-static int cuda_process_checkpoint_action(int pid, const char *action, unsigned int timeout, char *msg_buf,
-					  int buf_size)
+static int cuda_process_checkpoint_action(int pid, const char *action, unsigned int timeout,
+					  const char *device_map, char *msg_buf, int buf_size)
 {
 	char pid_buf[16];
 	char timeout_buf[16];
-	const char *args[] = { CUDA_CHECKPOINT, "--action", action, "--pid", pid_buf, NULL /* --timeout */,
-			       NULL /* timeout_val */, NULL };
+	const char *args[10];
+	size_t index = 0;
 
 	snprintf(pid_buf, sizeof(pid_buf), "%d", pid);
+
+	args[index++] = CUDA_CHECKPOINT;
+	args[index++] = "--action";
+	args[index++] = action;
+	args[index++] = "--pid";
+	args[index++] = pid_buf;
 	if (timeout > 0) {
 		snprintf(timeout_buf, sizeof(timeout_buf), "%d", timeout);
-		args[5] = "--timeout";
-		args[6] = timeout_buf;
+		args[index++] = "--timeout";
+		args[index++] = timeout_buf;
 	}
+	if (device_map) {
+		args[index++] = "--device-map";
+		args[index++] = device_map;
+	}
+	args[index] = NULL;
 
 	return launch_cuda_checkpoint(args, action, pid, msg_buf, buf_size);
 }
@@ -526,7 +538,7 @@ static int cuda_cli_checkpoint_devices(int pid)
 	 * CHECKPOINTED until a failure-state query proves otherwise.
 	 */
 	task_info->current_task_state = CUDA_TASK_CHECKPOINTED;
-	status = cuda_process_checkpoint_action(pid, ACTION_CHECKPOINT, 0, msg_buf, sizeof(msg_buf));
+	status = cuda_process_checkpoint_action(pid, ACTION_CHECKPOINT, 0, NULL, msg_buf, sizeof(msg_buf));
 	if (status) {
 		pr_err("CHECKPOINT_DEVICES failed with %s\n", msg_buf);
 		ret = -1;
@@ -593,7 +605,8 @@ static int cuda_cli_pause_devices(int pid)
 	info = find_cuda_pid(pid);
 	info->lock_pending = true;
 	pr_info("pausing devices on pid %d\n", pid);
-	status = cuda_process_checkpoint_action(pid, ACTION_LOCK, opts.timeout * 1000, msg_buf, sizeof(msg_buf));
+	status = cuda_process_checkpoint_action(pid, ACTION_LOCK, opts.timeout * 1000, NULL,
+						msg_buf, sizeof(msg_buf));
 	if (status) {
 		pr_err("PAUSE_DEVICES failed with %s\n", msg_buf);
 		/* collect_pstree() must cancel its alarm before rollback can wait. */
@@ -606,7 +619,8 @@ static int cuda_cli_pause_devices(int pid)
 }
 
 static int resume_device(int pid, cuda_task_state_t current_task_state,
-			 cuda_task_state_t initial_task_state)
+			 cuda_task_state_t initial_task_state,
+			 const struct cuda_device_map *device_map)
 {
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	enum cuda_restore_tid_result tid_result;
@@ -677,7 +691,9 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 
 	if (current_task_state == CUDA_TASK_CHECKPOINTED) {
 		/* If the process was "locked" or "running" before checkpointing it, we need to restore it */
-		status = cuda_process_checkpoint_action(pid, ACTION_RESTORE, 0, msg_buf, sizeof(msg_buf));
+		status = cuda_process_checkpoint_action(pid, ACTION_RESTORE, 0,
+							device_map ? device_map->cli_value : NULL,
+							msg_buf, sizeof(msg_buf));
 		if (status) {
 			pr_err("RESUME_DEVICES RESTORE failed with %s\n", msg_buf);
 			ret = -1;
@@ -695,7 +711,8 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	if (initial_task_state == CUDA_TASK_RUNNING) {
 		if (current_task_state == CUDA_TASK_LOCKED) {
 			/* If the process was running before we paused it, unlock it. */
-			status = cuda_process_checkpoint_action(pid, ACTION_UNLOCK, 0, msg_buf, sizeof(msg_buf));
+			status = cuda_process_checkpoint_action(pid, ACTION_UNLOCK, 0, NULL,
+								msg_buf, sizeof(msg_buf));
 			if (status) {
 				pr_err("RESUME_DEVICES UNLOCK failed with %s\n", msg_buf);
 				ret = -1;
@@ -726,17 +743,17 @@ interrupt:
 	return ret != 0 ? ret : int_ret;
 }
 
-static int cuda_cli_resume_devices_late(int pid)
+static int cuda_cli_resume_devices_late(int pid, const struct cuda_device_map *device_map)
 {
 	/* RESUME_DEVICES_LATE is used during `criu restore`.
 	 * Here, we assume that users expect the target process
 	 * to be in a "running" state after restore, even if it was
 	 * in a "locked" or "checkpointed" state during `criu dump`.
 	 */
-	return resume_device(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_RUNNING);
+	return resume_device(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_RUNNING, device_map);
 }
 
-static int cuda_cli_probe(void)
+static int cuda_cli_probe(bool device_map_requested)
 {
 	int ret;
 
@@ -748,6 +765,14 @@ static int cuda_cli_probe(void)
 	if (ret == -ENOTSUP || ret == -ENOENT) {
 		pr_info("%s with --action support is unavailable\n", CUDA_CHECKPOINT);
 		return -ENOTSUP;
+	}
+	if (ret)
+		return ret;
+
+	if (device_map_requested) {
+		ret = cuda_checkpoint_supports_flag("--device-map");
+		if (ret == -ENOTSUP)
+			pr_info("%s with --device-map support is unavailable\n", CUDA_CHECKPOINT);
 	}
 
 	return ret;
@@ -783,7 +808,7 @@ static int rollback_pending_lock(struct pid_info *info)
 	}
 	if (info->current_task_state != CUDA_TASK_LOCKED)
 		return -1;
-	if (cuda_process_checkpoint_action(info->pid, ACTION_UNLOCK, 0, msg_buf, sizeof(msg_buf))) {
+	if (cuda_process_checkpoint_action(info->pid, ACTION_UNLOCK, 0, NULL, msg_buf, sizeof(msg_buf))) {
 		pr_err("Failed to unlock pid %d after lock failure: %s\n", info->pid, msg_buf);
 		return -1;
 	}
@@ -811,7 +836,7 @@ static int cuda_cli_dump_finish(int ret)
 		if (info->lock_pending)
 			status = rollback_pending_lock(info);
 		else
-			status = resume_device(info->pid, info->current_task_state, info->initial_task_state);
+			status = resume_device(info->pid, info->current_task_state, info->initial_task_state, NULL);
 		if (status) {
 			pr_err("Unable to restore CUDA state for pid %d during dump cleanup\n", info->pid);
 			err = -1;
