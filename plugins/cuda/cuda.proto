@@ -1,0 +1,16 @@
+syntax = "proto2";
+
+// Plugin-private payload framed by a uint32 byte count in
+// cuda-gpu-inventory.img. This is not a core CRIU image type.
+message cuda_gpu {
+	// Zero-based ordinal in CRIU's configured CUDA-visible view.
+	optional uint32 ordinal = 1;
+	// Raw 16-byte CUDA GPU UUID.
+	optional bytes uuid = 2;
+}
+
+message cuda_gpu_inventory {
+	// Payload schema version. Unknown versions must be rejected.
+	optional uint32 version = 1 [default = 1];
+	repeated cuda_gpu gpus = 2;
+}
