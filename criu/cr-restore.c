@@ -2192,8 +2192,8 @@ static int restore_root_task(struct pstree_item *init)
 	__restore_switch_stage(CR_STATE_FORKING);
 
 skip_ns_bouncing:
-	ret = run_plugins(POST_FORKING);
-	if (ret < 0 && ret != -ENOTSUP)
+	ret = run_plugins_all(POST_FORKING);
+	if (ret && ret != -ENOTSUP)
 		goto out_kill;
 
 	ret = restore_wait_inprogress_tasks();

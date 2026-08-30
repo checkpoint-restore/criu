@@ -21,6 +21,136 @@
 
 int parse_statement(int i, char *line, char **configuration);
 
+cr_plugin_ctl_t cr_plugin_ctl;
+
+#define TEST_PLUGIN_HANDLERS 4
+
+static int test_plugin_results[TEST_PLUGIN_HANDLERS];
+static unsigned int test_plugin_order[TEST_PLUGIN_HANDLERS];
+static unsigned int test_plugin_calls;
+
+static int test_plugin_hook(unsigned int index, int id)
+{
+	assert(id == 42);
+	assert(test_plugin_calls < TEST_PLUGIN_HANDLERS);
+	test_plugin_order[test_plugin_calls++] = index;
+	return test_plugin_results[index];
+}
+
+static int test_plugin_hook_0(int id)
+{
+	return test_plugin_hook(0, id);
+}
+
+static int test_plugin_hook_1(int id)
+{
+	return test_plugin_hook(1, id);
+}
+
+static int test_plugin_hook_2(int id)
+{
+	return test_plugin_hook(2, id);
+}
+
+static int test_plugin_hook_3(int id)
+{
+	return test_plugin_hook(3, id);
+}
+
+static cr_plugin_desc_t test_plugin_descs[TEST_PLUGIN_HANDLERS] = {
+	{
+		.name = "test-plugin-0",
+		.max_hooks = CR_PLUGIN_HOOK__MAX,
+		.hooks[CR_PLUGIN_HOOK__DUMP_DEVICES_LATE] = (void *)test_plugin_hook_0,
+	},
+	{
+		.name = "test-plugin-1",
+		.max_hooks = CR_PLUGIN_HOOK__MAX,
+		.hooks[CR_PLUGIN_HOOK__DUMP_DEVICES_LATE] = (void *)test_plugin_hook_1,
+	},
+	{
+		.name = "test-plugin-2",
+		.max_hooks = CR_PLUGIN_HOOK__MAX,
+		.hooks[CR_PLUGIN_HOOK__DUMP_DEVICES_LATE] = (void *)test_plugin_hook_2,
+	},
+	{
+		.name = "test-plugin-3",
+		.max_hooks = CR_PLUGIN_HOOK__MAX,
+		.hooks[CR_PLUGIN_HOOK__DUMP_DEVICES_LATE] = (void *)test_plugin_hook_3,
+	},
+};
+
+static plugin_desc_t test_plugins[TEST_PLUGIN_HANDLERS];
+
+static void prepare_plugin_chain(void)
+{
+	unsigned int i;
+
+	INIT_LIST_HEAD(&cr_plugin_ctl.hook_chain[CR_PLUGIN_HOOK__DUMP_DEVICES_LATE]);
+	test_plugin_calls = 0;
+	for (i = 0; i < TEST_PLUGIN_HANDLERS; i++) {
+		test_plugins[i].d = &test_plugin_descs[i];
+		INIT_LIST_HEAD(&test_plugins[i].link[CR_PLUGIN_HOOK__DUMP_DEVICES_LATE]);
+		list_add_tail(&test_plugins[i].link[CR_PLUGIN_HOOK__DUMP_DEVICES_LATE],
+			      &cr_plugin_ctl.hook_chain[CR_PLUGIN_HOOK__DUMP_DEVICES_LATE]);
+	}
+}
+
+static void assert_plugin_order(void)
+{
+	unsigned int i;
+
+	assert(test_plugin_calls == TEST_PLUGIN_HANDLERS);
+	for (i = 0; i < TEST_PLUGIN_HANDLERS; i++)
+		assert(test_plugin_order[i] == i);
+}
+
+static void test_plugin_dispatch_all(void)
+{
+	unsigned int i;
+
+	INIT_LIST_HEAD(&cr_plugin_ctl.hook_chain[CR_PLUGIN_HOOK__DUMP_DEVICES_LATE]);
+	assert(run_plugins_all(DUMP_DEVICES_LATE, 42) == -ENOTSUP);
+
+	prepare_plugin_chain();
+	for (i = 0; i < TEST_PLUGIN_HANDLERS; i++)
+		test_plugin_results[i] = -ENOTSUP;
+	assert(run_plugins_all(DUMP_DEVICES_LATE, 42) == -ENOTSUP);
+	assert_plugin_order();
+
+	prepare_plugin_chain();
+	test_plugin_results[0] = 0;
+	test_plugin_results[1] = -ENOTSUP;
+	test_plugin_results[2] = 0;
+	test_plugin_results[3] = -ENOTSUP;
+	assert(run_plugins_all(DUMP_DEVICES_LATE, 42) == 0);
+	assert_plugin_order();
+
+	prepare_plugin_chain();
+	test_plugin_results[0] = 0;
+	test_plugin_results[1] = -ENOTSUP;
+	test_plugin_results[2] = -EINVAL;
+	test_plugin_results[3] = -EIO;
+	assert(run_plugins_all(DUMP_DEVICES_LATE, 42) == -EINVAL);
+	assert_plugin_order();
+
+	prepare_plugin_chain();
+	test_plugin_results[0] = -EPERM;
+	test_plugin_results[1] = 0;
+	test_plugin_results[2] = -EIO;
+	test_plugin_results[3] = -ENOTSUP;
+	assert(run_plugins_all(DUMP_DEVICES_LATE, 42) == -EPERM);
+	assert_plugin_order();
+
+	prepare_plugin_chain();
+	test_plugin_results[0] = -ENOTSUP;
+	test_plugin_results[1] = 7;
+	test_plugin_results[2] = -EIO;
+	test_plugin_results[3] = 0;
+	assert(run_plugins_all(DUMP_DEVICES_LATE, 42) == 7);
+	assert_plugin_order();
+}
+
 static void test_plugin_options(void)
 {
 	bool usage_error = true;
@@ -551,6 +681,7 @@ int main(int argc, char *argv[], char *envp[])
 	test_bfd();
 	test_bwrite();
 	test_pagemap_offset_alignment();
+	test_plugin_dispatch_all();
 	test_plugin_options();
 
 	i = parse_statement(0, "", configuration);
