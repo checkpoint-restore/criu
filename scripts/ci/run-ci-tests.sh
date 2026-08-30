@@ -503,6 +503,8 @@ run_non_shardable_tests() {
 
 	# CUDA checkpointing is supported only for native x86-64 workloads.
 	if [ "$(uname -m)" = "x86_64" ] && [ "${COMPAT_TEST:-}" != "y" ]; then
+		make -C test/cuda-checkpoint test
+
 		# Fault 138 (FI_PLUGIN_CUDA_FORCE_ENABLE) enables the mock without a GPU.
 		./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 \
 			--mocked-cuda-checkpoint --fault 138
@@ -510,6 +512,7 @@ run_non_shardable_tests() {
 		python3 ./test/cuda-checkpoint/backend-errors.py
 		./test/cuda-checkpoint/backend-selection.sh
 		./test/cuda-checkpoint/restore-backend-selection.sh
+		./test/cuda-checkpoint/device-map-backends.sh
 	fi
 }
 

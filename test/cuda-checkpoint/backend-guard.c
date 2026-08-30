@@ -23,6 +23,7 @@
 #include <compel/infect.h>
 
 #include "cr_options.h"
+#include "cuda_device_map.h"
 #include "cuda_plugin.h"
 #include "pid.h"
 #include "plugin.h"
@@ -248,9 +249,16 @@ static void check_log(const char *expected)
 static void run_case(const char *directory, const char *behavior,
 		     const struct cuda_plugin_backend *backend)
 {
-	char marker[512], trigger[512], log_path[512], state_path[512];
+	char marker[512], trigger[512], mapping[512], log_path[512], state_path[512];
 	bool completed = !strcmp(behavior, "success") || !strcmp(behavior, "api-error");
 	bool driver = backend == &cuda_driver_backend;
+	CUcheckpointGpuPair pair = { .oldUuid = { 1 }, .newUuid = { 2 } };
+	struct cuda_device_map map = {
+		.pairs = &pair,
+		.count = 1,
+		.cli_value = "GPU-01000000-0000-0000-0000-000000000000="
+			     "GPU-02000000-0000-0000-0000-000000000000",
+	};
 	k_rtsigset_t original_mask, restored_mask;
 	struct timespec start, end;
 	pid_t pid, worker;
@@ -259,6 +267,7 @@ static void run_case(const char *directory, const char *behavior,
 
 	assert(snprintf(marker, sizeof(marker), "%s/%s.calls", directory, behavior) > 0);
 	assert(snprintf(trigger, sizeof(trigger), "%s/%s.fault", directory, behavior) > 0);
+	assert(snprintf(mapping, sizeof(mapping), "%s/%s.map", directory, behavior) > 0);
 	assert(snprintf(log_path, sizeof(log_path), "%s/%s.log", directory, behavior) > 0);
 	assert(snprintf(state_path, sizeof(state_path), "%s/%s.state", directory, behavior) > 0);
 	assert(setenv("CRIU_CUDA_MOCK_API_MARKER", marker, 1) == 0);
@@ -267,10 +276,13 @@ static void run_case(const char *directory, const char *behavior,
 	assert(setenv("CRIU_CUDA_MOCK_STATE_FILE", state_path, 1) == 0);
 	assert(unsetenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION") == 0);
 	assert(unsetenv("CRIU_CUDA_MOCK_INIT_HANG") == 0);
+	assert(unsetenv("CRIU_CUDA_MOCK_DEVICE_MAP_MARKER") == 0);
 	if (!strcmp(behavior, "api-error"))
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION", "1", 1) == 0);
 	if (!strcmp(behavior, "init-hang"))
 		assert(setenv("CRIU_CUDA_MOCK_INIT_HANG", "1", 1) == 0);
+	if (!strcmp(behavior, "success"))
+		assert(setenv("CRIU_CUDA_MOCK_DEVICE_MAP_MARKER", mapping, 1) == 0);
 	if (!strcmp(behavior, "criu-timeout")) {
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "hang", 1) == 0);
 		cuda_plugin_timeout = 30;
@@ -304,7 +316,17 @@ static void run_case(const char *directory, const char *behavior,
 	assert(ptrace(PTRACE_GETSIGMASK, pid, sizeof(restored_mask), &restored_mask) == 0);
 	assert(!memcmp(&original_mask, &restored_mask, sizeof(original_mask)));
 	if (!strcmp(behavior, "success")) {
-		assert(backend->resume_devices_late(pid, NULL) == 0);
+		FILE *file;
+		char line[256];
+
+		assert(backend->resume_devices_late(pid, &map) == 0);
+		file = fopen(mapping, "r");
+		assert(file);
+		assert(fgets(line, sizeof(line), file));
+		assert(!strcmp(line, "GPU-01000000-0000-0000-0000-000000000000="
+				     "GPU-02000000-0000-0000-0000-000000000000\n"));
+		assert(fgetc(file) == EOF);
+		fclose(file);
 	} else if (!completed) {
 		if (!strcmp(behavior, "fault") || !strcmp(behavior, "late-fault")) {
 			/* The in-call fault was already consumed by the worker monitor. */
@@ -344,6 +366,7 @@ static void run_case(const char *directory, const char *behavior,
 	fclose(log_file);
 	unlink(marker);
 	unlink(trigger);
+	unlink(mapping);
 	unlink(log_path);
 	unlink(state_path);
 }

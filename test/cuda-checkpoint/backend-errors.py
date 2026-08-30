@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression tests for CUDA discovery, inventory allocation, and guarded backend errors.
+"""Regression tests for CUDA discovery, inventory allocation, and dump rollback errors.
 
 Requires a built CRIU, CUDA plugin, and test/cuda-checkpoint mocks. All targets
 are ordinary CPU processes; neither backend accesses a real GPU.
@@ -49,7 +49,7 @@ def target(directory, mixed=False, duration=300):
 
 
 def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
-             expected_success=True,
+             expected_success=True, leave_running=False, action_script=None,
              restore_detached=True, command_timeout=30, freezing_timeout=10,
              plugin_timeout=None, **variables):
     environment = {key: value for key, value in os.environ.items()
@@ -66,8 +66,12 @@ def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
         command += ["--plugin-option", f"cuda_plugin.timeout={plugin_timeout}"]
     if operation == "dump":
         command += ["--tree", str(pid)]
+        if leave_running:
+            command += ["--leave-running"]
     elif restore_detached:
         command += ["--restore-detached"]
+    if action_script:
+        command += ["--action-script", str(action_script)]
     result = subprocess.run(command, env=environment, timeout=command_timeout)
     log = (directory / f"{operation}.log").read_text()
     if (result.returncode == 0) != expected_success:
@@ -160,6 +164,66 @@ def test_inventory_failure(work):
             assert_untraced(pids[0])
 
 
+def test_dump_finish(work):
+    for backend, library in (("Driver API", MOCK), ("cuda-checkpoint CLI", MOCK / "unsupported")):
+        for failure in (None, "RESTORE", "UNLOCK"):
+            directory = work / f"dump-finish-{library.name}-{failure}"
+            directory.mkdir()
+            variables = {"CRIU_CUDA_MOCK_STATE_FILE": str(directory / "state")}
+            if failure:
+                variables[f"CRIU_CUDA_MOCK_{failure}_ERROR"] = "1"
+            # The driver mock tracks each PID separately. Use two tasks to
+            # verify that one rollback failure does not skip the next task.
+            with target(directory, mixed=library == MOCK) as (process, pids):
+                log = run_criu(directory, "dump", pid=pids[0], library=library,
+                               leave_running=True, expected_success=failure is None,
+                               **variables)
+                assert f"selected {backend} backend" in log
+                assert process.poll() is None
+                for pid in pids:
+                    assert_untraced(pid)
+                    assert f"resuming devices on pid {pid}" in log
+                    if failure:
+                        assert f"Unable to restore CUDA state for pid {pid} during dump cleanup" in log
+                if failure:
+                    assert "Dumping FAILED" in log
+                    assert "Dumping finished successfully" not in log
+                else:
+                    assert "Unable to restore CUDA state" not in log
+                    assert "Dumping finished successfully" in log
+                if library != MOCK:
+                    expected_state = {None: "running", "RESTORE": "checkpointed", "UNLOCK": "locked"}[failure]
+                    assert (directory / "state").read_text().strip() == expected_state
+
+
+def test_post_dump_failure(work):
+    script = work / "fail-post-dump.sh"
+    script.write_text('#!/bin/sh\n[ "$CRTOOLS_SCRIPT_ACTION" != post-dump ] || exit 42\n')
+    script.chmod(0o755)
+    for backend, library in (("Driver API", MOCK), ("cuda-checkpoint CLI", MOCK / "unsupported")):
+        for rollback_error in (False, True):
+            directory = work / f"post-dump-{library.name}-{rollback_error}"
+            directory.mkdir()
+            variables = {"CRIU_CUDA_MOCK_STATE_FILE": str(directory / "state")}
+            if rollback_error:
+                variables["CRIU_CUDA_MOCK_RESTORE_ERROR"] = "1"
+            with target(directory) as (process, pids):
+                # No --leave-running: only the script error requests rollback.
+                log = run_criu(directory, "dump", pid=pids[0], library=library,
+                               action_script=script, expected_success=False, **variables)
+                assert f"selected {backend} backend" in log
+                assert "Post dump script passed with" in log
+                assert process.poll() is None
+                assert_untraced(pids[0])
+                assert f"resuming devices on pid {pids[0]}" in log
+                assert ("Unable to restore CUDA state" in log) == rollback_error
+                assert "Dumping FAILED" in log
+                assert "Dumping finished successfully" not in log
+                if library != MOCK:
+                    expected_state = "checkpointed" if rollback_error else "running"
+                    assert (directory / "state").read_text().strip() == expected_state
+
+
 def test_foreground_restore(work):
     directory = work / "foreground-restore"
     directory.mkdir()
@@ -216,6 +280,8 @@ if __name__ == "__main__":
         work = Path(directory)
         test_discovery(work)
         test_inventory_failure(work)
+        test_dump_finish(work)
+        test_post_dump_failure(work)
         test_foreground_restore(work)
         test_freezing_timeout(work)
     print("CUDA backend error regression tests PASS")

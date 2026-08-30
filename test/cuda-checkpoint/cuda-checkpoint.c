@@ -6,6 +6,24 @@
 #include <string.h>
 #include <unistd.h>
 
+static int record_value(const char *environment, const char *value)
+{
+	const char *path = getenv(environment);
+	FILE *file;
+
+	if (!path)
+		return 0;
+
+	file = fopen(path, "a");
+	if (!file) {
+		perror("Unable to open CUDA CLI value marker");
+		return -1;
+	}
+	fprintf(file, "%s\n", value);
+	fclose(file);
+	return 0;
+}
+
 static const char *read_state(void)
 {
 	static char state[32];
@@ -76,11 +94,12 @@ int main(int argc, char *argv[])
 			{ "get-restore-tid", no_argument, 0, 'g' },
 			{ "action", required_argument, 0, 'a' },
 			{ "timeout", required_argument, 0, 't' },
+			{ "device-map", required_argument, 0, 'm' },
 			{ "help", no_argument, 0, 'h' },
 			{ 0, 0, 0, 0 }
 		};
 
-		c = getopt_long(argc, argv, "p:ga:ht:",
+		c = getopt_long(argc, argv, "p:ga:ht:m:",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -107,12 +126,18 @@ int main(int argc, char *argv[])
 				fclose(marker_file);
 			}
 			break;
+		case 'm':
+			if (record_value("CRIU_CUDA_MOCK_DEVICE_MAP_MARKER", optarg))
+				return 1;
+			break;
 		case 's':
 			operation = "get-state";
 			printf("%s\n", read_state());
 			break;
 		case 'h':
-			printf("--action - execute an action");
+			printf("--action - execute an action\n");
+			if (!getenv("CRIU_CUDA_MOCK_NO_DEVICE_MAP"))
+				printf("--device-map - remap CUDA GPUs\n");
 			break;
 
 		default:
@@ -164,6 +189,11 @@ int main(int argc, char *argv[])
 				for (;;)
 					pause();
 			}
+		}
+		if ((!strcmp(action, "restore") && getenv("CRIU_CUDA_MOCK_RESTORE_ERROR")) ||
+		    (!strcmp(action, "unlock") && getenv("CRIU_CUDA_MOCK_UNLOCK_ERROR"))) {
+			fprintf(stderr, "Injected CUDA %s failure\n", action);
+			return 1;
 		}
 		if (!strcmp(action, "lock") || !strcmp(action, "restore")) {
 			if (write_state("locked"))
