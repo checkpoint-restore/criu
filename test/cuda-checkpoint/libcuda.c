@@ -15,6 +15,7 @@
 #define MOCK_CUDA_SUCCESS	      0
 #define MOCK_CUDA_ERROR_INVALID_VALUE 1
 #define MOCK_PROCESS_MAX	      64
+#define MOCK_GPU_COUNT		      4
 
 #ifndef MOCK_CUDA_DRIVER_VERSION
 #define MOCK_CUDA_DRIVER_VERSION 13000
@@ -93,6 +94,28 @@ mock_cuda_result_t cuInit(unsigned int flags)
 		for (;;)
 			pause();
 	}
+	return MOCK_CUDA_SUCCESS;
+}
+
+mock_cuda_result_t cuDeviceGetCount(int *count)
+{
+	if (!count)
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+
+	*count = MOCK_GPU_COUNT;
+	return MOCK_CUDA_SUCCESS;
+}
+
+mock_cuda_result_t cuDeviceGetUuid(void *uuid, int device)
+{
+	unsigned char *bytes = uuid;
+	unsigned int i;
+
+	if (!uuid || device < 0 || device >= MOCK_GPU_COUNT)
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+
+	for (i = 0; i < 16; i++)
+		bytes[i] = (unsigned char)((unsigned int)device * 16 + i);
 	return MOCK_CUDA_SUCCESS;
 }
 

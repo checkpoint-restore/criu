@@ -2,6 +2,7 @@
 #include "cuda_checkpoint.h"
 #include "cuda_driver_worker.h"
 #include "cuda_wait.h"
+#include "cuda_device_map.h"
 #include "cuda_plugin.h"
 #include "plugin.h"
 #include "util.h"
@@ -91,13 +92,17 @@ static struct pid_info *find_cuda_pid(int pid)
 }
 
 static CUresult cuda_driver_call(enum cuda_driver_operation op, int pid, unsigned int timeout_ms,
-				 int *value)
+				 const struct cuda_device_map *map, int *value)
 {
 	struct cuda_driver_request request = { .op = op, .pid = pid, .timeout_ms = timeout_ms };
 	struct cuda_driver_reply reply;
 
 	if (driver_failed)
 		return -1;
+	if (map) {
+		request.pairs = map->pairs;
+		request.pair_count = map->count;
+	}
 
 	if (cuda_driver_worker_call(&request, &reply, running_restore_tid, &restore_thread_status) || reply.error) {
 		driver_failed = true;
@@ -109,12 +114,13 @@ static CUresult cuda_driver_call(enum cuda_driver_operation op, int pid, unsigne
 	return reply.result;
 }
 
-static int cuda_driver_probe(void)
+static int cuda_driver_probe(bool device_map_requested)
 {
 	struct cuda_driver_request request = { .op = CUDA_DRIVER_PROBE };
 	struct cuda_driver_reply reply;
 	int ret;
 
+	(void)device_map_requested;
 	/* Do not leave a worker or its socket for restore children to inherit.
 	 * The operational worker starts at the first device hook, after forking
 	 * the restored tree, and keeps driver state until plugin finalization.
@@ -132,7 +138,7 @@ static enum cuda_restore_tid_result get_cuda_restore_tid(int root_pid, int *tid)
 {
 	CUresult res;
 
-	res = cuda_driver_call(CUDA_DRIVER_GET_TID, root_pid, 0, tid);
+	res = cuda_driver_call(CUDA_DRIVER_GET_TID, root_pid, 0, NULL, tid);
 	if (res != CUDA_SUCCESS) {
 		if (res == CUDA_ERROR_INVALID_VALUE || res == CUDA_ERROR_NOT_INITIALIZED) {
 			pr_debug("PID %d has no CUDA restore thread\n", root_pid);
@@ -155,7 +161,7 @@ static cuda_task_state_t get_cuda_state(pid_t pid)
 	int state;
 	CUresult res;
 
-	res = cuda_driver_call(CUDA_DRIVER_GET_STATE, pid, 0, &state);
+	res = cuda_driver_call(CUDA_DRIVER_GET_STATE, pid, 0, NULL, &state);
 	if (res != CUDA_SUCCESS)
 		return CUDA_TASK_UNKNOWN;
 
@@ -178,7 +184,7 @@ static int unlock_cuda_process(int pid)
 {
 	CUresult res;
 
-	res = cuda_driver_call(CUDA_DRIVER_UNLOCK, pid, 0, NULL);
+	res = cuda_driver_call(CUDA_DRIVER_UNLOCK, pid, 0, NULL, NULL);
 	if (res != CUDA_SUCCESS)
 		return -1;
 
@@ -373,7 +379,7 @@ static int cuda_driver_checkpoint_devices(int pid)
 	 * can report the actual state while its restore thread is running.
 	 */
 	task_info->current_task_state = CUDA_TASK_CHECKPOINTED;
-	res = cuda_driver_call(CUDA_DRIVER_CHECKPOINT, pid, 0, NULL);
+	res = cuda_driver_call(CUDA_DRIVER_CHECKPOINT, pid, 0, NULL, NULL);
 	if (res != CUDA_SUCCESS)
 		ret = -1;
 
@@ -446,7 +452,7 @@ static int cuda_driver_pause_devices(int pid)
 	}
 
 	pr_info("pausing devices on pid %d\n", pid);
-	res = cuda_driver_call(CUDA_DRIVER_LOCK, pid, opts.timeout * 1000, NULL);
+	res = cuda_driver_call(CUDA_DRIVER_LOCK, pid, opts.timeout * 1000, NULL, NULL);
 	if (res != CUDA_SUCCESS) {
 		task_state = get_cuda_state(pid);
 		if (task_state != CUDA_TASK_LOCKED)
@@ -479,7 +485,8 @@ static int cuda_driver_pause_devices(int pid)
 }
 
 static int resume_device(int pid, cuda_task_state_t current_task_state,
-			 cuda_task_state_t initial_task_state)
+			 cuda_task_state_t initial_task_state,
+			 const struct cuda_device_map *device_map)
 {
 	cuda_task_state_t observed_task_state;
 	enum cuda_restore_tid_result tid_result;
@@ -564,10 +571,10 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 
 	if (current_task_state == CUDA_TASK_CHECKPOINTED) {
 		/* If the process was "locked" or "running" before checkpointing it, we need to restore it */
-		if (cuda_driver_call(CUDA_DRIVER_INIT, pid, 0, NULL) != CUDA_SUCCESS) {
+		if (cuda_driver_call(CUDA_DRIVER_INIT, pid, 0, NULL, NULL) != CUDA_SUCCESS) {
 			ret = -1;
 		} else {
-			res = cuda_driver_call(CUDA_DRIVER_RESTORE, pid, 0, NULL);
+			res = cuda_driver_call(CUDA_DRIVER_RESTORE, pid, 0, device_map, NULL);
 			if (res != CUDA_SUCCESS) {
 				/* Preserve this operation failure even if cleanup below reaches
 				 * LOCKED or RUNNING successfully.
@@ -624,14 +631,14 @@ interrupt:
 	return ret != 0 ? ret : int_ret;
 }
 
-static int cuda_driver_resume_devices_late(int pid)
+static int cuda_driver_resume_devices_late(int pid, const struct cuda_device_map *device_map)
 {
 	/* RESUME_DEVICES_LATE is used during `criu restore`.
 	 * Here, we assume that users expect the target process
 	 * to be in a "running" state after restore, even if it was
 	 * in a "locked" or "checkpointed" state during `criu dump`.
 	 */
-	return resume_device(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_RUNNING);
+	return resume_device(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_RUNNING, device_map);
 }
 
 static int cuda_driver_backend_init(int stage)
@@ -659,7 +666,7 @@ static int cuda_driver_backend_dump_finish(int ret)
 
 	/* Attempt rollback for every task even when an earlier rollback fails. */
 	list_for_each_entry(info, &cuda_pids, list) {
-		if (resume_device(info->pid, info->current_task_state, info->initial_task_state)) {
+		if (resume_device(info->pid, info->current_task_state, info->initial_task_state, NULL)) {
 			pr_err("Unable to restore CUDA state for pid %d during dump cleanup\n", info->pid);
 			err = -1;
 		}

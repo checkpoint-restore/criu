@@ -1,6 +1,10 @@
 #ifndef CUDA_PLUGIN_H
 #define CUDA_PLUGIN_H
 
+#include <stdbool.h>
+
+struct cuda_device_map;
+
 /* Maximum duration of one CUDA backend request, in seconds. */
 extern unsigned int cuda_plugin_timeout;
 
@@ -9,13 +13,13 @@ int cuda_plugin_add_inventory(void);
 
 struct cuda_plugin_backend {
 	const char *name;
-	int (*probe)(void);
+	int (*probe)(bool device_map_requested);
 	int (*init)(int stage);
 	int (*dump_finish)(int ret);
 	void (*fini)(int stage, int ret);
 	int (*pause_devices)(int pid);
 	int (*checkpoint_devices)(int pid);
-	int (*resume_devices_late)(int pid);
+	int (*resume_devices_late)(int pid, const struct cuda_device_map *device_map);
 };
 
 extern const struct cuda_plugin_backend cuda_driver_backend;

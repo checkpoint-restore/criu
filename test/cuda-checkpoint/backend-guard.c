@@ -279,7 +279,7 @@ static void run_case(const char *directory, const char *behavior,
 	assert(log_file);
 	pid = start_target(trigger);
 	assert(backend->init(CR_PLUGIN_STAGE__DUMP) == 0);
-	assert(backend->probe() == 0);
+	assert(backend->probe(false) == 0);
 	assert(backend->pause_devices(pid) == 0);
 	stop_target(pid);
 	interrupts = 0;
@@ -296,7 +296,7 @@ static void run_case(const char *directory, const char *behavior,
 	ret = backend->checkpoint_devices(pid);
 	if (!strcmp(behavior, "init-hang")) {
 		assert(ret == 0);
-		ret = backend->resume_devices_late(pid);
+		ret = backend->resume_devices_late(pid, NULL);
 	}
 	assert(clock_gettime(CLOCK_MONOTONIC, &end) == 0);
 	assert(end.tv_sec - start.tv_sec < 5);
@@ -304,7 +304,7 @@ static void run_case(const char *directory, const char *behavior,
 	assert(ptrace(PTRACE_GETSIGMASK, pid, sizeof(restored_mask), &restored_mask) == 0);
 	assert(!memcmp(&original_mask, &restored_mask, sizeof(original_mask)));
 	if (!strcmp(behavior, "success")) {
-		assert(backend->resume_devices_late(pid) == 0);
+		assert(backend->resume_devices_late(pid, NULL) == 0);
 	} else if (!completed) {
 		if (!strcmp(behavior, "fault") || !strcmp(behavior, "late-fault")) {
 			/* The in-call fault was already consumed by the worker monitor. */

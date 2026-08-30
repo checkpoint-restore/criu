@@ -18,6 +18,8 @@ struct cuda_driver_request {
 	enum cuda_driver_operation op;
 	int pid;
 	unsigned int timeout_ms;
+	const CUcheckpointGpuPair *pairs;
+	unsigned int pair_count;
 };
 
 struct cuda_driver_reply {

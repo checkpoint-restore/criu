@@ -1,5 +1,6 @@
 #include "criu-log.h"
 #include "cuda_driver_worker.h"
+#include "cuda_device_map.h"
 #include "cuda_wait.h"
 #include "clone-noasan.h"
 #include "util.h"
@@ -11,6 +12,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -20,6 +22,11 @@
 #undef LOG_PREFIX
 #endif
 #define LOG_PREFIX "cuda_plugin: "
+
+/* Keep the same upper bound as the GPU inventory. The shared buffer avoids
+ * sending large maps in a socket packet or ever using a parent-only pointer.
+ */
+#define CUDA_DRIVER_PAIRS_SIZE (CUDA_GPU_INVENTORY_MAX_GPUS * sizeof(CUcheckpointGpuPair))
 
 extern unsigned int cuda_plugin_timeout;
 
@@ -36,13 +43,22 @@ struct cuda_driver_api {
 	CUresult (*get_restore_tid)(int pid, int *tid);
 };
 
+struct cuda_driver_message {
+	enum cuda_driver_operation op;
+	int pid;
+	unsigned int timeout_ms;
+	unsigned int pair_count;
+};
+
 struct cuda_worker_start {
 	int sockets[2];
 	pid_t parent;
+	CUcheckpointGpuPair *pairs;
 };
 
 static pid_t worker_pid = -1;
 static int worker_socket = -1;
+static CUcheckpointGpuPair *worker_pairs;
 static bool worker_broken;
 
 static const char *operation_name(enum cuda_driver_operation op)
@@ -144,8 +160,8 @@ static int load_driver(struct cuda_driver_api *api, int *version)
 	return 0;
 }
 
-static void execute_request(const struct cuda_driver_api *api, const struct cuda_driver_request *request,
-			    int version, bool *initialized, struct cuda_driver_reply *reply)
+static void execute_request(const struct cuda_driver_api *api, const struct cuda_driver_message *request,
+			    CUcheckpointGpuPair *pairs, int version, bool *initialized, struct cuda_driver_reply *reply)
 {
 	switch (request->op) {
 	case CUDA_DRIVER_PROBE:
@@ -173,6 +189,8 @@ static void execute_request(const struct cuda_driver_api *api, const struct cuda
 	case CUDA_DRIVER_RESTORE: {
 		CUcheckpointRestoreArgs args = { 0 };
 
+		args.gpuPairs = request->pair_count ? pairs : NULL;
+		args.gpuPairsCount = request->pair_count;
 		reply->result = api->restore(request->pid, &args);
 		break;
 	}
@@ -209,7 +227,7 @@ static int worker_main(void *arg)
 	struct cuda_worker_start *start = arg;
 	struct cuda_driver_api api = { 0 };
 	struct sigaction action = { .sa_handler = SIG_DFL };
-	struct cuda_driver_request request;
+	struct cuda_driver_message request;
 	sigset_t mask;
 	int version = 0, error, sig, socket_fd;
 	bool initialized = false;
@@ -263,8 +281,12 @@ static int worker_main(void *arg)
 			pr_err("Invalid CUDA worker request size %zd\n", size);
 			return 1;
 		}
+		if (request.pair_count > CUDA_GPU_INVENTORY_MAX_GPUS) {
+			pr_err("Invalid CUDA worker GPU pair count %u\n", request.pair_count);
+			return 1;
+		}
 		if (!error)
-			execute_request(&api, &request, version, &initialized, &reply);
+			execute_request(&api, &request, start->pairs, version, &initialized, &reply);
 		if (send(socket_fd, &reply, sizeof(reply), MSG_NOSIGNAL) != sizeof(reply)) {
 			pr_perror("Cannot send CUDA worker reply");
 			return 1;
@@ -306,6 +328,10 @@ static int stop_worker(void)
 		}
 		worker_pid = -1;
 	}
+	if (worker_pairs) {
+		munmap(worker_pairs, CUDA_DRIVER_PAIRS_SIZE);
+		worker_pairs = NULL;
+	}
 	return ret;
 }
 
@@ -314,6 +340,14 @@ static int start_worker(void)
 	struct cuda_worker_start start = { .parent = getpid() };
 	int saved_errno;
 
+	worker_pairs = mmap(NULL, CUDA_DRIVER_PAIRS_SIZE, PROT_READ | PROT_WRITE,
+			    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (worker_pairs == MAP_FAILED) {
+		worker_pairs = NULL;
+		pr_perror("Cannot allocate CUDA worker GPU map");
+		return -errno;
+	}
+	start.pairs = worker_pairs;
 	if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, start.sockets)) {
 		saved_errno = errno;
 		pr_perror("Cannot create CUDA worker socket");
@@ -339,6 +373,12 @@ static int start_worker(void)
 int cuda_driver_worker_call(const struct cuda_driver_request *request, struct cuda_driver_reply *reply,
 			    int monitored_tid, int *thread_status)
 {
+	struct cuda_driver_message message = {
+		.op = request->op,
+		.pid = request->pid,
+		.timeout_ms = request->timeout_ms,
+		.pair_count = request->pair_count,
+	};
 	sigset_t blocked, saved;
 	struct cuda_wait wait;
 	ssize_t size;
@@ -352,6 +392,11 @@ int cuda_driver_worker_call(const struct cuda_driver_request *request, struct cu
 		pr_err("CUDA worker is unavailable after an earlier failure; cannot run %s(%d)\n",
 		       operation_name(request->op), request->pid);
 		return -EIO;
+	}
+	if (request->pair_count > CUDA_GPU_INVENTORY_MAX_GPUS || (request->pair_count && !request->pairs)) {
+		pr_err("Invalid GPU pairs for %s(%d): %u\n", operation_name(request->op),
+		       request->pid, request->pair_count);
+		return -EINVAL;
 	}
 	/* The restore SIGCHLD handler must not consume the event we monitor. */
 	sigemptyset(&blocked);
@@ -369,8 +414,10 @@ int cuda_driver_worker_call(const struct cuda_driver_request *request, struct cu
 		if (ret)
 			goto failed;
 	}
-	size = send(worker_socket, request, sizeof(*request), MSG_NOSIGNAL | MSG_DONTWAIT);
-	if (size != sizeof(*request)) {
+	if (request->pair_count)
+		memcpy(worker_pairs, request->pairs, request->pair_count * sizeof(*request->pairs));
+	size = send(worker_socket, &message, sizeof(message), MSG_NOSIGNAL | MSG_DONTWAIT);
+	if (size != sizeof(message)) {
 		ret = size < 0 ? -errno : -EIO;
 		pr_perror("Cannot send %s(%d) to CUDA worker", operation_name(request->op), request->pid);
 		goto failed;
