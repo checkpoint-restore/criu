@@ -266,8 +266,8 @@ int cr_plugin_init(int stage)
 		if (check_inventory_plugins())
 			goto err;
 
-		ret = run_plugins(RESTORE_INIT);
-		if (ret < 0 && ret != -ENOTSUP)
+		ret = run_plugins_all(RESTORE_INIT);
+		if (ret && ret != -ENOTSUP)
 			goto err;
 	}
 

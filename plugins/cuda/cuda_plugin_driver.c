@@ -473,7 +473,7 @@ static int cuda_driver_checkpoint_devices(int pid)
 	task_info = find_cuda_pid(pid);
 	if (!task_info) {
 		/* We return an error here. The task should be restored
-		 * to its original state at cuda_plugin_fini().
+		 * to its original state at cuda_plugin_dump_finish().
 		 */
 		pr_err("Failed to track pid %d\n", pid);
 		return -1;
@@ -750,18 +750,26 @@ static int cuda_driver_backend_init(int stage)
 	return 0;
 }
 
-static void cuda_driver_backend_fini(int stage, int ret)
+static int cuda_driver_backend_dump_finish(int ret)
 {
-	/* Release all the paused PID's at the end of the DUMP stage in case the
-	 * user provides the -R (leave-running) flag or an error occurred
-	 */
-	if (stage == CR_PLUGIN_STAGE__DUMP && (opts.final_state == TASK_ALIVE || ret != 0)) {
-		struct pid_info *info;
-		list_for_each_entry(info, &cuda_pids, list) {
-			if (resume_device(info->pid, info->current_task_state, info->initial_task_state))
-				pr_err("Unable to restore CUDA state for pid %d during dump cleanup\n", info->pid);
+	struct pid_info *info;
+	int err = 0;
+
+	if (opts.final_state != TASK_ALIVE && !ret)
+		return 0;
+
+	/* Attempt rollback for every task even when an earlier rollback fails. */
+	list_for_each_entry(info, &cuda_pids, list) {
+		if (resume_device(info->pid, info->current_task_state, info->initial_task_state)) {
+			pr_err("Unable to restore CUDA state for pid %d during dump cleanup\n", info->pid);
+			err = -1;
 		}
 	}
+	return err;
+}
+
+static void cuda_driver_backend_fini(int stage, int ret)
+{
 	if (stage == CR_PLUGIN_STAGE__DUMP) {
 		free_cuda_pid_list();
 	}
@@ -774,6 +782,7 @@ const struct cuda_plugin_backend cuda_driver_backend = {
 	.probe = cuda_driver_probe,
 	.init = cuda_driver_backend_init,
 	.fini = cuda_driver_backend_fini,
+	.dump_finish = cuda_driver_backend_dump_finish,
 	.pause_devices = cuda_driver_pause_devices,
 	.checkpoint_devices = cuda_driver_checkpoint_devices,
 	.resume_devices_late = cuda_driver_resume_devices_late,

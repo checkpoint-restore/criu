@@ -8,6 +8,7 @@ struct cuda_plugin_backend {
 	const char *name;
 	int (*probe)(void);
 	int (*init)(int stage);
+	int (*dump_finish)(int ret);
 	void (*fini)(int stage, int ret);
 	int (*pause_devices)(int pid);
 	int (*checkpoint_devices)(int pid);
