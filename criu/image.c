@@ -20,6 +20,7 @@
 #include "img-streamer.h"
 #include "namespaces.h"
 #include "compression.h"
+#include "extmem.h"
 
 bool ns_per_id = false;
 bool img_common_magic = true;
@@ -42,7 +43,7 @@ int check_img_inventory(bool restore)
 	struct cr_img *img;
 	InventoryEntry *he;
 
-	img = open_image(CR_FD_INVENTORY, O_RSTR);
+	img = open_image(CR_FD_INVENTORY, O_RSTR | O_FORCE_LOCAL);
 	if (!img)
 		return -1;
 
@@ -719,11 +720,22 @@ static int userns_openat(void *arg, int dfd, int pid)
 
 static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
 {
-	int ret, flags;
+	int ret, flags, provider_fd = -1;
+	int provider_ret;
 
 	flags = oflags & ~(O_NOBUF | O_SERVICE | O_FORCE_LOCAL);
 
-	if (opts.stream && !(oflags & O_FORCE_LOCAL)) {
+	/* The provider handles normal dumps and restores only. */
+	if ((oflags & O_FORCE_LOCAL) || (oflags & O_DUMP && opts.mode != CR_DUMP))
+		provider_ret = -ENOTSUP;
+	else
+		provider_ret = extmem_open_image(path, flags, &provider_fd);
+
+	if (provider_ret == 0)
+		ret = provider_fd;
+	else if (provider_ret != -ENOTSUP)
+		return -1;
+	else if (opts.stream && !(oflags & O_FORCE_LOCAL)) {
 		ret = img_streamer_open(path, flags);
 		errno = EIO; /* errno value is meaningless, only the ret value is meaningful */
 	} else if (root_ns_mask & CLONE_NEWUSER && type == CR_FD_PAGES && oflags & O_RDWR) {
