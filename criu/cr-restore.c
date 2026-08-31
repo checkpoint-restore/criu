@@ -84,6 +84,7 @@
 #include "sk-queue.h"
 #include "sigframe.h"
 #include "fdstore.h"
+#include "extmem.h"
 #include "string.h"
 #include "memfd.h"
 #include "timens.h"
@@ -2210,6 +2211,13 @@ skip_ns_bouncing:
 	if (ret < 0)
 		goto out_kill;
 
+	/* ACT_PRE_RESUME runs after sealing, so verify provider readiness here. */
+	ret = extmem_wait_ready();
+	if (ret < 0 && ret != -ENOTSUP) {
+		pr_err("External memory provider is not ready\n");
+		goto out_kill;
+	}
+
 	ret = apply_memfd_seals();
 	if (ret < 0)
 		goto out_kill;
@@ -2364,6 +2372,14 @@ skip_ns_bouncing:
 	/* This has the effect of dismissing the image streamer */
 	close_image_dir();
 
+	/*
+	 * The tasks are running, so a COMMIT failure can't roll back the
+	 * restore. Send it before reap_zombies(), which waits for the whole
+	 * tree to exit when CRIU doesn't detach from it.
+	 */
+	if (extmem_commit())
+		pr_err("Failed to commit external memory provider session\n");
+
 	ret = run_scripts(ACT_POST_RESUME);
 	if (ret != 0)
 		pr_err("Post-resume script ret code %d\n", ret);
@@ -2468,6 +2484,8 @@ int prepare_dummy_task_state(struct pstree_item *pi)
 
 int cr_restore_tasks(void)
 {
+	bool plugin_initialized = false;
+	int extmem_ret;
 	int ret = -1;
 
 	if (init_service_fd())
@@ -2493,19 +2511,29 @@ int cr_restore_tasks(void)
 	if (tty_init_restore())
 		return -1;
 
+	/*
+	 * Initialize the provider before reading restore images. It takes its
+	 * inherited FD, so this goes before inherit_fd_move_to_fdstore().
+	 */
+	extmem_ret = extmem_init();
+	if (extmem_ret < 0 && extmem_ret != -ENOTSUP) {
+		ret = extmem_ret;
+		goto err;
+	}
+
 	if (opts.cpu_cap & CPU_CAP_IMAGE) {
 		if (cpu_validate_cpuinfo())
-			return -1;
+			goto err;
 	}
 
 	if (prepare_task_entries() < 0)
-		return -1;
+		goto err;
 
 	if (prepare_pstree() < 0)
-		return -1;
+		goto err;
 
 	if (fdstore_init())
-		return -1;
+		goto err;
 
 	/*
 	 * For the AMDGPU plugin, its parallel restore feature needs to use fdstore to store
@@ -2514,7 +2542,8 @@ int cr_restore_tasks(void)
 	 * must be initialized after fdstore_init.
 	 */
 	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
-		return -1;
+		goto err;
+	plugin_initialized = true;
 
 	if (inherit_fd_move_to_fdstore())
 		goto err;
@@ -2535,7 +2564,11 @@ int cr_restore_tasks(void)
 clean_cgroup:
 	fini_cgroup();
 err:
-	cr_plugin_fini(CR_PLUGIN_STAGE__RESTORE, ret);
+	if (plugin_initialized)
+		cr_plugin_fini(CR_PLUGIN_STAGE__RESTORE, ret);
+	/* On success, restore_root_task() has already sent COMMIT. */
+	if (ret && extmem_is_active() && extmem_abort())
+		pr_err("Failed to abort external memory provider session\n");
 	return ret;
 }
 
@@ -3696,6 +3729,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	close_image_dir();
 	close_proc();
 	close_service_fd(TRANSPORT_FD_OFF);
+	close_service_fd(EXTMEM_PROVIDER_FD_OFF);
 	close_service_fd(CR_PROC_FD_OFF);
 	close_service_fd(ROOT_FD_OFF);
 	close_service_fd(USERNSD_SK);
