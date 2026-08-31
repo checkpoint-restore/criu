@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 #include "vma.h"
+#include "page.h"
 
 #define ANON_HUGEPAGE_PREFIX	 "/anon_hugepage"
 #define ANON_HUGEPAGE_PREFIX_LEN (sizeof(ANON_HUGEPAGE_PREFIX) - 1)
@@ -42,6 +43,20 @@ enum hugepage_size {
 #define MAP_HUGETLB_1GB	  (30 << MAP_HUGETLB_SHIFT)
 #define MAP_HUGETLB_2GB	  (31 << MAP_HUGETLB_SHIFT)
 #define MAP_HUGETLB_16GB  (34 << MAP_HUGETLB_SHIFT)
+
+static inline unsigned long vma_entry_pagesize(const VmaEntry *vma)
+{
+	unsigned int shift;
+	unsigned long size;
+
+	if (!(vma->flags & MAP_HUGETLB))
+		return PAGE_SIZE;
+	shift = vma->flags >> MAP_HUGETLB_SHIFT;
+	if (shift >= sizeof(unsigned long) * 8)
+		return 0;
+	size = 1UL << shift;
+	return size < PAGE_SIZE ? 0 : size;
+}
 
 struct htlb_info {
 	unsigned long long size;
