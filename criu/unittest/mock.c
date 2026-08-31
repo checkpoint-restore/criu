@@ -7,6 +7,7 @@
 #include <sys/types.h>
 
 #include "compel/infect-util.h"
+#include "servicefd.h"
 
 int add_external(char *key)
 {
@@ -78,24 +79,40 @@ int check_namespace_opts(void)
 	return 0;
 }
 
-int get_service_fd(int type)
+static int extmem_provider_fd = -1;
+
+__attribute__((weak)) int inherit_fd_lookup_id(char *id)
 {
 	return -1;
+}
+
+int get_service_fd(enum sfd_type type)
+{
+	if (type == EXTMEM_PROVIDER_FD_OFF)
+		return extmem_provider_fd;
+	return -1;
+}
+
+int install_service_fd(enum sfd_type type, int fd)
+{
+	if (type != EXTMEM_PROVIDER_FD_OFF)
+		return 0;
+	extmem_provider_fd = fd;
+	return fd;
+}
+
+int close_service_fd(enum sfd_type type)
+{
+	if (type == EXTMEM_PROVIDER_FD_OFF && extmem_provider_fd >= 0) {
+		close(extmem_provider_fd);
+		extmem_provider_fd = -1;
+	}
+	return 0;
 }
 
 void *shmalloc(size_t bytes)
 {
 	return malloc(bytes);
-}
-
-int install_service_fd(int type, int fd)
-{
-	return 0;
-}
-
-int close_service_fd(int type)
-{
-	return 0;
 }
 
 void compel_log_init(int log_fn, unsigned int level)
