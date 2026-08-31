@@ -1,6 +1,7 @@
 #ifndef __ZDTM_PIDFD_H__
 #define __ZDTM_PIDFD_H__
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -8,6 +9,8 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/statfs.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -26,6 +29,10 @@
 
 #ifndef SCM_PIDFD
 #define SCM_PIDFD 0x04
+#endif
+
+#ifndef PID_FS_MAGIC
+#define PID_FS_MAGIC 0x50494446
 #endif
 
 /* Keep this layout independent of the build host's linux/pidfd.h version. */
@@ -98,6 +105,40 @@ static inline pid_t zdtm_pidfd_get_pid(int pidfd)
 
 	fclose(f);
 	return pid;
+}
+
+/* Is this a kernel with pidfs, where a pidfd has an inode of its own? */
+static inline int zdtm_has_pidfs(void)
+{
+	struct statfs fst;
+	int pidfd, ret;
+
+	pidfd = zdtm_pidfd_open(getpid(), 0);
+	if (pidfd < 0) {
+		pr_perror("zdtm_pidfd_open");
+		return -1;
+	}
+
+	ret = fstatfs(pidfd, &fst);
+	close(pidfd);
+	if (ret < 0) {
+		pr_perror("fstatfs");
+		return -1;
+	}
+
+	return fst.f_type == PID_FS_MAGIC;
+}
+
+/* The pidfs inode number, which uniquely identifies the struct pid. */
+static inline int zdtm_pidfs_ino(int pidfd, uint64_t *ino)
+{
+	struct statx stx;
+
+	if (statx(pidfd, "", AT_EMPTY_PATH, STATX_INO, &stx) < 0)
+		return pr_perror("statx");
+
+	*ino = stx.stx_ino;
+	return 0;
 }
 
 /* Pull the SCM_PIDFD payload out of the next packet on @sk_rcv. */
