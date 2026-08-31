@@ -37,6 +37,7 @@
 #include "image.h"
 #include "sk-inet.h"
 #include "vma.h"
+#include "hugetlb.h"
 #include "uffd.h"
 #include "sched.h"
 
@@ -1257,13 +1258,21 @@ static int vma_remap(VmaEntry *vma_entry, int uffd, unsigned long thp_pmd_size)
 		 * page-aligned, so the skipped head is never larger than
 		 * align - PAGE_SIZE.
 		 */
-		if (uffd < 0 && thp_pmd_size && len >= thp_pmd_size &&
-		    !((src ^ dst) & (thp_pmd_size - 1)) &&
-		    round_up(dst, thp_pmd_size) <= vma_entry->end - thp_pmd_size &&
-		    vma_entry_thp_advice(vma_entry) != MADV_NOHUGEPAGE &&
-		    !vma_entry_is(vma_entry, VMA_AREA_SHSTK)) {
+		if (vma_entry->flags & MAP_HUGETLB) {
+			align = vma_entry_pagesize(vma_entry);
+			if (!align)
+				return -1;
+		} else if (uffd < 0 && thp_pmd_size && len >= thp_pmd_size &&
+			   !((src ^ dst) & (thp_pmd_size - 1)) &&
+			   round_up(dst, thp_pmd_size) <= vma_entry->end - thp_pmd_size &&
+			   vma_entry_thp_advice(vma_entry) != MADV_NOHUGEPAGE &&
+			   !vma_entry_is(vma_entry, VMA_AREA_SHSTK)) {
 			align = thp_pmd_size;
+		}
+		if (align) {
 			pad = align - PAGE_SIZE;
+			if (len > ULONG_MAX - pad)
+				return -1;
 		}
 
 		/* Move src to non-overlapping place (step 3) */
@@ -1615,7 +1624,7 @@ static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len, v
 
 /*
  * Premapped VMAs are placed one by one in the premapped area, in the order of
- * args->vmas. There may be holes between them: rooms skipped to keep the THP
+ * args->vmas. There may be holes between them: room skipped for huge-page
  * alignment, and guard pages of grow-down VMAs. They are unmapped here,
  * once all CRIU mappings are gone and before any VMA is moved to its target
  * place, which may intersect the premapped area.
