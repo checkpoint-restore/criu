@@ -42,6 +42,8 @@ struct pidfd_probe {
 	bool stale;    /* ... and the sender is dead */
 	bool has_exit; /* ... and we know its wait(2) exit status */
 	int exit_code;
+	bool has_ino;  /* ... and we could read the pidfs ino of its struct pid */
+	uint64_t ino;
 };
 
 struct sk_packet {
@@ -61,6 +63,11 @@ struct sk_packet {
 	 * sender is dead (see sk_queue_post_actions()).
 	 */
 	PidfsAttrEntry *dead_pid;
+	/*
+	 * Restore side: the stand-in for the dead sender of this packet, as
+	 * an index into the shared dead pid table, or -1 for a live sender.
+	 */
+	int dead_pid_idx;
 };
 
 static LIST_HEAD(packets_list);
@@ -90,6 +97,23 @@ static int collect_one_packet(void *obj, ProtobufCMessage *msg, struct cr_img *i
 		xfree(pkt->data);
 		pr_perror("Unable to read packet data");
 		return -1;
+	}
+
+	/*
+	 * Claim a stand-in process for the sender now, while the whole restore
+	 * is still one process: everything else that refers to this dead
+	 * struct pid claims the same one, and by the time the queue is
+	 * refilled the stand-in is already there to be pointed at.
+	 */
+	pkt->dead_pid_idx = -1;
+	if (pkt->entry->dead_pid) {
+		PidfsAttrEntry *dp = pkt->entry->dead_pid;
+
+		pkt->dead_pid_idx = dead_pid_add(dp->ino, dp->has_ino, dp);
+		if (pkt->dead_pid_idx < 0) {
+			xfree(pkt->data);
+			return -1;
+		}
 	}
 
 	/*
@@ -318,6 +342,7 @@ static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len, stru
 	pkt->pidfd_probed = probe->probed;
 	pkt->pidfd_stale = probe->stale;
 	pkt->dead_pid = pei;
+	pkt->dead_pid_idx = -1;
 
 	pe->id_for = entry->id_for;
 	pe->length = entry->length;
@@ -328,6 +353,21 @@ static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len, stru
 	if (probe->has_exit) {
 		pei->has_exit_code = true;
 		pei->exit_code = probe->exit_code;
+	}
+	if (probe->has_ino) {
+		pei->has_ino = true;
+		pei->ino = probe->ino;
+	}
+	/*
+	 * A fallback identity for when there is no ino, which is every dead
+	 * sender on a kernel that mints no pidfd for a reaped one. Without it
+	 * each packet of a single dead sender would claim a stand-in process
+	 * of its own on restore. Only read back where the packet turns out to
+	 * be stale, see sk_queue_post_actions().
+	 */
+	if (entry->ucred->pid) {
+		pei->has_dump_pid = true;
+		pei->dump_pid = entry->ucred->pid;
 	}
 
 	pe->n_scm = entry->n_scm;
@@ -525,6 +565,21 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags, str
 						probe->has_exit = true;
 						probe->exit_code = exit_code;
 					}
+
+					/*
+					 * The pidfs ino is what identifies the
+					 * sender's struct pid: it is the only
+					 * thing that tells two dead senders
+					 * apart, and the only thing that ties
+					 * this packet to a pidfd of the same
+					 * process elsewhere in the dump. Read
+					 * it while we still hold the fd; a
+					 * failure is not fatal, it only costs
+					 * that sharing.
+					 */
+					if (pidfd_query_ino(pidfd, &probe->ino) == 0)
+						probe->has_ino = true;
+
 					pr_debug("Closing pidfd %d received on queue peek\n", pidfd);
 					close(pidfd);
 				}
@@ -860,7 +915,6 @@ static int send_one_pkt(int fd, struct sk_packet *pkt, pid_t dead_pid)
 
 int restore_sk_queue(int fd, unsigned int peer_id)
 {
-	struct dead_pid_pool dead_pids = {};
 	struct sk_packet *pkt, *tmp;
 	int ret = -1;
 
@@ -876,8 +930,8 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		if (entry->id_for != peer_id)
 			continue;
 
-		if (entry->dead_pid) {
-			dead_pid = dead_pid_get(&dead_pids, entry->dead_pid);
+		if (pkt->dead_pid_idx >= 0) {
+			dead_pid = dead_pid_get(pkt->dead_pid_idx);
 			if (dead_pid < 0) {
 				ret = -1;
 				goto out;
@@ -898,13 +952,14 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 	ret = 0;
 out:
 	/*
-	 * Dispose of the stand-in processes only after the queue is refilled:
-	 * every such skb already holds a reference on the stand-in's struct
-	 * pid, so the pidfd a receiver mints goes stale -- with the original
-	 * exit status -- exactly as it was before the dump.
+	 * The stand-in processes are not disposed of here. Each of these skbs
+	 * now holds a reference on a stand-in's struct pid, and so may a pidfd
+	 * file some other task has yet to restore -- for the same dead process,
+	 * which is the whole point of keying them on the pidfs ino. They are
+	 * killed once every task has restored everything, and only then does
+	 * the pidfd a receiver mints go stale, with the original exit status,
+	 * exactly as it was before the dump.
 	 */
-	if (dead_pid_put_all(&dead_pids))
-		ret = -1;
 	return ret;
 }
 
