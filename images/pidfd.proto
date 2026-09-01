@@ -7,7 +7,25 @@ import "pidfs.proto";
 
 message pidfd_entry {
 	required uint32		id		= 1;
+	/*
+	 * The pidfs inode number of the struct pid this pidfd refers to.
+	 * Since Linux 6.9 pidfs gives every struct pid a unique inode, which
+	 * is the only reliable way to tell two of them apart: pid numbers get
+	 * reused, and the pidfs attributes of a reaped task (an exit code,
+	 * say) are not distinctive at all. Restore keys its stand-in
+	 * processes on this, see dead_pid_get().
+	 *
+	 * Read with pidfd_query_ino(), which yields the whole 64-bit cookie:
+	 * fstat() gives i_ino and, on a 32-bit kernel where that is only its
+	 * low half, FS_IOC_GETVERSION gives back the high half that
+	 * pidfs_init_inode() put in i_generation. A queued packet's sender is
+	 * identified the same way, so a pidfd file and a packet of one dead
+	 * process agree on the key. The ino: line of /proc/pid/fdinfo/N, which
+	 * prints i_ino alone, is the fallback if the fd can't be stat()ed.
+	 */
+	/* Keep field 2 as the low half so existing images remain readable. */
 	required uint32		ino		= 2;
+	optional uint32		ino_hi		= 7;
 	required uint32		flags		= 3;
 	required int32		nspid		= 4;
 	required fown_entry	fown		= 5;

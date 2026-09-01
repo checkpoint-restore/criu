@@ -171,10 +171,11 @@ int main(int argc, char *argv[])
 
 	/*
 	 * Three stale packets. The first two senders died differently -- one
-	 * exited with a code, one was killed by a signal -- which exercises
-	 * restore's per-exit-status helper grouping. The third died exactly
-	 * like the first, so restore stands in for both with a single helper
-	 * and must still report the right status for each packet.
+	 * exited with a code, one was killed by a signal -- so each must come
+	 * back reporting its own status. The third died exactly like the
+	 * first, which is what makes it interesting: dying the same way is not
+	 * being the same process, so restore owes it a stand-in of its own
+	 * rather than collapsing it onto the first one's.
 	 */
 	if (zdtm_queue_msg_from_dead_child(&sk[0], 1, 42, 0, NULL) < 0)
 		return 1;
