@@ -3362,7 +3362,7 @@ static inline int nftables_lock_network_internal(bool restore)
 	cleanup_file FILE *fp = NULL;
 	struct nft_ctx *nft;
 	int ret = 0, exit_code = -1;
-	char table[32];
+	char table[NFTABLES_TABLE_NAME_LEN];
 	char buf[128];
 
 	if (nftables_get_table(table, sizeof(table)))
@@ -3469,7 +3469,7 @@ static inline int nftables_network_unlock(void)
 	int ret = 0;
 	cleanup_file FILE *fp = NULL;
 	struct nft_ctx *nft;
-	char table[32];
+	char table[NFTABLES_TABLE_NAME_LEN];
 	char buf[128];
 
 	if (nftables_get_table(table, sizeof(table)))

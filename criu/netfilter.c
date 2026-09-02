@@ -158,7 +158,7 @@ int nftables_init_connection_lock(void)
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 	struct nft_ctx *nft;
 	int ret = 0;
-	char table[32];
+	char table[NFTABLES_TABLE_NAME_LEN];
 
 	if (nftables_get_table(table, sizeof(table)))
 		return -1;
@@ -241,7 +241,7 @@ static int nftables_lock_connection_raw(int family, u32 *src_addr, u16 src_port,
 	struct nft_ctx *nft;
 	int ret = 0;
 	char sip[INET_ADDR_LEN], dip[INET_ADDR_LEN];
-	char table[32];
+	char table[NFTABLES_TABLE_NAME_LEN];
 
 	if (nftables_get_table(table, sizeof(table)))
 		return -1;
@@ -304,20 +304,20 @@ int nftables_get_table(char *table, int n)
 	switch(dump_criu_run_id[0]) {
 	case 0:
 		/* This is not a restore.*/
-		ret = snprintf(table, n, "inet CRIU-%s", criu_run_id);
+		ret = snprintf(table, n, NFTABLES_TABLE_PREFIX "%s", criu_run_id);
 		break;
 	case NO_DUMP_CRIU_RUN_ID:
 		/**
 		 * This is a restore from an older image with no
 		 * dump_criu_run_id available. Let's use the old ID.
 		 */
-		ret = snprintf(table, n, "inet CRIU-%d", root_item->pid->real);
+		ret = snprintf(table, n, NFTABLES_TABLE_PREFIX "%d", root_item->pid->real);
 		break;
 	default:
-		ret = snprintf(table, n, "inet CRIU-%s", dump_criu_run_id);
+		ret = snprintf(table, n, NFTABLES_TABLE_PREFIX "%s", dump_criu_run_id);
 	}
 
-	if (ret < 0) {
+	if (ret < 0 || ret >= n) {
 		pr_err("Cannot generate CRIU's nftables table name\n");
 		return -1;
 	}
