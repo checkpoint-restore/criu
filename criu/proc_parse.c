@@ -1649,18 +1649,29 @@ out:
 static int get_mountinfo_sdev_from_mntid(int mnt_id, unsigned int *sdev)
 {
 	int exit_code = -1;
-	FILE *f;
+	struct bfd f = { .fd = -1 };
+	char *line;
 
-	f = fopen_proc(PROC_SELF, "mountinfo");
-	if (!f)
+	f.fd = open_proc(PROC_SELF, "mountinfo");
+	if (f.fd < 0)
 		return -1;
+	if (bfdopenr(&f))
+		goto err;
 
-	while (fgets(buf, BUF_SIZE, f)) {
+	while (1) {
 		unsigned int kmaj, kmin;
 		int id;
 
-		if (sscanf(buf, "%i %*i %u:%u", &id, &kmaj, &kmin) != 3) {
-			pr_err("Failed to parse mountinfo line %s\n", buf);
+		line = breadline(&f);
+		if (!line)
+			break;
+		if (IS_ERR(line)) {
+			pr_err("Failed to read mountinfo\n");
+			goto err;
+		}
+
+		if (sscanf(line, "%i %*i %u:%u", &id, &kmaj, &kmin) != 3) {
+			pr_err("Failed to parse mountinfo line %s\n", line);
 			goto err;
 		}
 
@@ -1671,7 +1682,7 @@ static int get_mountinfo_sdev_from_mntid(int mnt_id, unsigned int *sdev)
 		}
 	}
 err:
-	fclose(f);
+	bclose(&f);
 	return exit_code;
 }
 
@@ -1702,16 +1713,27 @@ int get_sdev_from_fd(int fd, unsigned int *sdev, bool parse_mountinfo)
 struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 {
 	struct mount_info *list = NULL;
-	FILE *f;
+	struct bfd f = { .fd = -1 };
+	char *line;
 
-	f = fopen_proc(pid, "mountinfo");
-	if (!f)
+	f.fd = open_proc(pid, "mountinfo");
+	if (f.fd < 0)
+		return NULL;
+	if (bfdopenr(&f))
 		return NULL;
 
-	while (fgets(buf, BUF_SIZE, f)) {
+	while (1) {
 		struct mount_info *new;
 		int ret = -1;
 		char *fsname = NULL;
+
+		line = breadline(&f);
+		if (!line)
+			break;
+		if (IS_ERR(line)) {
+			pr_err("Failed to read mountinfo\n");
+			goto err;
+		}
 
 		new = mnt_entry_alloc(false);
 		if (!new)
@@ -1719,9 +1741,9 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 
 		new->nsid = nsid;
 
-		ret = parse_mountinfo_ent(buf, new, &fsname);
+		ret = parse_mountinfo_ent(line, new, &fsname);
 		if (ret < 0) {
-			pr_err("Bad format in %d mountinfo: '%s'\n", pid, buf);
+			pr_err("Bad format in %d mountinfo: '%s'\n", pid, line);
 			goto end;
 		}
 
@@ -1767,7 +1789,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 			goto err;
 	}
 out:
-	fclose(f);
+	bclose(&f);
 	return list;
 
 err:
