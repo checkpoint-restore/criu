@@ -288,8 +288,8 @@ int main(int argc, char *argv[], char *envp[])
 		kdat.can_map_vdso = 0;
 
 	if (!list_empty(&opts.inherit_fds)) {
-		if (opts.mode != CR_RESTORE) {
-			pr_err("--inherit-fd is restore-only option\n");
+		if (opts.mode != CR_RESTORE && opts.mode != CR_DUMP) {
+			pr_err("--inherit-fd is supported for dump and restore only\n");
 			return 1;
 		}
 		/* now that log file is set up, print inherit fd list */

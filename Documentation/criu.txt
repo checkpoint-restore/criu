@@ -567,6 +567,8 @@ Restores previously checkpointed processes.
 *--inherit-fd* **fd[**__N__**]:**__resource__::
     Inherit a file descriptor. This option lets *criu* use an already opened
     file descriptor 'N' for restoring a file identified by 'resource'.
+    This option may also be used with *dump* to pass the external memory
+    provider connection.
     This option can be used to restore an external resource dumped
     with the help of *--external* *file*, *tty*, *pid* and *unix* options.
 +
