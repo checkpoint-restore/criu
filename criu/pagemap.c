@@ -2624,10 +2624,23 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	}
 	set_encoded_read_owner(pr, pr);
 
-	pr->pi = open_pages_image_at(dfd, flags | oflags, pr->pmi, &pr->pages_img_id);
-	if (!pr->pi) {
-		close_page_read(pr);
-		return -1;
+	/*
+	 * A remote page read answers from the page server and never touches the
+	 * pages image. Requesting it from the streamer would leave a file that
+	 * nobody drains, and the streamer serves one file at a time, so the
+	 * request after it would never be answered.
+	 */
+	if (remote && streamed) {
+		if (read_pages_image_id(pr->pmi, &pr->pages_img_id) < 0) {
+			close_page_read(pr);
+			return -1;
+		}
+	} else {
+		pr->pi = open_pages_image_at(dfd, flags | oflags, pr->pmi, &pr->pages_img_id);
+		if (!pr->pi) {
+			close_page_read(pr);
+			return -1;
+		}
 	}
 
 	if (init_pagemaps(pr)) {
