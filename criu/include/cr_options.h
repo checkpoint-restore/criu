@@ -303,6 +303,7 @@ extern struct cr_options opts;
 extern char *rpc_cfg_file;
 
 extern int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, int state);
+extern int check_stream_conflicts(void);
 extern int check_options(void);
 extern int init_opts(void);
 

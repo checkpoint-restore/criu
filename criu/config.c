@@ -1193,6 +1193,22 @@ bad_arg:
 	return 1;
 }
 
+int check_stream_conflicts(void)
+{
+	/*
+	 * A dump's page server writes the pagemap and pages images itself, so
+	 * they land outside the stream and the restore never finds them.
+	 */
+	if (opts.stream && opts.use_page_server && (opts.mode == CR_DUMP || opts.mode == CR_PRE_DUMP)) {
+		pr_err("--stream cannot be used with --page-server on a dump, it "
+		       "moves the pages images over a socket of its own and would "
+		       "leave them out of the image stream\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int check_options(void)
 {
 	/*
