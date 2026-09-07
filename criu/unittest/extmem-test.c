@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -10,12 +11,14 @@
 
 #include "cr_options.h"
 #include "extmem.h"
+#include "image.h"
 #include "images/extmem.pb-c.h"
 #include "memfd.h"
 #include "servicefd.h"
 
 static int provider_fd = -1;
 static int provider_lookup_count;
+static int provider_ready_pipe[2] = { -1, -1 };
 
 enum provider_mode {
 	PROVIDER_NORMAL,
@@ -27,6 +30,9 @@ enum provider_mode {
 	PROVIDER_ERROR_FD,
 	PROVIDER_INT_MIN_STATUS,
 	PROVIDER_UNSUPPORTED_WAIT,
+	PROVIDER_DUMP,
+	PROVIDER_FAILED_COMMIT,
+	PROVIDER_STUCK,
 };
 
 int inherit_fd_take(char *id)
@@ -195,6 +201,33 @@ static void run_unsupported_wait_provider(int socket)
 	extmem_req__free_unpacked(request, NULL);
 }
 
+static void run_dump_provider(int socket)
+{
+	const char expected[] = "provider dump";
+	char actual[sizeof(expected)];
+	ExtmemReq *request;
+	int fd;
+
+	assert_init(socket, 0);
+	request = receive_request(socket);
+	assert(request && request->op == EXTMEM_OP__EXTMEM_OPEN_IMAGE);
+	assert(request->open_image);
+	assert(request->open_image->flags == O_DUMP);
+	fd = memfd_create("extmem-dump-image", 0);
+	assert(fd >= 0);
+	send_response(socket, 0, fd);
+	extmem_req__free_unpacked(request, NULL);
+
+	request = receive_request(socket);
+	assert(request && request->op == EXTMEM_OP__EXTMEM_COMMIT);
+	assert(lseek(fd, 0, SEEK_SET) == 0);
+	assert(read(fd, actual, sizeof(actual)) == sizeof(actual));
+	assert(memcmp(actual, expected, sizeof(expected)) == 0);
+	send_response(socket, 0, -1);
+	close(fd);
+	extmem_req__free_unpacked(request, NULL);
+}
+
 static void run_multiple_fds_provider(int socket)
 {
 	ExtmemReq *request;
@@ -265,6 +298,34 @@ static void run_provider(int socket, enum provider_mode mode)
 	case PROVIDER_UNSUPPORTED_WAIT:
 		run_unsupported_wait_provider(socket);
 		break;
+	case PROVIDER_DUMP:
+		run_dump_provider(socket);
+		break;
+	case PROVIDER_STUCK: {
+		ExtmemReq *request;
+		char byte = 0;
+		ssize_t len;
+
+		/* Take a request, never reply, then expect EOF and no ABORT. */
+		assert_init(socket, 0);
+		request = receive_request(socket);
+		assert(request && request->op == EXTMEM_OP__EXTMEM_GET_VMA);
+		extmem_req__free_unpacked(request, NULL);
+		assert(write(provider_ready_pipe[1], &byte, 1) == 1);
+		len = recv(socket, &byte, sizeof(byte), 0);
+		assert(len == 0);
+		break;
+	}
+	case PROVIDER_FAILED_COMMIT: {
+		ExtmemReq *request;
+
+		assert_init(socket, 0);
+		request = receive_request(socket);
+		assert(request && request->op == EXTMEM_OP__EXTMEM_COMMIT);
+		send_response(socket, -EIO, -1);
+		extmem_req__free_unpacked(request, NULL);
+		break;
+	}
 	}
 	close(socket);
 }
@@ -406,6 +467,69 @@ static void test_unsupported_wait(void)
 	finish_provider(pid);
 }
 
+static void test_dump_image(void)
+{
+	const char data[] = "provider dump";
+	pid_t pid;
+	int fd;
+
+	opts.mode = CR_DUMP;
+	pid = start_provider(PROVIDER_DUMP);
+	assert(extmem_init() == 0);
+	assert(extmem_open_image("inventory.img", O_DUMP, &fd) == 0);
+	assert(write(fd, data, sizeof(data)) == sizeof(data));
+	close(fd);
+	assert(extmem_commit() == 0);
+	finish_provider(pid);
+}
+
+static void test_failed_commit(void)
+{
+	pid_t pid = start_provider(PROVIDER_FAILED_COMMIT);
+
+	assert(extmem_init() == 0);
+	assert(extmem_commit() == -1);
+	assert(errno == EIO);
+	assert(!extmem_is_active());
+	assert(get_service_fd(EXTMEM_PROVIDER_FD_OFF) == -1);
+	assert(extmem_abort() == -EPIPE);
+	finish_provider(pid);
+}
+
+/*
+ * A task killed while it waits for a reply holds the request lock forever,
+ * and its reply may still arrive. ABORT must neither block on the lock nor
+ * be sent on the socket: CRIU closes the socket instead.
+ */
+static void test_killed_requester(void)
+{
+	pid_t pid, child;
+	char byte;
+	int status;
+	int fd;
+
+	assert(pipe(provider_ready_pipe) == 0);
+	pid = start_provider(PROVIDER_STUCK);
+	assert(extmem_init() == 0);
+
+	child = fork();
+	assert(child >= 0);
+	if (child == 0) {
+		close(provider_fd);
+		extmem_get_vma(1, 0, 0x1000, 0x1000, 0, &fd);
+		_exit(1);
+	}
+	assert(read(provider_ready_pipe[0], &byte, 1) == 1);
+	assert(kill(child, SIGKILL) == 0);
+	assert(waitpid(child, &status, 0) == child);
+	assert(WIFSIGNALED(status));
+
+	assert(extmem_abort() == 0);
+	assert(!extmem_is_active());
+	assert(get_service_fd(EXTMEM_PROVIDER_FD_OFF) == -1);
+	finish_provider(pid);
+}
+
 static void test_unsupported_object(void)
 {
 	test_vma_response(PROVIDER_UNSUPPORTED_VMA, -ENOTSUP, ENOTSUP);
@@ -458,6 +582,9 @@ void test_extmem(void)
 	run_test(test_failed_object);
 	run_test(test_unsupported_init);
 	run_test(test_unsupported_wait);
+	run_test(test_dump_image);
+	run_test(test_failed_commit);
+	run_test(test_killed_requester);
 	run_test(test_multiple_fds);
 	run_test(test_missing_fd);
 	run_test(test_error_fd);

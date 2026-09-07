@@ -84,6 +84,7 @@
 #include "dump.h"
 #include "eventpoll.h"
 #include "memfd.h"
+#include "extmem.h"
 #include "timens.h"
 #include "img-streamer.h"
 #include "pidfd-store.h"
@@ -1902,6 +1903,18 @@ static int cr_dump_finish(int ret)
 
 	cgp_fini();
 
+	/*
+	 * Complete the provider's image output before the post-dump
+	 * script runs, so that the script sees a finished checkpoint.
+	 */
+	if (ret) {
+		if (extmem_abort())
+			pr_err("Failed to abort external memory provider session\n");
+	} else if (extmem_commit()) {
+		pr_err("Failed to commit external memory provider session\n");
+		ret = -1;
+	}
+
 	if (!ret) {
 		/*
 		 * It might be a migration case, where we're asked
@@ -2036,6 +2049,10 @@ int cr_dump_tasks(pid_t pid)
 	if (!root_item)
 		goto err;
 	root_item->pid->real = pid;
+
+	ret = extmem_init();
+	if (ret < 0 && ret != -ENOTSUP)
+		goto err;
 
 	ret = run_scripts(ACT_PRE_DUMP);
 	if (ret != 0) {

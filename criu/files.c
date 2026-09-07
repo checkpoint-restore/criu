@@ -1639,7 +1639,7 @@ void inherit_fd_log(void)
 	struct inherit_fd *inh;
 
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
-		pr_info("File %s will be restored from inherit fd %d\n", inh->inh_id, inh->inh_fd);
+		pr_info("File %s will use inherit fd %d\n", inh->inh_id, inh->inh_fd);
 	}
 }
 
