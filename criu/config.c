@@ -1206,6 +1206,19 @@ int check_stream_conflicts(void)
 		return -1;
 	}
 
+	/*
+	 * A lazy-pages daemon answers faults in the order they arrive, so it
+	 * needs to seek the pages image. A stream is sequential. With a page
+	 * server the pages come off the socket instead and only the metadata
+	 * is read, which streams fine.
+	 */
+	if (opts.stream && opts.mode == CR_LAZY_PAGES && !opts.use_page_server) {
+		pr_err("--stream needs --page-server here: a lazy-pages daemon "
+		       "reading its pages from the image has to seek it, and a "
+		       "streamed image can only be read forwards\n");
+		return -1;
+	}
+
 	return 0;
 }
 
