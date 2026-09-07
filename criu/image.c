@@ -343,7 +343,8 @@ int write_img_inventory(InventoryEntry *he, const InventoryEntry *parent_ie)
 
 	pr_info("Writing image inventory (version %u)\n", he->img_version);
 
-	img = open_image(CR_FD_INVENTORY, O_DUMP);
+	/* Restore reads inventory before the provider is initialized. */
+	img = open_image(CR_FD_INVENTORY, O_DUMP | O_FORCE_LOCAL);
 	if (!img)
 		return -1;
 

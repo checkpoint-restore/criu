@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "extmem.h"
+#include "image.h"
 #include "images/extmem.pb-c.h"
 #include "memfd.h"
 
@@ -25,6 +26,7 @@ enum provider_mode {
 	PROVIDER_ERROR_FD,
 	PROVIDER_INT_MIN_STATUS,
 	PROVIDER_UNSUPPORTED_WAIT,
+	PROVIDER_DUMP,
 };
 
 int inherit_fd_lookup_id(char *id)
@@ -189,6 +191,33 @@ static void run_unsupported_wait_provider(int socket)
 	extmem_req__free_unpacked(request, NULL);
 }
 
+static void run_dump_provider(int socket)
+{
+	ExtmemReq *request;
+	const char expected[] = "provider dump";
+	char actual[sizeof(expected)];
+	int fd;
+
+	assert_init(socket, 0);
+	request = receive_request(socket);
+	assert(request && request->op == EXTMEM_OP__EXTMEM_OPEN_IMAGE);
+	assert(request->open_image);
+	assert(request->open_image->flags == O_DUMP);
+	fd = memfd_create("extmem-dump-image", 0);
+	assert(fd >= 0);
+	send_response(socket, 0, fd);
+	extmem_req__free_unpacked(request, NULL);
+
+	request = receive_request(socket);
+	assert(request && request->op == EXTMEM_OP__EXTMEM_COMMIT);
+	assert(lseek(fd, 0, SEEK_SET) == 0);
+	assert(read(fd, actual, sizeof(actual)) == sizeof(actual));
+	assert(memcmp(actual, expected, sizeof(expected)) == 0);
+	send_response(socket, 0, -1);
+	close(fd);
+	extmem_req__free_unpacked(request, NULL);
+}
+
 static void run_multiple_fds_provider(int socket)
 {
 	ExtmemReq *request;
@@ -258,6 +287,9 @@ static void run_provider(int socket, enum provider_mode mode)
 		break;
 	case PROVIDER_UNSUPPORTED_WAIT:
 		run_unsupported_wait_provider(socket);
+		break;
+	case PROVIDER_DUMP:
+		run_dump_provider(socket);
 		break;
 	}
 	close(socket);
@@ -369,6 +401,19 @@ static void test_unsupported_wait(void)
 	finish_provider(pid);
 }
 
+static void test_dump_image(void)
+{
+	int fd;
+	const char data[] = "provider dump";
+	pid_t pid = start_provider(PROVIDER_DUMP);
+
+	assert(extmem_open_image("inventory.img", O_DUMP, &fd) == 0);
+	assert(write(fd, data, sizeof(data)) == sizeof(data));
+	close(fd);
+	assert(extmem_commit() == 0);
+	finish_provider(pid);
+}
+
 static void test_unsupported_object(void)
 {
 	test_vma_response(PROVIDER_UNSUPPORTED_VMA, -ENOTSUP, ENOTSUP);
@@ -421,6 +466,7 @@ void test_extmem(void)
 	run_test(test_failed_object);
 	run_test(test_unsupported_init);
 	run_test(test_unsupported_wait);
+	run_test(test_dump_image);
 	run_test(test_multiple_fds);
 	run_test(test_missing_fd);
 	run_test(test_error_fd);
