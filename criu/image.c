@@ -832,6 +832,26 @@ struct cr_img *img_from_fd(int fd)
 }
 
 /*
+ * The mode open_image_dir() wants for the current operation, or -1 for an
+ * operation that does not read or write an image set of its own.
+ */
+int image_dir_mode(void)
+{
+	switch (opts.mode) {
+	case CR_DUMP:
+		/* fallthrough */
+	case CR_CPUINFO_DUMP:
+		/* fallthrough */
+	case CR_PRE_DUMP:
+		return O_DUMP;
+	case CR_RESTORE:
+		return O_RSTR;
+	default:
+		return -1;
+	}
+}
+
+/*
  * `mode` should be O_RSTR or O_DUMP depending on the intent.
  * This is used when opts.stream is enabled for picking the right streamer
  * socket name. `mode` is ignored when opts.stream is not enabled.
