@@ -2568,7 +2568,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	 * others are always local.
 	 */
 	pr_flags &= ~PR_REMOTE;
-	if (opts.auto_dedup)
+	if (opts.auto_dedup && !opts.stream)
 		pr_flags |= PR_MOD;
 	if (pr_flags & PR_MOD)
 		flags = O_RDWR;
