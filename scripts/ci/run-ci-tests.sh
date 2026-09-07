@@ -110,6 +110,10 @@ test_stream() {
 	./test/zdtm.py run -t zdtm/transition/maps007 --stream --pre 2 --pre-dump-mode read "${ZDTM_OPTS[@]}"
 
 	./test/zdtm.py run -t zdtm/transition/maps007 --stream --dedup "${ZDTM_OPTS[@]}"
+
+	# For the streamed dump and restore over RPC. The suite skips that case
+	# when criu-image-streamer is missing, which is every job but this one.
+	make -C test/others/rpc/ run
 }
 
 print_header() {
