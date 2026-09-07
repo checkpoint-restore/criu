@@ -54,26 +54,6 @@ void flush_early_log_to_stderr(void)
 	flush_early_log_buffer(STDERR_FILENO);
 }
 
-static int image_dir_mode(void)
-{
-	switch (opts.mode) {
-	case CR_DUMP:
-		/* fallthrough */
-	case CR_CPUINFO_DUMP:
-		/* fallthrough */
-	case CR_PRE_DUMP:
-		return O_DUMP;
-	case CR_RESTORE:
-		return O_RSTR;
-	default:
-		return -1;
-	}
-
-	/* never reached */
-	BUG();
-	return -1;
-}
-
 struct {
 	char *cmd;
 	int mode;

@@ -166,6 +166,7 @@ static inline int img_raw_fd(struct cr_img *img)
 
 extern off_t img_raw_size(struct cr_img *img);
 
+extern int image_dir_mode(void);
 extern int open_image_dir(const char *dir, int mode);
 extern void close_image_dir(void);
 /*
