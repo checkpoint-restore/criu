@@ -255,6 +255,9 @@ int main(int argc, char *argv[], char *envp[])
 		goto usage;
 	}
 
+	if (check_stream_conflicts())
+		goto usage;
+
 	/* We must not open imgs dir, if service is called */
 	if (opts.mode != CR_SERVICE) {
 		ret = open_image_dir(opts.imgs_dir, image_dir_mode());
