@@ -163,6 +163,7 @@ TST_NOFILE	:=				\
 		maps09				\
 		maps10				\
 		maps11				\
+		mapfile_priv			\
 		mlock_setuid			\
 		xids00				\
 		groups				\
