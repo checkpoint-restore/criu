@@ -42,6 +42,7 @@
 #include "common/scm.h"
 #include "uffd.h"
 #include "pidfd-store.h"
+#include "plugin.h"
 
 #include "setproctitle.h"
 
@@ -406,6 +407,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	bool imgs_changed_by_rpc_conf = false;
 	int i;
 	bool dummy = false;
+
+	/* Drop options from a previous request while preserving config defaults. */
+	cr_plugin_options_clear_request();
 
 	if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &ids, &ids_len)) {
 		pr_perror("Can't get socket options");
@@ -803,6 +807,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 		xfree(tmp_output);
 		xfree(tmp_work);
+	}
+
+	for (i = 0; i < req->n_plugin_options; i++) {
+		if (!req->plugin_options[i] || cr_plugin_option_add_arg(req->plugin_options[i]))
+			goto err;
 	}
 
 	if (resolve_images_dir_path(images_dir_path, imgs_changed_by_rpc_conf, req, ids.pid) < 0)
@@ -1674,7 +1683,8 @@ int cr_service(bool daemon_mode)
 				exit(1);
 
 			close(server_fd);
-			init_opts();
+			if (init_opts())
+				exit(1);
 			ret = cr_service_work(sk);
 			close(sk);
 			exit(ret != 0);

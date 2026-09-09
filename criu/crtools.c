@@ -150,7 +150,8 @@ int main(int argc, char *argv[], char *envp[])
 	if (argc < 2)
 		goto usage;
 
-	init_opts();
+	if (init_opts())
+		return 1;
 
 	ret = parse_options(argc, argv, &usage_error, &has_exec_cmd, state);
 
@@ -162,6 +163,8 @@ int main(int argc, char *argv[], char *envp[])
 		pr_err("command is required\n");
 		goto usage;
 	}
+
+	cr_plugin_default_options_parsed();
 
 	log_set_loglevel(opts.log_level);
 
@@ -459,6 +462,7 @@ usage:
 	       "  -j|--" OPT_SHELL_JOB "        allow one to dump and restore shell jobs\n"
 	       "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"
 	       "  -L|--libdir           path to a plugin directory (by default " CR_PLUGIN_DEFAULT ")\n"
+	       "  --plugin-option=P.N[=V] pass an option to a plugin\n"
 	       "  --timeout NUM         a timeout (in seconds) on collecting tasks during dump\n"
 	       "                        (default 10 seconds)\n"
 	       "  --force-irmap         force resolving names for inotify/fsnotify watches\n"

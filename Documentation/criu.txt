@@ -95,6 +95,14 @@ The following levels are available:
 *-L*, *--libdir* 'path'::
     Path to plugins directory.
 
+*--plugin-option=PLUGIN.NAME[=VALUE]*::
+    Pass an option to a plugin. The plugin is responsible for validating and
+    interpreting the value. The option applies to dump, pre-dump, and restore.
+    It may be repeated; CRIU preserves every occurrence in configuration order,
+    followed by request-specific options. Plugins ignore options they do not
+    recognize. For example: *--plugin-option=example.option=value* or
+    *--plugin-option=example.flag*.
+
 *--enable-fs* ['fs'[,'fs'...]]::
     Specify a comma-separated list of filesystem names that should
     be auto-detected. The value 'all' enables auto-detection for

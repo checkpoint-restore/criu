@@ -90,6 +90,7 @@ $(obj)/criu: $(PROGRAM-BUILTINS)
 UNIT-BUILTINS		+= $(obj)/util.o
 UNIT-BUILTINS		+= $(obj)/bfd.o
 UNIT-BUILTINS		+= $(obj)/config.o
+UNIT-BUILTINS		+= $(obj)/plugin-options.o
 UNIT-BUILTINS		+= $(obj)/log.o
 UNIT-BUILTINS		+= $(obj)/string.o
 ifeq ($(CONFIG_LZ4),y)

@@ -54,6 +54,11 @@ static int send_req(int socket_fd, CriuReq *req)
 int main(int argc, char *argv[])
 {
 	CriuReq req = CRIU_REQ__INIT;
+	char *plugin_options[] = {
+		(char *)"unknown.option=ignored",
+		(char *)"test-plugin.test-option=test-value",
+		(char *)"test-plugin.test=abbreviation-must-be-ignored",
+	};
 	CriuResp *resp = NULL;
 	int fd, dir_fd;
 	int ret = 0;
@@ -101,6 +106,8 @@ int main(int argc, char *argv[])
 	req.opts->log_level = 4;
 	req.opts->has_network_lock = true;
 	req.opts->network_lock = CRIU_NETWORK_LOCK_METHOD__SKIP;
+	req.opts->n_plugin_options = 3;
+	req.opts->plugin_options = plugin_options;
 
 	/*
 	 * Connect to service socket

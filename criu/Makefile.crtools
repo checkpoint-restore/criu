@@ -56,6 +56,7 @@ obj-y			+= parasite-syscall.o
 obj-y			+= pie-util.o
 obj-y			+= pipes.o
 obj-y			+= plugin.o
+obj-y			+= plugin-options.o
 obj-y			+= proc_parse.o
 obj-y			+= protobuf-desc.o
 obj-y			+= protobuf.o
