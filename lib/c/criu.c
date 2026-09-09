@@ -214,6 +214,13 @@ void criu_local_free_opts(criu_opts *opts)
 	}
 	opts->rpc->n_external = 0;
 
+	if (opts->rpc->plugin_options) {
+		for (i = 0; i < opts->rpc->n_plugin_options; i++)
+			free(opts->rpc->plugin_options[i]);
+		free(opts->rpc->plugin_options);
+	}
+	opts->rpc->n_plugin_options = 0;
+
 	if (opts->rpc->join_ns) {
 		for (i = 0; i < opts->rpc->n_join_ns; i++) {
 			free(opts->rpc->join_ns[i]->ns);
@@ -1268,6 +1275,51 @@ err:
 int criu_add_external(const char *key)
 {
 	return criu_local_add_external(global_opts, key);
+}
+
+int criu_local_add_plugin_option(criu_opts *opts, const char *option)
+{
+	const char *dot, *equal;
+	char **options;
+	char *copy;
+	int nr;
+
+	if (!opts || !opts->rpc || !option || !option[0])
+		return -EINVAL;
+	dot = strchr(option, '.');
+	equal = strchr(option, '=');
+	if (option[0] == '-' || !dot || dot == option || dot[1] == '\0' || (equal && equal <= dot + 1))
+		return -EINVAL;
+	if (opts->rpc->n_plugin_options >= INT_MAX - 1)
+		return -E2BIG;
+
+	copy = strdup(option);
+	if (!copy)
+		return -ENOMEM;
+
+	nr = opts->rpc->n_plugin_options + 1;
+	if ((size_t)nr > SIZE_MAX / sizeof(*options))
+		goto err_too_big;
+	options = realloc(opts->rpc->plugin_options, nr * sizeof(*options));
+	if (!options)
+		goto err;
+
+	options[nr - 1] = copy;
+	opts->rpc->plugin_options = options;
+	opts->rpc->n_plugin_options = nr;
+	return 0;
+
+err:
+	free(copy);
+	return -ENOMEM;
+err_too_big:
+	free(copy);
+	return -E2BIG;
+}
+
+int criu_add_plugin_option(const char *option)
+{
+	return criu_local_add_plugin_option(global_opts, option);
 }
 
 int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port)

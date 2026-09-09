@@ -34,6 +34,7 @@ function test_c {
 
 	title_print "Run test-c"
 	setsid ./test-c build/criu_service.socket build/imgs_c < /dev/null &>> build/output_c
+	grep -qx "test-value" build/_marker_plugin_option
 
 	title_print "Restore test-c"
 	${CRIU} restore -v4 -o restore-c.log -D build/imgs_c

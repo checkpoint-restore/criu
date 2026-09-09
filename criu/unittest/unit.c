@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <dirent.h>
+#include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -15,8 +16,102 @@
 #include "compression.h"
 #include "page.h"
 #include "pagemap.h"
+#include "cr_options.h"
+#include "plugin.h"
 
 int parse_statement(int i, char *line, char **configuration);
+
+static void test_plugin_options(void)
+{
+	bool usage_error = true;
+	bool has_exec_cmd = false;
+	char **plugin_argv;
+	int plugin_argc;
+	char *argv[] = {
+		(char *)"criu",
+		(char *)"--no-default-config",
+		(char *)"--plugin-option",
+		(char *)"example.option=first",
+		(char *)"check",
+		NULL,
+	};
+	assert(init_opts() == 0);
+	assert(parse_options(5, argv, &usage_error, &has_exec_cmd, PARSING_GLOBAL_CONF) == 0);
+	assert(criu_plugin_get_options(&plugin_argc, &plugin_argv) == 0);
+	assert(plugin_argc == 2);
+	assert(!strcmp(plugin_argv[0], "criu-plugin"));
+	assert(!strcmp(plugin_argv[1], "--example.option=first"));
+	assert(plugin_argv[2] == NULL);
+	cr_plugin_options_clear();
+
+	assert(cr_plugin_option_add_arg("example.option=first") == 0);
+	assert(cr_plugin_option_add_arg("example.option=second") == 0);
+	assert(cr_plugin_option_add_arg("example.empty=") == 0);
+	assert(cr_plugin_option_add_arg("example.equals=left=right") == 0);
+	assert(criu_plugin_get_options(&plugin_argc, &plugin_argv) == 0);
+	assert(plugin_argc == 5);
+	assert(!strcmp(plugin_argv[1], "--example.option=first"));
+	assert(!strcmp(plugin_argv[2], "--example.option=second"));
+	assert(!strcmp(plugin_argv[3], "--example.empty="));
+	assert(!strcmp(plugin_argv[4], "--example.equals=left=right"));
+	assert(plugin_argv[5] == NULL);
+	cr_plugin_options_clear();
+
+	assert(cr_plugin_option_add_arg("example.option=config") == 0);
+	cr_plugin_default_options_parsed();
+	assert(cr_plugin_option_add_arg("example.option=request") == 0);
+	assert(criu_plugin_get_options(&plugin_argc, &plugin_argv) == 0);
+	assert(plugin_argc == 3);
+	assert(!strcmp(plugin_argv[1], "--example.option=config"));
+	assert(!strcmp(plugin_argv[2], "--example.option=request"));
+
+	cr_plugin_options_clear_request();
+	assert(criu_plugin_get_options(&plugin_argc, &plugin_argv) == 0);
+	assert(plugin_argc == 2);
+	assert(!strcmp(plugin_argv[1], "--example.option=config"));
+	cr_plugin_options_clear();
+
+	assert(cr_plugin_option_add_arg("missing.option=value") == 0);
+	assert(criu_plugin_get_options(&plugin_argc, &plugin_argv) == 0);
+	assert(plugin_argc == 2);
+	assert(!strcmp(plugin_argv[1], "--missing.option=value"));
+
+	/* Plugin option without an explicit value (flag) */
+	assert(cr_plugin_option_add_arg("example.option") == 0);
+	assert(criu_plugin_get_options(&plugin_argc, &plugin_argv) == 0);
+	assert(plugin_argc == 3);
+	assert(!strcmp(plugin_argv[2], "--example.option"));
+
+	assert(cr_plugin_option_add_arg("example") == -1);
+	assert(cr_plugin_option_add_arg("example.") == -1);
+	assert(cr_plugin_option_add_arg(".option") == -1);
+	assert(cr_plugin_option_add_arg(".option=value") == -1);
+	assert(cr_plugin_option_add_arg("example.=value") == -1);
+	assert(cr_plugin_option_add_arg("--example.option") == -1);
+	assert(cr_plugin_option_add_arg("-example.option") == -1);
+
+	cr_plugin_options_clear();
+	assert(criu_plugin_get_options(&plugin_argc, &plugin_argv) == 0);
+	assert(plugin_argc == 1);
+	assert(!strcmp(plugin_argv[0], "criu-plugin"));
+	assert(plugin_argv[1] == NULL);
+	assert(criu_plugin_get_options(NULL, &plugin_argv) == -EINVAL);
+	assert(criu_plugin_get_options(&plugin_argc, NULL) == -EINVAL);
+
+	/* Test that init_opts() resets plugin options */
+	assert(cr_plugin_option_add_arg("example.option=saved") == 0);
+	cr_plugin_default_options_parsed();
+	assert(criu_plugin_get_options(&plugin_argc, &plugin_argv) == 0);
+	assert(plugin_argc == 2);
+
+	assert(init_opts() == 0);
+	assert(criu_plugin_get_options(&plugin_argc, &plugin_argv) == 0);
+	assert(plugin_argc == 1);
+	assert(!strcmp(plugin_argv[0], "criu-plugin"));
+	assert(plugin_argv[1] == NULL);
+
+	cr_plugin_options_clear();
+}
 
 static void test_pagemap_offset_alignment(void)
 {
@@ -456,6 +551,7 @@ int main(int argc, char *argv[], char *envp[])
 	test_bfd();
 	test_bwrite();
 	test_pagemap_offset_alignment();
+	test_plugin_options();
 
 	i = parse_statement(0, "", configuration);
 	assert(i == 0);

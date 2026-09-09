@@ -27,7 +27,7 @@
 
 #define CRIU_PLUGIN_GEN_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
 #define CRIU_PLUGIN_VERSION_MAJOR	 0
-#define CRIU_PLUGIN_VERSION_MINOR	 2
+#define CRIU_PLUGIN_VERSION_MINOR	 3
 #define CRIU_PLUGIN_VERSION_SUBLEVEL	 0
 
 #define CRIU_PLUGIN_VERSION_OLD CRIU_PLUGIN_GEN_VERSION(0, 1, 0)
@@ -147,6 +147,14 @@ static inline void cr_plugin_dummy_exit(int stage, int ret)
 
 /* Public API */
 extern int criu_get_image_dir(void);
+
+/*
+ * Return plugin options as an argv array suitable for getopt_long().
+ * argv[0] is a synthetic program name, every option starts with "--", and
+ * argv[argc] is NULL. Returns zero on success or a negative errno value on
+ * failure. An empty option list is returned as argc == 1.
+ */
+extern int criu_plugin_get_options(int *argc, char ***argv);
 
 /*
  * Deprecated, will be removed in next version.

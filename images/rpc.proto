@@ -167,6 +167,8 @@ message criu_opts {
 	 * through 1024. Restore-time only.
 	 */
 	optional uint32			decompress_threads	= 76 [default = 1];
+	/* Plugin-owned namespaced options in PLUGIN.NAME[=VALUE] form. */
+	repeated string			plugin_options		= 77;
 /*	optional bool			check_mounts		= 128;	*/
 }
 
