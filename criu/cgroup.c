@@ -1305,12 +1305,45 @@ static int move_in_cgroup(CgSetEntry *se)
 	return 0;
 }
 
+static bool has_cgns_prefix(CgSetEntry *se)
+{
+	int i;
+
+	for (i = 0; i < se->n_ctls; i++)
+		if (se->ctls[i]->has_cgns_prefix)
+			return true;
+
+	return false;
+}
+
+/*
+ * In the CG_MODE_IGNORE mode we do not deal with cgroups at all, relying
+ * on the caller (e.g. a container runtime) to have placed us into the
+ * proper cgroup, which the restored tasks inherit.
+ *
+ * A cgroup namespace, though, can not be set up by the caller: unshare()
+ * pins the namespace root to the cgroup of the calling task, so it has to
+ * be done by the very process the restored tasks are forked from, i.e.
+ * here. As the caller has already put us into the right cgroup, no moving
+ * around is needed -- a plain unshare() is sufficient.
+ */
+static int prepare_cgns_ignore(CgSetEntry *se)
+{
+	if (!has_cgns_prefix(se))
+		return 0;
+
+	pr_info("Creating cgns rooted at the current cgroup\n");
+	if (unshare(CLONE_NEWCGROUP) < 0) {
+		pr_perror("couldn't unshare cgns");
+		return -1;
+	}
+
+	return 0;
+}
+
 int prepare_cgroup_namespace(struct pstree_item *root_task)
 {
 	CgSetEntry *se;
-
-	if (opts.manage_cgroups == CG_MODE_IGNORE)
-		return 0;
 
 	if (root_task->parent) {
 		pr_err("Expecting root_task to restore cgroup namespace\n");
@@ -1333,6 +1366,9 @@ int prepare_cgroup_namespace(struct pstree_item *root_task)
 		pr_err("No set %d found\n", rsti(root_task)->cg_set);
 		return -1;
 	}
+
+	if (opts.manage_cgroups == CG_MODE_IGNORE)
+		return prepare_cgns_ignore(se);
 
 	if (prepare_cgns(se) < 0) {
 		pr_err("failed preparing cgns\n");
