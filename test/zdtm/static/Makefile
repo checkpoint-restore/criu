@@ -255,6 +255,7 @@ TST_NOFILE	:=				\
 		oom_score_adj			\
 		loginuid			\
 		cgroupns			\
+		cgroupns_ignore			\
 		helper_zombie_child		\
 		clone_fs			\
 		macvlan			\

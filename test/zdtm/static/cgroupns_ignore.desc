@@ -1,0 +1,5 @@
+{   'feature': 'cgroupns',
+    'flags': 'suid excl',
+    'flavor': 'h',
+    'dopts': '--manage-cgroups=ignore',
+    'ropts': '--manage-cgroups=ignore'}
