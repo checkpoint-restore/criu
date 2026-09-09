@@ -1386,7 +1386,7 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 			if (xfer->write_pagemap(xfer, &iov, flags))
 				goto err;
 
-			if (xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
+			if ((flags & PE_PRESENT) && xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
 				goto err;
 		}
 
