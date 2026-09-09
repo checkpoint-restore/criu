@@ -68,8 +68,9 @@ int mount_and_add(const char *controller, const char *path)
 
 	return 0;
 err_rs:
-	umount(dirname);
+	umount(subdir);
 err_rd:
+	rmdir(subdir);
 	rmdir(dirname);
 	return -1;
 }
