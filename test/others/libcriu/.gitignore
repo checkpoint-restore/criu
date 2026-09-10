@@ -9,3 +9,4 @@ test_feature_check
 output/
 libcriu.so.*
 test_rpc_config
+test_rpc_join_ns_errors

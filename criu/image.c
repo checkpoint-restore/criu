@@ -701,7 +701,6 @@ static int img_write_magic(struct cr_img *img, int oflags, int type)
 struct openat_args {
 	char path[PATH_MAX];
 	int flags;
-	int err;
 	int mode;
 };
 
@@ -712,7 +711,7 @@ static int userns_openat(void *arg, int dfd, int pid)
 
 	ret = openat(dfd, pa->path, pa->flags, pa->mode);
 	if (ret < 0)
-		pa->err = errno;
+		return -errno;
 
 	return ret;
 }
@@ -726,21 +725,22 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 	if (opts.stream && !(oflags & O_FORCE_LOCAL)) {
 		ret = img_streamer_open(path, flags);
 		errno = EIO; /* errno value is meaningless, only the ret value is meaningful */
-	} else if (root_ns_mask & CLONE_NEWUSER && type == CR_FD_PAGES && oflags & O_RDWR) {
+	} else if ((root_ns_mask & CLONE_NEWUSER) &&
+		   ((type == CR_FD_PAGES && (flags & O_ACCMODE) == O_RDWR) ||
+		    (userns_join_ns_requested() && opts.mode == CR_RESTORE && (flags & O_ACCMODE) == O_RDONLY))) {
 		/*
-		 * For pages images dedup we need to open images read-write on
-		 * restore, that may require proper capabilities, so we ask
-		 * usernsd to do it for us
+		 * For page-image dedup and external-userns restore, keep image
+		 * access in usernsd, which retains the caller's filesystem
+		 * credentials.
 		 */
 		struct openat_args pa = {
 			.flags = flags,
-			.err = 0,
 			.mode = CR_FD_PERM,
 		};
 		snprintf(pa.path, PATH_MAX, "%s", path);
 		ret = userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
 		if (ret < 0)
-			errno = pa.err;
+			errno = -ret;
 	} else
 		ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
@@ -891,13 +891,30 @@ int open_parent(int dfd, int *pfd)
 	struct stat st;
 
 	*pfd = -1;
-	/* Check if the parent symlink exists */
-	if (fstatat(dfd, CR_PARENT_LINK, &st, AT_SYMLINK_NOFOLLOW) && errno == ENOENT) {
-		pr_debug("No parent images directory provided\n");
-		return 0;
-	}
 
-	*pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+	if ((root_ns_mask & CLONE_NEWUSER) && opts.mode == CR_RESTORE && userns_join_ns_requested()) {
+		struct openat_args pa = {
+			.flags = O_RDONLY,
+			.mode = 0,
+		};
+
+		snprintf(pa.path, PATH_MAX, "%s", CR_PARENT_LINK);
+		*pfd = userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
+		if (*pfd < 0) {
+			errno = -*pfd;
+			if (errno == ENOENT) {
+				pr_debug("No parent images directory provided\n");
+				return 0;
+			}
+		}
+	} else {
+		/* Check if the parent symlink exists. */
+		if (fstatat(dfd, CR_PARENT_LINK, &st, AT_SYMLINK_NOFOLLOW) && errno == ENOENT) {
+			pr_debug("No parent images directory provided\n");
+			return 0;
+		}
+		*pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+	}
 	if (*pfd < 0) {
 		pr_perror("Can't open parent path");
 		return -1;
