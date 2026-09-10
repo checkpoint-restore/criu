@@ -21,6 +21,7 @@ obj-y			+= cr-service.o
 obj-y			+= crtools.o
 obj-y			+= eventfd.o
 obj-y			+= eventpoll.o
+obj-y			+= extmem.o
 obj-y			+= fault-injection.o
 obj-y			+= fifo.o
 obj-y			+= file-ids.o

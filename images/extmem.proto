@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+enum extmem_op {
+	EXTMEM_INIT = 1;
+	EXTMEM_OPEN_IMAGE = 2;
+	EXTMEM_GET_VMA = 3;
+	EXTMEM_GET_SHARED = 4;
+	EXTMEM_COMMIT = 5;
+	EXTMEM_ABORT = 6;
+	EXTMEM_WAIT_READY = 7;
+}
+
+message extmem_open_image {
+	required string name = 1;
+	required uint32 flags = 2;
+}
+
+message extmem_get_vma {
+	required uint32 pid = 1;
+	required uint32 vma_id = 2;
+	required uint64 vaddr = 3;
+	required uint64 length = 4;
+}
+
+message extmem_get_shared {
+	required uint64 shmid = 1;
+	required uint64 length = 2;
+}
+
+message extmem_req {
+	required extmem_op op = 1;
+	optional extmem_open_image open_image = 2;
+	optional extmem_get_vma get_vma = 3;
+	optional extmem_get_shared get_shared = 4;
+}
+
+message extmem_resp {
+	required int32 status = 1;
+}

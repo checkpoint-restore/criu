@@ -606,7 +606,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	if (req->n_inherit_fd && !opts.swrk_restore) {
-		pr_err("inherit_fd is not allowed in standalone service\n");
+		pr_err("inherit_fd is only supported with criu swrk\n");
 		goto err;
 	}
 	for (i = 0; i < req->n_inherit_fd; i++) {

@@ -36,6 +36,7 @@
 #include "compel/infect-util.h"
 #include "pidfd-store.h"
 #include "compression.h"
+#include "extmem.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -1046,6 +1047,31 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 	return 0;
 }
 
+static int premap_provider_vma(struct pstree_item *t, struct vma_area *vma, unsigned int vma_id, void **addr)
+{
+	int fd = -1;
+	int ret;
+	unsigned long flags;
+
+	ret = extmem_get_vma(vpid(t), vma_id, vma->e->start, vma_entry_len(vma->e), &fd);
+	if (ret)
+		return ret;
+
+	flags = vma->e->flags;
+	vma->pvma = NULL;
+	vma->e->flags = (flags & ~MAP_ANONYMOUS) | MAP_PRIVATE;
+	vma->e->fd = fd;
+	ret = premap_private_vma(t, vma, addr);
+	close_safe(&fd);
+	vma->e->fd = -1;
+	vma->e->flags = flags;
+	if (ret)
+		return ret;
+
+	vma->provider_backed = true;
+	return 0;
+}
+
 static inline bool vma_force_premap(struct vma_area *vma, struct list_head *head)
 {
 	/*
@@ -1101,12 +1127,15 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 {
 	struct vma_area *vma;
 	unsigned long pstart = 0;
+	unsigned int vma_id = 0;
+	bool provider_fd_acquired = false;
 	int ret = 0;
 	LIST_HEAD(empty);
 
 	filemap_ctx_init(true);
 
 	list_for_each_entry(vma, &vmas->h, list) {
+		unsigned int current_vma_id = vma_id++;
 		bool exceptional;
 		int has_lz4 = 0;
 		int has_parent = 0;
@@ -1128,6 +1157,24 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
+		if (extmem_is_active()) {
+			if (!provider_fd_acquired) {
+				ret = extmem_acquire_provider_fd();
+				if (ret) {
+					pr_err("Provider is unavailable for private VMA\n");
+					ret = -1;
+					break;
+				}
+				provider_fd_acquired = true;
+			}
+			ret = premap_provider_vma(t, vma, current_vma_id, at);
+			if (ret == -ENOTSUP) {
+				ret = 0;
+			} else if (ret < 0)
+				break;
+			else
+				continue;
+		}
 		exceptional = (vma->e->flags & MAP_HUGETLB) ||
 			      (vma->e->status & VMA_EXT_PLUGIN);
 
@@ -1140,10 +1187,9 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 		 * coalesce in-process, while long runs retain direct I/O. Uniform and
 		 * lightly fragmented ranges keep the faster delayed path.
 		 *
-		 * Hugetlb and external-plugin VMAs cannot use the generic premap
-		 * path.  The dump side therefore guarantees that their compressed
-		 * pagemap entries contain raw/zero blocks only.  Reject an image
-		 * which violates that invariant before the destructive restore.
+		 * Hugetlb and external VMAs cannot use the generic premap path.
+		 * Their pagemaps may contain only raw or zero entries. Reject LZ4
+		 * blocks and parent references before the destructive restore.
 		 */
 		/*
 		 * Inspect each layer's pagemap rather than trusting the top-level
@@ -1190,10 +1236,10 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 			continue;
 		}
 
-		/* VMA offset may change due to plugin so we cannot premap */
+		/* The generic premap path does not handle plugin mappings. */
 		if (vma->e->status & VMA_EXT_PLUGIN) {
 			if (has_lz4) {
-				pr_err("External-plugin VMA %#" PRIx64 "-%#" PRIx64
+				pr_err("External VMA %#" PRIx64 "-%#" PRIx64
 				       " contains an LZ4 block\n",
 				       vma->e->start, vma->e->end);
 				ret = -1;
@@ -1226,6 +1272,8 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 			break;
 	}
 
+	if (provider_fd_acquired)
+		extmem_release_provider_fd();
 	filemap_ctx_fini();
 
 	return ret;
@@ -1247,6 +1295,7 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 	unsigned int nr_compared = 0;
 	unsigned int nr_enqueued = 0;
 	unsigned int nr_lazy = 0;
+	unsigned int nr_provider_pages = 0;
 	unsigned long va;
 	void *buf = NULL;
 	bool page_read_closed = false;
@@ -1303,6 +1352,18 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 			else if (unlikely(!vma_area_is_private(vma, kdat.task_size))) {
 				pr_err("Trying to restore page for non-private VMA\n");
 				goto err_addr;
+			}
+
+			if (vma->provider_backed) {
+				unsigned long len = min_t(unsigned long, (nr_pages - i) * PAGE_SIZE,
+							  vma->e->end - va);
+
+				pr->skip_pages(pr, len);
+				va += len;
+				len >>= PAGE_SHIFT;
+				nr_provider_pages += len;
+				i += len;
+				continue;
 			}
 
 			if (!vma_area_is(vma, VMA_PREMMAPED)) {
@@ -1470,6 +1531,7 @@ err_read:
 	pr_info("nr_dropped_pages:  %d\n", nr_dropped);
 	pr_info("nr_enqueued:       %d\n", nr_enqueued);
 	pr_info("nr_lazy:           %d\n", nr_lazy);
+	pr_info("nr_provider_pages: %d\n", nr_provider_pages);
 
 	exit_code = 0;
 	goto out;
@@ -1623,11 +1685,11 @@ int unmap_guard_pages(struct pstree_item *t)
 int open_vmas(struct pstree_item *t)
 {
 	int pid = vpid(t);
+	int exit_code = 0;
 	struct vma_area *vma;
 	struct vm_area_list *vmas = &rsti(t)->vmas;
 
 	filemap_ctx_init(false);
-
 	list_for_each_entry(vma, &vmas->h, list) {
 		if (!vma_area_is(vma, VMA_AREA_REGULAR) || !vma->vm_open)
 			continue;
@@ -1637,7 +1699,8 @@ int open_vmas(struct pstree_item *t)
 
 		if (vma->vm_open(pid, vma)) {
 			pr_err("`- Can't open vma\n");
-			return -1;
+			exit_code = -1;
+			goto out;
 		}
 
 		/*
@@ -1649,9 +1712,10 @@ int open_vmas(struct pstree_item *t)
 			vma->e->status |= VMA_CLOSE;
 	}
 
+out:
 	filemap_ctx_fini();
 
-	return 0;
+	return exit_code;
 }
 
 static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)

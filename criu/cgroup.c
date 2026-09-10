@@ -2337,6 +2337,9 @@ int prepare_cgroup(void)
 	struct cr_img *img;
 	CgroupEntry *ce;
 
+	if (opts.manage_cgroups == CG_MODE_IGNORE)
+		return 0;
+
 	img = open_image(CR_FD_CGROUP, O_RSTR);
 	if (!img)
 		return -1;

@@ -451,6 +451,7 @@ ruff:
 	@ruff --version
 	ruff check ${RUFF_FLAGS} --config=scripts/ruff.toml \
 		test/zdtm.py \
+		test/zdtm/extmem_provider.py \
 		test/inhfd/*.py \
 		test/others/rpc/config_file.py \
 		test/others/action-script/check_actions.py \
