@@ -81,6 +81,7 @@ TST_NOFILE	:=				\
 		pthread_timers			\
 		pthread_timers_h		\
 		leader_posix_timer		\
+		dead_thread_posix_timer		\
 		rseq00				\
 		membarrier			\
 		vdso00				\
@@ -641,6 +642,7 @@ pthread02:		LDLIBS += -pthread
 pthread_timers:		LDLIBS += -lrt -pthread
 pthread_timers_h:	LDLIBS += -lrt -pthread
 leader_posix_timer:	LDLIBS += -lrt -pthread
+dead_thread_posix_timer:	LDLIBS += -lrt -pthread
 different_creds:	LDLIBS += -pthread
 sigpending:		LDLIBS += -pthread
 sigaltstack:		LDLIBS += -pthread
