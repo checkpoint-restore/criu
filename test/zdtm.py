@@ -703,6 +703,8 @@ class zdtm_test:
             for name in opts['criu_plugin']:
                 subprocess.check_call(["make", '--no-print-directory', "-C", "plugins/", f"{name}_plugin.so"])
 
+        if opts.get('mocked_cuda_checkpoint') or opts.get('cuda_checkpoint'):
+            subprocess.check_call(["make", "-C", "../plugins/cuda"])
         if 'mocked_cuda_checkpoint' in opts and opts['mocked_cuda_checkpoint']:
             subprocess.check_call(["make", "-C", "cuda-checkpoint/"])
         if 'rootless' in opts and opts['rootless']:
@@ -1224,7 +1226,7 @@ class criu:
         self.__compress = bool(opts['compress'])
         self.__compress_acceleration = opts.get('compress_acceleration', 0)
         self.__compress_block = opts.get('compress_block', None)
-        self.__cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'])
+        self.__cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'] or opts['cuda_checkpoint'])
 
         if opts['rpc']:
             self.__criu = criu_rpc
@@ -2391,7 +2393,7 @@ class Launcher:
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'image_io_mode', 'mntns_compat_mode',
-              'rootless', 'preload_libfault', 'mocked_cuda_checkpoint',
+              'rootless', 'preload_libfault', 'mocked_cuda_checkpoint', 'cuda_checkpoint',
               'compress', 'compress_acceleration', 'compress_block',
               'pycriu_search_path')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
@@ -2408,7 +2410,12 @@ class Launcher:
             os.setuid(NON_ROOT_UID)
         env = dict(os.environ, CR_CT_TEST_INFO=arg)
         if opts['mocked_cuda_checkpoint']:
-            env['PATH'] = os.path.join(os.getcwd(), "cuda-checkpoint") + ":" + env["PATH"]
+            cuda_mock_dir = os.path.join(os.getcwd(), "cuda-checkpoint")
+            env["PATH"] = cuda_mock_dir + ":" + env["PATH"]
+            if "LD_LIBRARY_PATH" in env:
+                env["LD_LIBRARY_PATH"] = cuda_mock_dir + ":" + env["LD_LIBRARY_PATH"]
+            else:
+                env["LD_LIBRARY_PATH"] = cuda_mock_dir
         sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"],
                                env=env,
                                stdout=log,
@@ -2753,6 +2760,12 @@ def run_tests(opts):
                     feat_list = None
                     break
             if feat_list is None:
+                continue
+
+            # The mocked CUDA Driver API cannot checkpoint real GPU state,
+            # so tests with a real CUDA workload require --cuda-checkpoint.
+            if test_flag(tdesc, 'cuda') and not opts['cuda_checkpoint']:
+                launcher.skip(t, "CUDA checkpoint plugin not enabled")
                 continue
 
             if self_checkskip(t):
@@ -3128,7 +3141,10 @@ def get_cli_args():
                     type=int, default=0)
     rp.add_argument("--mocked-cuda-checkpoint",
                     action="store_true",
-                    help="Run criu with the cuda plugin and the mocked cuda-checkpoint tool")
+                    help="Run criu with the cuda plugin and the mocked CUDA Driver API")
+    rp.add_argument("--cuda-checkpoint",
+                    action="store_true",
+                    help="Run criu with the cuda plugin and host CUDA checkpoint support")
 
     lp = sp.add_parser("list", help="List tests")
     lp.set_defaults(action=list_tests)

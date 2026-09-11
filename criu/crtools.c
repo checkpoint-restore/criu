@@ -602,7 +602,7 @@ usage:
 	       "  -h|--help             show this text\n"
 	       "  -V|--version          show version\n");
 
-	return 0;
+	return cr_plugin_print_help() ? 1 : 0;
 
 opt_pid_missing:
 	pr_err("pid not specified\n");

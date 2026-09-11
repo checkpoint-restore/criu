@@ -499,8 +499,21 @@ run_non_shardable_tests() {
 	./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu
 	./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu cuda
 	./test/zdtm.py run -t zdtm/static/busyloop00 --criu-plugin inventory_test_enabled inventory_test_disabled
+	./test/plugins/inventory-exact.sh
 
-	./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 --mocked-cuda-checkpoint --fault 138
+	# CUDA checkpointing is supported only for native x86-64 workloads.
+	if [ "$(uname -m)" = "x86_64" ] && [ "${COMPAT_TEST:-}" != "y" ]; then
+		make -C test/cuda-checkpoint test
+
+		# Fault 138 (FI_PLUGIN_CUDA_FORCE_ENABLE) enables the mock without a GPU.
+		./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 \
+			--mocked-cuda-checkpoint --fault 138
+		./test/cuda-checkpoint/checkpoint-error-rollback.sh
+		python3 ./test/cuda-checkpoint/backend-errors.py
+		./test/cuda-checkpoint/backend-selection.sh
+		./test/cuda-checkpoint/restore-backend-selection.sh
+		./test/cuda-checkpoint/device-map-backends.sh
+	fi
 }
 
 # When sharding is enabled, shards 0..count-1 run sharded zdtm tests and

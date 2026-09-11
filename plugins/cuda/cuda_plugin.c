@@ -1,551 +1,173 @@
 #include "criu-log.h"
+#include "cuda_device_map.h"
+#include "cuda_plugin.h"
+#include "image.h"
 #include "plugin.h"
-#include "util.h"
-#include "cr_options.h"
-#include "pid.h"
-#include "proc_parse.h"
-#include "seize.h"
 #include "fault-injection.h"
+#include "seize.h"
 
-#include <common/list.h>
-#include <compel/infect.h>
-
-#include <ctype.h>
-#include <fcntl.h>
+#include <errno.h>
+#include <getopt.h>
+#include <stdbool.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/ptrace.h>
-#include <sys/wait.h>
-
-/* cuda-checkpoint binary should live in your PATH */
-#define CUDA_CHECKPOINT "cuda-checkpoint"
-
-/* cuda-checkpoint --action flags */
-#define ACTION_LOCK	  "lock"
-#define ACTION_CHECKPOINT "checkpoint"
-#define ACTION_RESTORE	  "restore"
-#define ACTION_UNLOCK	  "unlock"
-
-typedef enum {
-	CUDA_TASK_RUNNING = 0,
-	CUDA_TASK_LOCKED,
-	CUDA_TASK_CHECKPOINTED,
-	CUDA_TASK_UNKNOWN = -1
-} cuda_task_state_t;
-
-#define CUDA_CKPT_BUF_SIZE (128)
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
 
 #ifdef LOG_PREFIX
 #undef LOG_PREFIX
 #endif
 #define LOG_PREFIX "cuda_plugin: "
 
-/* Disable plugin functionality if cuda-checkpoint is not in $PATH or driver
- * version doesn't support --action flag
- */
-bool plugin_disabled = false;
+#define CUDA_PLUGIN_NAME	      "cuda_plugin"
+#define CUDA_PLUGIN_BACKEND_OPTION    CUDA_PLUGIN_NAME ".backend"
+#define CUDA_PLUGIN_DEVICE_MAP_OPTION CUDA_PLUGIN_NAME ".device-map"
 
-bool plugin_added_to_inventory = false;
+static int cuda_plugin_print_help(void)
+{
+	printf("\nCUDA plugin options:\n"
+	       "  --plugin-option=cuda_plugin.backend=BACKEND\n"
+	       "                        Select auto, driver-api, or cuda-checkpoint\n"
+	       "  --plugin-option=cuda_plugin.device-map=MAP\n"
+	       "                        Map checkpoint GPUs during restore\n");
+	return 0;
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__PRINT_HELP, cuda_plugin_print_help)
 
-struct pid_info {
-	int pid;
-	char checkpointed;
-	cuda_task_state_t initial_task_state;
-	struct list_head list;
+static const struct cuda_plugin_backend *active_backend;
+static char *device_map_option;
+static struct cuda_device_map restore_device_map;
+static bool cuda_tasks_handled;
+
+enum cuda_backend_selection {
+	CUDA_BACKEND_AUTO,
+	CUDA_BACKEND_DRIVER_API,
+	CUDA_BACKEND_CHECKPOINT,
 };
 
-/* Used to track which PID's we've paused CUDA operations on so far so we can
- * release them after we're done with the DUMP
- */
-static LIST_HEAD(cuda_pids);
+static enum cuda_backend_selection backend_selection;
 
-static void dealloc_pid_buffer(struct list_head *pid_buf)
+enum {
+	CUDA_PLUGIN_OPTION_BACKEND = 1000,
+	CUDA_PLUGIN_OPTION_DEVICE_MAP,
+};
+
+static bool cuda_plugin_option_matches(const char *arg, const char *name)
 {
-	struct pid_info *info;
-	struct pid_info *n;
+	size_t len = strlen(name);
 
-	list_for_each_entry_safe(info, n, pid_buf, list) {
-		list_del(&info->list);
-		xfree(info);
-	}
+	return !strncmp(arg, "--", 2) && !strncmp(arg + 2, name, len) &&
+	       arg[len + 2] == '=';
 }
 
-static int add_pid_to_buf(struct list_head *pid_buf, int pid, cuda_task_state_t state)
+static int parse_cuda_backend_option(const char *value)
 {
-	struct pid_info *new = xmalloc(sizeof(*new));
-
-	if (new == NULL) {
-		return -1;
-	}
-
-	new->pid = pid;
-	new->checkpointed = 0;
-	new->initial_task_state = state;
-	list_add_tail(&new->list, pid_buf);
-
-	return 0;
-}
-
-static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
-{
-#define READ  0
-#define WRITE 1
-	int fd[2], buf_off;
-
-	if (pipe(fd) != 0) {
-		pr_perror("Couldn't create pipes for reading cuda-checkpoint output");
-		return -1;
-	}
-
-	buf[0] = '\0';
-
-	int child_pid = fork();
-	if (child_pid == -1) {
-		pr_perror("Failed to fork to exec cuda-checkpoint");
-		close(fd[READ]);
-		close(fd[WRITE]);
-		return -1;
-	}
-
-	if (child_pid == 0) { // child
-		if (dup2(fd[WRITE], STDOUT_FILENO) == -1) {
-			pr_perror("unable to clone fd %d->%d", fd[WRITE], STDOUT_FILENO);
-			_exit(EXIT_FAILURE);
-		}
-		if (dup2(fd[WRITE], STDERR_FILENO) == -1) {
-			pr_perror("unable to clone fd %d->%d", fd[WRITE], STDERR_FILENO);
-			_exit(EXIT_FAILURE);
-		}
-		close(fd[READ]);
-
-		close_fds(STDERR_FILENO + 1);
-
-		execvp(args[0], (char **)args);
-
-		/* We can't use pr_error() as log file fd is closed. */
-		fprintf(stderr, "execvp(\"%s\") failed: %s\n", args[0], strerror(errno));
-
-		_exit(EXIT_FAILURE);
-	}
-
-	close(fd[WRITE]);
-	buf_off = 0;
-	/* Reserve one byte for the null charracter. */
-	buf_size--;
-	while (buf_off < buf_size) {
-		int bytes_read;
-		bytes_read = read(fd[READ], buf + buf_off, buf_size - buf_off);
-		if (bytes_read == -1) {
-			pr_perror("Unable to read output of cuda-checkpoint");
-			goto err;
-		}
-		if (bytes_read == 0)
-			break;
-		buf_off += bytes_read;
-	}
-	buf[buf_off] = '\0';
-
-	/* Clear out any of the remaining output in the pipe in case the buffer wasn't large enough */
-	while (true) {
-		char scratch[1024];
-		int bytes_read;
-		bytes_read = read(fd[READ], scratch, sizeof(scratch));
-		if (bytes_read == -1) {
-			pr_perror("Unable to read output of cuda-checkpoint");
-			goto err;
-		}
-		if (bytes_read == 0)
-			break;
-	}
-	close(fd[READ]);
-
-	int status, exit_code = -1;
-	if (waitpid(child_pid, &status, 0) == -1) {
-		pr_perror("Unable to wait for the cuda-checkpoint process %d", child_pid);
-		goto err;
-	}
-	if (WIFSIGNALED(status)) {
-		int sig = WTERMSIG(status);
-		pr_err("cuda-checkpoint unexpectedly signaled with %d: %s\n", sig, strsignal(sig));
-	} else if (WIFEXITED(status)) {
-		exit_code = WEXITSTATUS(status);
-	} else {
-		pr_err("cuda-checkpoint exited improperly: %u\n", status);
-	}
-
-	if (exit_code != EXIT_SUCCESS)
-		pr_debug("cuda-checkpoint output ===>\n%s\n"
-			 "<=== cuda-checkpoint output\n",
-			 buf);
-
-	return exit_code;
-err:
-	kill(child_pid, SIGKILL);
-	waitpid(child_pid, NULL, 0);
-	return -1;
-}
-
-/**
- * Checks if a given flag is supported by the cuda-checkpoint utility
- *
- * Returns:
- *  1 if the flag is supported,
- *  0 if the flag is not supported,
- *  -1 if there was an error launching the cuda-checkpoint utility.
- */
-static int cuda_checkpoint_supports_flag(const char *flag)
-{
-	char msg_buf[2048];
-	const char *args[] = { CUDA_CHECKPOINT, "-h", NULL };
-
-	if (launch_cuda_checkpoint(args, msg_buf, sizeof(msg_buf)) != 0)
-		return -1;
-
-	if (strstr(msg_buf, flag) == NULL)
+	if (!strcmp(value, "auto"))
 		return 0;
-
-	return 1;
-}
-
-/* Retrieve the cuda restore thread TID from the root pid */
-static int get_cuda_restore_tid(int root_pid)
-{
-	char pid_buf[16];
-	char pid_out[CUDA_CKPT_BUF_SIZE];
-
-	snprintf(pid_buf, sizeof(pid_buf), "%d", root_pid);
-
-	const char *args[] = { CUDA_CHECKPOINT, "--get-restore-tid", "--pid", pid_buf, NULL };
-	int ret = launch_cuda_checkpoint(args, pid_out, sizeof(pid_out));
-	if (ret != 0) {
-		pr_err("Failed to launch cuda-checkpoint to retrieve restore tid: %s\n", pid_out);
-		return -1;
+	if (!strcmp(value, "driver-api")) {
+		backend_selection = CUDA_BACKEND_DRIVER_API;
+		return 0;
 	}
-
-	return atoi(pid_out);
-}
-
-static cuda_task_state_t get_task_state_enum(const char *state_str)
-{
-	if (strncmp(state_str, "running", 7) == 0)
-		return CUDA_TASK_RUNNING;
-
-	if (strncmp(state_str, "locked", 6) == 0)
-		return CUDA_TASK_LOCKED;
-
-	if (strncmp(state_str, "checkpointed", 12) == 0)
-		return CUDA_TASK_CHECKPOINTED;
-
-	pr_err("Unknown CUDA state: %s\n", state_str);
-	return CUDA_TASK_UNKNOWN;
-}
-
-static cuda_task_state_t get_cuda_state(pid_t pid)
-{
-	char pid_buf[16];
-	char state_str[CUDA_CKPT_BUF_SIZE];
-	const char *args[] = { CUDA_CHECKPOINT, "--get-state", "--pid", pid_buf, NULL };
-
-	snprintf(pid_buf, sizeof(pid_buf), "%d", pid);
-
-	if (launch_cuda_checkpoint(args, state_str, sizeof(state_str))) {
-		pr_err("Failed to launch cuda-checkpoint to retrieve state: %s\n", state_str);
-		return CUDA_TASK_UNKNOWN;
-	}
-
-	return get_task_state_enum(state_str);
-}
-
-static int cuda_process_checkpoint_action(int pid, const char *action, unsigned int timeout, char *msg_buf,
-					  int buf_size)
-{
-	char pid_buf[16];
-	char timeout_buf[16];
-
-	snprintf(pid_buf, sizeof(pid_buf), "%d", pid);
-
-	const char *args[] = { CUDA_CHECKPOINT, "--action", action, "--pid", pid_buf, NULL /* --timeout */,
-			       NULL /* timeout_val */, NULL };
-	if (timeout > 0) {
-		snprintf(timeout_buf, sizeof(timeout_buf), "%d", timeout);
-		args[5] = "--timeout";
-		args[6] = timeout_buf;
-	}
-
-	return launch_cuda_checkpoint(args, msg_buf, buf_size);
-}
-
-static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
-{
-	/* Since we resumed a thread that CRIU previously already froze we need to
-	 * INTERRUPT it once again, task was already SEIZE'd so we don't need to do
-	 * a compel_interrupt_task()
-	 */
-	if (ptrace(PTRACE_INTERRUPT, restore_tid, NULL, 0)) {
-		pr_perror("Could not interrupt cuda restore tid %d after checkpoint, process may be in strange state",
-			  restore_tid);
-		return -1;
-	}
-
-	struct proc_status_creds creds;
-	if (compel_wait_task(restore_tid, -1, parse_pid_status, NULL, &creds.s, NULL) != COMPEL_TASK_ALIVE) {
-		pr_err("compel_wait_task failed after interrupt\n");
-		return -1;
-	}
-
-	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD)) {
-		pr_perror("Failed to set ptrace options on interrupt for restore tid %d", restore_tid);
-		return -1;
-	}
-
-	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*restore_sigset), restore_sigset)) {
-		pr_perror("Unable to restore original sigmask to restore tid %d", restore_tid);
-		return -1;
-	}
-
-	return 0;
-}
-
-static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
-{
-	k_rtsigset_t block;
-
-	if (ptrace(PTRACE_GETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset)) {
-		pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
-		return -1;
-	}
-
-	ksigfillset(&block);
-	ksigdelset(&block, SIGTRAP);
-
-	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(block), &block)) {
-		pr_perror("Failed to block signals on restore tid %d", restore_tid);
-		return -1;
-	}
-
-	// Clear out PTRACE_O_SUSPEND_SECCOMP when we resume the restore thread
-	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, 0)) {
-		pr_perror("Could not clear ptrace options on restore tid %d", restore_tid);
-		return -1;
-	}
-
-	if (ptrace(PTRACE_CONT, restore_tid, NULL, 0)) {
-		pr_perror("Could not resume cuda restore tid %d", restore_tid);
-		return -1;
-	}
-
-	return 0;
-}
-
-int cuda_plugin_checkpoint_devices(int pid)
-{
-	int restore_tid;
-	char msg_buf[CUDA_CKPT_BUF_SIZE];
-	int int_ret;
-	int status;
-	k_rtsigset_t save_sigset;
-	struct pid_info *task_info;
-	bool pid_found = false;
-
-	if (plugin_disabled) {
-		return -ENOTSUP;
-	}
-
-	restore_tid = get_cuda_restore_tid(pid);
-
-	/* We can possibly hit a race with cuInit() where we are past the point of
-	 * locking the process but at lock time cuInit() hadn't completed in which
-	 * case cuda-checkpoint will report that we're in an invalid state to
-	 * checkpoint
-	 */
-	if (restore_tid == -1) {
-		pr_info("No need to checkpoint devices on pid %d\n", pid);
+	if (!strcmp(value, "cuda-checkpoint")) {
+		backend_selection = CUDA_BACKEND_CHECKPOINT;
 		return 0;
 	}
 
-	/* Check if the process is already in a checkpointed state */
-	list_for_each_entry(task_info, &cuda_pids, list) {
-		if (task_info->pid == pid) {
-			if (task_info->initial_task_state == CUDA_TASK_CHECKPOINTED) {
-				pr_info("pid %d already in a checkpointed state\n", pid);
-				return 0;
-			}
-			pid_found = true;
-			break;
-		}
-	}
-
-	if (pid_found == false) {
-		/* We return an error here. The task should be restored
-		 * to its original state at cuda_plugin_fini().
-		 */
-		pr_err("Failed to track pid %d\n", pid);
-		return -1;
-	}
-
-	pr_info("Checkpointing CUDA devices on pid %d restore_tid %d\n", pid, restore_tid);
-	/* We need to resume the checkpoint thread to prepare the mappings for
-	 * checkpointing
-	 */
-	if (resume_restore_thread(restore_tid, &save_sigset)) {
-		return -1;
-	}
-
-	task_info->checkpointed = 1;
-	status = cuda_process_checkpoint_action(pid, ACTION_CHECKPOINT, 0, msg_buf, sizeof(msg_buf));
-	if (status) {
-		pr_err("CHECKPOINT_DEVICES failed with %s\n", msg_buf);
-	}
-
-	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
-	return status != 0 ? -1 : int_ret;
+	pr_err("Invalid cuda_plugin.backend value '%s' (expected auto, driver-api, or cuda-checkpoint)\n",
+	       value);
+	return -EINVAL;
 }
-CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, cuda_plugin_checkpoint_devices);
 
-int cuda_plugin_pause_devices(int pid)
+static int parse_cuda_plugin_options(int stage)
 {
-	int restore_tid;
-	char msg_buf[CUDA_CKPT_BUF_SIZE];
-	cuda_task_state_t task_state;
-
-	if (plugin_disabled) {
-		return -ENOTSUP;
-	}
-
-	restore_tid = get_cuda_restore_tid(pid);
-
-	if (restore_tid == -1) {
-		pr_info("no need to pause devices on pid %d\n", pid);
-		return 0;
-	}
-
-	task_state = get_cuda_state(restore_tid);
-	if (task_state == CUDA_TASK_UNKNOWN) {
-		pr_err("Failed to get CUDA state for PID %d\n", restore_tid);
-		return -1;
-	}
-
-	if (!plugin_added_to_inventory) {
-		if (add_inventory_plugin(CR_PLUGIN_DESC.name)) {
-			pr_err("Failed to add CUDA plugin to inventory image\n");
-			return -1;
-		}
-		plugin_added_to_inventory = true;
-	}
-
-	if (task_state == CUDA_TASK_LOCKED) {
-		pr_info("pid %d already in a locked state\n", pid);
-		/* Leave this PID in a "locked" state at resume_device() */
-		add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_LOCKED);
-		return 0;
-	}
-
-	if (task_state == CUDA_TASK_CHECKPOINTED) {
-		/* We need to skip this PID in cuda_plugin_checkpoint_devices(),
-		 * and leave it in a "checkpoined" state at resume_device(). */
-		add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_CHECKPOINTED);
-		return 0;
-	}
-
-	pr_info("pausing devices on pid %d\n", pid);
-	int status = cuda_process_checkpoint_action(pid, ACTION_LOCK, opts.timeout * 1000, msg_buf, sizeof(msg_buf));
-	if (status) {
-		pr_err("PAUSE_DEVICES failed with %s\n", msg_buf);
-		if (alarm_timeouted())
-			goto unlock;
-		return -1;
-	}
-
-	if (add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_RUNNING)) {
-		pr_err("unable to track paused pid %d\n", pid);
-		goto unlock;
-	}
-
-	return 0;
-unlock:
-	status = cuda_process_checkpoint_action(pid, ACTION_UNLOCK, 0, msg_buf, sizeof(msg_buf));
-	if (status) {
-		pr_err("Failed to unlock process status %s, pid %d may hang\n", msg_buf, pid);
-	}
-	return -1;
-}
-CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__PAUSE_DEVICES, cuda_plugin_pause_devices)
-
-int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_state)
-{
-	char msg_buf[CUDA_CKPT_BUF_SIZE];
-	int status;
+	static const struct option long_options[] = {
+		{ CUDA_PLUGIN_BACKEND_OPTION, required_argument, NULL, CUDA_PLUGIN_OPTION_BACKEND },
+		{ CUDA_PLUGIN_DEVICE_MAP_OPTION, required_argument, NULL, CUDA_PLUGIN_OPTION_DEVICE_MAP },
+		{},
+	};
+	const char *backend_value = NULL;
+	const char *device_map_value = NULL;
+	char *saved_optarg;
+	char **argv = NULL;
+	int saved_optopt;
+	int saved_opterr;
+	int saved_optind;
+	int argc;
+	int option;
+	int i, j;
 	int ret = 0;
-	int int_ret;
-	k_rtsigset_t save_sigset;
 
-	if (initial_task_state == CUDA_TASK_UNKNOWN) {
-		pr_info("skip resume for PID %d (unknown state)\n", pid);
-		return 0;
+	backend_selection = CUDA_BACKEND_AUTO;
+	ret = criu_plugin_get_options(&argc, &argv);
+	if (ret) {
+		pr_err("Unable to read plugin options: %d\n", ret);
+		return ret;
 	}
 
-	int restore_tid = get_cuda_restore_tid(pid);
-	if (restore_tid == -1) {
-		pr_info("No need to resume devices on pid %d\n", pid);
-		return 0;
-	}
-
-	pr_info("resuming devices on pid %d\n", pid);
-	/* The resuming process has to stay frozen during this time otherwise
-	 * attempting to access a UVM pointer will crash if we haven't restored the
-	 * underlying mappings yet
-	 */
-	pr_debug("Restore thread pid %d found for real pid %d\n", restore_tid, pid);
-	/* wakeup the restore thread so we can handle the restore for this pid,
-	 * rseq_cs has to be restored before execution
-	 */
-	if (resume_restore_thread(restore_tid, &save_sigset)) {
-		return -1;
-	}
-
-	if (checkpointed && (initial_task_state == CUDA_TASK_RUNNING || initial_task_state == CUDA_TASK_LOCKED)) {
-		/* If the process was "locked" or "running" before checkpointing it, we need to restore it */
-		status = cuda_process_checkpoint_action(pid, ACTION_RESTORE, 0, msg_buf, sizeof(msg_buf));
-		if (status) {
-			pr_err("RESUME_DEVICES RESTORE failed with %s\n", msg_buf);
-			ret = -1;
-			goto interrupt;
+	/* Flag syntax is valid for other plugins, but CUDA options need values. */
+	for (i = 1; i < argc; i++) {
+		for (j = 0; long_options[j].name; j++) {
+			if (!strcmp(argv[i] + 2, long_options[j].name)) {
+				pr_err("%s requires a value\n", argv[i]);
+				return -EINVAL;
+			}
 		}
 	}
 
-	if (initial_task_state == CUDA_TASK_RUNNING) {
-		/* If the process was "running" before we paused it, we need to unlock it */
-		status = cuda_process_checkpoint_action(pid, ACTION_UNLOCK, 0, msg_buf, sizeof(msg_buf));
-		if (status) {
-			pr_err("RESUME_DEVICES UNLOCK failed with %s\n", msg_buf);
-			ret = -1;
+	saved_optarg = optarg;
+	saved_optopt = optopt;
+	saved_opterr = opterr;
+	saved_optind = optind;
+	opterr = 0;
+	optind = 0;
+	while ((option = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
+		switch (option) {
+		case CUDA_PLUGIN_OPTION_BACKEND:
+			if (cuda_plugin_option_matches(argv[optind - 1], CUDA_PLUGIN_BACKEND_OPTION))
+				backend_value = optarg;
+			break;
+		case CUDA_PLUGIN_OPTION_DEVICE_MAP:
+			if (cuda_plugin_option_matches(argv[optind - 1], CUDA_PLUGIN_DEVICE_MAP_OPTION))
+				device_map_value = optarg;
+			break;
+		case '?':
+			/* Every plugin receives the same namespaced option list. */
+			break;
+		default:
+			break;
 		}
 	}
+	optarg = saved_optarg;
+	optopt = saved_optopt;
+	opterr = saved_opterr;
+	optind = saved_optind;
 
-interrupt:
-	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
-
-	return ret != 0 ? ret : int_ret;
-}
-
-int cuda_plugin_resume_devices_late(int pid)
-{
-	if (plugin_disabled) {
-		return -ENOTSUP;
+	if (backend_value) {
+		ret = parse_cuda_backend_option(backend_value);
+		if (ret)
+			goto out;
 	}
 
-	/* RESUME_DEVICES_LATE is used during `criu restore`.
-	 * Here, we assume that users expect the target process
-	 * to be in a "running" state after restore, even if it was
-	 * in a "locked" or "checkpointed" state during `criu dump`.
-	 */
-	return resume_device(pid, 1, CUDA_TASK_RUNNING);
-}
-CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, cuda_plugin_resume_devices_late)
+	if (device_map_value) {
+		if (stage != CR_PLUGIN_STAGE__RESTORE) {
+			pr_err("cuda_plugin.device-map is valid only during restore\n");
+			ret = -EINVAL;
+			goto out;
+		}
 
-/**
- * Check if a CUDA device is available on the system
- */
+		ret = cuda_device_map_validate(device_map_value);
+		if (ret)
+			goto out;
+
+		device_map_option = strdup(device_map_value);
+		if (!device_map_option)
+			ret = -ENOMEM;
+	}
+
+out:
+	return ret;
+}
+
 static bool is_cuda_device_available(void)
 {
 	const char *gpu_path = "/proc/driver/nvidia/gpus/";
@@ -557,75 +179,224 @@ static bool is_cuda_device_available(void)
 	return S_ISDIR(sb.st_mode);
 }
 
-int cuda_plugin_init(int stage)
+static int select_cuda_backend(void)
 {
 	int ret;
+	const struct cuda_plugin_backend *requested_backend;
 
-	/* Disable CUDA checkpointing with pre-dump */
-	if (stage == CR_PLUGIN_STAGE__PRE_DUMP) {
-		plugin_disabled = true;
-		return 0;
-	}
+	requested_backend = NULL;
+	if (backend_selection == CUDA_BACKEND_DRIVER_API)
+		requested_backend = &cuda_driver_backend;
+	else if (backend_selection == CUDA_BACKEND_CHECKPOINT)
+		requested_backend = &cuda_cli_backend;
 
-	if (stage == CR_PLUGIN_STAGE__RESTORE) {
-		if (!check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name, strlen(CR_PLUGIN_DESC.name))) {
-			plugin_disabled = true;
-			return 0;
+	if (requested_backend) {
+		ret = requested_backend->probe(device_map_option != NULL);
+		if (ret) {
+			pr_err("Requested %s backend is unavailable: %d\n", requested_backend->name, ret);
+			return ret;
 		}
-	}
 
-	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) && !is_cuda_device_available()) {
-		pr_info("No GPU device found; CUDA plugin is disabled\n");
-		plugin_disabled = true;
+		active_backend = requested_backend;
 		return 0;
 	}
 
-	ret = cuda_checkpoint_supports_flag("--action");
-	if (ret == -1) {
-		pr_warn("check that %s is present in $PATH\n", CUDA_CHECKPOINT);
-		plugin_disabled = true;
+	ret = cuda_driver_backend.probe(device_map_option != NULL);
+	if (!ret) {
+		active_backend = &cuda_driver_backend;
 		return 0;
 	}
+	if (ret != -ENOTSUP) {
+		pr_err("Unable to probe %s backend: %d\n", cuda_driver_backend.name, ret);
+		return ret;
+	}
 
-	if (ret == 0) {
-		pr_warn("cuda-checkpoint --action flag not supported, an r555 or higher version driver is required. Disabling CUDA plugin\n");
-		plugin_disabled = true;
+	pr_info("%s backend is unsupported; probing %s backend\n",
+		cuda_driver_backend.name, cuda_cli_backend.name);
+
+	ret = cuda_cli_backend.probe(device_map_option != NULL);
+	if (!ret) {
+		active_backend = &cuda_cli_backend;
 		return 0;
 	}
-
-	pr_info("initialized: %s stage %d\n", CR_PLUGIN_DESC.name, stage);
-
-	/* In the DUMP stage track all the PID's we've paused CUDA operations on to
-	 * release them when we're done if the user requested the leave-running option
-	 */
-	if (stage == CR_PLUGIN_STAGE__DUMP) {
-		INIT_LIST_HEAD(&cuda_pids);
+	if (ret != -ENOTSUP) {
+		pr_err("Unable to probe %s backend: %d\n", cuda_cli_backend.name, ret);
+		return ret;
 	}
 
-	set_compel_interrupt_only_mode();
+	pr_info("No supported CUDA checkpoint backend is available\n");
+	return -ENOTSUP;
+}
+
+int cuda_plugin_add_inventory(void)
+{
+	if (!cuda_tasks_handled) {
+		if (add_inventory_plugin(CR_PLUGIN_DESC.name)) {
+			pr_err("Failed to add CUDA plugin to inventory image\n");
+			return -1;
+		}
+		cuda_tasks_handled = true;
+	}
 
 	return 0;
 }
 
-void cuda_plugin_fini(int stage, int ret)
+static int cuda_plugin_pause_devices(int pid)
 {
-	if (plugin_disabled) {
-		return;
-	}
+	if (!active_backend)
+		return -ENOTSUP;
 
-	pr_info("finished %s stage %d err %d\n", CR_PLUGIN_DESC.name, stage, ret);
-
-	/* Release all the paused PID's at the end of the DUMP stage in case the
-	 * user provides the -R (leave-running) flag or an error occurred
-	 */
-	if (stage == CR_PLUGIN_STAGE__DUMP && (opts.final_state == TASK_ALIVE || ret != 0)) {
-		struct pid_info *info;
-		list_for_each_entry(info, &cuda_pids, list) {
-			resume_device(info->pid, info->checkpointed, info->initial_task_state);
-		}
-	}
-	if (stage == CR_PLUGIN_STAGE__DUMP) {
-		dealloc_pid_buffer(&cuda_pids);
-	}
+	return active_backend->pause_devices(pid);
 }
-CR_PLUGIN_REGISTER("cuda_plugin", cuda_plugin_init, cuda_plugin_fini)
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__PAUSE_DEVICES, cuda_plugin_pause_devices)
+
+static int cuda_plugin_checkpoint_devices(int pid)
+{
+	if (!active_backend)
+		return -ENOTSUP;
+
+	return active_backend->checkpoint_devices(pid);
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, cuda_plugin_checkpoint_devices);
+
+static int cuda_plugin_resume_devices_late(int pid)
+{
+	if (!active_backend)
+		return -ENOTSUP;
+
+	return active_backend->resume_devices_late(pid, &restore_device_map);
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, cuda_plugin_resume_devices_late)
+
+static int cuda_plugin_dump_devices_late(int id)
+{
+	int ret;
+
+	(void)id;
+
+	if (!active_backend || !cuda_tasks_handled)
+		return -ENOTSUP;
+
+	ret = cuda_gpu_inventory_dump();
+	if (ret == -ENOTSUP) {
+		pr_err("Unable to save required CUDA GPU inventory\n");
+		return -EIO;
+	}
+
+	return ret;
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_DEVICES_LATE, cuda_plugin_dump_devices_late)
+
+static int cuda_plugin_restore_init(void)
+{
+	int ret;
+
+	if (!active_backend)
+		return -ENOTSUP;
+
+	ret = cuda_gpu_inventory_restore_init();
+	if (ret)
+		goto out;
+
+	ret = cuda_device_map_resolve(device_map_option, &restore_device_map);
+out:
+	if (ret == -ENOTSUP) {
+		pr_err("Unable to prepare required CUDA GPU mapping state\n");
+		return -EIO;
+	}
+
+	return ret;
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESTORE_INIT, cuda_plugin_restore_init)
+
+static int cuda_plugin_init(int stage)
+{
+	bool restore_required = false;
+	int ret;
+
+	active_backend = NULL;
+	cuda_tasks_handled = false;
+	memset(&restore_device_map, 0, sizeof(restore_device_map));
+	free(device_map_option);
+	device_map_option = NULL;
+	ret = parse_cuda_plugin_options(stage);
+	if (ret)
+		goto error;
+
+	/* CUDA checkpointing is not compatible with pre-dump. */
+	if (stage == CR_PLUGIN_STAGE__PRE_DUMP)
+		return 0;
+
+	/* Do not touch libcuda or execute cuda-checkpoint for a CPU-only restore. */
+	if (stage == CR_PLUGIN_STAGE__RESTORE) {
+		restore_required = has_inventory_plugin(CR_PLUGIN_DESC.name);
+		if (!restore_required && device_map_option) {
+			pr_err("cuda_plugin.device-map was supplied for an image that does not require CUDA restore\n");
+			ret = -EINVAL;
+			goto error;
+		}
+		if (!restore_required)
+			return 0;
+	}
+
+	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) && !is_cuda_device_available()) {
+		if (device_map_option) {
+			pr_err("cuda_plugin.device-map requires an available CUDA device\n");
+			ret = -ENODEV;
+			goto error;
+		}
+		pr_info("No GPU device found; CUDA plugin is disabled\n");
+		return 0;
+	}
+
+	ret = select_cuda_backend();
+	if (ret == -ENOTSUP && backend_selection == CUDA_BACKEND_AUTO && !device_map_option)
+		return 0;
+	if (ret)
+		goto error;
+
+	ret = active_backend->init(stage);
+	if (ret) {
+		pr_err("Unable to initialize %s backend: %d\n", active_backend->name, ret);
+		active_backend->fini(stage, ret);
+		active_backend = NULL;
+		goto error;
+	}
+
+	/* Consume the requirement only after the selected backend is ready. */
+	if (restore_required && !check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name)) {
+		pr_err("Unable to consume CUDA plugin inventory requirement\n");
+		active_backend->fini(stage, -1);
+		active_backend = NULL;
+		ret = -1;
+		goto error;
+	}
+
+	pr_info("selected %s backend for stage %d\n", active_backend->name, stage);
+	set_compel_interrupt_only_mode();
+
+	return 0;
+
+error:
+	free(device_map_option);
+	device_map_option = NULL;
+	return ret;
+}
+
+static void cuda_plugin_fini(int stage, int ret)
+{
+	if (active_backend) {
+		pr_info("finished %s backend for stage %d with error %d\n",
+			active_backend->name, stage, ret);
+		active_backend->fini(stage, ret);
+		active_backend = NULL;
+	}
+
+	cuda_device_map_fini(&restore_device_map);
+	cuda_gpu_inventory_fini();
+	free(device_map_option);
+	device_map_option = NULL;
+	cuda_tasks_handled = false;
+}
+
+CR_PLUGIN_REGISTER(CUDA_PLUGIN_NAME, cuda_plugin_init, cuda_plugin_fini)

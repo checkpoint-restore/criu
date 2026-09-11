@@ -153,7 +153,7 @@ static int cr_lib_load(int stage, char *path)
 	list_add_tail(&this->list, &cr_plugin_ctl.head);
 	show_plugin_desc(d);
 
-	if (d->init && d->init(stage)) {
+	if (stage != CR_PLUGIN_STAGE__HELP && d->init && d->init(stage)) {
 		pr_err("Failed in init(%d) of \"%s\"\n", stage, d->name);
 		list_del(&this->list);
 		goto error_free;
@@ -189,7 +189,7 @@ void cr_plugin_fini(int stage, int ret)
 		size_t i;
 
 		list_del(&this->list);
-		if (this->d->exit)
+		if (stage != CR_PLUGIN_STAGE__HELP && this->d->exit)
 			this->d->exit(stage, ret);
 
 		for (i = 0; i < this->d->max_hooks; i++) {
@@ -266,8 +266,8 @@ int cr_plugin_init(int stage)
 		if (check_inventory_plugins())
 			goto err;
 
-		ret = run_plugins(RESTORE_INIT);
-		if (ret < 0 && ret != -ENOTSUP)
+		ret = run_plugins_all(RESTORE_INIT);
+		if (ret && ret != -ENOTSUP)
 			goto err;
 	}
 
@@ -279,4 +279,15 @@ err:
 		cr_plugin_fini(stage, exit_code);
 
 	return exit_code;
+}
+
+int cr_plugin_print_help(void)
+{
+	int ret;
+
+	if (cr_plugin_init(CR_PLUGIN_STAGE__HELP))
+		return -1;
+	ret = run_plugins_all(PRINT_HELP);
+	cr_plugin_fini(CR_PLUGIN_STAGE__HELP, ret);
+	return ret == -ENOTSUP ? 0 : ret;
 }
