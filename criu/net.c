@@ -3376,7 +3376,7 @@ static inline int nftables_lock_network_internal(bool restore)
 	if (!fp)
 		goto err2;
 
-	snprintf(buf, sizeof(buf), "create table %s", table);
+	snprintf(buf, sizeof(buf), "add table %s", table);
 	ret = NFT_RUN_CMD(nft, buf);
 	if (ret) {
 		/* The network has been locked on dump. */
