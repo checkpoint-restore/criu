@@ -1,0 +1,59 @@
+#!/bin/bash
+
+set -e
+
+test_dir=/tmp/criu-rootless-runtime-userns
+pidfile=${test_dir}/pid
+nsfile=${test_dir}/userns
+test_pidfile=zdtm/static/rootless_runtime_userns.pid
+
+cleanup()
+{
+	if mountpoint -q "${nsfile}" 2>/dev/null; then
+		umount -l "${nsfile}" || true
+	fi
+
+	if [ -s "${pidfile}" ]; then
+		kill "$(cat "${pidfile}")" 2>/dev/null || true
+	fi
+
+	rm -rf "${test_dir}"
+}
+
+case "$1" in
+--pre-restore)
+	cleanup
+	chmod 0666 zdtm/static/rootless_runtime_userns.out* 2>/dev/null || true
+
+	mkdir -p "${test_dir}"
+	chmod 0777 "${test_dir}"
+	touch "${nsfile}"
+	chmod 0666 "${nsfile}"
+
+	if [ "$(id -u)" = 0 ] && [ -n "${SUDO_UID:-}" ] && [ -n "${SUDO_GID:-}" ]; then
+		PIDFILE="${pidfile}" setpriv --reuid "${SUDO_UID}" --regid "${SUDO_GID}" --clear-groups \
+			unshare --user --map-root-user --mount --propagation private \
+			sh -c 'echo $$ > "${PIDFILE}" && exec sleep infinity' &
+	else
+		PIDFILE="${pidfile}" unshare --user --map-root-user --mount --propagation private \
+			sh -c 'echo $$ > "${PIDFILE}" && exec sleep infinity' &
+	fi
+
+	for _ in $(seq 1 50); do
+		if [ -s "${pidfile}" ]; then
+			break
+		fi
+		sleep 0.1
+	done
+
+	test -s "${pidfile}"
+	mount --bind "/proc/$(cat "${pidfile}")/ns/user" "${nsfile}"
+	;;
+--post-restore)
+	test -s "${test_pidfile}"
+	test "$(stat -Lc '%d:%i' "/proc/$(cat "${test_pidfile}")/ns/user")" = "$(stat -Lc '%d:%i' "${nsfile}")"
+	;;
+--clean)
+	cleanup
+	;;
+esac

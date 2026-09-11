@@ -751,6 +751,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "tls-no-cn-verify", no_argument, &opts.tls_no_cn_verify, true },
 		{ "cgroup-yard", required_argument, 0, 1096 },
 		{ "pre-dump-mode", required_argument, 0, 1097 },
+		{ "memory-dump-mode", required_argument, 0, 1097 },
 		{ "file-validation", required_argument, 0, 1098 },
 		BOOL_OPT("skip-file-rwx-check", &opts.skip_file_rwx_check),
 		{ "lsm-mount-context", required_argument, 0, 1099 },
@@ -1125,7 +1126,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			if (!strcmp("read", optarg)) {
 				opts.pre_dump_mode = PRE_DUMP_READ;
 			} else if (strcmp("splice", optarg)) {
-				pr_err("Unable to parse value of --pre-dump-mode\n");
+				pr_err("Unable to parse value of --pre-dump-mode/--memory-dump-mode\n");
 				return 1;
 			}
 			break;

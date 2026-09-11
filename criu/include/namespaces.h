@@ -189,12 +189,16 @@ extern int stop_usernsd(void);
 
 extern uid_t userns_uid(uid_t uid);
 extern gid_t userns_gid(gid_t gid);
+extern int userns_mnt_opt_fixup_uid(uid_t uid, uid_t *fixed);
+extern int userns_mnt_opt_fixup_gid(gid_t gid, gid_t *fixed);
 
 extern int dump_user_ns(pid_t pid, int ns_id);
 extern void free_userns_data(void);
 extern int join_ns_add(const char *type, char *ns_file, char *extra_opts);
 extern int check_namespace_opts(void);
+extern int join_user_namespace(void);
 extern int join_namespaces(void);
+extern int userns_join_ns_requested(void);
 
 typedef int (*uns_call_t)(void *arg, int fd, pid_t pid);
 /*

@@ -144,6 +144,8 @@ int criu_set_network_lock(enum criu_network_lock_method method);
 int criu_join_ns_add(const char *ns, const char *ns_file, const char *extra_opt);
 void criu_set_mntns_compat_mode(bool val);
 int criu_set_config_file(const char *path);
+int criu_set_seccomp_bpf(void *bpf_data, size_t bpf_len);
+int criu_set_seccomp_bpf_flags(unsigned int flags);
 
 /*
  * The criu_notify_arg_t na argument is an opaque
@@ -316,6 +318,8 @@ int criu_local_set_network_lock(criu_opts *opts, enum criu_network_lock_method m
 int criu_local_join_ns_add(criu_opts *opts, const char *ns, const char *ns_file, const char *extra_opt);
 void criu_local_set_mntns_compat_mode(criu_opts *opts, bool val);
 int criu_local_set_config_file(criu_opts *opts, const char *path);
+int criu_local_set_seccomp_bpf(criu_opts *opts, void *bpf_data, size_t bpf_len);
+int criu_local_set_seccomp_bpf_flags(criu_opts *opts, unsigned int flags);
 
 void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_notify_arg_t na));
 

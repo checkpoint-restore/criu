@@ -144,6 +144,11 @@ int check_mount_v2(void)
 	return 0;
 }
 
+int criu_mount_at(char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data)
+{
+	return 0;
+}
+
 char compel_run_id[RUN_ID_HASH_LENGTH];
 
 int pread_full(int fd, void *buf, size_t count, off_t offset)

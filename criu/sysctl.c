@@ -101,11 +101,20 @@ GEN_SYSCTL_WRITE_FUNC(u32, "%u ");
 GEN_SYSCTL_WRITE_FUNC(u64, "%" PRIu64 " ");
 GEN_SYSCTL_WRITE_FUNC(s32, "%d ");
 
+static bool sysctl_write_userns_denied(int err, struct sysctl_req *req)
+{
+	return (req->flags & CTL_FLAGS_WRITE_USERNS_SKIP) &&
+	       (err == EACCES || err == EPERM || err == EINVAL);
+}
+
 static int sysctl_write_char(int fd, struct sysctl_req *req, char *arg, int nr)
 {
 	pr_debug("%s nr %d\n", req->name, nr);
-	if (dprintf(fd, "%s\n", arg) < 0)
+	if (dprintf(fd, "%s\n", arg) < 0) {
+		if (!sysctl_write_userns_denied(errno, req))
+			pr_perror("Can't write %s", req->name);
 		return -1;
+	}
 
 	return 0;
 }
@@ -178,6 +187,45 @@ static int do_sysctl_op(int fd, struct sysctl_req *req, int op)
 	}
 
 	return ret;
+}
+
+static bool sysctl_current_value_matches(struct sysctl_req *req)
+{
+	struct sysctl_req cur = *req;
+	int arg_size, fd, ret;
+	bool match = false;
+
+	arg_size = sysctl_userns_arg_size(req->type);
+	if (arg_size <= 0)
+		return false;
+
+	cur.arg = xzalloc(arg_size);
+	if (!cur.arg)
+		return false;
+
+	fd = do_open_proc(PROC_GEN, O_RDONLY, "sys/%s", req->name);
+	if (fd < 0) {
+		pr_perror("Can't open sysctl %s to verify skipped write", req->name);
+		goto out;
+	}
+
+	ret = do_sysctl_op(fd, &cur, CTL_READ);
+	close(fd);
+	if (ret < 0)
+		goto out;
+
+	match = !memcmp(cur.arg, req->arg, arg_size);
+	if (!match)
+		pr_err("Denied sysctl write %s would change current value\n", req->name);
+
+out:
+	xfree(cur.arg);
+	return match;
+}
+
+static bool sysctl_write_userns_skip(int err, struct sysctl_req *req)
+{
+	return sysctl_write_userns_denied(err, req) && sysctl_current_value_matches(req);
 }
 
 static int __userns_sysctl_op(void *arg, int proc_fd, pid_t pid)
@@ -302,11 +350,11 @@ static int __userns_sysctl_op(void *arg, int proc_fd, pid_t pid)
 
 		for (i = 0; i < userns_req->nr_req; i++) {
 			if (do_sysctl_op(fds[i], reqs[i], op) < 0) {
-				if (op != CTL_READ || errno != EIO || !(req->flags & CTL_FLAGS_READ_EIO_SKIP))
+				if (op != CTL_READ || errno != EIO || !(reqs[i]->flags & CTL_FLAGS_READ_EIO_SKIP))
 					exit(1);
 			} else {
 				/* mark sysctl in question exists */
-				req->flags |= CTL_FLAGS_HAS;
+				reqs[i]->flags |= CTL_FLAGS_HAS;
 			}
 		}
 
@@ -365,6 +413,11 @@ static int __nonuserns_sysctl_op(struct sysctl_req **orig_req, size_t *orig_nr_r
 				req++;
 				continue;
 			}
+			if (op == CTL_WRITE && sysctl_write_userns_skip(errno, req)) {
+				pr_warn("Skipping userns-limited sysctl write %s\n", req->name);
+				req++;
+				continue;
+			}
 			if (errno == EACCES && (req->flags & CTL_FLAGS_IPC_EACCES_SKIP)) {
 				/* The remaining requests are restored using userns approach */
 				*orig_req = req;
@@ -379,6 +432,12 @@ static int __nonuserns_sysctl_op(struct sysctl_req **orig_req, size_t *orig_nr_r
 
 		ret = do_sysctl_op(fd, req, op);
 		if (ret) {
+			if (op == CTL_WRITE && sysctl_write_userns_skip(errno, req)) {
+				pr_warn("Skipping userns-limited sysctl write %s\n", req->name);
+				close(fd);
+				req++;
+				continue;
+			}
 			if (op != CTL_READ || errno != EIO || !(req->flags & CTL_FLAGS_READ_EIO_SKIP)) {
 				close(fd);
 				goto out;

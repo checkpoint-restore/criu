@@ -1,0 +1,1 @@
+{'flavor': 'uns', 'flags': 'suid', 'opts': '--unprivileged', 'fault': 'FI_PIPE_RESIZE_DENIED'}

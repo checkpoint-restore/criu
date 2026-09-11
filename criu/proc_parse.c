@@ -316,8 +316,44 @@ static int vma_stat(struct vma_area *vma, int fd)
 	return 0;
 }
 
+static int open_mapped_file(pid_t pid, const char *fname)
+{
+	int fd, root;
+	const char *rel = fname;
+
+	if (opts.unprivileged && fname[0] == '/') {
+		root = open_proc(pid, "root");
+		if (root >= 0) {
+			int root_errno;
+
+			/*
+			 * openat() ignores dirfd when pathname is absolute; paths from
+			 * smaps are absolute container paths (e.g. /bin/busybox).
+			 */
+			if (*rel == '/')
+				rel++;
+
+			fd = openat(root, rel, O_RDONLY);
+			root_errno = errno;
+			close(root);
+			if (fd >= 0)
+				return fd;
+
+			pr_warn("Can't open mapped file [%s] through /proc/%d/root: %s; "
+				"falling back to host path\n",
+				fname, pid, strerror(root_errno));
+		} else {
+			pr_warn("Can't open /proc/%d/root for mapped file [%s]: %s; "
+				"falling back to host path\n",
+				pid, fname, strerror(errno));
+		}
+	}
+
+	return open(fname, O_RDONLY);
+}
+
 static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct vma_file_info *vfi, int *vm_file_fd,
-				const char *path)
+				const char *path, pid_t pid)
 {
 	int fd, hugetlb_flag = 0;
 	dev_t vfi_dev;
@@ -327,7 +363,8 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 	 * best we can do here is fill stat using the information
 	 * from smaps file and ... hope for the better :\
 	 *
-	 * Here we'll miss AIO-s and sockets :(
+	 * Without access to map_files, socket mappings still cannot be
+	 * identified through the link metadata.
 	 */
 
 	if (fname[0] == '\0') {
@@ -356,6 +393,11 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 		return 0;
 	}
 
+	if (!strncmp(fname, AIO_FNAME, sizeof(AIO_FNAME) - 1)) {
+		vma->e->status = VMA_AREA_AIORING;
+		return 0;
+	}
+
 	vfi_dev = makedev(vfi->dev_maj, vfi->dev_min);
 
 	if (is_hugetlb_dev(vfi_dev, &hugetlb_flag) || is_anon_shmem_map(vfi_dev)) {
@@ -380,7 +422,7 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 	}
 
 	pr_info("Failed to open map_files/%s, try to go via [%s] path\n", path, fname);
-	fd = open(fname, O_RDONLY);
+	fd = open_mapped_file(pid, fname);
 	if (fd < 0) {
 		pr_perror("Can't open mapped [%s]", fname);
 		return -1;
@@ -428,7 +470,7 @@ closefd:
 }
 
 static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd, struct vma_file_info *vfi,
-			   struct vma_file_info *prev_vfi, int *vm_file_fd)
+			   struct vma_file_info *prev_vfi, int *vm_file_fd, pid_t pid)
 {
 	char path[32];
 	int flags;
@@ -512,8 +554,8 @@ static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd, st
 			return -1;
 		}
 
-		if (errno == EPERM && !opts.aufs)
-			return vma_get_mapfile_user(fname, vma, vfi, vm_file_fd, path);
+		if ((errno == EPERM || errno == EACCES) && !opts.aufs)
+			return vma_get_mapfile_user(fname, vma, vfi, vm_file_fd, path, pid);
 
 		pr_perror("Can't open map_files");
 		return -1;
@@ -600,7 +642,7 @@ static inline int handle_vvar_vma(struct vma_area *vma)
 static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_path, DIR *map_files_dir,
 		      struct vma_file_info *vfi, struct vma_file_info *prev_vfi, int *vm_file_fd)
 {
-	if (vma_get_mapfile(file_path, vma_area, map_files_dir, vfi, prev_vfi, vm_file_fd))
+	if (vma_get_mapfile(file_path, vma_area, map_files_dir, vfi, prev_vfi, vm_file_fd, pid))
 		goto err_bogus_mapfile;
 
 	if (vma_area->e->status != 0)
@@ -1116,6 +1158,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 	cr->s.shdpnd = 0;
 	cr->s.sigblk = 0;
 	cr->s.seccomp_mode = SECCOMP_MODE_DISABLED;
+	cr->s.seccomp_suspend_failed = false;
 
 	if (bfdopenr(&f))
 		return -1;
@@ -1272,26 +1315,32 @@ struct opt2flag {
 	unsigned flag;
 };
 
-static bool sb_opt_cb(char *opt, char *unknown, size_t *uoff)
+static int sb_opt_cb(char *opt, char *unknown, size_t *uoff)
 {
 	unsigned int id;
+	uid_t uid;
+	gid_t gid;
 
 	if (sscanf(opt, "gid=%u", &id) == 1) {
-		*uoff += sprintf(unknown + *uoff, "gid=%u", userns_gid(id));
+		if (userns_mnt_opt_fixup_gid(id, &gid))
+			return -1;
+		*uoff += sprintf(unknown + *uoff, "gid=%u", gid);
 		unknown[*uoff] = ',';
 		(*uoff)++;
-		return true;
+		return 1;
 	} else if (sscanf(opt, "uid=%u", &id) == 1) {
-		*uoff += sprintf(unknown + *uoff, "uid=%u", userns_uid(id));
+		if (userns_mnt_opt_fixup_uid(id, &uid))
+			return -1;
+		*uoff += sprintf(unknown + *uoff, "uid=%u", uid);
 		unknown[*uoff] = ',';
 		(*uoff)++;
-		return true;
+		return 1;
 	}
-	return false;
+	return 0;
 }
 
 static int do_opt2flag(char *opt, unsigned *flags, const struct opt2flag *opts, char *unknown,
-		       bool (*cb)(char *opt, char *unknown, size_t *uoff))
+		       int (*cb)(char *opt, char *unknown, size_t *uoff))
 {
 	int i;
 	char *end;
@@ -1308,7 +1357,16 @@ static int do_opt2flag(char *opt, unsigned *flags, const struct opt2flag *opts, 
 				break;
 			}
 
-		if (opts[i].opt == NULL && cb && !cb(opt, unknown, &uoff)) {
+		if (opts[i].opt == NULL && cb) {
+			int ret = cb(opt, unknown, &uoff);
+
+			if (ret < 0)
+				return -1;
+			if (ret > 0)
+				goto next;
+		}
+
+		if (opts[i].opt == NULL) {
 			if (!unknown) {
 				pr_err("Unknown option [%s]\n", opt);
 				return -1;
@@ -1320,6 +1378,7 @@ static int do_opt2flag(char *opt, unsigned *flags, const struct opt2flag *opts, 
 			uoff++;
 		}
 
+next:
 		if (!end) {
 			if (uoff)
 				uoff--;
@@ -1367,6 +1426,10 @@ static int parse_mnt_flags(char *opt, unsigned *flags)
 		{
 			"relatime",
 			MS_RELATIME,
+		},
+		{
+			"nosymfollow",
+			MS_NOSYMFOLLOW,
 		},
 		{},
 	};

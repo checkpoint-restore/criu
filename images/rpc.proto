@@ -167,6 +167,8 @@ message criu_opts {
 	 * through 1024. Restore-time only.
 	 */
 	optional uint32			decompress_threads	= 76 [default = 1];
+	optional bytes			seccomp_bpf		= 77;
+	optional uint32			seccomp_bpf_flags	= 78;
 /*	optional bool			check_mounts		= 128;	*/
 }
 

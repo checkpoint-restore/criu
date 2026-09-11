@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <string.h>
 #include <linux/falloc.h>
+#include <sys/stat.h>
 #include <sys/uio.h>
 #include <limits.h>
 
@@ -18,6 +19,7 @@
 #include "page-xfer.h"
 #include "pagemap-block.h"
 #include "compression.h"
+#include "namespaces.h"
 
 #include "fault-injection.h"
 #include "xmalloc.h"
@@ -1967,6 +1969,30 @@ static void reset_pagemap(struct page_read *pr)
 		reset_pagemap(pr->parent);
 }
 
+static int open_pagemap_parent(int dfd, int *pfd)
+{
+	struct stat st;
+
+	*pfd = -1;
+	if (fstatat(dfd, CR_PARENT_LINK, &st, AT_SYMLINK_NOFOLLOW)) {
+		if (errno == ENOENT)
+			return 0;
+		return -errno;
+	}
+
+	/*
+	 * Unlike generic image opens, parent pagemap opens are optional during
+	 * joined-userns restore. Do not route this through usernsd: the caller
+	 * tolerates inaccessible parents and restore will fail later only if a
+	 * required page really has to be read from that parent image.
+	 */
+	*pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+	if (*pfd < 0)
+		return -errno;
+
+	return 0;
+}
+
 /*
  * Open one optional parent reader. Until the final assignment to pr->parent,
  * this function owns both the parent-directory fd and the allocated reader;
@@ -1981,8 +2007,19 @@ static int try_open_parent(int dfd, unsigned long id, struct page_read *pr, int 
 	if (opts.stream)
 		goto out;
 
-	if (open_parent(dfd, &pfd))
+	ret = open_pagemap_parent(dfd, &pfd);
+	if (ret < 0) {
+		int err = -ret;
+
+		if (opts.mode == CR_RESTORE && userns_join_ns_requested() &&
+		    (err == ENOENT || err == EPERM || err == EACCES)) {
+			pr_warn("Can't open parent page images in joined userns, trying current images only\n");
+			goto out;
+		}
+		errno = err;
+		pr_perror("Can't open parent path");
 		goto err;
+	}
 	if (pfd < 0)
 		goto out;
 

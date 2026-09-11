@@ -1,0 +1,4 @@
+#!/bin/bash
+
+command -v setpriv >/dev/null
+unshare --user --map-root-user true

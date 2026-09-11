@@ -28,7 +28,9 @@
 #include "external.h"
 #include "clone-noasan.h"
 #include "fdstore.h"
+#include "fault-injection.h"
 #include "rst-malloc.h"
+#include "mntns-broker.h"
 
 #include "images/mnt.pb-c.h"
 
@@ -535,13 +537,36 @@ static int try_resolve_ext_mount(struct mount_info *info)
 
 static struct mount_info *find_fsroot_mount_for(struct mount_info *bm)
 {
-	struct mount_info *sm;
+	struct mount_info *sm, *p;
 
 	list_for_each_entry(sm, &bm->mnt_bind, mnt_bind)
 		if (fsroot_mounted(sm) || (sm->parent == root_yard_mp && strstartswith(bm->root, sm->root)))
 			return sm;
 
+	/*
+	 * Some restore inputs contain individual devtmpfs nodes
+	 * (/dev/urandom, /dev/null, ...) from the same host superblock.
+	 * search_bindmounts() groups them by s_dev only, so mnt_bind does not
+	 * contain a mount with root "/". Walk the parent chain to find the real
+	 * FS root (e.g. tmpfs on /dev with root "/").
+	 */
+	for (p = bm->parent; p && p != root_yard_mp; p = p->parent) {
+		if (fsroot_mounted(p))
+			return p;
+		if (p->parent == root_yard_mp && strstartswith(bm->root, p->root))
+			return p;
+	}
+
 	return NULL;
+}
+
+static bool devtmpfs_per_device_mount(struct mount_info *mi)
+{
+	if (!mi->fstype || mi->fstype->code != FSTYPE__DEVTMPFS || !mi->root)
+		return false;
+
+	/* Per-device devtmpfs (e.g. root "/null" on /dev/null), not the fs root. */
+	return mi->root[0] == '/' && mi->root[1] != '\0';
 }
 
 static bool mnt_needs_remap(struct mount_info *m)
@@ -1268,7 +1293,7 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
 		return NULL;
 	}
 
-	if (mount(mi->ns_mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
+	if (criu_mount_at(mi->ns_mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
 		pr_perror("Can't bind-mount %d:%s to %s", mi->mnt_id, mi->ns_mountpoint, mnt_path);
 		rmdir(mnt_path);
 		return NULL;
@@ -1296,7 +1321,7 @@ static int get_clean_fd(struct mount_info *mi)
 			goto err_close;
 	}
 
-	if (umount2(mnt_path, MNT_DETACH)) {
+	if (criu_umount2_in_process(mnt_path, MNT_DETACH)) {
 		pr_perror("Can't detach mount %s", mnt_path);
 		goto err_close;
 	}
@@ -1418,7 +1443,7 @@ again:
 
 	/* Unmout children-overmounts in the order of visibility */
 	while (m != mi) {
-		if (umount2(m->ns_mountpoint, MNT_DETACH)) {
+		if (criu_umount2_in_process(m->ns_mountpoint, MNT_DETACH)) {
 			pr_perror("Unable to umount child-overmount %s", m->ns_mountpoint);
 			return -1;
 		}
@@ -1470,7 +1495,7 @@ next:
 		if (__umount_children_overmounts(ovm))
 			return -1;
 
-		if (umount2(ovm->ns_mountpoint, MNT_DETACH)) {
+		if (criu_umount2_in_process(ovm->ns_mountpoint, MNT_DETACH)) {
 			pr_perror("Unable to umount %s", ovm->ns_mountpoint + 1);
 			return -1;
 		}
@@ -1528,7 +1553,7 @@ int ns_open_mountpoint(void *arg)
 	}
 
 	/* Remount all mounts as private to disable propagation */
-	if (mount("none", "/", NULL, MS_REC | MS_PRIVATE, NULL)) {
+	if (criu_mount_at("none", "/", NULL, MS_REC | MS_PRIVATE, NULL)) {
 		pr_perror("Unable to remount");
 		goto err;
 	}
@@ -1662,8 +1687,9 @@ char *get_plain_mountpoint(int mnt_id, char *name)
 static int dump_one_fs(struct mount_info *mi)
 {
 	struct mount_info *pm = mi;
-	struct mount_info *t;
+	struct mount_info *t, *fsroot;
 	bool first = true;
+	int ret;
 
 	if (mnt_is_root_bind(mi) || mi->need_plugin || mnt_is_external_bind(mi) || !mi->fstype->dump)
 		return 0;
@@ -1685,6 +1711,26 @@ static int dump_one_fs(struct mount_info *mi)
 
 		pm->dumped = true;
 		list_for_each_entry(t, &pm->mnt_bind, mnt_bind)
+			t->dumped = true;
+		return 0;
+	}
+
+	/*
+	 * Per-device devtmpfs binds can share s_dev but have
+	 * root "/urandom", etc. The FS to dump is the parent (e.g. tmpfs /dev).
+	 */
+	fsroot = find_fsroot_mount_for(mi);
+	if (fsroot) {
+		if (!fsroot->dumped && fsroot->fstype && fsroot->fstype->dump) {
+			ret = fsroot->fstype->dump(fsroot);
+			if (ret == MNT_UNREACHABLE)
+				goto mark_bind_dumped;
+			if (ret < 0)
+				return ret;
+			fsroot->dumped = true;
+		}
+mark_bind_dumped:
+		list_for_each_entry(t, &mi->mnt_bind, mnt_bind)
 			t->dumped = true;
 		return 0;
 	}
@@ -1942,14 +1988,14 @@ static int restore_shared_options(struct mount_info *mi, bool private, bool shar
 			if (!mnt_is_overmounted(mi)) {
 				/* Someone may still want to bind from us, let them do it. */
 				pr_debug("Temporary leave unbindable mount %s as private\n", service_mountpoint(mi));
-				if (mount(NULL, service_mountpoint(mi), NULL, MS_PRIVATE, NULL)) {
+				if (criu_mount_at(NULL, service_mountpoint(mi), NULL, MS_PRIVATE, NULL)) {
 					pr_perror("Unable to make %d private", mi->mnt_id);
 					return -1;
 				}
 				list_add(&mi->mnt_unbindable, &delayed_unbindable);
 				return 0;
 			}
-			if (mount(NULL, service_mountpoint(mi), NULL, MS_UNBINDABLE, NULL)) {
+			if (criu_mount_at(NULL, service_mountpoint(mi), NULL, MS_UNBINDABLE, NULL)) {
 				pr_perror("Unable to make %d unbindable", mi->mnt_id);
 				return -1;
 			}
@@ -1957,15 +2003,15 @@ static int restore_shared_options(struct mount_info *mi, bool private, bool shar
 		}
 	}
 
-	if (private && mount(NULL, service_mountpoint(mi), NULL, MS_PRIVATE, NULL)) {
+	if (private && criu_mount_at(NULL, service_mountpoint(mi), NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Unable to make %d private", mi->mnt_id);
 		return -1;
 	}
-	if (slave && mount(NULL, service_mountpoint(mi), NULL, MS_SLAVE, NULL)) {
+	if (slave && criu_mount_at(NULL, service_mountpoint(mi), NULL, MS_SLAVE, NULL)) {
 		pr_perror("Unable to make %d slave", mi->mnt_id);
 		return -1;
 	}
-	if (shared && mount(NULL, service_mountpoint(mi), NULL, MS_SHARED, NULL)) {
+	if (shared && criu_mount_at(NULL, service_mountpoint(mi), NULL, MS_SHARED, NULL)) {
 		pr_perror("Unable to make %d shared", mi->mnt_id);
 		return -1;
 	}
@@ -1993,7 +2039,7 @@ static int umount_from_slaves(struct mount_info *mi)
 			continue;
 
 		pr_debug("\t\tUmount slave %s\n", mpath);
-		if (umount(mpath) == -1) {
+				if (criu_umount2_in_process(mpath, 0) == -1) {
 			pr_perror("Can't umount slave %s", mpath);
 			return -1;
 		}
@@ -2090,6 +2136,14 @@ skip_parent:
 				continue;
 			if (!issubpath(t->root, mi->root))
 				continue;
+			/*
+			 * Per-device devtmpfs nodes (root /null) share
+			 * a superblock with other dev entries but live
+			 * under different parents. Do not wire them into
+			 * each other's bind chain.
+			 */
+			if (!fsroot_mounted(mi) && t->parent != mi->parent)
+				continue;
 			pr_debug("\t\tBind private %s(%d)\n", t->ns_mountpoint, t->mnt_id);
 			t->bind = mi;
 			t->s_dev_rt = mi->s_dev_rt;
@@ -2112,9 +2166,84 @@ int fetch_rt_stat(struct mount_info *m, const char *where)
 	return 0;
 }
 
+static int restore_mount_pid(void)
+{
+	/*
+	 * populate_mnt_ns() runs inside the init restore task; its live
+	 * pid owns the user namespace we need for mount option IDs.
+	 */
+	return getpid();
+}
+
+static bool mount_via_broker(unsigned long flags, const char *target)
+{
+	/*
+	 * Remounts must run in the init restore task itself. A broker child
+	 * that only enters the target user namespace cannot reliably apply
+	 * MS_BIND|MS_REMOUNT (Podman /run/.containerenv bind is one case).
+	 */
+	if (flags & MS_REMOUNT)
+		return false;
+
+	/*
+	 * cr_pivot_root() and similar helpers chdir() first and use relative
+	 * paths (e.g. "tmp"). A broker child does not inherit that cwd.
+	 */
+	if (target && target[0] != '/')
+		return false;
+
+	return true;
+}
+
+int criu_mount_at(const char *src, const char *target, const char *fstype,
+		  unsigned long flags, const char *data)
+{
+	bool try_broker = false;
+	int pid;
+	int err;
+
+	if (opts.mode == CR_RESTORE && fault_injected(FI_MNTNS_DIRECT_MOUNT_DENIED) &&
+	    mount_via_broker(flags, target)) {
+		pr_info("mnt: forcing direct mount denial at %s\n", target ? target : "(null)");
+		err = EPERM;
+		try_broker = true;
+	} else if (!mount(src, target, fstype, flags, data)) {
+		return 0;
+	} else {
+		err = errno;
+		try_broker = opts.mode == CR_RESTORE && (err == EPERM || err == EACCES) &&
+			     mount_via_broker(flags, target);
+	}
+
+	if (try_broker) {
+		pid = restore_mount_pid();
+		if (pid < 0)
+			return -1;
+		pr_info("mnt: using broker because direct mount at %s is not permitted\n",
+			target ? target : "(null)");
+		return mntns_broker_mount(pid, src, target, fstype, flags, data);
+	}
+
+	errno = err;
+	return -1;
+}
+
+int criu_umount2_in_process(const char *target, int flags)
+{
+	/*
+	 * Umount runs in the init restore task's mount namespace and often
+	 * uses paths relative to a prior chdir/pivot_root (e.g. "tmp").
+	 * A broker child does not inherit that cwd, so umount2 must stay
+	 * in-process. Mount still uses the broker for target userns creds.
+	 */
+	return umount2(target, flags);
+}
+
 int do_simple_mount(struct mount_info *mi, const char *src, const char *fstype, unsigned long mountflags)
 {
-	int ret = mount(src, service_mountpoint(mi), fstype, mountflags, mi->options);
+	int ret;
+
+	ret = criu_mount_at(src, service_mountpoint(mi), fstype, mountflags, mi->options);
 	if (ret)
 		pr_perror("Unable to mount %s %s (id=%d)", src, service_mountpoint(mi), mi->mnt_id);
 	return ret;
@@ -2156,6 +2285,182 @@ int apply_sb_flags(void *args, int fd, pid_t pid)
 int mount_root(void *args, int fd, pid_t pid)
 {
 	return userns_mount(opts.root, args, fd, pid);
+}
+
+static void cure_mountinfo_path(char *path)
+{
+	int i, len, off = 0;
+
+	if (!strchr(path, '\\'))
+		return;
+
+	len = strlen(path);
+	for (i = 0; i < len; i++) {
+		if (!strncmp(path + i, "\\040", 4)) {
+			path[i - off] = ' ';
+			goto replace;
+		} else if (!strncmp(path + i, "\\011", 4)) {
+			path[i - off] = '\t';
+			goto replace;
+		} else if (!strncmp(path + i, "\\134", 4)) {
+			path[i - off] = '\\';
+			goto replace;
+		}
+		if (off)
+			path[i - off] = path[i];
+		continue;
+	replace:
+		off += 3;
+		i += 3;
+	}
+	path[i - off] = '\0';
+}
+
+static unsigned long mountinfo_opt_flags(char *opts)
+{
+	unsigned long flags = 0;
+	char *opt;
+
+	while ((opt = strsep(&opts, ","))) {
+		if (!strcmp(opt, "ro"))
+			flags |= MS_RDONLY;
+		else if (!strcmp(opt, "nosuid"))
+			flags |= MS_NOSUID;
+		else if (!strcmp(opt, "nodev"))
+			flags |= MS_NODEV;
+		else if (!strcmp(opt, "noexec"))
+			flags |= MS_NOEXEC;
+	}
+
+	return flags;
+}
+
+static int read_mount_flags(const char *path, unsigned long *flags)
+{
+	FILE *f;
+	char *line = NULL;
+	size_t len = 0;
+	int ret = -1;
+
+	f = fopen_proc(PROC_SELF, "mountinfo");
+	if (!f)
+		return -1;
+
+	while (getline(&line, &len, f) > 0) {
+		char *cursor = line;
+		char *mnt = NULL, *opts = NULL;
+		int field;
+
+		for (field = 1; field <= 6; field++) {
+			char *tok = strsep(&cursor, " ");
+
+			if (!tok)
+				break;
+			if (field == 5)
+				mnt = tok;
+			else if (field == 6)
+				opts = tok;
+		}
+
+		if (!mnt || !opts)
+			continue;
+
+		cure_mountinfo_path(mnt);
+		if (strcmp(mnt, path))
+			continue;
+
+		*flags = mountinfo_opt_flags(opts);
+		ret = 0;
+		break;
+	}
+
+	xfree(line);
+	fclose(f);
+	return ret;
+}
+
+static bool bind_remount_flags_inherited(struct mount_info *mi, unsigned long mflags)
+{
+	unsigned long restored_flags, required_flags;
+
+	required_flags = mflags & (MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC);
+	if (!required_flags)
+		return true;
+
+	if (read_mount_flags(service_mountpoint(mi), &restored_flags)) {
+		pr_err("Can't read restored mount flags for %s\n", service_mountpoint(mi));
+		return false;
+	}
+
+	if ((restored_flags & required_flags) == required_flags)
+		return true;
+
+	pr_err("Denied bind remount at %s did not inherit required flags %#lx (actual %#lx)\n",
+	       service_mountpoint(mi), required_flags, restored_flags);
+	return false;
+}
+
+/*
+ * Apply per-mount flags after a bind mount, or after a fresh mount when
+ * mflags could not be merged into the initial mount(2) call.
+ *
+ * Host-backed binds can inherit locked flags from the bind source; remount is
+ * a no-op at best and EPERM at worst in a non-initial userns. Skip it when
+ * after_bind is true.
+ *
+ * Container-created mounts (tmpfs, overlay via do_new_mount) still need remount.
+ */
+static int remount_bind_flags(struct mount_info *mi, unsigned long mflags, bool after_bind)
+{
+	int err;
+
+	if (!mflags)
+		return 0;
+
+	if (opts.mode == CR_RESTORE && fault_injected(FI_MNTNS_REMOUNT_DENIED)) {
+		pr_info("mnt: forcing remount denial at %s\n", service_mountpoint(mi));
+		err = EPERM;
+	} else if (!criu_mount_at(NULL, service_mountpoint(mi), NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
+		return 0;
+	} else {
+		err = errno;
+	}
+
+	if (after_bind && (opts.unprivileged || in_noninitial_userns()) && opts.mode == CR_RESTORE &&
+	    (err == EPERM || err == EACCES)) {
+		if (bind_remount_flags_inherited(mi, mflags)) {
+			pr_warn("mnt: skipping denied bind remount at %s in non-initial userns restore; required flags already inherited\n",
+				service_mountpoint(mi));
+			return 0;
+		}
+	}
+
+	errno = err;
+	pr_perror("Can't re-mount at %s", service_mountpoint(mi));
+	return -1;
+}
+
+static int do_host_dev_bind_mount(struct mount_info *mi)
+{
+	unsigned long mflags = mi->flags & (~MS_PROPAGATE);
+
+	pr_info("\tBind host %s to %s\n", mi->ns_mountpoint, service_mountpoint(mi));
+
+	if (criu_mount_at(mi->ns_mountpoint, service_mountpoint(mi), NULL,
+		       MS_BIND | (mi->flags & MS_REC), NULL) < 0) {
+		pr_perror("Can't bind host %s at %s", mi->ns_mountpoint,
+			  service_mountpoint(mi));
+		return -1;
+	}
+
+	if (remount_bind_flags(mi, mflags, true))
+		return -1;
+
+	if (restore_shared_options(mi, !mi->shared_id, mi->shared_id, 0))
+		return -1;
+
+	mi->mounted = true;
+	return 0;
 }
 
 static int do_new_mount(struct mount_info *mi)
@@ -2205,10 +2510,8 @@ static int do_new_mount(struct mount_info *mi)
 		close(fd);
 	}
 
-	if (mflags && mount(NULL, service_mountpoint(mi), NULL, MS_REMOUNT | MS_BIND | mflags, NULL)) {
-		pr_perror("Unable to apply bind-mount options");
+	if (remount_bind_flags(mi, mflags, false))
 		return -1;
-	}
 
 	/*
 	 * A slave should be mounted from do_bind_mount().
@@ -2250,12 +2553,12 @@ static int mount_clean_path(void)
 		return -1;
 	}
 
-	if (mount(mnt_clean_path, mnt_clean_path, NULL, MS_BIND, NULL)) {
+	if (criu_mount_at(mnt_clean_path, mnt_clean_path, NULL, MS_BIND, NULL)) {
 		pr_perror("Unable to mount tmpfs into %s", mnt_clean_path);
 		return -1;
 	}
 
-	if (mount(NULL, mnt_clean_path, NULL, MS_PRIVATE, NULL)) {
+	if (criu_mount_at(NULL, mnt_clean_path, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Unable to mark %s as private", mnt_clean_path);
 		return -1;
 	}
@@ -2265,7 +2568,7 @@ static int mount_clean_path(void)
 
 static int umount_clean_path(void)
 {
-	if (umount2(mnt_clean_path, MNT_DETACH)) {
+	if (criu_umount2_in_process(mnt_clean_path, MNT_DETACH)) {
 		pr_perror("Unable to umount %s", mnt_clean_path);
 		return -1;
 	}
@@ -2314,7 +2617,7 @@ static int do_bind_mount(struct mount_info *mi)
 	priv = !mi->master_id && !shared;
 	cut_root = cut_root_for_bind(mi->root, mi->bind->root);
 
-	/* Mount private can be initialized on mount() callback, which is
+	/* Mount private can be initialized on criu_mount_at() callback, which is
 	 * called only once.
 	 * It have to be copied to all it's sibling structures to provide users
 	 * of it with actual data.
@@ -2349,7 +2652,7 @@ static int do_bind_mount(struct mount_info *mi)
 
 	if (&c->siblings != &mi->bind->children) {
 		/* Get a copy of mi->bind without child mounts */
-		if (mount(mnt_path, mnt_clean_path, NULL, MS_BIND, NULL)) {
+		if (criu_mount_at(mnt_path, mnt_clean_path, NULL, MS_BIND, NULL)) {
 			pr_perror("Unable to bind-mount %s to %s", mnt_path, mnt_clean_path);
 			return -1;
 		}
@@ -2390,17 +2693,14 @@ do_bind:
 		}
 	}
 
-	if (mount(root, service_mountpoint(mi), NULL, MS_BIND | (mi->flags & MS_REC), NULL) < 0) {
+	if (criu_mount_at(root, service_mountpoint(mi), NULL, MS_BIND | (mi->flags & MS_REC), NULL) < 0) {
 		pr_perror("Can't bind-mount at %s", service_mountpoint(mi));
 		goto err;
 	}
 
 	mflags = mi->flags & (~MS_PROPAGATE);
-	if (!mi->bind || mflags != (mi->bind->flags & (~MS_PROPAGATE)))
-		if (mount(NULL, service_mountpoint(mi), NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
-			pr_perror("Can't re-mount at %s", service_mountpoint(mi));
-			goto err;
-		}
+	if (remount_bind_flags(mi, mflags, true))
+		goto err;
 
 	if (unlikely(mi->deleted)) {
 		if (S_ISDIR(st.st_mode)) {
@@ -2431,11 +2731,11 @@ err:
 		 * If mnt_path was shared, a new mount may be propagated
 		 * into it.
 		 */
-		if (mount(NULL, mnt_path, NULL, MS_PRIVATE, NULL)) {
+		if (criu_mount_at(NULL, mnt_path, NULL, MS_PRIVATE, NULL)) {
 			pr_perror("Unable to make %s private", mnt_path);
 			return -1;
 		}
-		if (umount2(mnt_path, MNT_DETACH)) {
+		if (criu_umount2_in_process(mnt_path, MNT_DETACH)) {
 			pr_perror("Unable to umount %s", mnt_path);
 			return -1;
 		}
@@ -2498,6 +2798,8 @@ static bool can_mount_now(struct mount_info *mi)
 	}
 
 	if (!fsroot_mounted(mi) && (mi->bind == NULL && !mi->need_plugin)) {
+		if (devtmpfs_per_device_mount(mi))
+			goto shared;
 		pr_debug("%s: false as %d is non-root without bind or plugin\n", __func__, mi->mnt_id);
 		return false;
 	}
@@ -2582,10 +2884,8 @@ static int do_mount_root(struct mount_info *mi)
 	if (restore_shared_options(mi, !mi->shared_id && !mi->master_id, mi->shared_id, mi->master_id))
 		return -1;
 
-	if (mflags && mount(NULL, service_mountpoint(mi), NULL, MS_REMOUNT | MS_BIND | mflags, NULL)) {
-		pr_perror("Unable to apply root mount options");
+	if (remount_bind_flags(mi, mflags, true))
 		return -1;
-	}
 
 	return fetch_rt_stat(mi, service_mountpoint(mi));
 }
@@ -2598,7 +2898,7 @@ static int do_close_one(struct mount_info *mi)
 
 static int set_unbindable(struct mount_info *mi)
 {
-	if (mount(NULL, service_mountpoint(mi), NULL, MS_UNBINDABLE, NULL)) {
+	if (criu_mount_at(NULL, service_mountpoint(mi), NULL, MS_UNBINDABLE, NULL)) {
 		pr_perror("Failed setting unbindable flag on %d", mi->mnt_id);
 		return -1;
 	}
@@ -2652,7 +2952,7 @@ static int do_mount_one(struct mount_info *mi)
 			}
 			close(fd);
 		} else {
-			if (mount(opts.root, service_mountpoint(mi), NULL, flags, NULL)) {
+			if (criu_mount_at(opts.root, service_mountpoint(mi), NULL, flags, NULL)) {
 				pr_perror("Unable to mount %s %s (id=%d)", opts.root, service_mountpoint(mi),
 					  mi->mnt_id);
 				return -1;
@@ -2664,7 +2964,10 @@ static int do_mount_one(struct mount_info *mi)
 		mi->mounted = true;
 		ret = 0;
 	} else if (!mi->bind && !mi->need_plugin && !mnt_is_nodev_external(mi)) {
-		ret = do_new_mount(mi);
+		if (devtmpfs_per_device_mount(mi) && opts.mode == CR_RESTORE && in_noninitial_userns())
+			ret = do_host_dev_bind_mount(mi);
+		else
+			ret = do_new_mount(mi);
 	} else {
 		ret = do_bind_mount(mi);
 	}
@@ -2694,12 +2997,12 @@ static int do_umount_one(struct mount_info *mi)
 	if (!mi->parent)
 		return 0;
 
-	if (mount("none", service_mountpoint(mi->parent), "none", MS_REC | MS_PRIVATE, NULL)) {
+	if (criu_mount_at("none", service_mountpoint(mi->parent), "none", MS_REC | MS_PRIVATE, NULL)) {
 		pr_perror("Can't mark %s as private", service_mountpoint(mi->parent));
 		return -1;
 	}
 
-	if (umount(service_mountpoint(mi))) {
+	if (criu_umount2_in_process(service_mountpoint(mi), 0)) {
 		pr_perror("Can't umount at %s", service_mountpoint(mi));
 		return -1;
 	}
@@ -2801,7 +3104,7 @@ static int fixup_remap_mounts(void)
 		path[len] = '/';
 
 		pr_debug("Move mount %s -> %s\n", m->mountpoint, path);
-		if (mount(m->mountpoint, path, NULL, MS_MOVE, NULL)) {
+		if (criu_mount_at(m->mountpoint, path, NULL, MS_MOVE, NULL)) {
 			pr_perror("Unable to move mount %s -> %s", m->mountpoint, path);
 			return -1;
 		}
@@ -2841,12 +3144,12 @@ int cr_pivot_root(char *root)
 		tmp_dir = true;
 	}
 
-	if (mount(put_root, put_root, NULL, MS_BIND, NULL)) {
+	if (criu_mount_at(put_root, put_root, NULL, MS_BIND, NULL)) {
 		pr_perror("Unable to mount tmpfs in %s", put_root);
 		goto err_root;
 	}
 
-	if (mount(NULL, put_root, NULL, MS_PRIVATE, NULL)) {
+	if (criu_mount_at(NULL, put_root, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Can't remount %s with MS_PRIVATE", put_root);
 		goto err_tmpfs;
 	}
@@ -2856,20 +3159,20 @@ int cr_pivot_root(char *root)
 		goto err_tmpfs;
 	}
 
-	if (mount("none", put_root, "none", MS_REC | MS_SLAVE, NULL)) {
+	if (criu_mount_at("none", put_root, "none", MS_REC | MS_SLAVE, NULL)) {
 		pr_perror("Can't remount root with MS_PRIVATE");
 		return -1;
 	}
 
 	exit_code = 0;
 
-	if (umount2(put_root, MNT_DETACH)) {
+	if (criu_umount2_in_process(put_root, MNT_DETACH)) {
 		pr_perror("Can't umount %s", put_root);
 		return -1;
 	}
 
 err_tmpfs:
-	if (umount2(put_root, MNT_DETACH)) {
+	if (criu_umount2_in_process(put_root, MNT_DETACH)) {
 		pr_perror("Can't umount %s", put_root);
 		return -1;
 	}
@@ -3159,7 +3462,8 @@ static int collect_mnt_from_image(struct mount_info **head, struct mount_info **
 		pm->sb_flags = me->sb_flags;
 		if (!me->has_sb_flags) {
 			const unsigned int mflags = MS_SHARED | MS_PRIVATE | MS_SLAVE | MS_UNBINDABLE | MS_NOSUID |
-						    MS_NODEV | MS_NOEXEC | MS_NOATIME | MS_NODIRATIME | MS_RELATIME;
+						    MS_NODEV | MS_NOEXEC | MS_NOATIME | MS_NODIRATIME | MS_RELATIME |
+						    MS_NOSYMFOLLOW;
 
 			/*
 			 * In old images mnt and sb flags are saved together.
@@ -3484,7 +3788,7 @@ static int __depopulate_roots_yard(void)
 	if (mnt_roots == NULL)
 		return 0;
 
-	if (mount("none", mnt_roots, "none", MS_REC | MS_PRIVATE, NULL)) {
+	if (criu_mount_at("none", mnt_roots, "none", MS_REC | MS_PRIVATE, NULL)) {
 		pr_perror("Can't remount root with MS_PRIVATE");
 		ret = 1;
 	}
@@ -3494,12 +3798,19 @@ static int __depopulate_roots_yard(void)
 	 * Don't worry about MNT_DETACH, because files are restored after this
 	 * and nobody will not be restored from a wrong mount namespace.
 	 */
-	if (umount2(mnt_roots, MNT_DETACH)) {
+	if (criu_umount2_in_process(mnt_roots, MNT_DETACH)) {
 		pr_perror("Can't unmount %s", mnt_roots);
 		ret = -1;
 	}
 
 	if (rmdir(mnt_roots)) {
+		int err = errno;
+
+		if (in_noninitial_userns() && (err == EPERM || err == EACCES)) {
+			pr_info("mnt: leaving roots yard %s for runtime namespace teardown\n", mnt_roots);
+			return ret;
+		}
+		errno = err;
 		pr_perror("Can't remove the directory %s", mnt_roots);
 		ret = -1;
 	}
@@ -3521,6 +3832,13 @@ int depopulate_roots_yard(int mntns_fd, bool only_ghosts)
 
 	old_cwd = open(".", O_PATH);
 	if (old_cwd < 0) {
+		int err = errno;
+
+		if (userns_join_ns_requested() && (err == EPERM || err == EACCES)) {
+			pr_info("Unable to open cwd in joined userns, leaving roots yard for runtime namespace teardown\n");
+			return 0;
+		}
+		errno = err;
 		pr_perror("Unable to open cwd");
 		return -1;
 	}
@@ -3532,6 +3850,15 @@ int depopulate_roots_yard(int mntns_fd, bool only_ghosts)
 		return -1;
 	}
 	if (setns(mntns_fd, CLONE_NEWNS) < 0) {
+		int err = errno;
+
+		if (userns_join_ns_requested() && (err == EPERM || err == EACCES)) {
+			pr_info("Can't switch to restored mount namespace in joined userns, leaving roots yard for runtime namespace teardown\n");
+			close(old_ns);
+			close(old_cwd);
+			return 0;
+		}
+		errno = err;
 		pr_perror("`- Can't switch");
 		close(old_ns);
 		close(old_cwd);
@@ -3564,8 +3891,16 @@ void cleanup_mnt_ns(void)
 	if (mnt_roots == NULL)
 		return;
 
-	if (rmdir(mnt_roots))
+	if (rmdir(mnt_roots)) {
+		int err = errno;
+
+		if (in_noninitial_userns() && (err == EPERM || err == EACCES)) {
+			pr_info("mnt: leaving roots yard %s for runtime namespace teardown\n", mnt_roots);
+			return;
+		}
+		errno = err;
 		pr_perror("Can't remove the directory %s", mnt_roots);
+	}
 }
 
 int prepare_mnt_ns(void)
@@ -3948,7 +4283,7 @@ static int ns_remount_writable(void *arg)
 		return 1;
 	pr_debug("Switched to mntns %u:%u\n", ns->id, ns->kid);
 
-	if (mount(NULL, mi->ns_mountpoint, NULL, MS_REMOUNT | MS_BIND | (mi->flags & ~(MS_PROPAGATE | MS_RDONLY)),
+	if (criu_mount_at(NULL, mi->ns_mountpoint, NULL, MS_REMOUNT | MS_BIND | (mi->flags & ~(MS_PROPAGATE | MS_RDONLY)),
 		  NULL) == -1) {
 		pr_perror("Failed to remount %d:%s writable", mi->mnt_id, mi->ns_mountpoint);
 		return 1;
@@ -3984,7 +4319,7 @@ int try_remount_writable(struct mount_info *mi, bool ns)
 
 		pr_info("Remount %d:%s writable\n", mi->mnt_id, service_mountpoint(mi));
 		if (!ns) {
-			if (mount(NULL, service_mountpoint(mi), NULL,
+			if (criu_mount_at(NULL, service_mountpoint(mi), NULL,
 				  MS_REMOUNT | MS_BIND | (mi->flags & ~(MS_PROPAGATE | MS_RDONLY)), NULL) == -1) {
 				pr_perror("Failed to remount %d:%s writable", mi->mnt_id, service_mountpoint(mi));
 				return -1;
@@ -4024,7 +4359,7 @@ static int __remount_readonly_mounts(struct ns_id *ns)
 		}
 
 		pr_info("Remount %d:%s back to readonly\n", mi->mnt_id, mi->ns_mountpoint);
-		if (mount(NULL, mi->ns_mountpoint, NULL, MS_REMOUNT | MS_BIND | (mi->flags & ~MS_PROPAGATE), NULL)) {
+		if (criu_mount_at(NULL, mi->ns_mountpoint, NULL, MS_REMOUNT | MS_BIND | (mi->flags & ~MS_PROPAGATE), NULL)) {
 			pr_perror("Failed to restore %d:%s mount flags %x", mi->mnt_id, mi->ns_mountpoint, mi->flags);
 			return -1;
 		}

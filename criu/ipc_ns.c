@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <stdbool.h>
 #include <sys/wait.h>
 #include <sys/msg.h>
 #include <sys/sem.h>
@@ -14,6 +16,7 @@
 #include "namespaces.h"
 #include "sysctl.h"
 #include "ipc_ns.h"
+#include "hugetlb.h"
 #include "shmem.h"
 #include "types.h"
 
@@ -360,6 +363,61 @@ static int dump_ipc_shm_pages(const IpcShmEntry *shm)
 	return ret;
 }
 
+static int shm_hugetlb_flag_from_smaps(unsigned long addr, unsigned long end, int *hugetlb_flag)
+{
+	unsigned long start, stop, kpage_size = 0;
+	bool in_vma = false, hugetlb = false;
+	char *line = NULL;
+	size_t len = 0;
+	FILE *f;
+	int i, ret = -1;
+
+	f = fopen_proc(PROC_SELF, "smaps");
+	if (!f)
+		return -1;
+
+	while (getline(&line, &len, f) > 0) {
+		if (sscanf(line, "%lx-%lx", &start, &stop) == 2) {
+			if (in_vma)
+				break;
+			in_vma = start == addr && stop == end;
+			continue;
+		}
+
+		if (!in_vma)
+			continue;
+
+		if (sscanf(line, "KernelPageSize: %lu kB", &kpage_size) == 1)
+			continue;
+		if (strstr(line, "VmFlags:") && strstr(line, " ht"))
+			hugetlb = true;
+	}
+
+	if (!in_vma) {
+		pr_err("Can't find IPC shm mapping %#lx-%#lx in smaps\n", addr, end);
+		goto out;
+	}
+
+	if (!hugetlb) {
+		ret = 0;
+		goto out;
+	}
+
+	for (i = 0; i < HUGETLB_MAX; i++) {
+		if (hugetlb_info[i].size == kpage_size * 1024) {
+			*hugetlb_flag = hugetlb_info[i].flag | SHM_HUGETLB;
+			ret = 1;
+			goto out;
+		}
+	}
+
+	pr_err("Can't map IPC shm hugepage size %lu kB to shm flag\n", kpage_size);
+out:
+	xfree(line);
+	fclose(f);
+	return ret;
+}
+
 static int dump_shm_hugetlb_flag(IpcShmEntry *shm, int id, unsigned long size)
 {
 	void *addr;
@@ -381,6 +439,25 @@ static int dump_shm_hugetlb_flag(IpcShmEntry *shm, int id, unsigned long size)
 
 	ret = stat(path, &st);
 	if (ret < 0) {
+		/*
+		 * Unprivileged userns dump cannot stat map_files links
+		 * (EPERM). Check smaps before falling back so hugetlb
+		 * segments are not silently restored as normal shm.
+		 */
+		if ((opts.unprivileged || in_noninitial_userns()) && errno == EPERM) {
+			pr_warn("Can't stat map_files for IPC shm %#lx-%#lx: %m, checking smaps\n",
+				(unsigned long)addr, (unsigned long)addr + size);
+			ret = shm_hugetlb_flag_from_smaps((unsigned long)addr, (unsigned long)addr + size,
+							  &hugetlb_flag);
+			if (ret < 0)
+				goto detach;
+			if (ret > 0) {
+				shm->has_hugetlb_flag = true;
+				shm->hugetlb_flag = hugetlb_flag;
+			}
+			exit_code = 0;
+			goto detach;
+		}
 		pr_perror("Can't stat map_files");
 		goto detach;
 	}

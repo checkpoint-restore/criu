@@ -1037,7 +1037,7 @@ static void maybe_clone_parent(struct pstree_item *item, struct cr_clone_arg *ca
 	 * off of 3.11, this condition can be simplified to just test the
 	 * options and not have the pdeath_sig test.
 	 */
-	if (opts.restore_sibling) {
+	if (opts.restore_sibling && !userns_join_ns_requested()) {
 		/*
 		 * This means we're called from lib's criu_restore_child().
 		 * In that case create the root task as the child one to+
@@ -1066,6 +1066,9 @@ static void maybe_clone_parent(struct pstree_item *item, struct cr_clone_arg *ca
 
 static bool needs_prep_creds(struct pstree_item *item)
 {
+	if (!item->parent && userns_join_ns_requested())
+		return false;
+
 	/*
 	 * Before the 4.13 kernel, it was impossible to set
 	 * an exe_file if uid or gid isn't zero.
@@ -1189,6 +1192,23 @@ static inline int fork_with_pid(struct pstree_item *item)
 	BUG_ON(ca.clone_flags & CLONE_VM);
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
+
+	if (!item->parent && userns_join_ns_requested()) {
+		if (join_user_namespace()) {
+			pr_perror("Join user namespace before root task clone failed");
+			return -1;
+		}
+		/*
+		 * Switching credentials while joining a user namespace clears
+		 * dumpability. Keep it enabled until the restorer puts the final
+		 * dumpable value back; otherwise the master can't inspect /proc or
+		 * ptrace the restored init during finalization.
+		 */
+		if (prctl(PR_SET_DUMPABLE, 1, 0)) {
+			pr_perror("Unable to set PR_SET_DUMPABLE after joining user namespace");
+			return -1;
+		}
+	}
 
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		lock_last_pid();
@@ -2021,8 +2041,12 @@ static void restore_origin_ns_hook(void)
 		return;
 
 	/* not critical: it does not affect CT in any way */
-	if (prepare_loginuid(saved_loginuid) < 0)
-		pr_err("Restore original /proc/self/loginuid failed\n");
+	if (prepare_loginuid(saved_loginuid) < 0) {
+		if (userns_join_ns_requested())
+			pr_warn("Restore original /proc/self/loginuid failed in joined userns\n");
+		else
+			pr_err("Restore original /proc/self/loginuid failed\n");
+	}
 }
 
 static int write_restored_pid(void)
@@ -2150,7 +2174,7 @@ static int restore_root_task(struct pstree_item *init)
 	 * uid_map and gid_map must be filled from a parent user namespace.
 	 * prepare_userns_creds() must be called after filling mappings.
 	 */
-	if ((root_ns_mask & CLONE_NEWUSER) && prepare_userns(init))
+	if ((root_ns_mask & CLONE_NEWUSER) && !userns_join_ns_requested() && prepare_userns(init))
 		goto out_kill;
 
 	pr_info("Wait until namespaces are created\n");
@@ -2167,7 +2191,7 @@ static int restore_root_task(struct pstree_item *init)
 		goto out_kill;
 
 	if (root_ns_mask & CLONE_NEWNS) {
-		mnt_ns_fd = open_proc(init->pid->real, "ns/mnt");
+		mnt_ns_fd = open_proc(userns_join_ns_requested() ? PROC_SELF : init->pid->real, "ns/mnt");
 		if (mnt_ns_fd < 0)
 			goto out_kill;
 	}
@@ -2258,7 +2282,8 @@ skip_ns_bouncing:
 		goto out_kill;
 
 	/* Unlock network before disabling repair mode on sockets */
-	network_unlock();
+	if (network_unlock())
+		goto out_kill;
 
 	/*
 	 * Stop getting sigchld, after we resume the tasks they

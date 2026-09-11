@@ -1,0 +1,1 @@
+{'flavor': 'uns', 'flags': 'suid', 'fault': 'FI_SYSV_SHMEM_MAP_FILES_DENIED'}

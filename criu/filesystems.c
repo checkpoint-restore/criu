@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
 
@@ -19,6 +20,7 @@
 #include "util.h"
 #include "fs-magic.h"
 #include "tty.h"
+#include "external.h"
 
 #include "images/mnt.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
@@ -268,7 +270,12 @@ int binfmt_misc_dump_sandboxed(pid_t pid, BinfmtMiscEntry ***pb_bmes)
 		return 0;
 
 	if (!(root_ns_mask & CLONE_NEWUSER)) {
-		pr_err("PID %i is not in a sandbox\n", pid);
+		if (external_lookup_id("binfmt_misc")) {
+			pr_info("binfmt_misc is external, skipping dump for PID %i\n", pid);
+			return 0;
+		}
+		pr_err("PID %i is not in a binfmt_misc sandbox; use --external binfmt_misc if the caller owns this state\n",
+		       pid);
 		return -1;
 	}
 
@@ -667,6 +674,27 @@ static int cgroup_parse(struct mount_info *pm)
 	return 0;
 }
 
+static int cgroup_mount(struct mount_info *mi, const char *src, const char *fstype, unsigned long mountflags)
+{
+	int ret;
+
+	ret = mount(src, service_mountpoint(mi), fstype, mountflags, mi->options);
+	if (ret == 0)
+		return 0;
+
+	if (opts.mode == CR_RESTORE && mnt_is_nodev_external(mi) &&
+	    (opts.unprivileged || in_noninitial_userns()) &&
+	    (errno == EPERM || errno == EACCES)) {
+		pr_info("mnt: external %s mount denied in unprivileged userns restore, tmpfs stub at %s\n",
+			fstype, service_mountpoint(mi));
+		if (!mount("none", service_mountpoint(mi), "tmpfs", mountflags, NULL))
+			return 0;
+	}
+
+	pr_perror("Unable to mount %s %s (id=%d)", src, service_mountpoint(mi), mi->mnt_id);
+	return -1;
+}
+
 static bool btrfs_sb_equal(struct mount_info *a, struct mount_info *b)
 {
 	/* There is a btrfs bug where it doesn't emit subvol= correctly when
@@ -810,12 +838,14 @@ static struct fstype fstypes[] = {
 		.name = "cgroup",
 		.code = FSTYPE__CGROUP,
 		.parse = cgroup_parse,
+		.mount = cgroup_mount,
 		.sb_equal = cgroup_sb_equal,
 	},
 	{
 		.name = "cgroup2",
 		.code = FSTYPE__CGROUP2,
 		.parse = cgroup_parse,
+		.mount = cgroup_mount,
 		.sb_equal = cgroup_sb_equal,
 	},
 	{

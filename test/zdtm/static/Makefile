@@ -163,6 +163,7 @@ TST_NOFILE	:=				\
 		maps09				\
 		maps10				\
 		maps11				\
+		mapfile_priv			\
 		mlock_setuid			\
 		xids00				\
 		groups				\
@@ -266,12 +267,24 @@ TST_NOFILE	:=				\
 		uffd-events			\
 		thread_different_uid_gid	\
 		pipe03				\
+		rootless_pipe_resize_denied	\
 		netns_lock_iptables			\
 		netns_lock_nftables			\
+		netns_lock_broker_nftables		\
+		netns_lock_broker_unlock_absent_nftables	\
+		netns_lock_broker_unlock_fail_nftables	\
 		net_lock_socket_iptables		\
 		net_lock_socket_iptables6		\
 		net_lock_socket_nftables		\
 		net_lock_socket_nftables6		\
+		rootless_runtime_userns		\
+		rootless_netns_broker		\
+		rootless_mount_opts_id		\
+		rootless_mntns_broker		\
+		rootless_mntns_remount_flags	\
+		rootless_uts_rlimit		\
+		rootless_sysv_shmem		\
+		rootless_sysv_shmem_map_files_denied	\
 		netns_sub			\
 		netns_sub_veth			\
 		netns_sub_sysctl	\

@@ -38,5 +38,6 @@ enum {
 #define CTL_FLAGS_HAS		  2
 #define CTL_FLAGS_READ_EIO_SKIP	  4
 #define CTL_FLAGS_IPC_EACCES_SKIP 8
+#define CTL_FLAGS_WRITE_USERNS_SKIP 16
 
 #endif /* __CR_SYSCTL_H__ */

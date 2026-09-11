@@ -391,6 +391,13 @@ def tail(path):
     return out.decode()
 
 
+def fault_is_fatal(fault):
+    try:
+        return int(fault) < 128
+    except ValueError:
+        return False
+
+
 def rpidfile(path):
     with open(path) as fd:
         return fd.readline().strip()
@@ -1373,7 +1380,7 @@ class criu:
 
         grep_errors(os.path.join(__ddir, log))
         if ret != 0:
-            if self.__fault and int(self.__fault) < 128:
+            if self.__fault and fault_is_fatal(self.__fault):
                 try_run_hook(self.__test, ["--fault", action])
                 if action == "dump":
                     # create a clean directory for images
@@ -2241,21 +2248,29 @@ def do_run_test(tname, tdesc, flavs, opts):
         print_sep("Run %s in %s" % (tname, f))
         if opts['dry_run']:
             continue
-        flav = flavors[f](opts)
-        t = tclass(tname, tdesc, flav, fcg, opts['rootless'])
-        cr_api = criu(opts)
+        test_opts = dict(opts)
+        if tdesc.get('fault'):
+            if opts['fault'] and opts['fault'] != str(tdesc['fault']):
+                raise test_fail_exc("conflicting fault settings")
+            test_opts['fault'] = str(tdesc['fault'])
+        if tdesc.get('preload_libfault'):
+            test_opts['preload_libfault'] = True
+
+        flav = flavors[f](test_opts)
+        t = tclass(tname, tdesc, flav, fcg, test_opts['rootless'])
+        cr_api = criu(test_opts)
 
         try:
             t.start()
             s = get_visible_state(t)
             try:
-                cr(cr_api, t, opts)
+                cr(cr_api, t, test_opts)
             except test_fail_expected_exc as e:
                 if e.cr_action == "dump":
                     t.stop()
             else:
-                check_visible_state(t, s, opts)
-                if opts['join_ns']:
+                check_visible_state(t, s, test_opts)
+                if test_opts['join_ns']:
                     check_joinns_state(t)
                 t.stop()
                 cr_api.fini()

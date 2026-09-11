@@ -11,10 +11,13 @@
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
 
 #include "criu.h"
 #include "rpc.pb-c.h"
 #include "cr-service-const.h"
+#include "seccomp-flags.h"
 
 #define CR_DEFAULT_SERVICE_BIN "criu"
 
@@ -239,6 +242,7 @@ void criu_local_free_opts(criu_opts *opts)
 	free(opts->rpc->log_file);
 	free(opts->rpc->lsm_profile);
 	free(opts->rpc->lsm_mount_context);
+	free(opts->rpc->seccomp_bpf.data);
 	free(opts->rpc);
 	criu_free_service(opts);
 	free(opts);
@@ -2166,4 +2170,51 @@ int criu_local_set_config_file(criu_opts *opts, const char *path)
 int criu_set_config_file(const char *path)
 {
 	return criu_local_set_config_file(global_opts, path);
+}
+
+int criu_local_set_seccomp_bpf(criu_opts *opts, void *bpf_data, size_t bpf_len)
+{
+	uint8_t *new;
+
+	if (!bpf_data || !bpf_len)
+		return -EINVAL;
+
+	if (bpf_len % sizeof(struct sock_filter))
+		return -EINVAL;
+
+	new = malloc(bpf_len);
+	if (!new)
+		return -ENOMEM;
+
+	memcpy(new, bpf_data, bpf_len);
+	free(opts->rpc->seccomp_bpf.data);
+	opts->rpc->seccomp_bpf.data = new;
+	opts->rpc->seccomp_bpf.len = bpf_len;
+	opts->rpc->has_seccomp_bpf = true;
+
+	return 0;
+}
+
+int criu_set_seccomp_bpf(void *bpf_data, size_t bpf_len)
+{
+	return criu_local_set_seccomp_bpf(global_opts, bpf_data, bpf_len);
+}
+
+int criu_local_set_seccomp_bpf_flags(criu_opts *opts, unsigned int flags)
+{
+	if (!opts->rpc->has_seccomp_bpf)
+		return -EINVAL;
+
+	if (flags & ~SUPPORTED_SECCOMP_FLAGS)
+		return -EINVAL;
+
+	opts->rpc->seccomp_bpf_flags = flags;
+	opts->rpc->has_seccomp_bpf_flags = true;
+
+	return 0;
+}
+
+int criu_set_seccomp_bpf_flags(unsigned int flags)
+{
+	return criu_local_set_seccomp_bpf_flags(global_opts, flags);
 }
