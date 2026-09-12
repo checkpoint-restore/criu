@@ -4,6 +4,9 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <stdint.h>
+#include <signal.h>
 
 #include "zdtmtst.h"
 
@@ -13,6 +16,33 @@ const char *test_author = "Bhavik Sachdev <b.sachdev1904@gmail.com>";
 #ifndef PID_FS_MAGIC
 #define PID_FS_MAGIC 0x50494446
 #endif
+
+/*
+ * PIDFD_GET_INFO (Linux 6.13) reports the exit status pidfs kept for a
+ * process that has already been reaped. The struct layout is versioned by
+ * size and encoded in the ioctl number, so use our own copy of the first
+ * published 64-byte version -- exit_code is its last field -- rather than
+ * whatever <linux/pidfd.h> the build host happens to have.
+ */
+struct zdtm_pidfd_info {
+	uint64_t mask;
+	uint64_t cgroupid;
+	uint32_t pid;
+	uint32_t tgid;
+	uint32_t ppid;
+	uint32_t ruid;
+	uint32_t rgid;
+	uint32_t euid;
+	uint32_t egid;
+	uint32_t suid;
+	uint32_t sgid;
+	uint32_t fsuid;
+	uint32_t fsgid;
+	int32_t exit_code;
+};
+
+#define ZDTM_PIDFD_INFO_EXIT (1UL << 3)
+#define ZDTM_PIDFD_GET_INFO  _IOWR(0xFF, 11, struct zdtm_pidfd_info)
 
 /*
  * main
@@ -77,6 +107,25 @@ static int compare_pidfds(int pidfd[2])
 	return 0;
 }
 
+/*
+ * Read the wait(2)-style exit status the kernel kept for the reaped process
+ * @pidfd refers to. Returns 1 and fills *exit_code, 0 if the kernel has no
+ * exit information for it, and -1 if PIDFD_GET_INFO is not supported.
+ */
+static int pidfd_exit_code(int pidfd, int *exit_code)
+{
+	struct zdtm_pidfd_info info = { .mask = ZDTM_PIDFD_INFO_EXIT };
+
+	if (ioctl(pidfd, ZDTM_PIDFD_GET_INFO, &info))
+		return -1;
+
+	if (!(info.mask & ZDTM_PIDFD_INFO_EXIT))
+		return 0;
+
+	*exit_code = info.exit_code;
+	return 1;
+}
+
 static int check_for_pidfs(void)
 {
 	long type;
@@ -98,6 +147,7 @@ int main(int argc, char* argv[])
 	int child, ret, gchild, p[2], status;
 	int cpidfd[2], gpidfd[2];
 	struct statx stats[2];
+	int exit_code, has_exit_info;
 
 	test_init(argc, argv);
 
@@ -206,8 +256,50 @@ int main(int argc, char* argv[])
 		goto fail_close;
 	}
 
+	/*
+	 * The two dead pids died differently -- the child exited with 0, the
+	 * grandchild was killed -- and on kernels that can report it, that has
+	 * to survive C/R: restore must not lump them onto one stand-in process
+	 * nor dispose of the stand-ins its own way.
+	 */
+	has_exit_info = pidfd_exit_code(cpidfd[0], &exit_code) > 0;
+	if (has_exit_info) {
+		if (!WIFEXITED(exit_code) || WEXITSTATUS(exit_code) != 0) {
+			fail("Expected child pidfd to report exit(0), got %#x", exit_code);
+			goto fail_close;
+		}
+
+		if (pidfd_exit_code(gpidfd[0], &exit_code) <= 0 ||
+		    !WIFSIGNALED(exit_code) || WTERMSIG(exit_code) != SIGKILL) {
+			fail("Expected grandchild pidfd to report SIGKILL, got %#x", exit_code);
+			goto fail_close;
+		}
+	}
+
 	test_daemon();
 	test_waitsig();
+
+	if (has_exit_info) {
+		if (pidfd_exit_code(cpidfd[0], &exit_code) <= 0) {
+			fail("No exit info on the restored child pidfd");
+			goto fail_close;
+		}
+
+		if (!WIFEXITED(exit_code) || WEXITSTATUS(exit_code) != 0) {
+			fail("Expected restored child pidfd to report exit(0), got %#x", exit_code);
+			goto fail_close;
+		}
+
+		if (pidfd_exit_code(gpidfd[0], &exit_code) <= 0) {
+			fail("No exit info on the restored grandchild pidfd");
+			goto fail_close;
+		}
+
+		if (!WIFSIGNALED(exit_code) || WTERMSIG(exit_code) != SIGKILL) {
+			fail("Expected restored grandchild pidfd to report SIGKILL, got %#x", exit_code);
+			goto fail_close;
+		}
+	}
 
 	ret = compare_pidfds(cpidfd);
 	if (ret) {

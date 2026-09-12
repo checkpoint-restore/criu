@@ -129,4 +129,12 @@ extern const char *socket_proto_name(unsigned int proto, char *nm, size_t size);
 #define SO_BUF_LOCK 72
 #endif
 
+#ifndef SO_PASSPIDFD
+#define SO_PASSPIDFD 76
+#endif
+
+#ifndef SCM_PIDFD
+#define SCM_PIDFD 0x04
+#endif
+
 #endif /* __CR_SOCKETS_H__ */

@@ -379,6 +379,16 @@ static int root_prepare_shared(void)
 	if (ret)
 		goto err;
 
+	/*
+	 * Everything that can refer to a process that was already dead at dump
+	 * time -- pidfd files, packets queued from a dead sender -- has been
+	 * collected, so the set of stand-ins to fork for them is known. Put it
+	 * where the tasks we are about to fork can see it.
+	 */
+	ret = dead_pid_prepare();
+	if (ret)
+		goto err;
+
 	show_saved_files();
 err:
 	return ret;
@@ -1704,6 +1714,15 @@ static int __restore_task_with_children(void *_arg)
 
 		/* streamer serves each image once, one at a time; asyncd reads in parallel. */
 		if (!opts.stream && start_asyncd())
+			goto err;
+
+		/*
+		 * The whole task tree exists now, so no pid number we take
+		 * here is one a restored task still needs, and nothing has
+		 * started restoring its files yet, so the stand-ins are in
+		 * place before anything looks for them.
+		 */
+		if (dead_pid_fork_all())
 			goto err;
 
 		__restore_switch_stage(CR_STATE_PRE_RESTORER);
@@ -3262,6 +3281,15 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	if (current->parent == NULL) {
 		/* Wait when all tasks restored all files */
 		if (restore_wait_other_tasks())
+			goto err_nv;
+		/*
+		 * All the references to a dead process there will ever be have
+		 * been taken, so the stand-ins can die the way the processes
+		 * they stand in for did. What is left behind -- pidfd files,
+		 * packets sitting in a socket queue -- goes stale exactly as it
+		 * was before the dump.
+		 */
+		if (dead_pid_put_all())
 			goto err_nv;
 		if (root_ns_mask & CLONE_NEWNS && remount_readonly_mounts())
 			goto err_nv;

@@ -2275,7 +2275,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				continue;
 
 			if (fdinfo_field(str, "ino")) {
-				ret = sscanf(str, "%*s %u", &pidfd_info->pidfe.ino);
+				ret = sscanf(str, "%*s %" SCNu64, &pidfd_info->pidfe.ino);
 				if (ret != 1)
 					goto parse_err;
 			} else if (fdinfo_field(str, "Pid")) {
