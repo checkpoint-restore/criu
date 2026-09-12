@@ -3199,9 +3199,14 @@ if __name__ == '__main__':
         for tst in test_classes.values():
             tst.available()
 
-    orig_hugepages = set_nr_hugepages(20)
-    opts['action'](opts)
-    set_nr_hugepages(orig_hugepages)
-
-    for tst in test_classes.values():
-        tst.cleanup()
+    # A failed run ends with sys.exit(), and the cleanup still has to be
+    # done, otherwise e.g. the cgroup holders are left behind.
+    try:
+        orig_hugepages = set_nr_hugepages(20)
+        try:
+            opts['action'](opts)
+        finally:
+            set_nr_hugepages(orig_hugepages)
+    finally:
+        for tst in test_classes.values():
+            tst.cleanup()
