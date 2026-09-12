@@ -222,7 +222,7 @@ out_kill:
 out_umount:
 	sprintf(path, "%s/%s/foo", dirname, cgname);
 	rmdir(path);
-	sprintf(path, "%s/%s/test", dirname, cgname);
+	sprintf(path, "%s/%s/bar", dirname, cgname);
 	rmdir(path);
 	sprintf(path, "%s/%s", dirname, cgname);
 	umount(path);
