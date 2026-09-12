@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e
+
+[ "$1" == "--clean" ] || exit 0
+
+# The test can not remove the cgroup it is in itself, and on a failure it may
+# not get to the cleanup at all. A leftover cgroup keeps the named hierarchy
+# alive, so remove it here, once the test is gone.
+
+# On a failure, only the test's main process is waited for, and its children
+# may still be exiting, so retry for a while on EBUSY.
+remove_cg() {
+	[ -d "$1" ] || return 0
+	for _ in $(seq 50); do
+		rmdir "$1" 2>/dev/null && return 0
+		sleep 0.1
+	done
+	rmdir "$1"
+}
+
+tname=$(mktemp -d cgclean.XXXXXX)
+trap 'rmdir "${tname}"' EXIT
+
+mount -t cgroup none $tname -o "none,name=zdtmtst"
+trap 'umount "${tname}"; rmdir "${tname}"' EXIT
+
+echo "Cleaning $tname"
+
+remove_cg "$tname/test" || true
+
+echo "Left there is:"
+ls "$tname"
