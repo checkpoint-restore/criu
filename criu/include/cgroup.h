@@ -1,6 +1,8 @@
 #ifndef __CR_CGROUP_H__
 #define __CR_CGROUP_H__
 
+#include <stdio.h>
+
 #include "int.h"
 #include "images/core.pb-c.h"
 
@@ -93,6 +95,7 @@ struct list_head;
 struct parasite_dump_cgroup_args;
 extern int parse_thread_cgroup(int pid, int tid, struct parasite_dump_cgroup_args *args, struct list_head *l,
 			       unsigned int *n);
+extern int parse_cgroup_file(FILE *f, struct list_head *retl, unsigned int *n);
 extern void put_ctls(struct list_head *);
 
 int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups);
