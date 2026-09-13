@@ -1309,11 +1309,32 @@ static bool has_cgns_prefix(CgSetEntry *se)
 {
 	int i;
 
+	if (!se)
+		return false;
+
 	for (i = 0; i < se->n_ctls; i++)
 		if (se->ctls[i]->has_cgns_prefix)
 			return true;
 
 	return false;
+}
+
+/*
+ * Check whether the dumped tasks live in a cgroup namespace of their own.
+ *
+ * Having a cgns prefix is not the same thing: if the namespace was unshared
+ * while being in the root cgroup, the prefix is empty. So compare the root
+ * task's cgroup namespace with the one criu was in on dump, and only resort
+ * to looking at the prefix for images which lack the namespace IDs.
+ */
+static bool has_own_cgns(struct pstree_item *root_task, CgSetEntry *se)
+{
+	TaskKobjIdsEntry *ids = root_task->ids;
+
+	if (ids && ids->has_cgroup_ns_id && root_ids && root_ids->has_cgroup_ns_id)
+		return ids->cgroup_ns_id != root_ids->cgroup_ns_id;
+
+	return has_cgns_prefix(se);
 }
 
 /*
@@ -1327,10 +1348,21 @@ static bool has_cgns_prefix(CgSetEntry *se)
  * here. As the caller has already put us into the right cgroup, no moving
  * around is needed -- a plain unshare() is sufficient.
  */
-static int prepare_cgns_ignore(CgSetEntry *se)
+static int prepare_cgns_ignore(struct pstree_item *root_task)
 {
-	if (!has_cgns_prefix(se))
+	CgSetEntry *se;
+
+	/* See the comment in prepare_cgroup_namespace() about --unprivileged. */
+	if (!rsti(root_task)->cg_set) {
+		pr_info("Cgroup namespace inherited from parent\n");
 		return 0;
+	}
+
+	se = find_rst_set_by_id(rsti(root_task)->cg_set);
+	if (!has_own_cgns(root_task, se)) {
+		pr_info("Cgroup namespace inherited from parent\n");
+		return 0;
+	}
 
 	pr_info("Creating cgns rooted at the current cgroup\n");
 	if (unshare(CLONE_NEWCGROUP) < 0) {
@@ -1350,6 +1382,9 @@ int prepare_cgroup_namespace(struct pstree_item *root_task)
 		return -1;
 	}
 
+	if (opts.manage_cgroups == CG_MODE_IGNORE)
+		return prepare_cgns_ignore(root_task);
+
 	/*
 	 * If on dump all dumped tasks are in same cgset with criu we don't
 	 * dump cgsets and thus cgroup namespaces and rely that on restore
@@ -1366,9 +1401,6 @@ int prepare_cgroup_namespace(struct pstree_item *root_task)
 		pr_err("No set %d found\n", rsti(root_task)->cg_set);
 		return -1;
 	}
-
-	if (opts.manage_cgroups == CG_MODE_IGNORE)
-		return prepare_cgns_ignore(se);
 
 	if (prepare_cgns(se) < 0) {
 		pr_err("failed preparing cgns\n");
