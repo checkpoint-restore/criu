@@ -998,7 +998,6 @@ static int kerndat_has_ptrace_get_rseq_conf(void)
 	pid_t pid;
 	int len;
 	struct __ptrace_rseq_configuration rseq;
-	int ret = 0;
 
 	pid = fork_and_ptrace_attach(NULL);
 	if (pid < 0)
@@ -1006,9 +1005,6 @@ static int kerndat_has_ptrace_get_rseq_conf(void)
 
 	len = ptrace(PTRACE_GET_RSEQ_CONFIGURATION, pid, sizeof(rseq), &rseq);
 	if (len != sizeof(rseq)) {
-		if (kdat.has_ptrace_get_rseq_conf)
-			ret = 1; /* we should update kdat */
-
 		kdat.has_ptrace_get_rseq_conf = false;
 		pr_info("ptrace(PTRACE_GET_RSEQ_CONFIGURATION) is not supported\n");
 		goto out;
@@ -1019,27 +1015,17 @@ static int kerndat_has_ptrace_get_rseq_conf(void)
 	 * we need to pay attention to that and, possibly, make changes on the CRIU side.
 	 */
 	if (rseq.flags != 0) {
-		if (kdat.has_ptrace_get_rseq_conf)
-			ret = 1; /* we should update kdat */
-
 		kdat.has_ptrace_get_rseq_conf = false;
 		pr_err("ptrace(PTRACE_GET_RSEQ_CONFIGURATION): rseq.flags != 0\n");
 	} else {
-		if (!kdat.has_ptrace_get_rseq_conf)
-			ret = 1; /* we should update kdat */
-
 		kdat.has_ptrace_get_rseq_conf = true;
-
-		if (memcmp(&kdat.libc_rseq_conf, &rseq, sizeof(rseq)))
-			ret = 1; /* we should update kdat */
-
 		kdat.libc_rseq_conf = rseq;
 	}
 
 out:
 	kill(pid, SIGKILL);
 	waitpid(pid, NULL, 0);
-	return ret;
+	return 0;
 }
 
 int kerndat_sockopt_buf_lock(void)
@@ -1970,7 +1956,7 @@ out:
  * Return 0 when the check is successful but no new information
  * Return 1 when the check is successful and there is new information
  */
-int kerndat_try_load_new(void)
+static int kerndat_try_load_new(void)
 {
 	int ret;
 
@@ -1978,21 +1964,29 @@ int kerndat_try_load_new(void)
 	if (ret < 0)
 		return ret;
 
-	ret = kerndat_has_ptrace_get_rseq_conf();
-	if (ret < 0) {
-		pr_err("kerndat_has_ptrace_get_rseq_conf failed when initializing kerndat.\n");
-		return ret;
-	}
-
-	ret = kerndat_has_shstk();
-	if (ret < 0) {
-		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
-		return ret;
-	}
-
 	/* New information is found, we need to save to the cache */
 	if (ret)
 		kerndat_save_cache();
+	return 0;
+}
+
+/*
+ * Initialize dynamic runtime state that depends on the current execution
+ * environment (e.g., glibc tunables or shadow stack enablement). This state
+ * can change between invocations and must not be cached in criu.kdat.
+ */
+static int kerndat_init_dynamic(void)
+{
+	if (kerndat_has_ptrace_get_rseq_conf() < 0) {
+		pr_err("kerndat_has_ptrace_get_rseq_conf failed when initializing kerndat.\n");
+		return -1;
+	}
+
+	if (kerndat_has_shstk() < 0) {
+		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -2043,8 +2037,11 @@ int kerndat_init(void)
 	if (ret < 0)
 		return ret;
 
-	if (ret == 0)
-		return kerndat_try_load_new();
+	if (ret == 0) {
+		if (kerndat_try_load_new())
+			return -1;
+		return kerndat_init_dynamic();
+	}
 
 	ret = 0;
 
@@ -2199,20 +2196,12 @@ int kerndat_init(void)
 		pr_err("kerndat_has_rseq failed when initializing kerndat.\n");
 		ret = -1;
 	}
-	if (!ret && (kerndat_has_ptrace_get_rseq_conf() < 0)) {
-		pr_err("kerndat_has_ptrace_get_rseq_conf failed when initializing kerndat.\n");
-		ret = -1;
-	}
 	if (!ret && (kerndat_has_ipv6_freebind() < 0)) {
 		pr_err("kerndat_has_ipv6_freebind failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_has_membarrier_get_registrations()) {
 		pr_err("kerndat_has_membarrier_get_registrations failed when initializing kerndat.\n");
-		ret = -1;
-	}
-	if (!ret && kerndat_has_shstk()) {
-		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_has_close_range()) {
@@ -2246,6 +2235,9 @@ int kerndat_init(void)
 
 	if (!ret)
 		kerndat_save_cache();
+
+	if (!ret && kerndat_init_dynamic())
+		ret = -1;
 
 	return ret;
 }
