@@ -215,8 +215,10 @@ def format_duration(microseconds):
 
 def cfg_label(cfg):
     if cfg["mode"] == "uncompressed":
-        return "Uncompressed"
-    return f"LZ4 blocks ({cfg['block_size'] // 1024} KiB)"
+        label = "Uncompressed"
+    else:
+        label = f"LZ4 blocks ({cfg['block_size'] // 1024} KiB)"
+    return f"{cfg['cuda_backend']} / {label}" if cfg.get("cuda_backend") else label
 
 
 def decompress_threads_label(threads):
@@ -242,6 +244,35 @@ def json_object(value):
     if not isinstance(obj, dict):
         raise argparse.ArgumentTypeError("expected a JSON object")
     return obj
+
+
+def cuda_benchmark_identity(args):
+    """Identify the executable artifacts, including locally modified builds."""
+    binaries = {"criu": shutil.which("criu"),
+                "plugin": os.path.join(args.criu_libdir, "cuda_plugin.so")}
+    if "cuda-checkpoint" in args.cuda_backends:
+        binaries["cuda-checkpoint"] = shutil.which("cuda-checkpoint")
+    if getattr(args, "cuda_checkpoint_launch_job", False):
+        binaries["cuda-checkpoint-launcher"] = args.cuda_checkpoint_binary
+    identity = {"binaries": {}}
+    for name, path in binaries.items():
+        if not path or not os.path.isfile(path):
+            raise RuntimeError(f"CUDA comparison requires {name}: {path}")
+        digest = hashlib.sha256()
+        with open(path, "rb") as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(chunk)
+        identity["binaries"][name] = {"path": os.path.realpath(path),
+                                       "sha256": digest.hexdigest()}
+    for name, command in (
+        ("driver", ["nvidia-smi", "--query-gpu=uuid,name,driver_version",
+                    "--format=csv,noheader"]),
+        ("runc", ["runc", "--version"]),
+    ):
+        result = subprocess.run(command, capture_output=True, text=True,
+                                check=True)
+        identity[name] = result.stdout.strip()
+    return identity
 
 
 def collect_system_info():
@@ -914,6 +945,21 @@ def compression_config_lines(cfg, acceleration, decompress_threads=None):
     return lines
 
 
+def cuda_backend_config_base(base):
+    """Replace only options owned by a CUDA backend comparison."""
+    kept = []
+    for line in base.splitlines():
+        fields = shlex.split(line, comments=True)
+        if fields:
+            option, _, inline = fields[0].lstrip("-").partition("=")
+            value = inline or (fields[1] if len(fields) > 1 else "")
+            if option == "libdir" or (option == "plugin-option" and
+                                      value.startswith("cuda_plugin.backend=")):
+                continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
 def set_runc_conf_for_cfg(benchmark, path, cfg, acceleration,
                           decompress_threads=None):
     runtime = benchmark.state
@@ -925,6 +971,10 @@ def set_runc_conf_for_cfg(benchmark, path, cfg, acceleration,
 
     base = strip_compression_runc_options(runtime.original_runc_conf)
     lines = compression_config_lines(cfg, acceleration, decompress_threads)
+    if cfg.get("cuda_backend"):
+        base = cuda_backend_config_base(base)
+        lines += [f"libdir {json.dumps(cfg['criu_libdir'])}",
+                  f"plugin-option cuda_plugin.backend={cfg['cuda_backend']}"]
     if lines:
         block = "\n".join([RUNC_CONF_BEGIN, *lines, RUNC_CONF_END])
         text = f"{base}\n\n{block}\n" if base else f"{block}\n"
@@ -1209,6 +1259,9 @@ def run_trial(benchmark, cfg, workdir, args, trial_id, keep_running=False):
     post_digest = hashlib.sha256(post_content.encode()).hexdigest()
     valid = pre_digest == post_digest
     if not valid:
+        with open(os.path.join(workdir, "validation.json"), "w") as output:
+            json.dump({"before": pre_content, "after": post_content}, output,
+                      indent=2)
         raise RuntimeError(
             "deterministic validation response changed after restore: "
             f"before_sha256={pre_digest}, after_sha256={post_digest}"
@@ -1448,6 +1501,8 @@ def run_main(benchmark, argv=None, description=None):
     info = collect_system_info()
     print()
     adapter.prepare_args(args)
+    if getattr(args, "cuda_backends", None):
+        info["cuda_benchmark"] = cuda_benchmark_identity(args)
     if args.prompt_file:
         prompt = read_file(args.prompt_file)
         if prompt is None:
@@ -1473,6 +1528,10 @@ def run_main(benchmark, argv=None, description=None):
                 cfgs.append({"mode": "lz4-block", "block_size": bs})
         else:
             cfgs.append({"mode": mode, "block_size": 0})
+    if getattr(args, "cuda_backends", None):
+        cfgs = [dict(cfg, cuda_backend=backend,
+                     criu_libdir=os.path.abspath(args.criu_libdir))
+                for backend in args.cuda_backends for cfg in cfgs]
     labels = [cfg_label(cfg) for cfg in cfgs]
 
     print(f"  Config : {args.iterations}+1 iterations, "
@@ -1490,6 +1549,21 @@ def run_main(benchmark, argv=None, description=None):
         print(f"  Ulimit : {','.join(args.ulimit)}")
 
     results = {label: [] for label in labels}
+    warmups = {label: [] for label in labels}
+    failures = []
+
+    def save_results(status):
+        if not args.json:
+            return
+        destination = os.path.abspath(args.json)
+        with open(destination + ".tmp", "w") as output:
+            json.dump({"system": info, "framework": adapter.key,
+                       "config": json_config(args), "results": results,
+                       "warmups": warmups, "failures": failures,
+                       "status": status}, output, indent=2)
+        os.replace(destination + ".tmp", destination)
+
+    save_results("running")
     total = args.iterations + 1
     trial = 0
     for i in range(total):
@@ -1506,33 +1580,38 @@ def run_main(benchmark, argv=None, description=None):
                           i == total - 1 and
                           config_index == len(configurations) - 1)
                 result = benchmark.run_trial(cfg, workdir, args, trial, retain)
-                if not warmup:
-                    results[label].append(result)
             except Exception as e:
+                failures.append({"trial": trial, "warmup": warmup,
+                                "configuration": cfg, "error": str(e),
+                                "artifacts": workdir})
                 runtime.tempdirs.discard(workdir)
                 print(f"\n  ERROR: {label}: {e}", file=sys.stderr)
                 print(f"  Artifacts preserved in {workdir}", file=sys.stderr)
                 print(container_diagnostics(
                     f"{args.container_name}-{os.getpid()}-{trial}"),
                       file=sys.stderr)
+                try:
+                    save_results("failed")
+                except OSError as save_error:
+                    print(f"Unable to save failed trial: {save_error}",
+                          file=sys.stderr)
                 raise
             else:
+                result.update(trial=trial, configuration=cfg)
+                samples = warmups if warmup else results
+                samples[label].append(result)
                 shutil.rmtree(workdir)
                 runtime.tempdirs.discard(workdir)
+            save_results("running")
         print(f"  completed {'warmup' if warmup else f'{i}/{args.iterations}'}")
 
     benchmark.report(results, labels)
-
-    if args.json:
-        with open(args.json, "w") as f:
-            json.dump({"system": info,
-                       "framework": adapter.key,
-                       "config": json_config(args),
-                       "results": results}, f, indent=2)
-        print(f"\nResults written to {args.json}")
 
     # A successful benchmark must not report success until the host-wide
     # CRIU configuration is restored. atexit remains a fallback for errors
     # and signals, where cleanup diagnostics cannot change an existing status.
     benchmark.restore_runc_conf()
+    save_results("complete")
+    if args.json:
+        print(f"Results written to {args.json}")
     print()
