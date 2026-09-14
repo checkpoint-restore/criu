@@ -71,6 +71,22 @@ The direct backend does not require CUDA toolkit headers at build time. The
 CUDA 13.0 restore ABI on older drivers merely because checkpoint symbols are
 present.
 
+The CLI backend executes `cuda-checkpoint` for each request. It keeps CRIU
+in control of ptrace and checks for a stop or exit of the CUDA restore
+thread while waiting for the helper. A fault is reported with the operation, process, thread, and signal.
+Each request also has a 300-second timeout, adjustable for larger workloads:
+
+```
+--plugin-option=cuda_plugin.timeout=600
+```
+
+The value must be a positive number of seconds. It is separate from CRIU's
+`--timeout`, which is also passed to CUDA's lock operation. After a helper
+failure or timeout, the plugin aborts and skips further CUDA operations during
+rollback. GPU state may remain locked or partially checkpointed; the application
+may need to be restarted. The plugin cannot recover a CUDA job after a driver
+fault.
+
 The plugin contains independently authored declarations for the CUDA checkpoint
 argument structures because CRIU does not build against the CUDA toolkit
 headers. These declarations describe the ABI used by the plugin; they are not a
@@ -91,6 +107,21 @@ checkpoint, restore, and unlock.
 
 These actions are facilitated by a CUDA checkpoint+restore thread that the CUDA
 plugin will re-wake when needed.
+
+# Testing
+
+The CPU-only regression tests exercise the CLI backend with the mock
+`cuda-checkpoint` and real ptrace stops, including faults, timeouts, helper
+exits, and rollback:
+
+```
+make cuda_plugin
+make -C test/cuda-checkpoint test
+sudo python3 test/cuda-checkpoint/backend-errors.py
+```
+
+Real CUDA workloads are still needed to validate GPU checkpoint/restore and
+measure backend performance.
 
 # Known Limitations
 * Currently GPU memory contents are brought into main system memory and CRIU

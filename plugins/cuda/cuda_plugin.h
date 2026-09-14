@@ -1,6 +1,9 @@
 #ifndef CUDA_PLUGIN_H
 #define CUDA_PLUGIN_H
 
+/* Maximum duration of one CUDA backend request, in seconds. */
+extern unsigned int cuda_plugin_timeout;
+
 /* Register a CUDA task before locking it, while allocation can still fail safely. */
 int cuda_plugin_add_inventory(void);
 

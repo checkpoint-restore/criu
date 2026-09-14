@@ -1,5 +1,6 @@
 #include "criu-log.h"
 #include "cuda_plugin.h"
+#include "cuda_wait.h"
 #include "plugin.h"
 #include "util.h"
 #include "cr_options.h"
@@ -61,6 +62,9 @@ struct pid_info {
  * release them after we're done with the DUMP
  */
 static LIST_HEAD(cuda_pids);
+static bool backend_failed;
+static int running_restore_tid;
+static int restore_thread_status = -1;
 
 static void dealloc_pid_buffer(struct list_head *pid_buf)
 {
@@ -102,114 +106,136 @@ static struct pid_info *find_cuda_pid(int pid)
 	return NULL;
 }
 
-static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
+static int launch_cuda_checkpoint(const char **args, const char *operation, int pid, char *buf, int buf_size)
 {
-#define READ  0
-#define WRITE 1
-	int fd[2], buf_off = 0;
+	struct cuda_wait wait;
+	sigset_t blocked, saved;
+	int fd[2], child_pid = -1, buf_off = 0;
+	int status, ret;
 
 	buf[0] = '\0';
-
-	if (pipe(fd) != 0) {
-		pr_perror("Couldn't create pipes for reading cuda-checkpoint output");
+	if (backend_failed) {
+		pr_err("Cannot run cuda-checkpoint %s for pid %d after an earlier helper failure\n", operation, pid);
 		return -1;
 	}
 
-	int child_pid = fork();
+	/* The CRIU SIGCHLD handler must not reap this child or the CUDA thread. */
+	sigemptyset(&blocked);
+	sigaddset(&blocked, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &blocked, &saved)) {
+		pr_perror("Cannot block SIGCHLD while running cuda-checkpoint");
+		backend_failed = true;
+		return -1;
+	}
+	ret = cuda_wait_init(&wait, operation, pid, running_restore_tid, &restore_thread_status,
+			     cuda_plugin_timeout);
+	if (ret)
+		goto failed;
+	if (pipe(fd)) {
+		pr_perror("Couldn't create pipes for reading cuda-checkpoint output");
+		ret = -1;
+		goto failed;
+	}
+
+	child_pid = fork();
 	if (child_pid == -1) {
 		pr_perror("Failed to fork to exec cuda-checkpoint");
-		close(fd[READ]);
-		close(fd[WRITE]);
-		return -1;
+		close(fd[0]);
+		close(fd[1]);
+		ret = -1;
+		goto failed;
 	}
-
-	if (child_pid == 0) { /* child */
-		if (dup2(fd[WRITE], STDOUT_FILENO) == -1) {
-			pr_perror("unable to clone fd %d->%d", fd[WRITE], STDOUT_FILENO);
+	if (child_pid == 0) {
+		if (dup2(fd[1], STDOUT_FILENO) == -1 || dup2(fd[1], STDERR_FILENO) == -1) {
+			pr_perror("Unable to redirect cuda-checkpoint output");
 			_exit(EXIT_FAILURE);
 		}
-		if (dup2(fd[WRITE], STDERR_FILENO) == -1) {
-			pr_perror("unable to clone fd %d->%d", fd[WRITE], STDERR_FILENO);
-			_exit(EXIT_FAILURE);
-		}
-		close(fd[READ]);
-
+		close(fd[0]);
 		close_fds(STDERR_FILENO + 1);
-
+		if (sigprocmask(SIG_SETMASK, &saved, NULL)) {
+			fprintf(stderr, "Cannot restore cuda-checkpoint signal mask: %s\n", strerror(errno));
+			_exit(EXIT_FAILURE);
+		}
 		execvp(args[0], (char **)args);
-
-		/* We can't use pr_error() as log file fd is closed. */
+		/* The log file fd is closed. */
 		fprintf(stderr, "execvp(\"%s\") failed: %s\n", args[0], strerror(errno));
-
 		_exit(EXIT_FAILURE);
 	}
 
-	close(fd[WRITE]);
-	/* Reserve one byte for the null character. */
-	buf_size--;
-	while (buf_off < buf_size) {
-		int bytes_read;
+	close(fd[1]);
+	for (;;) {
+		char scratch[1024];
+		ssize_t size;
+		size_t keep;
 
-		bytes_read = read(fd[READ], buf + buf_off, buf_size - buf_off);
-		if (bytes_read == -1) {
-			pr_perror("Unable to read output of cuda-checkpoint");
-			goto err;
-		}
-		if (bytes_read == 0)
+		ret = cuda_wait_fd(&wait, fd[0]);
+		if (ret)
 			break;
-		buf_off += bytes_read;
+		size = read(fd[0], scratch, sizeof(scratch));
+		if (size < 0) {
+			pr_perror("Unable to read output of cuda-checkpoint");
+			ret = -1;
+			break;
+		}
+		if (!size)
+			break;
+		/* Retain a terminated prefix, but drain all output before waiting. */
+		keep = size;
+		if (keep > (size_t)(buf_size - buf_off - 1))
+			keep = buf_size - buf_off - 1;
+		memcpy(buf + buf_off, scratch, keep);
+		buf_off += keep;
 		buf[buf_off] = '\0';
 	}
-	buf[buf_off] = '\0';
-
-	/* Clear out any of the remaining output in the pipe in case the buffer wasn't large enough */
-	while (true) {
-		char scratch[1024];
-		int bytes_read;
-
-		bytes_read = read(fd[READ], scratch, sizeof(scratch));
-		if (bytes_read == -1) {
-			pr_perror("Unable to read output of cuda-checkpoint");
-			goto err;
-		}
-		if (bytes_read == 0)
-			break;
-	}
-	close(fd[READ]);
-	fd[READ] = -1;
-
-	int status, exit_code = -1;
-	if (waitpid(child_pid, &status, 0) == -1) {
-		pr_perror("Unable to wait for the cuda-checkpoint process %d", child_pid);
-		goto err;
-	}
+	close(fd[0]);
+	if (ret)
+		goto failed;
+	ret = cuda_wait_child(&wait, child_pid, 0, &status);
+	if (ret)
+		goto failed;
+	child_pid = -1;
+	ret = cuda_wait_check_thread(&wait);
+	if (ret)
+		goto failed;
 	if (WIFSIGNALED(status)) {
-		int sig = WTERMSIG(status);
-		pr_err("cuda-checkpoint unexpectedly signaled with %d: %s\n", sig, strsignal(sig));
-	} else if (WIFEXITED(status)) {
-		exit_code = WEXITSTATUS(status);
-	} else {
-		pr_err("cuda-checkpoint exited improperly: %u\n", status);
+		pr_err("cuda-checkpoint unexpectedly signaled with %d: %s\n",
+		       WTERMSIG(status), strsignal(WTERMSIG(status)));
+		ret = -1;
+		goto failed;
 	}
+	if (!WIFEXITED(status)) {
+		pr_err("cuda-checkpoint exited improperly: %u\n", status);
+		ret = -1;
+		goto failed;
+	}
+	ret = WEXITSTATUS(status);
+	if (ret != EXIT_SUCCESS) {
+		pr_debug("cuda-checkpoint output ===>\n%s\n<=== cuda-checkpoint output\n", buf);
+		if (!strncmp(buf, "execvp(\"", 8))
+			ret = -ENOENT;
+	}
+	goto out;
 
-	if (exit_code != EXIT_SUCCESS)
-		pr_debug("cuda-checkpoint output ===>\n%s\n"
-			 "<=== cuda-checkpoint output\n",
-			 buf);
+failed:
+	backend_failed = true;
+	if (child_pid > 0) {
+		struct cuda_wait cleanup;
 
-	if (exit_code != EXIT_SUCCESS && !strncmp(buf, "execvp(\"", 8))
-		return -ENOENT;
-
-	return exit_code;
-err:
-	buf[buf_off] = '\0';
-	if (fd[READ] >= 0)
-		close(fd[READ]);
-	if (kill(child_pid, SIGKILL) < 0 && errno != ESRCH)
-		pr_perror("Unable to kill cuda-checkpoint process %d during cleanup", child_pid);
-	if (waitpid(child_pid, NULL, 0) < 0)
-		pr_perror("Unable to wait for cuda-checkpoint process %d during cleanup", child_pid);
-	return -1;
+		if (kill(child_pid, SIGKILL) < 0 && errno != ESRCH)
+			pr_perror("Unable to kill cuda-checkpoint process %d during cleanup", child_pid);
+		/* Preserve a consumed CUDA thread event and bound helper cleanup too. */
+		if (!cuda_wait_init(&cleanup, "cuda-checkpoint cleanup", pid, 0, NULL, 1)) {
+			cleanup.ignore_criu_timeout = true;
+			cuda_wait_child(&cleanup, child_pid, 0, &status);
+		}
+	}
+out:
+	if (sigprocmask(SIG_SETMASK, &saved, NULL)) {
+		pr_perror("Cannot restore signal mask after cuda-checkpoint");
+		backend_failed = true;
+		ret = -1;
+	}
+	return ret;
 }
 
 /**
@@ -225,7 +251,7 @@ static int cuda_checkpoint_supports_flag(const char *flag)
 	const char *args[] = { CUDA_CHECKPOINT, "-h", NULL };
 	int ret;
 
-	ret = launch_cuda_checkpoint(args, msg_buf, sizeof(msg_buf));
+	ret = launch_cuda_checkpoint(args, "help", 0, msg_buf, sizeof(msg_buf));
 	if (ret < 0)
 		return ret;
 	if (ret > 0) {
@@ -245,14 +271,14 @@ static enum cuda_restore_tid_result get_cuda_restore_tid(int root_pid, int *tid)
 {
 	char pid_buf[16];
 	char pid_out[CUDA_CKPT_BUF_SIZE];
+	const char *args[] = { CUDA_CHECKPOINT, "--get-restore-tid", "--pid", pid_buf, NULL };
 	char *end;
 	long value;
 	int ret;
 
 	snprintf(pid_buf, sizeof(pid_buf), "%d", root_pid);
 
-	const char *args[] = { CUDA_CHECKPOINT, "--get-restore-tid", "--pid", pid_buf, NULL };
-	ret = launch_cuda_checkpoint(args, pid_out, sizeof(pid_out));
+	ret = launch_cuda_checkpoint(args, "get-restore-tid", root_pid, pid_out, sizeof(pid_out));
 	if (ret < 0) {
 		pr_err("Failed to run cuda-checkpoint to retrieve the restore tid\n");
 		return CUDA_RESTORE_TID_ERROR;
@@ -298,7 +324,7 @@ static cuda_task_state_t get_cuda_state(pid_t pid)
 
 	snprintf(pid_buf, sizeof(pid_buf), "%d", pid);
 
-	if (launch_cuda_checkpoint(args, state_str, sizeof(state_str))) {
+	if (launch_cuda_checkpoint(args, "get-state", pid, state_str, sizeof(state_str))) {
 		pr_err("Failed to launch cuda-checkpoint to retrieve state: %s\n", state_str);
 		return CUDA_TASK_UNKNOWN;
 	}
@@ -311,50 +337,72 @@ static int cuda_process_checkpoint_action(int pid, const char *action, unsigned 
 {
 	char pid_buf[16];
 	char timeout_buf[16];
-
-	snprintf(pid_buf, sizeof(pid_buf), "%d", pid);
-
 	const char *args[] = { CUDA_CHECKPOINT, "--action", action, "--pid", pid_buf, NULL /* --timeout */,
 			       NULL /* timeout_val */, NULL };
+
+	snprintf(pid_buf, sizeof(pid_buf), "%d", pid);
 	if (timeout > 0) {
 		snprintf(timeout_buf, sizeof(timeout_buf), "%d", timeout);
 		args[5] = "--timeout";
 		args[6] = timeout_buf;
 	}
 
-	return launch_cuda_checkpoint(args, msg_buf, buf_size);
+	return launch_cuda_checkpoint(args, action, pid, msg_buf, buf_size);
 }
 
 static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
 {
-	int ret = 0;
+	struct cuda_wait wait;
+	sigset_t blocked, saved;
+	int status = restore_thread_status;
+	int ret = -1;
 
-	/* Since we resumed a thread that CRIU previously already froze we need to
-	 * INTERRUPT it once again, task was already SEIZE'd so we don't need to do
-	 * a compel_interrupt_task()
+	running_restore_tid = 0;
+	sigemptyset(&blocked);
+	sigaddset(&blocked, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &blocked, &saved)) {
+		pr_perror("Cannot block SIGCHLD while stopping CUDA restore tid %d", restore_tid);
+		return -1;
+	}
+	/* A monitored fault already consumed the stop event. Keep the thread
+	 * stopped without delivering that fault or waiting for another event.
 	 */
-	if (ptrace(PTRACE_INTERRUPT, restore_tid, NULL, 0)) {
-		pr_perror("Could not interrupt cuda restore tid %d after checkpoint, process may be in strange state",
-			  restore_tid);
-		return -1;
+	if (status == -1) {
+		if (ptrace(PTRACE_INTERRUPT, restore_tid, NULL, 0)) {
+			pr_perror("Could not interrupt CUDA restore tid %d after checkpoint", restore_tid);
+			goto out;
+		}
+		if (cuda_wait_init(&wait, "stop CUDA restore thread", restore_tid, 0, NULL, cuda_plugin_timeout))
+			goto out;
+		wait.ignore_criu_timeout = true;
+		if (cuda_wait_child(&wait, restore_tid, __WALL, &status))
+			goto out;
 	}
-
-	struct proc_status_creds creds;
-	if (compel_wait_task(restore_tid, -1, parse_pid_status, NULL, &creds.s, NULL) != COMPEL_TASK_ALIVE) {
-		pr_err("compel_wait_task failed after interrupt\n");
-		return -1;
+	if (!WIFSTOPPED(status)) {
+		pr_err("CUDA restore tid %d exited before it could be stopped\n", restore_tid);
+		goto out;
 	}
-
+	ret = 0;
+	if (restore_thread_status == -1 &&
+	    (WSTOPSIG(status) != SIGTRAP || (unsigned int)status >> 16 != PTRACE_EVENT_STOP)) {
+		pr_err("CUDA restore tid %d stopped unexpectedly with signal %d\n", restore_tid, WSTOPSIG(status));
+		ret = -1;
+	}
 	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD)) {
 		pr_perror("Failed to set ptrace options on interrupt for restore tid %d", restore_tid);
 		ret = -1;
 	}
-
 	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*restore_sigset), restore_sigset)) {
 		pr_perror("Unable to restore original sigmask to restore tid %d", restore_tid);
 		ret = -1;
 	}
-
+out:
+	if (sigprocmask(SIG_SETMASK, &saved, NULL)) {
+		pr_perror("Cannot restore signal mask after stopping CUDA restore tid %d", restore_tid);
+		ret = -1;
+	}
+	if (ret)
+		backend_failed = true;
 	return ret;
 }
 
@@ -365,6 +413,10 @@ static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 	bool options_cleared = false;
 	bool sigmask_changed = false;
 
+	if (backend_failed) {
+		pr_err("Cannot resume CUDA restore tid %d after a helper failure\n", restore_tid);
+		return -1;
+	}
 	if (ptrace(PTRACE_GETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset)) {
 		pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
 		return -1;
@@ -391,6 +443,8 @@ static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 		goto unwind;
 	}
 
+	running_restore_tid = restore_tid;
+	restore_thread_status = -1;
 	return 0;
 
 unwind:
@@ -482,6 +536,7 @@ static int cuda_cli_pause_devices(int pid)
 	int restore_tid;
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	cuda_task_state_t task_state;
+	int status;
 
 	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
@@ -514,7 +569,7 @@ static int cuda_cli_pause_devices(int pid)
 	}
 
 	pr_info("pausing devices on pid %d\n", pid);
-	int status = cuda_process_checkpoint_action(pid, ACTION_LOCK, opts.timeout * 1000, msg_buf, sizeof(msg_buf));
+	status = cuda_process_checkpoint_action(pid, ACTION_LOCK, opts.timeout * 1000, msg_buf, sizeof(msg_buf));
 	if (status) {
 		pr_err("PAUSE_DEVICES failed with %s\n", msg_buf);
 		task_state = get_cuda_state(pid);
@@ -549,6 +604,10 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	int int_ret;
 	k_rtsigset_t save_sigset;
 
+	if (backend_failed) {
+		pr_err("Cannot recover CUDA state for pid %d after a cuda-checkpoint helper failure\n", pid);
+		return -1;
+	}
 	if (initial_task_state == CUDA_TASK_UNKNOWN) {
 		pr_info("skip resume for PID %d (unknown state)\n", pid);
 		return 0;
@@ -668,6 +727,9 @@ static int cuda_cli_probe(void)
 {
 	int ret;
 
+	backend_failed = false;
+	running_restore_tid = 0;
+	restore_thread_status = -1;
 	ret = cuda_checkpoint_supports_flag("--action");
 	if (ret == -ENOTSUP || ret == -ENOENT) {
 		pr_info("%s with --action support is unavailable\n", CUDA_CHECKPOINT);
@@ -679,6 +741,9 @@ static int cuda_cli_probe(void)
 
 static int cuda_cli_init(int stage)
 {
+	backend_failed = false;
+	running_restore_tid = 0;
+	restore_thread_status = -1;
 	/* In the DUMP stage track all the PID's we've paused CUDA operations on to
 	 * release them when we're done if the user requested the leave-running option
 	 */
