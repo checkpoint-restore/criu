@@ -1325,22 +1325,22 @@ int criu_add_plugin_option(const char *option)
 int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port)
 {
 	opts->rpc->ps = malloc(sizeof(CriuPageServerInfo));
-	if (opts->rpc->ps) {
-		criu_page_server_info__init(opts->rpc->ps);
+	if (!opts->rpc->ps)
+		return -ENOMEM;
 
-		opts->rpc->ps->address = strdup(address);
-		if (!opts->rpc->ps->address) {
-			free(opts->rpc->ps);
-			opts->rpc->ps = NULL;
-			goto out;
-		}
+	criu_page_server_info__init(opts->rpc->ps);
 
-		opts->rpc->ps->has_port = true;
-		opts->rpc->ps->port = port;
+	opts->rpc->ps->address = strdup(address);
+	if (!opts->rpc->ps->address) {
+		free(opts->rpc->ps);
+		opts->rpc->ps = NULL;
+		return -ENOMEM;
 	}
 
-out:
-	return -ENOMEM;
+	opts->rpc->ps->has_port = true;
+	opts->rpc->ps->port = port;
+
+	return 0;
 }
 
 int criu_set_page_server_address_port(const char *address, int port)
