@@ -35,15 +35,18 @@ unsupported/libcuda.so.1: libcuda.c
 	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -shared \
 		-DMOCK_CUDA_DRIVER_VERSION=12000 $< -o $@
 
-cuda-backend-guard-test: backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
-		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h
+cuda-backend-guard-test: backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c \
+		$(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
+		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h ../../compel/libcompel.a
 	$(E) " LINK     " $@
 	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) -I../../compel/include/uapi \
-		backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c $(CUDA_PLUGIN_DIR)/cuda_wait.c \
-		-Wl,--wrap,ptrace -o $@
+		backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
+		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
+		../../compel/libcompel.a \
+		-Wl,--wrap,ptrace -ldl -pthread -o $@
 
 test: all
-	PATH="$(CURDIR):$$PATH" ./cuda-backend-guard-test
+	PATH="$(CURDIR):$$PATH" LD_LIBRARY_PATH="$(CURDIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-backend-guard-test
 .PHONY: test
 
 clean-more:
