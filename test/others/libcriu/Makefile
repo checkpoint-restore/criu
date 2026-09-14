@@ -1,4 +1,4 @@
-include ../../../../criu/Makefile.versions
+include ../../../Makefile.versions
 
 TESTS += test_sub
 TESTS += test_self
@@ -30,7 +30,7 @@ run: all
 .PHONY: run
 
 $(CRIU_LIB)/libcriu.so:
-	$(MAKE) -C ../../../../criu install-lib \
+	$(MAKE) -C ../../.. install-lib \
 		DESTDIR=$(INSTALL_DIR) PREFIX=/ LIBDIR=/lib \
 		SKIP_PIP_INSTALL=1
 
