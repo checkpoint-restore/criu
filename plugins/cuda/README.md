@@ -71,6 +71,22 @@ The direct backend does not require CUDA toolkit headers at build time. The
 CUDA 13.0 restore ABI on older drivers merely because checkpoint symbols are
 present.
 
+During checkpoint and restore, the Driver API backend calls libcuda directly
+on CRIU's tracing thread. A temporary SIGCHLD handler watches the CUDA restore
+thread. Any unexpected ptrace stop or exit aborts the operation with
+siglongjmp(), without forwarding the signal or waiting for libcuda to return.
+After a successful call, CRIU interrupts the restore thread again and waits
+for its stop with a finite internal budget, independent of
+`cuda_plugin.timeout`. Once the thread stops, CRIU restores its signal mask and
+ptrace options. The original SIGCHLD handler and signal mask are restored on
+both success and failure; unrelated child events remain available to CRIU.
+
+This is a best-effort escape from a fatal target failure. A jump can bypass
+locks held inside libcuda or libc. The plugin skips further CUDA calls and
+does not close libcuda after abandoning a call, but CRIU's remaining error
+cleanup can still encounter an abandoned libc lock. The guard does not impose
+a deadline on a libcuda hang without a restore-thread stop or exit.
+
 The CLI backend executes `cuda-checkpoint` for each request and monitors the
 CUDA restore thread while waiting. Unexpected stops or exits fail the operation
 regardless of the configured timeout. By default, helpers have no deadline, so
@@ -125,9 +141,11 @@ plugin will re-wake when needed.
 
 # Testing
 
-The CPU-only regression tests exercise the CLI backend with the mock
-`cuda-checkpoint` and real ptrace stops, including unlimited and finite helper
-waits, faults, helper exits, bounded stop and reap waits, and rollback:
+The CPU-only regression tests exercise both backends with mock CUDA APIs and
+real ptrace stops, including separate restore threads in multithreaded targets,
+aborted Driver API calls, completion races, SIGCHLD delivery to other tracer
+threads, unrelated child events, unlimited and finite CLI waits, helper exits,
+bounded post-call stop waits, and rollback:
 
 ```
 make cuda_plugin
