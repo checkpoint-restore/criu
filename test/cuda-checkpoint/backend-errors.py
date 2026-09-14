@@ -20,9 +20,9 @@ MOCK = ROOT / "test/cuda-checkpoint"
 
 
 @contextlib.contextmanager
-def target(directory, mixed=False):
+def target(directory, mixed=False, duration=300):
     child_file = directory / "child.pid"
-    command = ["sleep", "300"]
+    command = ["sleep", str(duration)]
     if mixed:
         command = ["sh", "-c", 'sleep 300 & echo $! > "$1"; wait',
                    "sh", str(child_file)]
@@ -50,7 +50,7 @@ def target(directory, mixed=False):
 
 def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
              expected_success=True,
-             command_timeout=30, freezing_timeout=10,
+             restore_detached=True, command_timeout=30, freezing_timeout=10,
              plugin_timeout=None, **variables):
     environment = {key: value for key, value in os.environ.items()
                    if not key.startswith("CRIU_CUDA_MOCK_")}
@@ -66,7 +66,7 @@ def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
         command += ["--plugin-option", f"cuda_plugin.timeout={plugin_timeout}"]
     if operation == "dump":
         command += ["--tree", str(pid)]
-    else:
+    elif restore_detached:
         command += ["--restore-detached"]
     result = subprocess.run(command, env=environment, timeout=command_timeout)
     log = (directory / f"{operation}.log").read_text()
@@ -160,8 +160,32 @@ def test_inventory_failure(work):
             assert_untraced(pids[0])
 
 
+def test_foreground_restore(work):
+    directory = work / "foreground-restore"
+    directory.mkdir()
+    marker = directory / "api.calls"
+    with target(directory, duration=3) as (process, pids):
+        log = run_criu(directory, "dump", pid=pids[0],
+                       CRIU_CUDA_MOCK_API_MARKER=str(marker))
+        assert "selected Driver API backend" in log
+        process.wait(timeout=5)
+        # The persistent Driver API worker must not enter CRIU's foreground
+        # wait for restored children, or restore never returns after sleep exits.
+        log = run_criu(directory, "restore", restore_detached=False,
+                       command_timeout=10, CRIU_CUDA_MOCK_INITIAL_STATE="checkpointed",
+                       CRIU_CUDA_MOCK_API_MARKER=str(marker))
+        assert "selected Driver API backend" in log
+        assert not Path(f"/proc/{pids[0]}").exists()
+        assert not (directory / "cli.marker").exists()
+        workers = {int(line.split()[2]) for line in marker.read_text().splitlines()}
+        assert workers
+        for worker in workers:
+            assert not Path(f"/proc/{worker}").exists(), f"CUDA worker {worker} leaked"
+
+
 def test_freezing_timeout(work):
-    cases = (("cuda-checkpoint CLI", MOCK / "unsupported", "1"),
+    cases = (("Driver API", MOCK, "1"),
+             ("cuda-checkpoint CLI", MOCK / "unsupported", "1"),
              ("cuda-checkpoint CLI", MOCK / "unsupported", "closed-output"))
     for backend, library, behavior in cases:
         directory = work / f"freezing-timeout-{library.name}-{behavior}"
@@ -192,5 +216,6 @@ if __name__ == "__main__":
         work = Path(directory)
         test_discovery(work)
         test_inventory_failure(work)
+        test_foreground_restore(work)
         test_freezing_timeout(work)
     print("CUDA backend error regression tests PASS")

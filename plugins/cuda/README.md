@@ -71,9 +71,10 @@ The direct backend does not require CUDA toolkit headers at build time. The
 CUDA 13.0 restore ABI on older drivers merely because checkpoint symbols are
 present.
 
-The CLI backend executes `cuda-checkpoint` for each request. It keeps CRIU
-in control of ptrace and checks for a stop or exit of the CUDA restore
-thread while waiting for the helper. A fault is reported with the operation, process, thread, and signal.
+Driver API calls run in a persistent helper process; the CLI backend executes
+`cuda-checkpoint` for each request. Both keep CRIU in control of ptrace and
+check for a stop or exit of the CUDA restore thread while waiting for the
+helper. A fault is reported with the operation, process, thread, and signal.
 Each request also has a 300-second timeout, adjustable for larger workloads:
 
 ```
@@ -110,9 +111,8 @@ plugin will re-wake when needed.
 
 # Testing
 
-The CPU-only regression tests exercise the CLI backend with the mock
-`cuda-checkpoint` and real ptrace stops, including faults, timeouts, helper
-exits, and rollback:
+The CPU-only regression tests exercise both backends with mock CUDA APIs and
+real ptrace stops, including faults, timeouts, helper exits, and rollback:
 
 ```
 make cuda_plugin

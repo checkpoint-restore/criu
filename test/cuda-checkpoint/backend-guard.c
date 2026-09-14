@@ -1,6 +1,6 @@
-/* CPU-only integration tests for guarded cuda-checkpoint calls.
+/* CPU-only integration tests for guarded CUDA backend calls.
  *
- * Run the production CLI backend against the mock and a real ptrace target. The
+ * Run the production backend against libcuda.c and a real ptrace target. The
  * fake restore thread faults only after the checkpoint API starts waiting.
  */
 #include <assert.h>
@@ -35,6 +35,17 @@ static unsigned int interrupts;
 static bool fault_before_interrupt;
 static bool group_stop_before_interrupt;
 static volatile sig_atomic_t criu_timed_out;
+
+int log_get_fd(void)
+{
+	return fileno(log_file);
+}
+
+void log_fini(void)
+{
+	/* The worker duplicated its inherited log to stderr before closing fds. */
+	log_file = stderr;
+}
 
 int close_fds(int minfd)
 {
@@ -187,7 +198,7 @@ static off_t file_size(const char *path)
 	return status.st_size;
 }
 
-static pid_t check_api_calls(const char *path, bool completed)
+static pid_t check_api_calls(const char *path, bool completed, bool driver)
 {
 	FILE *file = fopen(path, "r");
 	char operation[32];
@@ -200,8 +211,12 @@ static pid_t check_api_calls(const char *path, bool completed)
 
 		if (worker < 0)
 			worker = caller;
-		assert(waitpid(caller, &status, __WALL | WNOHANG) == -1 && errno == ECHILD);
-		assert(kill(caller, 0) == -1 && errno == ESRCH);
+		if (driver)
+			assert(caller == worker);
+		else {
+			assert(waitpid(caller, &status, __WALL | WNOHANG) == -1 && errno == ECHILD);
+			assert(kill(caller, 0) == -1 && errno == ESRCH);
+		}
 		assert(caller != getpid());
 		checkpoints += !strcmp(operation, "checkpoint");
 		restores += !strcmp(operation, "restore");
@@ -235,6 +250,7 @@ static void run_case(const char *directory, const char *behavior,
 {
 	char marker[512], trigger[512], log_path[512], state_path[512];
 	bool completed = !strcmp(behavior, "success") || !strcmp(behavior, "api-error");
+	bool driver = backend == &cuda_driver_backend;
 	k_rtsigset_t original_mask, restored_mask;
 	struct timespec start, end;
 	pid_t pid, worker;
@@ -250,8 +266,11 @@ static void run_case(const char *directory, const char *behavior,
 	assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", behavior, 1) == 0);
 	assert(setenv("CRIU_CUDA_MOCK_STATE_FILE", state_path, 1) == 0);
 	assert(unsetenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION") == 0);
+	assert(unsetenv("CRIU_CUDA_MOCK_INIT_HANG") == 0);
 	if (!strcmp(behavior, "api-error"))
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION", "1", 1) == 0);
+	if (!strcmp(behavior, "init-hang"))
+		assert(setenv("CRIU_CUDA_MOCK_INIT_HANG", "1", 1) == 0);
 	if (!strcmp(behavior, "criu-timeout")) {
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "hang", 1) == 0);
 		cuda_plugin_timeout = 30;
@@ -275,6 +294,10 @@ static void run_case(const char *directory, const char *behavior,
 		alarm(1);
 	}
 	ret = backend->checkpoint_devices(pid);
+	if (!strcmp(behavior, "init-hang")) {
+		assert(ret == 0);
+		ret = backend->resume_devices_late(pid);
+	}
 	assert(clock_gettime(CLOCK_MONOTONIC, &end) == 0);
 	assert(end.tv_sec - start.tv_sec < 5);
 	assert((ret == 0) == !strcmp(behavior, "success"));
@@ -292,7 +315,7 @@ static void run_case(const char *directory, const char *behavior,
 			} else {
 				check_log("stopped unexpectedly with signal 11");
 			}
-		} else if (!strcmp(behavior, "hang")) {
+		} else if (!strcmp(behavior, "hang") || !strcmp(behavior, "init-hang")) {
 			check_log("timed out");
 		} else if (!strcmp(behavior, "criu-timeout")) {
 			assert(criu_timed_out);
@@ -300,6 +323,8 @@ static void run_case(const char *directory, const char *behavior,
 		} else if (!strcmp(behavior, "late-group-stop")) {
 			assert(interrupts == 1);
 			check_log("stopped unexpectedly with signal 19");
+		} else if (!strcmp(behavior, "exit")) {
+			check_log("exited with status 77");
 		} else {
 			check_log("unexpectedly signaled with 9");
 		}
@@ -309,7 +334,7 @@ static void run_case(const char *directory, const char *behavior,
 	assert((ret == 0) == completed);
 	if (!completed)
 		assert(file_size(marker) == before_cleanup); /* No API reentry during rollback. */
-	worker = check_api_calls(marker, completed);
+	worker = check_api_calls(marker, completed, driver);
 	backend->fini(CR_PLUGIN_STAGE__DUMP, ret);
 	assert(waitpid(worker, &status, __WALL | WNOHANG) == -1 && errno == ECHILD);
 	assert(kill(worker, 0) == -1 && errno == ESRCH);
@@ -327,36 +352,41 @@ int main(void)
 {
 	char directory[] = "/tmp/criu-cuda-backend-guard-XXXXXX";
 	const char *cases[] = { "success", "api-error", "fault", "late-fault", "late-group-stop",
-				"hang", "criu-timeout", "signal" };
-	const struct cuda_plugin_backend *backend = &cuda_cli_backend;
-	unsigned int i;
+				"hang", "criu-timeout", "exit", "init-hang" };
+	const struct cuda_plugin_backend *backends[] = { &cuda_driver_backend, &cuda_cli_backend };
+	unsigned int i, j;
 
 	assert(mkdtemp(directory));
 	opts.final_state = TASK_DEAD;
 	opts.timeout = 1;
-	for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
-		pid_t child;
-		int status;
+	for (j = 0; j < sizeof(backends) / sizeof(backends[0]); j++) {
+		for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+			pid_t child;
+			int status;
+			const char *behavior = !j || strcmp(cases[i], "exit") ? cases[i] : "signal";
 
-		child = fork();
-		assert(child >= 0);
-		if (!child) {
-			assert(setpgid(0, 0) == 0);
-			/* Bound regressions that leave a call or waitpid blocked. */
-			alarm(8);
-			run_case(directory, cases[i], backend);
-			_exit(0);
-		}
-		assert(waitpid(child, &status, 0) == child);
-		/* Kill any target or helper leaked by an assertion or alarm. */
-		kill(-child, SIGKILL);
-		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-			fprintf(stderr, "%s guard case %s failed (status %#x), artifacts: %s\n",
-				backend->name, cases[i], status, directory);
-			return 1;
+			if (j && !strcmp(behavior, "init-hang"))
+				continue; /* cuInit runs only in the Driver API worker. */
+			child = fork();
+			assert(child >= 0);
+			if (!child) {
+				assert(setpgid(0, 0) == 0);
+				/* Bound regressions that leave an API call or waitpid blocked. */
+				alarm(8);
+				run_case(directory, behavior, backends[j]);
+				_exit(0);
+			}
+			assert(waitpid(child, &status, 0) == child);
+			/* Kill any target or worker leaked by an assertion or alarm. */
+			kill(-child, SIGKILL);
+			if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+				fprintf(stderr, "%s guard case %s failed (status %#x), artifacts: %s\n",
+					backends[j]->name, behavior, status, directory);
+				return 1;
+			}
 		}
 	}
 	assert(rmdir(directory) == 0);
-	puts("CUDA CLI guard regression tests PASS");
+	puts("CUDA backend guard regression tests PASS");
 	return 0;
 }

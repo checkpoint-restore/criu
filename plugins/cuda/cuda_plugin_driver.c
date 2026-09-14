@@ -1,37 +1,25 @@
 #include "criu-log.h"
 #include "cuda_checkpoint.h"
+#include "cuda_driver_worker.h"
+#include "cuda_wait.h"
 #include "cuda_plugin.h"
 #include "plugin.h"
 #include "util.h"
 #include "cr_options.h"
 #include "pid.h"
-#include "proc_parse.h"
 #include "seize.h"
 
 #include <common/list.h>
-#include <compel/infect.h>
+#include <compel/ksigset.h>
 
-#include <dlfcn.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <sys/wait.h>
 
-static void *cuda_handle;
-static bool cuda_driver_initialized;
-
-struct cuda_driver_api {
-	CUresult (*init)(unsigned int flags);
-	CUresult (*driver_get_version)(int *driver_version);
-	CUresult (*get_error_name)(CUresult error, const char **pstr);
-	CUresult (*get_error_string)(CUresult error, const char **pstr);
-	CUresult (*lock)(int pid, CUcheckpointLockArgs *args);
-	CUresult (*checkpoint)(int pid, CUcheckpointCheckpointArgs *args);
-	CUresult (*restore)(int pid, CUcheckpointRestoreArgs *args);
-	CUresult (*unlock)(int pid, CUcheckpointUnlockArgs *args);
-	CUresult (*get_state)(int pid, CUprocessState *state);
-	CUresult (*get_restore_tid)(int pid, int *tid);
-};
-
-static struct cuda_driver_api cuda_api;
+/* CRIU owns ptrace; only the worker enters libcuda. */
+static bool driver_failed;
+static int running_restore_tid;
+static int restore_thread_status = -1;
 
 typedef enum {
 	CUDA_TASK_RUNNING = 0,
@@ -102,151 +90,41 @@ static struct pid_info *find_cuda_pid(int pid)
 	return NULL;
 }
 
-static void cuda_api_fini(void)
+static CUresult cuda_driver_call(enum cuda_driver_operation op, int pid, unsigned int timeout_ms,
+				 int *value)
 {
-	if (cuda_handle) {
-		dlclose(cuda_handle);
-		cuda_handle = NULL;
+	struct cuda_driver_request request = { .op = op, .pid = pid, .timeout_ms = timeout_ms };
+	struct cuda_driver_reply reply;
+
+	if (driver_failed)
+		return -1;
+
+	if (cuda_driver_worker_call(&request, &reply, running_restore_tid, &restore_thread_status) || reply.error) {
+		driver_failed = true;
+		pr_err("CUDA Driver API helper failed for pid %d; GPU state cannot be recovered through this helper\n", pid);
+		return -1;
 	}
-
-	memset(&cuda_api, 0, sizeof(cuda_api));
-	cuda_driver_initialized = false;
+	if (value)
+		*value = reply.value;
+	return reply.result;
 }
-
-static void *cuda_get_symbol(const char *name)
-{
-	const char *err;
-	void *symbol;
-
-	dlerror();
-	symbol = dlsym(cuda_handle, name);
-	err = dlerror();
-	if (err) {
-		pr_debug("Unable to resolve %s from libcuda.so.1: %s\n", name, err);
-		return NULL;
-	}
-
-	return symbol;
-}
-
-static const char *cuda_result_name(CUresult res)
-{
-	const char *name = NULL;
-
-	if (!cuda_api.get_error_name)
-		return "CUDA_ERROR_UNKNOWN";
-
-	if (cuda_api.get_error_name(res, &name) != CUDA_SUCCESS || !name)
-		return "CUDA_ERROR_UNKNOWN";
-
-	return name;
-}
-
-static const char *cuda_result_string(CUresult res)
-{
-	const char *str = NULL;
-
-	if (!cuda_api.get_error_string)
-		return NULL;
-
-	if (cuda_api.get_error_string(res, &str) != CUDA_SUCCESS || !str)
-		return NULL;
-
-	return str;
-}
-
-static void cuda_log_error(const char *op, int pid, CUresult res)
-{
-	const char *name = cuda_result_name(res);
-	const char *str = cuda_result_string(res);
-
-	if (str)
-		pr_err("%s(%d) failed: %s (%d): %s\n", op, pid, name, res, str);
-	else
-		pr_err("%s(%d) failed: %s (%d)\n", op, pid, name, res);
-}
-
-#define LOAD_CUDA_SYMBOL(member, symbol)                                            \
-	do {                                                                        \
-		cuda_api.member = (typeof(cuda_api.member))cuda_get_symbol(symbol); \
-	} while (0)
 
 static int cuda_driver_probe(void)
 {
-	int driver_version;
-	CUresult res;
+	struct cuda_driver_request request = { .op = CUDA_DRIVER_PROBE };
+	struct cuda_driver_reply reply;
+	int ret;
 
-	/* RTLD_NODELETE keeps libcuda mapped after dlclose(); once cuInit()
-	 * has run, the driver may have internal threads and state that do not
-	 * survive unmapping the library.
+	/* Do not leave a worker or its socket for restore children to inherit.
+	 * The operational worker starts at the first device hook, after forking
+	 * the restored tree, and keeps driver state until plugin finalization.
 	 */
-	cuda_handle = dlopen("libcuda.so.1", RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
-	if (!cuda_handle) {
-		pr_info("Cannot load libcuda.so.1: %s\n", dlerror());
-		return -ENOTSUP;
-	}
-
-	LOAD_CUDA_SYMBOL(get_error_name, "cuGetErrorName");
-	LOAD_CUDA_SYMBOL(get_error_string, "cuGetErrorString");
-	LOAD_CUDA_SYMBOL(init, "cuInit");
-	LOAD_CUDA_SYMBOL(driver_get_version, "cuDriverGetVersion");
-	LOAD_CUDA_SYMBOL(lock, "cuCheckpointProcessLock");
-	LOAD_CUDA_SYMBOL(checkpoint, "cuCheckpointProcessCheckpoint");
-	LOAD_CUDA_SYMBOL(restore, "cuCheckpointProcessRestore");
-	LOAD_CUDA_SYMBOL(unlock, "cuCheckpointProcessUnlock");
-	LOAD_CUDA_SYMBOL(get_state, "cuCheckpointProcessGetState");
-	LOAD_CUDA_SYMBOL(get_restore_tid, "cuCheckpointProcessGetRestoreThreadId");
-
-	if (!cuda_api.init || !cuda_api.driver_get_version || !cuda_api.lock || !cuda_api.checkpoint || !cuda_api.restore ||
-	    !cuda_api.unlock || !cuda_api.get_state || !cuda_api.get_restore_tid) {
-		pr_warn("CUDA checkpoint Driver API not available in libcuda.so.1\n");
-		cuda_api_fini();
-		return -ENOTSUP;
-	}
-
-	driver_version = 0;
-	res = cuda_api.driver_get_version(&driver_version);
-	if (res != CUDA_SUCCESS) {
-		cuda_log_error("cuDriverGetVersion", 0, res);
-		cuda_api_fini();
-		return -1;
-	}
-
-	if (driver_version < CUDA_DIRECT_MIN_DRIVER_API_VERSION) {
-		pr_info("CUDA Driver API version %d is older than the direct backend minimum %d\n",
-			driver_version, CUDA_DIRECT_MIN_DRIVER_API_VERSION);
-		cuda_api_fini();
-		return -ENOTSUP;
-	}
-
-	pr_info("CUDA Driver API backend supported (driver API version %d, minimum %d)\n",
-		driver_version, CUDA_DIRECT_MIN_DRIVER_API_VERSION);
-	return 0;
-}
-
-#undef LOAD_CUDA_SYMBOL
-
-/* cuCheckpointProcessRestore() requires the driver to be initialized in the
- * calling process unless persistence mode is enabled. Defer cuInit() until
- * the first restore so that a dump on a host with a GPU does not pay the
- * driver initialization cost for tasks that do not use CUDA.
- */
-static int cuda_driver_init(void)
-{
-	CUresult res;
-
-	if (cuda_driver_initialized)
-		return 0;
-
-	/* The CUDA Driver API currently requires Flags to be zero. */
-	res = cuda_api.init(0);
-	if (res != CUDA_SUCCESS) {
-		cuda_log_error("cuInit", 0, res);
-		return -1;
-	}
-
-	cuda_driver_initialized = true;
-	return 0;
+	ret = cuda_driver_worker_call(&request, &reply, 0, NULL);
+	if (!ret)
+		ret = reply.error;
+	if (cuda_driver_worker_fini() && !ret)
+		ret = -1;
+	return ret;
 }
 
 /* Retrieve the cuda restore thread TID from the root pid */
@@ -254,14 +132,13 @@ static enum cuda_restore_tid_result get_cuda_restore_tid(int root_pid, int *tid)
 {
 	CUresult res;
 
-	res = cuda_api.get_restore_tid(root_pid, tid);
+	res = cuda_driver_call(CUDA_DRIVER_GET_TID, root_pid, 0, tid);
 	if (res != CUDA_SUCCESS) {
 		if (res == CUDA_ERROR_INVALID_VALUE || res == CUDA_ERROR_NOT_INITIALIZED) {
 			pr_debug("PID %d has no CUDA restore thread\n", root_pid);
 			return CUDA_RESTORE_TID_NOT_FOUND;
 		}
 
-		cuda_log_error("cuCheckpointProcessGetRestoreThreadId", root_pid, res);
 		return CUDA_RESTORE_TID_ERROR;
 	}
 
@@ -275,14 +152,12 @@ static enum cuda_restore_tid_result get_cuda_restore_tid(int root_pid, int *tid)
 
 static cuda_task_state_t get_cuda_state(pid_t pid)
 {
-	CUprocessState state;
+	int state;
 	CUresult res;
 
-	res = cuda_api.get_state(pid, &state);
-	if (res != CUDA_SUCCESS) {
-		cuda_log_error("cuCheckpointProcessGetState", pid, res);
+	res = cuda_driver_call(CUDA_DRIVER_GET_STATE, pid, 0, &state);
+	if (res != CUDA_SUCCESS)
 		return CUDA_TASK_UNKNOWN;
-	}
 
 	switch (state) {
 	case CU_PROCESS_STATE_RUNNING:
@@ -301,23 +176,37 @@ static cuda_task_state_t get_cuda_state(pid_t pid)
 
 static int unlock_cuda_process(int pid)
 {
-	CUcheckpointUnlockArgs args = { 0 };
 	CUresult res;
 
-	res = cuda_api.unlock(pid, &args);
-	if (res != CUDA_SUCCESS) {
-		cuda_log_error("cuCheckpointProcessUnlock", pid, res);
+	res = cuda_driver_call(CUDA_DRIVER_UNLOCK, pid, 0, NULL);
+	if (res != CUDA_SUCCESS)
 		return -1;
-	}
 
 	return 0;
 }
 
-static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
+static int stop_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
 {
-	struct proc_status_creds creds;
+	struct cuda_wait wait;
 	const unsigned long ptrace_options = PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD;
 	int ret = 0;
+
+	running_restore_tid = 0;
+	/* The worker monitor already consumed this wait event. Waiting for an
+	 * interrupt here would either hang again or deliver the fault signal.
+	 * Keep the thread stopped while restoring CRIU's ptrace settings.
+	 */
+	if (restore_thread_status != -1) {
+		if (!WIFSTOPPED(restore_thread_status)) {
+			pr_err("CUDA restore thread %d exited during a Driver API call\n", restore_tid);
+			return -1;
+		}
+		goto restore_settings;
+	}
+
+	if (cuda_wait_init(&wait, "stop CUDA restore thread", restore_tid, 0, NULL, cuda_plugin_timeout))
+		return -1;
+	wait.ignore_criu_timeout = true;
 
 	/* Since we resumed a thread that CRIU previously already froze we need to
 	 * INTERRUPT it once again, task was already SEIZE'd so we don't need to do
@@ -328,12 +217,23 @@ static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigse
 		return -1;
 	}
 
-	if (compel_wait_task(restore_tid, -1, parse_pid_status, NULL,
-			     &creds.s, NULL) != COMPEL_TASK_ALIVE) {
-		pr_err("compel_wait_task failed after interrupt\n");
+	if (cuda_wait_child(&wait, restore_tid, __WALL, &restore_thread_status)) {
+		driver_failed = true;
 		return -1;
 	}
+	if (!WIFSTOPPED(restore_thread_status)) {
+		pr_err("CUDA restore thread %d exited before it could be stopped\n", restore_tid);
+		driver_failed = true;
+		return -1;
+	}
+	if (WSTOPSIG(restore_thread_status) != SIGTRAP || (restore_thread_status >> 16) != PTRACE_EVENT_STOP) {
+		pr_err("CUDA restore thread %d stopped unexpectedly with signal %d: %s\n", restore_tid,
+		       WSTOPSIG(restore_thread_status), strsignal(WSTOPSIG(restore_thread_status)));
+		driver_failed = true;
+		ret = -1;
+	}
 
+restore_settings:
 	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, ptrace_options)) {
 		pr_perror("Failed to set ptrace options on interrupt for restore tid %d", restore_tid);
 		ret = -1;
@@ -347,12 +247,38 @@ static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigse
 	return ret;
 }
 
+static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
+{
+	sigset_t blocked, saved;
+	int ret;
+
+	sigemptyset(&blocked);
+	sigaddset(&blocked, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &blocked, &saved)) {
+		pr_perror("Cannot block SIGCHLD while stopping CUDA restore tid %d", restore_tid);
+		return -1;
+	}
+	ret = stop_restore_thread(restore_tid, restore_sigset);
+	if (sigprocmask(SIG_SETMASK, &saved, NULL)) {
+		pr_perror("Cannot restore signal mask after stopping CUDA restore tid %d", restore_tid);
+		ret = -1;
+	}
+	if (ret)
+		driver_failed = true;
+	return ret;
+}
+
 static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 {
 	const unsigned long ptrace_options = PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD;
 	k_rtsigset_t block;
 	bool options_cleared = false;
 	bool sigmask_changed = false;
+
+	if (driver_failed) {
+		pr_err("Cannot resume CUDA thread %d after Driver API helper failure\n", restore_tid);
+		return -1;
+	}
 
 	if (ptrace(PTRACE_GETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset)) {
 		pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
@@ -380,6 +306,9 @@ static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 		goto unwind;
 	}
 
+	running_restore_tid = restore_tid;
+	restore_thread_status = -1;
+
 	return 0;
 
 unwind:
@@ -394,7 +323,6 @@ unwind:
 
 static int cuda_driver_checkpoint_devices(int pid)
 {
-	CUcheckpointCheckpointArgs args = { 0 };
 	enum cuda_restore_tid_result tid_result;
 	struct pid_info *task_info;
 	cuda_task_state_t observed_task_state;
@@ -445,10 +373,13 @@ static int cuda_driver_checkpoint_devices(int pid)
 	 * can report the actual state while its restore thread is running.
 	 */
 	task_info->current_task_state = CUDA_TASK_CHECKPOINTED;
-	res = cuda_api.checkpoint(pid, &args);
-	if (res != CUDA_SUCCESS) {
-		cuda_log_error("cuCheckpointProcessCheckpoint", pid, res);
+	res = cuda_driver_call(CUDA_DRIVER_CHECKPOINT, pid, 0, NULL);
+	if (res != CUDA_SUCCESS)
 		ret = -1;
+
+	if (driver_failed) {
+		task_info->current_task_state = CUDA_TASK_FAILED;
+		goto interrupt;
 	}
 
 	observed_task_state = get_cuda_state(pid);
@@ -465,6 +396,7 @@ static int cuda_driver_checkpoint_devices(int pid)
 		ret = -1;
 	}
 
+interrupt:
 	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
 	if (!ret)
 		ret = int_ret;
@@ -475,7 +407,6 @@ static int cuda_driver_checkpoint_devices(int pid)
 static int cuda_driver_pause_devices(int pid)
 {
 	enum cuda_restore_tid_result tid_result;
-	CUcheckpointLockArgs args = { 0 };
 	cuda_task_state_t task_state;
 	int restore_tid;
 	CUresult res;
@@ -515,11 +446,8 @@ static int cuda_driver_pause_devices(int pid)
 	}
 
 	pr_info("pausing devices on pid %d\n", pid);
-	args.timeoutMs = opts.timeout * 1000;
-
-	res = cuda_api.lock(pid, &args);
+	res = cuda_driver_call(CUDA_DRIVER_LOCK, pid, opts.timeout * 1000, NULL);
 	if (res != CUDA_SUCCESS) {
-		cuda_log_error("cuCheckpointProcessLock", pid, res);
 		task_state = get_cuda_state(pid);
 		if (task_state != CUDA_TASK_LOCKED)
 			return -1;
@@ -560,6 +488,11 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	CUresult res;
 	int ret = 0;
 	int int_ret;
+
+	if (driver_failed) {
+		pr_err("Cannot recover CUDA state for pid %d after Driver API helper failure\n", pid);
+		return -1;
+	}
 
 	if (initial_task_state == CUDA_TASK_UNKNOWN || initial_task_state == CUDA_TASK_FAILED) {
 		pr_err("Cannot restore pid %d to invalid CUDA state %d\n", pid, initial_task_state);
@@ -631,14 +564,11 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 
 	if (current_task_state == CUDA_TASK_CHECKPOINTED) {
 		/* If the process was "locked" or "running" before checkpointing it, we need to restore it */
-		CUcheckpointRestoreArgs args = { 0 };
-
-		if (cuda_driver_init()) {
+		if (cuda_driver_call(CUDA_DRIVER_INIT, pid, 0, NULL) != CUDA_SUCCESS) {
 			ret = -1;
 		} else {
-			res = cuda_api.restore(pid, &args);
+			res = cuda_driver_call(CUDA_DRIVER_RESTORE, pid, 0, NULL);
 			if (res != CUDA_SUCCESS) {
-				cuda_log_error("cuCheckpointProcessRestore", pid, res);
 				/* Preserve this operation failure even if cleanup below reaches
 				 * LOCKED or RUNNING successfully.
 				 */
@@ -706,6 +636,9 @@ static int cuda_driver_resume_devices_late(int pid)
 
 static int cuda_driver_backend_init(int stage)
 {
+	driver_failed = false;
+	running_restore_tid = 0;
+	restore_thread_status = -1;
 	/* In the DUMP stage track all the PID's we've paused CUDA operations on to
 	 * release them when we're done if the user requested the leave-running option
 	 */
@@ -740,7 +673,7 @@ static void cuda_driver_backend_fini(int stage, int ret)
 		free_cuda_pid_list();
 	}
 
-	cuda_api_fini();
+	cuda_driver_worker_fini();
 }
 
 const struct cuda_plugin_backend cuda_driver_backend = {
