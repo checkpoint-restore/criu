@@ -1249,6 +1249,11 @@ static inline int fork_with_pid(struct pstree_item *item)
 		goto err_unlock;
 	}
 
+	if (item == root_item && opts.images_in_memfd) {
+		pr_debug("Closing LUO fds in parent after fork\n");
+		close_service_fd(LUO_SESSION_FD_OFF);
+	}
+
 	if (item == root_item) {
 		item->pid->real = ret;
 		pr_debug("PID: real %d virt %d\n", item->pid->real, vpid(item));
