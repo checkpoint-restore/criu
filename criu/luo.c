@@ -20,6 +20,9 @@
 #include "log.h"
 #include "servicefd.h"
 #include "util.h"
+#include "image.h"
+#include "protobuf.h"
+#include "images/luo.pb-c.h"
 
 #ifdef CONFIG_HAS_LIVEUPDATE
 /* Include the liveupdate header from the kernel source */
@@ -28,6 +31,7 @@
 /* Global LUO session state */
 static int luo_dev_fd = -1;
 static int luo_session_fd = -1;
+static char *luo_session_name;
 
 /* Token generation counter */
 static uint64_t luo_token_counter;
@@ -111,6 +115,9 @@ int luo_init_session(const char *session_name)
 
 	luo_session_fd = create_req.fd;
 
+	/* Save session name for metadata serialization */
+	luo_session_name = xstrdup(session_name);
+
 	/* Register as service fd so it won't be closed by close_old_fds() */
 	if (install_service_fd(LUO_SESSION_FD_OFF, luo_session_fd) < 0) {
 		pr_err("Can't install luo session fd as service fd\n");
@@ -143,7 +150,6 @@ int luo_preserve_fd(int fd, uint64_t *token, const char *path)
 		return 0;
 	}
 
-	/* Generate unique token for this path */
 	generated_token = luo_generate_token(path);
 	preserve_req.token = generated_token;
 
@@ -359,6 +365,10 @@ void luo_cleanup(bool finish_session)
 		xfree(mpos);
 	}
 
+	/* Clean up session name */
+	xfree(luo_session_name);
+	luo_session_name = NULL;
+
 	/* Clean up session */
 	if (luo_session_fd >= 0) {
 		if (finish_session)
@@ -367,6 +377,147 @@ void luo_cleanup(bool finish_session)
 		close_service_fd(LUO_SESSION_FD_OFF);
 		luo_session_fd = -1;
 	}
+}
+
+/*
+ * Serialize session metadata to protobuf and save to image file.
+ * This allows the session to be restored after a kexec reboot.
+ */
+int luo_save_image_metadata(void)
+{
+	struct cr_img *img;
+	LuoMetadataEntry *msg;
+	struct luo_fd_mapping *mapping;
+	size_t count = 0;
+	int ret;
+
+	if (!opts.images_in_memfd || !luo_session_name) {
+		pr_debug("LUO: save_image_metadata skipped\n");
+		return 0;
+	}
+
+	msg = xmalloc(sizeof(*msg));
+	if (!msg)
+		return -ENOMEM;
+	luo_metadata_entry__init(msg);
+
+	msg->session_name = luo_session_name;
+	msg->n_fd_mappings = luo_token_counter;
+	msg->fd_mappings = xmalloc(msg->n_fd_mappings * sizeof(*msg->fd_mappings));
+	if (!msg->fd_mappings) {
+		xfree(msg);
+		return -ENOMEM;
+	}
+
+	list_for_each_entry(mapping, &luo_fd_mappings, list) {
+		msg->fd_mappings[count] = xmalloc(sizeof(**msg->fd_mappings));
+		if (!msg->fd_mappings[count]) {
+			for (size_t i = 0; i < count; i++)
+				xfree(msg->fd_mappings[i]);
+			xfree(msg->fd_mappings);
+			xfree(msg);
+			return -ENOMEM;
+		}
+		luo_fd_mapping__init(msg->fd_mappings[count]);
+		msg->fd_mappings[count]->path = mapping->path;
+		msg->fd_mappings[count]->token = mapping->token;
+		pr_debug("LUO [DUMP]: SAVE_MAPPING[%zu]: path='%s' token=0x%016llx\n",
+			 count, mapping->path, (unsigned long long)mapping->token);
+		count++;
+	}
+
+	pr_info("LUO [DUMP]: SAVE METADATA: session='%s' total_mappings=%zu\n",
+		luo_session_name, msg->n_fd_mappings);
+
+	img = open_image(CR_FD_LUO_METADATA, O_DUMP);
+	if (!img) {
+		pr_err("LUO [DUMP]: Failed to open luo-metadata image\n");
+		ret = -1;
+		goto out_free;
+	}
+
+	ret = pb_write_one(img, msg, PB_LUO_METADATA);
+	close_image(img);
+	if (ret) {
+		pr_err("LUO [DUMP]: Failed to write luo-metadata\n");
+		goto out_free;
+	}
+
+	ret = 0;
+
+out_free:
+	luo_metadata_entry__free_unpacked(msg, NULL);
+	return ret;
+}
+
+/*
+ * Load session metadata from protobuf image file and restore session.
+ */
+int luo_load_image_metadata(void)
+{
+	struct cr_img *img;
+	LuoMetadataEntry *msg;
+	int ret;
+
+	if (!opts.images_in_memfd) {
+		pr_debug("LUO: load_image_metadata skipped\n");
+		return 0;
+	}
+
+	img = open_image(CR_FD_LUO_METADATA, O_RSTR);
+	if (!img) {
+		pr_err("LUO [RESTORE]: Failed to open luo-metadata image\n");
+		return -1;
+	}
+
+	ret = pb_read_one(img, &msg, PB_LUO_METADATA);
+	close_image(img);
+	if (ret <= 0) {
+		pr_err("LUO [RESTORE]: Failed to read luo-metadata\n");
+		return ret ? ret : -EIO;
+	}
+
+	pr_debug("LUO [RESTORE]: Loaded session name: '%s' with %zu fd_mappings\n",
+		msg->session_name, msg->n_fd_mappings);
+
+	/* Retrieve the LUO session */
+	ret = luo_retrieve_session(msg->session_name);
+	if (ret < 0) {
+		pr_err("LUO [RESTORE]: Failed to retrieve LUO session: %s\n", msg->session_name);
+		luo_metadata_entry__free_unpacked(msg, NULL);
+		return ret;
+	}
+
+	/* Restore FD mappings */
+	for (size_t i = 0; i < msg->n_fd_mappings; i++) {
+		struct luo_fd_mapping *mapping;
+
+		mapping = xmalloc(sizeof(*mapping));
+		if (!mapping) {
+			luo_metadata_entry__free_unpacked(msg, NULL);
+			return -ENOMEM;
+		}
+
+		mapping->path = xstrdup(msg->fd_mappings[i]->path);
+		if (!mapping->path) {
+			xfree(mapping);
+			luo_metadata_entry__free_unpacked(msg, NULL);
+			return -ENOMEM;
+		}
+
+		mapping->token = msg->fd_mappings[i]->token;
+		list_add(&mapping->list, &luo_fd_mappings);
+
+		pr_debug("LUO [RESTORE]: LOAD_MAPPING[%zu]: path='%s' token=0x%016llx\n",
+			i, mapping->path, (unsigned long long)mapping->token);
+	}
+
+	/* Save session name for later use */
+	luo_session_name = xstrdup(msg->session_name);
+
+	luo_metadata_entry__free_unpacked(msg, NULL);
+	pr_info("LUO [RESTORE]: Loaded LUO session\n");
+	return 0;
 }
 
 #endif /* CONFIG_HAS_LIVEUPDATE */
