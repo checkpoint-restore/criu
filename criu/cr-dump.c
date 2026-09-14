@@ -91,6 +91,7 @@
 #include "asm/dump.h"
 #include "timer.h"
 #include "sigact.h"
+#include "luo.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -1972,6 +1973,19 @@ static int cr_dump_finish(int ret)
 	free_userns_data();
 
 	close_service_fd(CR_PROC_FD_OFF);
+
+	if (opts.images_in_memfd) {
+		if (!ret && luo_save_image_metadata()) {
+			pr_err("luo save image metadata failed\n");
+			ret = -1;
+		}
+
+		if (!ret)
+			luo_daemonize_and_wait();
+
+		luo_cleanup(false);
+	}
+
 	close_image_dir();
 
 	if (ret || post_dump_ret) {
@@ -2085,6 +2099,18 @@ int cr_dump_tasks(pid_t pid)
 
 	if (collect_namespaces(true) < 0)
 		goto err;
+
+	if (opts.images_in_memfd) {
+		char session_name[64];
+		int luo_ret;
+
+		snprintf(session_name, sizeof(session_name), "criu-dump-%d", pid);
+		luo_ret = luo_init_session(session_name);
+		if (luo_ret == -ENOTSUP)
+			opts.images_in_memfd = false;
+		else if (luo_ret < 0)
+			goto err;
+	}
 
 	glob_imgset = cr_glob_imgset_open(O_DUMP);
 	if (!glob_imgset)
