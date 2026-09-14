@@ -2275,9 +2275,15 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				continue;
 
 			if (fdinfo_field(str, "ino")) {
-				ret = sscanf(str, "%*s %u", &pidfd_info->pidfe.ino);
+				uint64_t ino;
+
+				ret = sscanf(str, "%*s %" SCNu64, &ino);
 				if (ret != 1)
 					goto parse_err;
+
+				pidfd_info->pidfe.ino = (uint32_t)ino;
+				pidfd_info->pidfe.ino_hi = ino >> 32;
+				pidfd_info->pidfe.has_ino_hi = (ino >> 32) != 0;
 			} else if (fdinfo_field(str, "Pid")) {
 				ret = sscanf(str, "%*s %d", &pidfd_info->pid);
 				if (ret != 1)
