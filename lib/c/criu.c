@@ -383,6 +383,17 @@ void criu_set_track_mem(bool track_mem)
 	criu_local_set_track_mem(global_opts, track_mem);
 }
 
+void criu_local_set_lazy_pages(criu_opts *opts, bool lazy_pages)
+{
+	opts->rpc->has_lazy_pages = true;
+	opts->rpc->lazy_pages = lazy_pages;
+}
+
+void criu_set_lazy_pages(bool lazy_pages)
+{
+	criu_local_set_lazy_pages(global_opts, lazy_pages);
+}
+
 int criu_local_set_compress(criu_opts *opts, enum criu_compress_mode mode)
 {
 	if (mode != CRIU_COMPRESS_OFF && mode != CRIU_COMPRESS_BLOCK)
