@@ -100,6 +100,7 @@ void criu_set_unprivileged(bool unprivileged);
 void criu_set_orphan_pts_master(bool orphan_pts_master);
 void criu_set_file_locks(bool file_locks);
 void criu_set_track_mem(bool track_mem);
+void criu_set_lazy_pages(bool lazy_pages);
 int criu_set_compress(enum criu_compress_mode mode);
 int criu_set_compress_acceleration(unsigned int acceleration);
 int criu_set_compress_block_size(unsigned int bytes);
@@ -275,6 +276,7 @@ void criu_local_set_skip_file_rwx_check(criu_opts *opts, bool skip_file_rwx_chec
 void criu_local_set_orphan_pts_master(criu_opts *opts, bool orphan_pts_master);
 void criu_local_set_file_locks(criu_opts *opts, bool file_locks);
 void criu_local_set_track_mem(criu_opts *opts, bool track_mem);
+void criu_local_set_lazy_pages(criu_opts *opts, bool lazy_pages);
 int criu_local_set_compress(criu_opts *opts, enum criu_compress_mode mode);
 int criu_local_set_compress_acceleration(criu_opts *opts, unsigned int acceleration);
 int criu_local_set_compress_block_size(criu_opts *opts, unsigned int bytes);
