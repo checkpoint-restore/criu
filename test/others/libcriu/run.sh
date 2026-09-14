@@ -71,6 +71,7 @@ if criu check --feature mem_dirty_track > /dev/null; then
 fi
 if criu check --feature uffd-noncoop > /dev/null; then
 	export CRIU_FEATURE_LAZY_PAGES=1
+	run_test test_lazy_pages
 fi
 if criu check --feature pidfd_store > /dev/null; then
 	export CRIU_FEATURE_PIDFD_STORE=1
