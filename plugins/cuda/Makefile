@@ -19,9 +19,11 @@ include $(__nmk_dir)msg.mk
 
 all: $(DEPS_CUDA)
 
+# A SIGCHLD handler on a libcuda thread can finish after plugin finalization.
+# Keep its code and static guard storage mapped even after dlclose().
 cuda_plugin.so: $(PLUGIN_SRCS) $(PLUGIN_HEADERS)
 	$(call msg-gen, $@)
-	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl
+	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl -Wl,-z,nodelete
 
 clean:
 	$(call msg-clean, $@)

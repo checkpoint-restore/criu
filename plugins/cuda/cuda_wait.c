@@ -120,6 +120,31 @@ static int remaining_ms(struct cuda_wait *wait)
 	return remaining > INT_MAX ? INT_MAX : (int)remaining;
 }
 
+/* PTRACE_INTERRUPT is asynchronous, so the caller must wait for a stop.
+ * Use a timed SIGCHLD wait to avoid an unbounded waitpid() or polling.
+ * Keeping SIGCHLD blocked between waitpid(WNOHANG) and this wait ensures
+ * that a notification arriving in that gap remains pending.
+ */
+int cuda_wait_signal(struct cuda_wait *wait, const sigset_t *signals)
+{
+	struct timespec timeout;
+	int delay;
+
+	for (;;) {
+		delay = remaining_ms(wait);
+		if (delay < 0)
+			return delay;
+		timeout.tv_sec = delay / 1000;
+		timeout.tv_nsec = (delay % 1000) * 1000000;
+		if (sigtimedwait(signals, NULL, &timeout) >= 0)
+			return 0;
+		if (errno == EINTR || errno == EAGAIN)
+			continue;
+		pr_perror("Cannot wait for signal during %s(%d)", wait->operation, wait->pid);
+		return -errno;
+	}
+}
+
 int cuda_wait_fd(struct cuda_wait *wait, int fd)
 {
 	struct pollfd pollfd = { .fd = fd, .events = POLLIN };

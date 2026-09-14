@@ -1,6 +1,7 @@
 #include "criu-log.h"
 #include "cuda_checkpoint.h"
 #include "cuda_plugin.h"
+#include "cuda_wait.h"
 #include "plugin.h"
 #include "util.h"
 #include "cr_options.h"
@@ -12,11 +13,48 @@
 #include <compel/infect.h>
 
 #include <dlfcn.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <sys/syscall.h>
+#include <sys/wait.h>
 
 static void *cuda_handle;
 static bool cuda_driver_initialized;
+static bool driver_failed;
+static bool driver_call_aborted;
+
+/* Only the tracing thread accesses the jump buffer and wait status. Other
+ * threads can receive process-directed SIGCHLD and only notify this thread.
+ * Keep this storage alive when a late handler outlives an operation.
+ */
+static struct {
+	sigjmp_buf env;
+	sigset_t blocked;
+	int owner_tid;
+	volatile sig_atomic_t restore_tid;
+	int notified;
+	volatile sig_atomic_t active;
+	volatile sig_atomic_t in_call;
+	volatile sig_atomic_t status;
+	volatile sig_atomic_t error;
+} cuda_guard;
+
+_Static_assert(__atomic_always_lock_free(sizeof(int), 0), "CUDA signal routing needs lock-free integers");
+
+static void cuda_call_begin(void);
+static void cuda_call_end(void);
+
+/* Keep CRIU's own logging and bookkeeping outside the jump interval. */
+#define CUDA_CALL(member, ...) ({              \
+	CUresult result;                       \
+	cuda_call_begin();                     \
+	result = cuda_api.member(__VA_ARGS__); \
+	cuda_call_end();                       \
+	result;                                \
+})
 
 struct cuda_driver_api {
 	CUresult (*init)(unsigned int flags);
@@ -105,7 +143,9 @@ static struct pid_info *find_cuda_pid(int pid)
 static void cuda_api_fini(void)
 {
 	if (cuda_handle) {
-		dlclose(cuda_handle);
+		/* A nonlocal return may have left locks held inside libcuda. */
+		if (!driver_call_aborted)
+			dlclose(cuda_handle);
 		cuda_handle = NULL;
 	}
 
@@ -136,7 +176,7 @@ static const char *cuda_result_name(CUresult res)
 	if (!cuda_api.get_error_name)
 		return "CUDA_ERROR_UNKNOWN";
 
-	if (cuda_api.get_error_name(res, &name) != CUDA_SUCCESS || !name)
+	if (CUDA_CALL(get_error_name, res, &name) != CUDA_SUCCESS || !name)
 		return "CUDA_ERROR_UNKNOWN";
 
 	return name;
@@ -149,7 +189,7 @@ static const char *cuda_result_string(CUresult res)
 	if (!cuda_api.get_error_string)
 		return NULL;
 
-	if (cuda_api.get_error_string(res, &str) != CUDA_SUCCESS || !str)
+	if (CUDA_CALL(get_error_string, res, &str) != CUDA_SUCCESS || !str)
 		return NULL;
 
 	return str;
@@ -175,6 +215,11 @@ static int cuda_driver_probe(void)
 {
 	int driver_version;
 	CUresult res;
+
+	if (driver_call_aborted) {
+		pr_err("Cannot reuse the CUDA Driver API after abandoning a call\n");
+		return -1;
+	}
 
 	/* RTLD_NODELETE keeps libcuda mapped after dlclose(); once cuInit()
 	 * has run, the driver may have internal threads and state that do not
@@ -205,7 +250,7 @@ static int cuda_driver_probe(void)
 	}
 
 	driver_version = 0;
-	res = cuda_api.driver_get_version(&driver_version);
+	res = CUDA_CALL(driver_get_version, &driver_version);
 	if (res != CUDA_SUCCESS) {
 		cuda_log_error("cuDriverGetVersion", 0, res);
 		cuda_api_fini();
@@ -239,7 +284,7 @@ static int cuda_driver_init(void)
 		return 0;
 
 	/* The CUDA Driver API currently requires Flags to be zero. */
-	res = cuda_api.init(0);
+	res = CUDA_CALL(init, 0);
 	if (res != CUDA_SUCCESS) {
 		cuda_log_error("cuInit", 0, res);
 		return -1;
@@ -254,7 +299,7 @@ static enum cuda_restore_tid_result get_cuda_restore_tid(int root_pid, int *tid)
 {
 	CUresult res;
 
-	res = cuda_api.get_restore_tid(root_pid, tid);
+	res = CUDA_CALL(get_restore_tid, root_pid, tid);
 	if (res != CUDA_SUCCESS) {
 		if (res == CUDA_ERROR_INVALID_VALUE || res == CUDA_ERROR_NOT_INITIALIZED) {
 			pr_debug("PID %d has no CUDA restore thread\n", root_pid);
@@ -278,7 +323,7 @@ static cuda_task_state_t get_cuda_state(pid_t pid)
 	CUprocessState state;
 	CUresult res;
 
-	res = cuda_api.get_state(pid, &state);
+	res = CUDA_CALL(get_state, pid, &state);
 	if (res != CUDA_SUCCESS) {
 		cuda_log_error("cuCheckpointProcessGetState", pid, res);
 		return CUDA_TASK_UNKNOWN;
@@ -304,7 +349,7 @@ static int unlock_cuda_process(int pid)
 	CUcheckpointUnlockArgs args = { 0 };
 	CUresult res;
 
-	res = cuda_api.unlock(pid, &args);
+	res = CUDA_CALL(unlock, pid, &args);
 	if (res != CUDA_SUCCESS) {
 		cuda_log_error("cuCheckpointProcessUnlock", pid, res);
 		return -1;
@@ -331,25 +376,52 @@ static int restore_thread_settings(int restore_tid, k_rtsigset_t *restore_sigset
 	return ret;
 }
 
+/* SIGCHLD is blocked here. Accept only the stop requested by this tracer. */
 static int interrupt_restore_thread(int restore_tid)
 {
-	struct proc_status_creds creds;
+	struct cuda_wait wait;
+	int status, ret;
+	pid_t pid;
 
+	ret = cuda_wait_init(&wait, "stop CUDA restore thread", restore_tid, 0, NULL,
+			     CUDA_RESTORE_THREAD_STOP_TIMEOUT);
+	if (ret) {
+		cuda_guard.error = -ret;
+		return -1;
+	}
+	wait.ignore_criu_timeout = true;
 	/* Since we resumed a thread that CRIU previously already froze we need to
 	 * INTERRUPT it once again, task was already SEIZE'd so we don't need to do
 	 * a compel_interrupt_task()
 	 */
 	if (ptrace(PTRACE_INTERRUPT, restore_tid, NULL, 0)) {
-		pr_perror("Could not interrupt CUDA restore tid %d after checkpoint", restore_tid);
+		cuda_guard.error = errno;
 		return -1;
 	}
-
-	if (compel_wait_task(restore_tid, -1, parse_pid_status, NULL,
-			     &creds.s, NULL) != COMPEL_TASK_ALIVE) {
-		pr_err("compel_wait_task failed after interrupt\n");
-		return -1;
+	for (;;) {
+		pid = waitpid(restore_tid, &status, __WALL | WNOHANG);
+		if (pid == restore_tid)
+			break;
+		if (pid < 0) {
+			if (errno == EINTR)
+				continue;
+			cuda_guard.error = errno;
+			return -1;
+		}
+		ret = cuda_wait_signal(&wait, &cuda_guard.blocked);
+		if (ret) {
+			cuda_guard.error = -ret;
+			return -1;
+		}
+		/* Re-notify CRIU after restoring its handler, including when this
+		 * signal belongs to another child whose wait status is untouched.
+		 */
+		__atomic_store_n(&cuda_guard.notified, 1, __ATOMIC_RELAXED);
 	}
-
+	cuda_guard.status = status;
+	if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP ||
+	    (unsigned int)status >> 16 != PTRACE_EVENT_STOP)
+		return -1;
 	return 0;
 }
 
@@ -398,20 +470,163 @@ unwind:
 	return -1;
 }
 
-static int run_cuda_operation(int restore_tid, int (*run)(void *arg), void *arg)
+/* Called on the tracing thread, either from SIGCHLD or with it blocked. */
+static bool cuda_restore_thread_failed(void)
 {
+	int status;
+	pid_t pid;
+
+	do {
+		pid = waitpid(cuda_guard.restore_tid, &status, __WALL | WNOHANG);
+	} while (pid < 0 && errno == EINTR);
+	if (!pid)
+		return false;
+	if (pid < 0)
+		cuda_guard.error = errno;
+	else
+		cuda_guard.status = status;
+	return true;
+}
+
+static void cuda_sigchld(int signal)
+{
+	int saved_errno = errno;
+	int owner = __atomic_load_n(&cuda_guard.owner_tid, __ATOMIC_ACQUIRE);
+
+	(void)signal;
+	__atomic_store_n(&cuda_guard.notified, 1, __ATOMIC_RELAXED);
+	if (!owner)
+		goto out;
+	if (syscall(SYS_gettid) != owner) {
+		/* SIGCHLD is process-directed. Never jump across thread stacks. */
+		syscall(SYS_tgkill, getpid(), owner, SIGCHLD);
+		goto out;
+	}
+	if (cuda_guard.in_call && cuda_restore_thread_failed())
+		siglongjmp(cuda_guard.env, 1);
+out:
+	errno = saved_errno;
+}
+
+static void cuda_call_begin(void)
+{
+	if (!cuda_guard.active)
+		return;
+	cuda_guard.in_call = 1;
+	if (sigprocmask(SIG_UNBLOCK, &cuda_guard.blocked, NULL)) {
+		cuda_guard.error = errno;
+		siglongjmp(cuda_guard.env, 1);
+	}
+}
+
+static void cuda_call_end(void)
+{
+	if (!cuda_guard.active)
+		return;
+	if (sigprocmask(SIG_BLOCK, &cuda_guard.blocked, NULL)) {
+		cuda_guard.error = errno;
+		siglongjmp(cuda_guard.env, 1);
+	}
+	cuda_guard.in_call = 0;
+	/* A notification may be pending, coalesced, or still being forwarded by
+	 * another thread. Check the target before making any further CUDA call.
+	 */
+	if (cuda_restore_thread_failed())
+		siglongjmp(cuda_guard.env, 1);
+}
+
+static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), void *arg)
+{
+	struct sigaction action = { .sa_handler = cuda_sigchld, .sa_flags = SA_RESTART };
+	struct sigaction saved_action;
 	k_rtsigset_t restore_sigset;
-	int exit_code, int_ret;
+	sigset_t saved_mask;
+	volatile int exit_code = -1;
+	int owner = syscall(SYS_gettid);
 
-	if (resume_restore_thread(restore_tid, &restore_sigset))
+	if (driver_failed)
 		return -1;
+	sigemptyset(&cuda_guard.blocked);
+	sigaddset(&cuda_guard.blocked, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &cuda_guard.blocked, &saved_mask)) {
+		pr_perror("Cannot block SIGCHLD for CUDA operation");
+		return -1;
+	}
+	cuda_guard.restore_tid = restore_tid;
+	cuda_guard.status = -1;
+	cuda_guard.error = 0;
+	__atomic_store_n(&cuda_guard.notified, 0, __ATOMIC_RELAXED);
+	__atomic_store_n(&cuda_guard.owner_tid, owner, __ATOMIC_RELEASE);
+	sigemptyset(&action.sa_mask);
+	/* Do not inherit SA_NOCLDSTOP: the guard needs ptrace stop notifications. */
+	if (sigaction(SIGCHLD, &action, &saved_action)) {
+		pr_perror("Cannot install CUDA SIGCHLD handler");
+		goto restore_mask;
+	}
+	if (resume_restore_thread(restore_tid, &restore_sigset))
+		goto restore_handler;
 
+	/* Save the blocked mask so an escape also blocks SIGCHLD during cleanup.
+	 * The target mask is saved before setjmp and is valid after the jump.
+	 */
+	if (sigsetjmp(cuda_guard.env, 1)) {
+		driver_call_aborted |= cuda_guard.in_call;
+		goto failed;
+	}
+	cuda_guard.active = 1;
 	exit_code = run(arg);
-	int_ret = interrupt_restore_thread(restore_tid);
-	if (!int_ret)
-		int_ret = restore_thread_settings(restore_tid, &restore_sigset);
+	cuda_guard.active = 0;
 
-	return exit_code != 0 ? exit_code : int_ret;
+	/* A fault may race with the last API reply or with PTRACE_INTERRUPT. */
+	if (cuda_restore_thread_failed() || interrupt_restore_thread(restore_tid))
+		goto failed;
+	goto restore_settings;
+
+failed:
+	cuda_guard.active = 0;
+	cuda_guard.in_call = 0;
+	driver_failed = true;
+	exit_code = -1;
+	pr_err("CUDA restore thread %d failed during Driver API operation on pid %d: "
+	       "wait status %#x, error %d\n",
+	       restore_tid, pid,
+	       (int)cuda_guard.status, (int)cuda_guard.error);
+	if (cuda_guard.status != -1 && WIFSTOPPED(cuda_guard.status)) {
+		pr_err("CUDA restore thread %d stopped by signal %d\n",
+		       restore_tid, WSTOPSIG(cuda_guard.status));
+		/* Checkpointing CUDA IPC without --launch-job can cause SIGSEGV.
+		 * This should be fixed in driver 630 (CUDA 13.6). */
+		if (WSTOPSIG(cuda_guard.status) == SIGSEGV)
+			pr_err("For CUDA IPC, consider using: cuda-checkpoint --launch-job\n");
+	}
+restore_settings:
+	/* A consumed fault stop must not be interrupted or waited for again. */
+	if (cuda_guard.status != -1 && WIFSTOPPED(cuda_guard.status) &&
+	    restore_thread_settings(restore_tid, &restore_sigset)) {
+		driver_failed = true;
+		exit_code = -1;
+	}
+restore_handler:
+	/* Keep owner_tid valid: an already-entered handler on another thread
+	 * must still forward its notification after the old action is restored.
+	 */
+	if (sigaction(SIGCHLD, &saved_action, NULL)) {
+		pr_perror("Cannot restore SIGCHLD handler after CUDA operation");
+		driver_failed = true;
+		exit_code = -1;
+	}
+	/* Standard signals coalesce. Leave other children's wait statuses to
+	 * the original handler, and notify it even if our event arrived too.
+	 */
+	if (__atomic_load_n(&cuda_guard.notified, __ATOMIC_RELAXED))
+		syscall(SYS_tgkill, getpid(), owner, SIGCHLD);
+restore_mask:
+	if (sigprocmask(SIG_SETMASK, &saved_mask, NULL)) {
+		pr_perror("Cannot restore signal mask after CUDA operation");
+		driver_failed = true;
+		exit_code = -1;
+	}
+	return exit_code;
 }
 
 static int checkpoint_device(void *arg)
@@ -428,7 +643,7 @@ static int checkpoint_device(void *arg)
 	 * can report the actual state while its restore thread is running.
 	 */
 	task_info->current_task_state = CUDA_TASK_CHECKPOINTED;
-	res = cuda_api.checkpoint(pid, &args);
+	res = CUDA_CALL(checkpoint, pid, &args);
 	if (res != CUDA_SUCCESS) {
 		cuda_log_error("cuCheckpointProcessCheckpoint", pid, res);
 		ret = -1;
@@ -456,6 +671,9 @@ static int cuda_driver_checkpoint_devices(int pid)
 	enum cuda_restore_tid_result tid_result;
 	struct pid_info *task_info;
 	int restore_tid;
+
+	if (driver_failed)
+		return -1;
 
 	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
@@ -490,7 +708,7 @@ static int cuda_driver_checkpoint_devices(int pid)
 	 * the driver's dedicated restore thread may run after CRIU has seized the
 	 * task; every application thread remains in its ptrace stop.
 	 */
-	return run_cuda_operation(restore_tid, checkpoint_device, task_info);
+	return run_cuda_operation(pid, restore_tid, checkpoint_device, task_info);
 }
 
 static int cuda_driver_pause_devices(int pid)
@@ -500,6 +718,9 @@ static int cuda_driver_pause_devices(int pid)
 	cuda_task_state_t task_state;
 	int restore_tid;
 	CUresult res;
+
+	if (driver_failed)
+		return -1;
 
 	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
@@ -538,7 +759,7 @@ static int cuda_driver_pause_devices(int pid)
 	pr_info("pausing devices on pid %d\n", pid);
 	args.timeoutMs = opts.timeout * 1000;
 
-	res = cuda_api.lock(pid, &args);
+	res = CUDA_CALL(lock, pid, &args);
 	if (res != CUDA_SUCCESS) {
 		cuda_log_error("cuCheckpointProcessLock", pid, res);
 		task_state = get_cuda_state(pid);
@@ -620,7 +841,7 @@ static int restore_device(void *arg)
 		if (cuda_driver_init()) {
 			ret = -1;
 		} else {
-			res = cuda_api.restore(pid, &args);
+			res = CUDA_CALL(restore, pid, &args);
 			if (res != CUDA_SUCCESS) {
 				cuda_log_error("cuCheckpointProcessRestore", pid, res);
 				/* Preserve this operation failure even if cleanup below reaches
@@ -687,6 +908,9 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	enum cuda_restore_tid_result tid_result;
 	int restore_tid;
 
+	if (driver_failed)
+		return -1;
+
 	if (initial_task_state == CUDA_TASK_UNKNOWN || initial_task_state == CUDA_TASK_FAILED) {
 		pr_err("Cannot restore pid %d to invalid CUDA state %d\n", pid, initial_task_state);
 		return -1;
@@ -725,7 +949,7 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	/* wakeup the restore thread so we can handle the restore for this pid,
 	 * rseq_cs has to be restored before execution
 	 */
-	return run_cuda_operation(restore_tid, restore_device, &op);
+	return run_cuda_operation(pid, restore_tid, restore_device, &op);
 }
 
 static int cuda_driver_resume_devices_late(int pid)
@@ -740,6 +964,9 @@ static int cuda_driver_resume_devices_late(int pid)
 
 static int cuda_driver_backend_init(int stage)
 {
+	if (driver_call_aborted)
+		return -1;
+	driver_failed = false;
 	/* In the DUMP stage track all the PID's we've paused CUDA operations on to
 	 * release them when we're done if the user requested the leave-running option
 	 */

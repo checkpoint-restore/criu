@@ -2,6 +2,7 @@
 #define CUDA_WAIT_H
 
 #include <stdbool.h>
+#include <signal.h>
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -30,5 +31,7 @@ int cuda_wait_init(struct cuda_wait *wait, const char *operation, int pid, int t
 int cuda_wait_check_thread(struct cuda_wait *wait);
 int cuda_wait_fd(struct cuda_wait *wait, int fd);
 int cuda_wait_child(struct cuda_wait *wait, pid_t child, int flags, int *status);
+/* The caller must preserve any notification consumed from the blocked set. */
+int cuda_wait_signal(struct cuda_wait *wait, const sigset_t *signals);
 
 #endif /* CUDA_WAIT_H */
