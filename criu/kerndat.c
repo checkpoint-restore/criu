@@ -41,6 +41,7 @@
 #include "proc_parse.h"
 #include "sk-inet.h"
 #include "sockets.h"
+#include "cgroup.h"
 #include "net.h"
 #include "tun.h"
 #include <compel/ptrace.h>
@@ -998,7 +999,6 @@ static int kerndat_has_ptrace_get_rseq_conf(void)
 	pid_t pid;
 	int len;
 	struct __ptrace_rseq_configuration rseq;
-	int ret = 0;
 
 	pid = fork_and_ptrace_attach(NULL);
 	if (pid < 0)
@@ -1006,9 +1006,6 @@ static int kerndat_has_ptrace_get_rseq_conf(void)
 
 	len = ptrace(PTRACE_GET_RSEQ_CONFIGURATION, pid, sizeof(rseq), &rseq);
 	if (len != sizeof(rseq)) {
-		if (kdat.has_ptrace_get_rseq_conf)
-			ret = 1; /* we should update kdat */
-
 		kdat.has_ptrace_get_rseq_conf = false;
 		pr_info("ptrace(PTRACE_GET_RSEQ_CONFIGURATION) is not supported\n");
 		goto out;
@@ -1019,27 +1016,17 @@ static int kerndat_has_ptrace_get_rseq_conf(void)
 	 * we need to pay attention to that and, possibly, make changes on the CRIU side.
 	 */
 	if (rseq.flags != 0) {
-		if (kdat.has_ptrace_get_rseq_conf)
-			ret = 1; /* we should update kdat */
-
 		kdat.has_ptrace_get_rseq_conf = false;
 		pr_err("ptrace(PTRACE_GET_RSEQ_CONFIGURATION): rseq.flags != 0\n");
 	} else {
-		if (!kdat.has_ptrace_get_rseq_conf)
-			ret = 1; /* we should update kdat */
-
 		kdat.has_ptrace_get_rseq_conf = true;
-
-		if (memcmp(&kdat.libc_rseq_conf, &rseq, sizeof(rseq)))
-			ret = 1; /* we should update kdat */
-
 		kdat.libc_rseq_conf = rseq;
 	}
 
 out:
 	kill(pid, SIGKILL);
 	waitpid(pid, NULL, 0);
-	return ret;
+	return 0;
 }
 
 int kerndat_sockopt_buf_lock(void)
@@ -1837,6 +1824,68 @@ static int kerndat_has_statmount_by_fd(void)
 	return 0;
 }
 
+static int kerndat_has_root_cgroupv2_mount(void)
+{
+	union {
+		struct cr_statmount sm;
+		char buf[sizeof(struct cr_statmount) + 64];
+	} smbuf = {};
+	struct cr_statx stx = {};
+	struct cr_mnt_id_req req = {
+		.size = MNT_ID_REQ_SIZE_VER1,
+		.param = STATMOUNT_SB_BASIC | STATMOUNT_MNT_ROOT,
+	};
+	int ret;
+
+	kdat.has_root_cgroupv2_mount = false;
+	if (!kdat.has_statmount)
+		return 0;
+
+	if (!(kdat.statmount_supported_mask & STATMOUNT_MNT_ROOT) ||
+	    !(kdat.statmount_supported_mask & STATMOUNT_SB_BASIC))
+		return 0;
+
+	ret = syscall(SYS_statx, AT_FDCWD, SYS_FS_CGROUP_PATH, 0, STATX_MNT_ID_UNIQUE, &stx);
+	if (ret < 0) {
+		if (errno == ENOENT || errno == EACCES || errno == EPERM || errno == ENOTDIR) {
+			pr_debug("statx(%s) failed: %s\n", SYS_FS_CGROUP_PATH, strerror(errno));
+			return 0;
+		}
+		pr_perror("statx(%s) failed", SYS_FS_CGROUP_PATH);
+		return -1;
+	}
+
+	if (!(stx.stx_mask & STATX_MNT_ID_UNIQUE) ||
+	    !(stx.stx_attributes_mask & STATX_ATTR_MOUNT_ROOT) ||
+	    !(stx.stx_attributes & STATX_ATTR_MOUNT_ROOT))
+		return 0;
+
+	req.mnt_id = stx.stx_mnt_id;
+
+	if (sys_statmount(&req, &smbuf.sm, sizeof(smbuf), 0)) {
+		if (errno == EOVERFLOW || errno == EPERM || errno == EACCES || errno == ENOENT) {
+			pr_debug("statmount(%s) failed: %s\n", SYS_FS_CGROUP_PATH, strerror(errno));
+			return 0;
+		}
+		pr_perror("failed to check %s with statmount", SYS_FS_CGROUP_PATH);
+		return -1;
+	}
+
+	if ((smbuf.sm.mask & (STATMOUNT_SB_BASIC | STATMOUNT_MNT_ROOT)) ==
+	    (STATMOUNT_SB_BASIC | STATMOUNT_MNT_ROOT)) {
+		const char *mnt_root = smbuf.sm.str + smbuf.sm.mnt_root;
+
+		if (smbuf.sm.sb_magic == CGROUP2_SUPER_MAGIC && !strcmp(mnt_root, "/"))
+			kdat.has_root_cgroupv2_mount = true;
+	}
+
+	pr_info("%s %s the root cgroupv2 mount\n",
+		SYS_FS_CGROUP_PATH,
+		kdat.has_root_cgroupv2_mount ? "is" : "is not");
+
+	return 0;
+}
+
 static int kerndat_has_madv_guard(void)
 {
 	void *map;
@@ -1970,7 +2019,7 @@ out:
  * Return 0 when the check is successful but no new information
  * Return 1 when the check is successful and there is new information
  */
-int kerndat_try_load_new(void)
+static int kerndat_try_load_new(void)
 {
 	int ret;
 
@@ -1978,21 +2027,36 @@ int kerndat_try_load_new(void)
 	if (ret < 0)
 		return ret;
 
-	ret = kerndat_has_ptrace_get_rseq_conf();
-	if (ret < 0) {
-		pr_err("kerndat_has_ptrace_get_rseq_conf failed when initializing kerndat.\n");
-		return ret;
-	}
-
-	ret = kerndat_has_shstk();
-	if (ret < 0) {
-		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
-		return ret;
-	}
-
 	/* New information is found, we need to save to the cache */
 	if (ret)
 		kerndat_save_cache();
+
+	return 0;
+}
+
+/*
+ * Initialize dynamic runtime state that depends on the current execution
+ * environment (e.g., glibc tunables, shadow stack enablement, or mount
+ * namespace state). This state can change between invocations and must not
+ * be cached in criu.kdat.
+ */
+static int kerndat_init_dynamic(void)
+{
+	if (kerndat_has_ptrace_get_rseq_conf() < 0) {
+		pr_err("kerndat_has_ptrace_get_rseq_conf failed when initializing kerndat.\n");
+		return -1;
+	}
+
+	if (kerndat_has_shstk() < 0) {
+		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
+		return -1;
+	}
+
+	if (kerndat_has_root_cgroupv2_mount() < 0) {
+		pr_err("kerndat_has_root_cgroupv2_mount failed when initializing kerndat.\n");
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -2043,8 +2107,11 @@ int kerndat_init(void)
 	if (ret < 0)
 		return ret;
 
-	if (ret == 0)
-		return kerndat_try_load_new();
+	if (ret == 0) {
+		if (kerndat_try_load_new())
+			return -1;
+		return kerndat_init_dynamic();
+	}
 
 	ret = 0;
 
@@ -2199,20 +2266,12 @@ int kerndat_init(void)
 		pr_err("kerndat_has_rseq failed when initializing kerndat.\n");
 		ret = -1;
 	}
-	if (!ret && (kerndat_has_ptrace_get_rseq_conf() < 0)) {
-		pr_err("kerndat_has_ptrace_get_rseq_conf failed when initializing kerndat.\n");
-		ret = -1;
-	}
 	if (!ret && (kerndat_has_ipv6_freebind() < 0)) {
 		pr_err("kerndat_has_ipv6_freebind failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_has_membarrier_get_registrations()) {
 		pr_err("kerndat_has_membarrier_get_registrations failed when initializing kerndat.\n");
-		ret = -1;
-	}
-	if (!ret && kerndat_has_shstk()) {
-		pr_err("kerndat_has_shstk failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_has_close_range()) {
@@ -2246,6 +2305,9 @@ int kerndat_init(void)
 
 	if (!ret)
 		kerndat_save_cache();
+
+	if (!ret && kerndat_init_dynamic())
+		ret = -1;
 
 	return ret;
 }
