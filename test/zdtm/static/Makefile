@@ -185,6 +185,7 @@ TST_NOFILE	:=				\
 		pty02				\
 		pty03				\
 		pty04				\
+		pty05				\
 		tty00				\
 		tty02				\
 		tty03				\
