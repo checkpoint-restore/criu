@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import contextlib
 import errno
 import importlib.util
@@ -36,6 +37,196 @@ class PodmanConfigTests(unittest.TestCase):
         cls.common = cls.vllm.common
         cls.main = load_script("main.py")
         cls.block_cache = load_script("block-cache.py")
+
+    def test_cuda_backend_options_replace_and_restore_configuration(self):
+        import tempfile
+
+        original = ("libdir /old\nplugin-option cuda_plugin.backend=auto\n"
+                    "plugin-option other.value=kept\n")
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "runc.conf")
+            Path(path).write_text(original)
+            try:
+                for backend in ("driver-api", "cuda-checkpoint"):
+                    cfg = {"mode": "uncompressed", "cuda_backend": backend,
+                           "criu_libdir": "/new/plugins"}
+                    self.sglang.set_runc_conf_for_cfg(path, cfg, 1)
+                    active = Path(path).read_text()
+                    self.assertEqual(active.count("cuda_plugin.backend="), 1)
+                    self.assertIn(f"cuda_plugin.backend={backend}", active)
+                    self.assertIn('libdir "/new/plugins"', active)
+                    self.assertIn("plugin-option other.value=kept", active)
+                    self.assertNotIn("/old", active)
+            finally:
+                self.sglang.restore_runc_conf()
+            self.assertEqual(Path(path).read_text(), original)
+
+    def test_driver_backend_does_not_require_cli(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "cuda_plugin.so").write_bytes(b"plugin")
+            args = SimpleNamespace(criu_libdir=directory,
+                                   cuda_backends=["driver-api"])
+            with (
+                mock.patch.object(self.common.shutil, "which",
+                                  return_value=sys.executable) as which,
+                mock.patch.object(self.common.subprocess, "run",
+                                  return_value=SimpleNamespace(stdout="version")),
+            ):
+                identity = self.common.cuda_benchmark_identity(args)
+            which.assert_called_once_with("criu")
+            self.assertNotIn("cuda-checkpoint", identity["binaries"])
+
+    def test_backend_selection_accepts_local_model_without_json(self):
+        args = SimpleNamespace(
+            cuda_backends=["driver-api"], accelerator="gpu",
+            cuda_checkpoint_launch_job=False, criu_libdir="/plugins",
+            json=None, model="/models/local", model_revision=None,
+            image="local:latest", enable_thinking=False, chat_extra_json=None,
+        )
+        self.sglang.SglangAdapter.prepare_args(args)
+
+    def test_backend_selection_preserves_existing_results(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            results = Path(directory, "results.json")
+            original = '{"results": {"driver-api": [{"valid": true}]}}\n'
+            results.write_text(original)
+            args = SimpleNamespace(
+                cuda_backends=["driver-api"], accelerator="gpu",
+                cuda_checkpoint_launch_job=False, criu_libdir="/plugins",
+                json=str(results), model="/models/local", model_revision=None,
+                image="local:latest", enable_thinking=False, chat_extra_json=None,
+            )
+            with self.assertRaisesRegex(RuntimeError, "Results already exist"):
+                self.sglang.SglangAdapter.prepare_args(args)
+            self.assertEqual(results.read_text(), original)
+
+    def test_driver_backend_records_custom_checkpoint_launcher(self):
+        import hashlib
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "cuda_plugin.so").write_bytes(b"plugin")
+            launcher = Path(directory, "custom-launcher")
+            launcher.write_bytes(b"launcher")
+            args = SimpleNamespace(
+                criu_libdir=directory, cuda_backends=["driver-api"],
+                cuda_checkpoint_launch_job=True,
+                cuda_checkpoint_binary=str(launcher),
+            )
+            with (
+                mock.patch.object(self.common.shutil, "which",
+                                  return_value=sys.executable) as which,
+                mock.patch.object(self.common.subprocess, "run",
+                                  return_value=SimpleNamespace(stdout="version")),
+            ):
+                identity = self.common.cuda_benchmark_identity(args)
+            which.assert_called_once_with("criu")
+            self.assertNotIn("cuda-checkpoint", identity["binaries"])
+            self.assertEqual(identity["binaries"]["cuda-checkpoint-launcher"], {
+                "path": str(launcher.resolve()),
+                "sha256": hashlib.sha256(b"launcher").hexdigest(),
+            })
+
+    def test_backend_comparison_creates_checkpoint_job(self):
+        import tempfile
+
+        adapter = self.sglang.SglangAdapter()
+        parser = argparse.ArgumentParser()
+        adapter.add_server_arguments(parser)
+        parser.set_defaults(accelerator="gpu", criu_libdir="/plugins", json=None,
+                            enable_thinking=False, chat_extra_json=None)
+        with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ, PATH=directory):
+            launcher = Path(directory, "cuda-checkpoint")
+            launcher.write_text("#!/bin/sh\nexit 0\n")
+            launcher.chmod(0o755)
+            mount = ["--volume", f"{launcher}:/usr/local/bin/cuda-checkpoint:ro"]
+            for option, enabled in (([], True),
+                                    (["--cuda-checkpoint-launch-job"], True),
+                                    (["--no-cuda-checkpoint-launch-job"], False)):
+                with self.subTest(option=option):
+                    args = parser.parse_args(
+                        ["--cuda-backends", "driver-api", "cuda-checkpoint"] + option
+                    )
+                    adapter.prepare_args(args)
+                    self.assertEqual(args.cuda_checkpoint_launch_job, enabled)
+                    self.assertEqual(args.cuda_checkpoint_binary,
+                                     str(launcher) if enabled else "cuda-checkpoint")
+                    self.assertEqual(adapter.extra_podman_args(args), mount if enabled else [])
+
+    def test_checkpoint_job_requires_executable_launcher(self):
+        args = SimpleNamespace(
+            cuda_backends=["driver-api"], accelerator="gpu",
+            cuda_checkpoint_launch_job=None, criu_libdir="/plugins",
+            cuda_checkpoint_binary="cuda-checkpoint", enable_thinking=False,
+            chat_extra_json=None, json=None,
+        )
+        with mock.patch.object(self.common.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(RuntimeError,
+                                        "cuda-checkpoint executable not found"):
+                self.sglang.SglangAdapter.prepare_args(args)
+
+    def test_result_write_failure_does_not_replace_trial_error(self):
+        self.check_result_write_failure(trial_fails=True)
+
+    def test_result_write_failure_does_not_mark_trial_failed(self):
+        self.check_result_write_failure(trial_fails=False)
+
+    def check_result_write_failure(self, trial_fails):
+        import tempfile
+
+        benchmark = self.common.ServingBenchmark(self.sglang.SglangAdapter(), "test")
+        documents = []
+        workdirs = []
+        stderr = io.StringIO()
+
+        def run_trial(cfg, workdir, args, trial, retain):
+            workdirs.append(workdir)
+            if trial_fails:
+                raise RuntimeError("checkpoint failed")
+            return {"valid": True}
+
+        def dump(document, *args, **kwargs):
+            documents.append(document.copy())
+            if len(documents) > 1:
+                raise OSError(errno.ENOSPC, "disk full")
+
+        with tempfile.TemporaryDirectory() as directory:
+            real_mkdtemp = tempfile.mkdtemp
+            with (
+                mock.patch.object(self.common.os, "getuid", return_value=0),
+                mock.patch.object(self.common.signal, "signal"),
+                mock.patch("atexit.register"),
+                mock.patch.object(self.common, "collect_system_info", return_value={}),
+                mock.patch.object(self.common, "container_diagnostics", return_value="logs"),
+                mock.patch.object(benchmark, "run_trial", side_effect=run_trial),
+                mock.patch.object(self.common.json, "dump", side_effect=dump),
+                mock.patch.object(tempfile, "mkdtemp", side_effect=lambda **kw:
+                                  real_mkdtemp(dir=directory, **kw)),
+                contextlib.redirect_stdout(io.StringIO()),
+                contextlib.redirect_stderr(stderr),
+            ):
+                error_type = RuntimeError if trial_fails else OSError
+                error_text = "checkpoint failed" if trial_fails else "disk full"
+                with self.assertRaisesRegex(error_type, error_text):
+                    benchmark.main(["--image", "local:latest", "--iterations", "1",
+                                    "--modes", "uncompressed", "--json",
+                                    os.path.join(directory, "results.json")])
+            self.assertEqual(len(documents), 2)
+            if trial_fails:
+                self.assertTrue(Path(workdirs[0]).is_dir())
+                self.assertNotIn(workdirs[0], benchmark.state.tempdirs)
+                self.assertIn("Unable to save failed trial", stderr.getvalue())
+                self.assertEqual(len(documents[-1]["failures"]), 1)
+            else:
+                self.assertEqual(documents[-1]["failures"], [])
+                self.assertEqual(len(documents[-1]["warmups"]["Uncompressed"]), 1)
+                self.assertEqual(documents[-1]["results"]["Uncompressed"], [])
+                self.assertNotIn("trials", documents[-1])
+                self.assertNotIn("summary", documents[-1])
 
     def test_serving_frontends_share_code_not_runtime_state(self):
         self.assertIs(self.vllm.common, self.sglang.common)
@@ -832,7 +1023,8 @@ log-file /tmp/criu.log"""
         command = self.sglang.SglangAdapter.server_argv(args)
         self.assertEqual(
             command[:5],
-            ["sglang-image", "cuda-checkpoint", "--launch-job", "python3", "-m"],
+            ["sglang-image", "/usr/local/bin/cuda-checkpoint", "--launch-job",
+             "python3", "-m"],
         )
         self.assertEqual(
             self.sglang.SglangAdapter.extra_podman_args(args),
