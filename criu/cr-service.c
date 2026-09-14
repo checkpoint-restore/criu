@@ -333,16 +333,19 @@ static int setup_images_and_workdir(const char *images_dir_path,
 {
 	char work_dir_path[PATH_MAX] = "";
 
+	if (check_stream_conflicts())
+		return -1;
+
 	/* We don't need to open images dir in CHECK mode. */
 	if (opts.mode != CR_CHECK) {
-		/*
-		 * Image streaming is not supported with CRIU's service feature as
-		 * the streamer must be started for each dump/restore operation.
-		 * It is unclear how to do that with RPC, so we punt for now.
-		 * This explains why we provide the argument mode=-1 instead of
-		 * O_RSTR or O_DUMP.
-		 */
-		if (open_image_dir(images_dir_path, -1) < 0) {
+		int mode = image_dir_mode();
+
+		if (opts.stream && mode == -1) {
+			pr_err("Image streaming cannot be used with this request\n");
+			return -1;
+		}
+
+		if (open_image_dir(images_dir_path, mode) < 0) {
 			pr_perror("Can't open images directory");
 			return -1;
 		}
@@ -513,6 +516,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	if (req->has_auto_dedup)
 		opts.auto_dedup = req->auto_dedup;
+
+	if (req->has_stream)
+		opts.stream = req->stream;
 
 	if (req->has_force_irmap)
 		opts.force_irmap = req->force_irmap;

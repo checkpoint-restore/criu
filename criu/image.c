@@ -411,7 +411,8 @@ int get_parent_inventory(InventoryEntry **parent_ie)
 	if (dir < 0)
 		return 0;
 
-	img = open_image_at(dir, CR_FD_INVENTORY, O_RSTR);
+	/* The parent snapshot is always on disk, even when streaming */
+	img = open_image_at(dir, CR_FD_INVENTORY, O_RSTR | O_FORCE_LOCAL);
 	if (!img) {
 		pr_err("Failed to open parent pre-dump inventory image\n");
 		close(dir);
@@ -831,6 +832,26 @@ struct cr_img *img_from_fd(int fd)
 }
 
 /*
+ * The mode open_image_dir() wants for the current operation, or -1 for an
+ * operation that does not read or write an image set of its own.
+ */
+int image_dir_mode(void)
+{
+	switch (opts.mode) {
+	case CR_DUMP:
+		/* fallthrough */
+	case CR_CPUINFO_DUMP:
+		/* fallthrough */
+	case CR_PRE_DUMP:
+		return O_DUMP;
+	case CR_RESTORE:
+		return O_RSTR;
+	default:
+		return -1;
+	}
+}
+
+/*
  * `mode` should be O_RSTR or O_DUMP depending on the intent.
  * This is used when opts.stream is enabled for picking the right streamer
  * socket name. `mode` is ignored when opts.stream is not enabled.
@@ -855,7 +876,9 @@ int open_image_dir(const char *dir, int mode)
 	if (opts.stream) {
 		if (img_streamer_init(dir, mode) < 0)
 			goto err;
-	} else if (opts.img_parent) {
+	}
+
+	if (opts.img_parent) {
 		if (faccessat(fd, opts.img_parent, R_OK, 0)) {
 			pr_perror("Invalid parent image directory provided");
 			goto err;
@@ -924,7 +947,9 @@ void up_page_ids_base(void)
 
 struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi, u32 *id)
 {
-	if (flags == O_RDONLY || flags == O_RDWR) {
+	unsigned long mode = flags & ~O_FORCE_LOCAL;
+
+	if (mode == O_RDONLY || mode == O_RDWR) {
 		PagemapHead *h;
 		if (pb_read_one(pmi, &h, PB_PAGEMAP_HEAD) < 0)
 			return NULL;

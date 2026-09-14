@@ -67,6 +67,20 @@ function test_restore_loop {
 	kill -SIGTERM ${P}
 }
 
+function test_stream {
+	if ! command -v criu-image-streamer > /dev/null; then
+		title_print "Skip test-stream, criu-image-streamer not installed"
+		return
+	fi
+
+	mkdir -p build/imgs_stream
+
+	title_print "Run test-stream"
+	P=$(../loop)
+	echo "pid ${P}"
+	./stream.py build/criu_service.socket build/imgs_stream ${P}
+}
+
 function test_ps {
 	mkdir -p build/imgs_ps
 
@@ -93,6 +107,7 @@ trap 'echo "FAIL"; stop_server' EXIT
 test_c
 test_py
 test_restore_loop
+test_stream
 test_ps
 test_ps_addr
 test_errno

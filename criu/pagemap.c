@@ -1977,10 +1977,6 @@ static int try_open_parent(int dfd, unsigned long id, struct page_read *pr, int 
 	int pfd, ret;
 	struct page_read *parent = NULL;
 
-	/* Image streaming lacks support for incremental images */
-	if (opts.stream)
-		goto out;
-
 	if (open_parent(dfd, &pfd))
 		goto err;
 	if (pfd < 0)
@@ -1990,7 +1986,8 @@ static int try_open_parent(int dfd, unsigned long id, struct page_read *pr, int 
 	if (!parent)
 		goto err_cl;
 
-	ret = open_page_read_at(pfd, id, parent, pr_flags);
+	/* The streamer serves one snapshot, so parents come from disk */
+	ret = open_page_read_at(pfd, id, parent, pr_flags | PR_FORCE_LOCAL);
 	if (ret < 0)
 		goto err_free;
 
@@ -2562,13 +2559,16 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	/* Shared across asyncd fill-daemon workers, which open page-reads concurrently. */
 	static atomic_t ids = { 0 };
 	bool remote = pr_flags & PR_REMOTE;
+	bool streamed = opts.stream && !(pr_flags & PR_FORCE_LOCAL);
+	unsigned long oflags = 0;
+	const char *src;
 
 	/*
 	 * Only the top-most page-read can be remote, all the
 	 * others are always local.
 	 */
 	pr_flags &= ~PR_REMOTE;
-	if (opts.auto_dedup)
+	if (opts.auto_dedup && !streamed)
 		pr_flags |= PR_MOD;
 	if (pr_flags & PR_MOD)
 		flags = O_RDWR;
@@ -2601,8 +2601,11 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->pieok = false;
 	pr->disable_dedup = false;
 	pr->use_direct = false;
+	pr->streamed = streamed;
+	if (pr_flags & PR_FORCE_LOCAL)
+		oflags = O_FORCE_LOCAL;
 
-	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, img_id);
+	pr->pmi = open_image_at(dfd, i_typ, O_RSTR | oflags, img_id);
 	if (!pr->pmi)
 		return -1;
 
@@ -2617,7 +2620,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	}
 	set_encoded_read_owner(pr, pr);
 
-	pr->pi = open_pages_image_at(dfd, flags, pr->pmi, &pr->pages_img_id);
+	pr->pi = open_pages_image_at(dfd, flags | oflags, pr->pmi, &pr->pages_img_id);
 	if (!pr->pi) {
 		close_page_read(pr);
 		return -1;
@@ -2639,7 +2642,7 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 		 * reader whose own pagemap contains compressed entries; parent
 		 * images may differ from the top inventory's compression mode.
 		 */
-		if (pfd >= 0 && !opts.stream && opts.image_io_mode == IMAGE_IO_DIRECT &&
+		if (pfd >= 0 && !pr->streamed && opts.image_io_mode == IMAGE_IO_DIRECT &&
 		    !page_read_has_compressed_entries(pr)) {
 			int direct = probe_pages_o_direct(pfd);
 
@@ -2671,20 +2674,23 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->id = atomic_inc_return(&ids);
 	pr->img_id = img_id;
 
-	if (remote)
+	if (remote) {
 		pr->maybe_read_page = maybe_read_page_remote;
-	else if (opts.stream && page_read_has_compressed_entries(pr))
+		src = "remote";
+	} else if (pr->streamed && page_read_has_compressed_entries(pr)) {
 		pr->maybe_read_page = maybe_read_page_img_streamer_compressed;
-	else if (opts.stream)
+		src = "streamed";
+	} else if (pr->streamed) {
 		pr->maybe_read_page = maybe_read_page_img_streamer;
-	else {
+		src = "streamed";
+	} else {
 		pr->maybe_read_page = maybe_read_page_local_compressed;
+		src = "local";
 		if (!pr->parent && !opts.lazy_pages)
 			pr->pieok = true;
 	}
 
-	pr_debug("Opened %s page read %u (parent %u)\n", remote ? "remote" : "local", pr->id,
-		 pr->parent ? pr->parent->id : 0);
+	pr_debug("Opened %s page read %u (parent %u)\n", src, pr->id, pr->parent ? pr->parent->id : 0);
 
 	return 1;
 }
