@@ -20,6 +20,8 @@
 #include "img-streamer.h"
 #include "namespaces.h"
 #include "compression.h"
+#include "memfd.h"
+#include "luo.h"
 
 bool ns_per_id = false;
 bool img_common_magic = true;
@@ -632,6 +634,9 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 	if (!img)
 		return NULL;
 
+	img->luo_preserve_pending = false;
+	img->luo_preserve_path = NULL;
+
 	oflags = flags | imgset_template[type].oflags;
 
 	va_start(args, flags);
@@ -717,71 +722,195 @@ static int userns_openat(void *arg, int dfd, int pid)
 	return ret;
 }
 
-static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
+/*
+ * Wrap the image fd with the bfd layer and verify / write the magic header.
+ * Returns 0 on success, -1 on failure (caller owns fd lifecycle).
+ */
+static int bfd_prepare_image(struct cr_img *img, int type, unsigned long oflags,
+			     unsigned long raw_flags, char *path)
 {
-	int ret, flags;
-
-	flags = oflags & ~(O_NOBUF | O_SERVICE | O_FORCE_LOCAL);
-
-	if (opts.stream && !(oflags & O_FORCE_LOCAL)) {
-		ret = img_streamer_open(path, flags);
-		errno = EIO; /* errno value is meaningless, only the ret value is meaningful */
-	} else if (root_ns_mask & CLONE_NEWUSER && type == CR_FD_PAGES && oflags & O_RDWR) {
-		/*
-		 * For pages images dedup we need to open images read-write on
-		 * restore, that may require proper capabilities, so we ask
-		 * usernsd to do it for us
-		 */
-		struct openat_args pa = {
-			.flags = flags,
-			.err = 0,
-			.mode = CR_FD_PERM,
-		};
-		snprintf(pa.path, PATH_MAX, "%s", path);
-		ret = userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
-		if (ret < 0)
-			errno = pa.err;
-	} else
-		ret = openat(dfd, path, flags, CR_FD_PERM);
-	if (ret < 0) {
-		if (!(flags & O_CREAT) && (errno == ENOENT || ret == -ENOENT)) {
-			pr_info("No %s image\n", path);
-			img->_x.fd = EMPTY_IMG_FD;
-			goto skip_magic;
-		}
-
-		pr_perror("Unable to open %s", path);
-		goto err;
-	}
-
-	img->_x.fd = ret;
 	if (oflags & O_NOBUF)
 		bfd_setraw(&img->_x);
 	else {
-		if (flags == O_RDONLY)
+		int ret;
+
+		if (raw_flags == O_RDONLY)
 			ret = bfdopenr(&img->_x);
 		else
 			ret = bfdopenw(&img->_x);
 
 		if (ret)
-			goto err;
+			return -1;
 	}
 
 	if (imgset_template[type].magic == RAW_IMAGE_MAGIC)
-		goto skip_magic;
+		return 0;
 
-	if (flags == O_RDONLY)
-		ret = img_check_magic(img, oflags, type, path);
-	else
-		ret = img_write_magic(img, oflags, type);
-	if (ret)
+	if (raw_flags == O_RDONLY)
+		return img_check_magic(img, oflags, type, path);
+	return img_write_magic(img, oflags, type);
+}
+
+/*
+ * Mark the image so close_image() will preserve its fd via LUO when the
+ * dump finishes. Only meaningful for dump-side memfds (mem_fd >= 0).
+ */
+static int mark_for_luo_preserve(struct cr_img *img, int mem_fd, unsigned long flags,
+				 unsigned long oflags, char *path)
+{
+	if (!(flags & O_CREAT) || !opts.images_in_memfd || (oflags & O_FORCE_LOCAL))
+		return 0;
+	if (img->_x.fd < 0 || mem_fd < 0)
+		return 0;
+
+	img->luo_preserve_path = xstrdup(path);
+	if (!img->luo_preserve_path) {
+		pr_err("IMAGE [DUMP]: Failed to allocate LUO preserve path for '%s'\n", path);
+		return -1;
+	}
+	img->luo_preserve_pending = true;
+	pr_debug("IMAGE [DUMP]: Deferring LUO preserve until image close for '%s'\n", path);
+	return 0;
+}
+
+/*
+ * Dump-side helper: create a memfd that LUO can preserve across kexec.
+ * Returns the fd on success, or -1 on error. Sets *is_memfd accordingly.
+ * This helper does NOT consult opts.images_in_memfd; the caller decides
+ * whether to invoke it.
+ */
+static int try_dump_memfd(char *path, bool *is_memfd)
+{
+	char memfd_name[NAME_MAX];
+	int fd;
+
+	snprintf(memfd_name, sizeof(memfd_name), "memfd_luo:%s", path);
+	fd = memfd_create(memfd_name, MFD_CLOEXEC);
+	if (fd < 0) {
+		pr_debug("IMAGE [DUMP]: memfd_create failed for '%s', falling back to regular open\n",
+			 path);
+		*is_memfd = false;
+		return -1;
+	}
+
+	pr_debug("IMAGE [DUMP]: memfd_create succeeded for '%s' (fd=%d)\n", path, fd);
+	*is_memfd = true;
+	return fd;
+}
+
+/*
+ * Restore-side helper: pull the memfd that was preserved during dump from
+ * the active LUO session. Returns the fd on success, or -1 if the lookup
+ * misses. Sets *is_memfd accordingly. This helper does NOT consult
+ * opts.images_in_memfd; the caller decides whether to invoke it.
+ */
+static int try_restore_luo(char *path, bool *is_memfd)
+{
+	int retrieved_fd;
+
+	pr_debug("IMAGE [RESTORE]: Retrieving memfd for image '%s'\n", path);
+	if (luo_retrieve_fd_by_path(path, &retrieved_fd) < 0) {
+		pr_debug("IMAGE [RESTORE]: No LUO entry for '%s', trying disk\n", path);
+		*is_memfd = false;
+		return -1;
+	}
+
+	*is_memfd = true;
+	return retrieved_fd;
+}
+
+static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
+{
+	int flags;
+	int fd = -1;
+	int ret;
+	bool is_memfd = false;
+
+	flags = oflags & ~(O_NOBUF | O_SERVICE | O_FORCE_LOCAL);
+	/*
+	 * LUO / --memfd-images policy. Only consulted when the request is
+	 * not pinned to local storage (O_FORCE_LOCAL) and the user opted
+	 * into --memfd-images.
+	 */
+	if (opts.images_in_memfd && !(oflags & O_FORCE_LOCAL)) {
+		if (flags & O_CREAT)
+			fd = try_dump_memfd(path, &is_memfd);
+		else
+			fd = try_restore_luo(path, &is_memfd);
+	}
+
+	/*
+	 * Regular fd path. The original do_open_image goes through this for
+	 * every image; we only enter it when the LUO / memfd policy above
+	 * didn't produce an fd.
+	 */
+	if (fd < 0) {
+		if (opts.stream && !(oflags & O_FORCE_LOCAL)) {
+			fd = img_streamer_open(path, flags);
+			errno = EIO; /* errno value is meaningless, only the fd value is meaningful */
+		} else if (root_ns_mask & CLONE_NEWUSER && type == CR_FD_PAGES &&
+			   oflags & O_RDWR) {
+			/*
+			 * For pages images dedup we need to open images read-write on
+			 * restore, that may require proper capabilities, so we ask
+			 * usernsd to do it for us.
+			 */
+			struct openat_args pa = {
+				.flags = flags,
+				.err = 0,
+				.mode = CR_FD_PERM,
+			};
+			snprintf(pa.path, PATH_MAX, "%s", path);
+			fd = userns_call(userns_openat, UNS_FDOUT, &pa,
+					 sizeof(struct openat_args), dfd);
+			if (fd < 0)
+				errno = pa.err;
+		} else {
+			fd = openat(dfd, path, flags, CR_FD_PERM);
+		}
+
+		if (fd < 0) {
+			if (!(flags & O_CREAT) && (errno == ENOENT || fd == -ENOENT)) {
+				pr_info("No %s image\n", path);
+				img->_x.fd = EMPTY_IMG_FD;
+				return 0;
+			}
+			pr_perror("Unable to open %s", path);
+			return -1;
+		}
+	}
+
+	img->_x.fd = fd;
+
+	if (mark_for_luo_preserve(img, is_memfd ? fd : -1, flags, oflags, path))
 		goto err;
 
-skip_magic:
+	/*
+	 * For memfd images, the fd was created during dump with data already
+	 * written to it; luo_preserve_fd saved it with its current offset.
+	 * When retrieved on restore, the offset is wherever dump left it,
+	 * not at 0. Rewind it *before* bfdopenr so the buffered reader sees
+	 * the image from its start. Disk / streamer images have their fd at
+	 * offset 0 so they don't need this.
+	 */
+	if (is_memfd)
+		lseek(fd, 0, SEEK_SET);
+
+	if (bfd_prepare_image(img, type, oflags, flags, path))
+		goto err;
+
 	return 0;
 
 err:
-	return -1;
+	ret = -1;
+	xfree(img->luo_preserve_path);
+	img->luo_preserve_path = NULL;
+	img->luo_preserve_pending = false;
+	if (img->_x.fd >= 0) {
+		close(img->_x.fd);
+		img->_x.fd = -1;
+	}
+	return ret;
 }
 
 int open_image_lazy(struct cr_img *img)
@@ -811,9 +940,25 @@ void close_image(struct cr_img *img)
 		 */
 		unlinkat(get_service_fd(IMG_FD_OFF), img->path, 0);
 		xfree(img->path);
-	} else if (!empty_image(img))
-		bclose(&img->_x);
+	} else if (!empty_image(img)) {
+		if (img->luo_preserve_pending && img->luo_preserve_path) {
+			uint64_t token;
 
+			if (bfd_flush(&img->_x) < 0) {
+				pr_perror("IMAGE [DUMP]: Failed to flush memfd image '%s' before LUO preserve",
+					  img->luo_preserve_path);
+			} else if (luo_preserve_fd(img->_x.fd, &token, img->luo_preserve_path) < 0) {
+				pr_err("IMAGE [DUMP]: Failed to preserve memfd '%s' during close\n",
+				       img->luo_preserve_path);
+			} else {
+				pr_info("IMAGE [DUMP]: Memfd '%s' preserved with LUO at close (token=0x%016llx)\n",
+					img->luo_preserve_path, (unsigned long long)token);
+			}
+		}
+		bclose(&img->_x);
+	}
+
+	xfree(img->luo_preserve_path);
 	xfree(img);
 }
 
