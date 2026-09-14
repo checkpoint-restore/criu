@@ -74,6 +74,21 @@ The direct backend does not require CUDA toolkit headers at build time. The
 CUDA 13.0 restore ABI on older drivers merely because checkpoint symbols are
 present.
 
+During checkpoint and restore, the Driver API backend calls libcuda in a
+worker thread while CRIU's tracing thread waits for the CUDA restore thread.
+After the API call returns, the worker sends SIGSTOP to the restore thread.
+CRIU consumes this ptrace stop and restores the thread's signal mask and
+ptrace options without forwarding SIGSTOP. If the worker cannot send SIGSTOP,
+CRIU interrupts the restore thread itself instead of waiting indefinitely.
+
+If the restore thread stops unexpectedly or exits before the operation
+completes, CRIU kills the target process with SIGKILL. Closing the target's IPC
+sockets allows the blocked Driver API call to return, after which CRIU joins
+the worker. The plugin then starts no new lock or checkpoint, but rollback
+still restores the other tasks. The target cannot resume after this recovery
+path. Driver API calls and worker
+joins have no deadline; a driver call that remains blocked can still hang CRIU.
+
 The CLI backend executes `cuda-checkpoint` for each request and monitors the
 CUDA restore thread while waiting. Unexpected stops or exits fail the operation
 regardless of the configured timeout. By default, helpers have no deadline, so
@@ -129,9 +144,11 @@ plugin will re-wake when needed.
 
 # Testing
 
-The CPU-only regression tests exercise the CLI backend with the mock
-`cuda-checkpoint` and real ptrace stops, including unlimited and finite helper
-waits, faults, helper exits, bounded stop and reap waits, and rollback:
+The CPU-only regression tests exercise both backends with mock CUDA APIs and
+real ptrace stops, including separate restore threads in multithreaded targets,
+Driver API worker completion and target termination after faults, unrelated
+child events, unlimited and finite CLI waits, helper exits, bounded CLI
+post-call stop waits, and rollback:
 
 ```
 make cuda_plugin
