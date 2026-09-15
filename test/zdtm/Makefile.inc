@@ -105,7 +105,9 @@ default: all
 .PHONY: default
 
 gitignore-clean:
+ifneq ($(PRESERVE_GITIGNORE),y)
 	$(RM) .gitignore
+endif
 .PHONY: gitignore-clean
 
 clean: gitignore-clean
