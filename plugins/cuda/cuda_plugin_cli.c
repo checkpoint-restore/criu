@@ -13,7 +13,9 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
@@ -221,6 +223,8 @@ static enum cuda_restore_tid_result get_cuda_restore_tid(int root_pid, int *tid)
 {
 	char pid_buf[16];
 	char pid_out[CUDA_CKPT_BUF_SIZE];
+	char *end;
+	long value;
 	int ret;
 
 	snprintf(pid_buf, sizeof(pid_buf), "%d", root_pid);
@@ -236,7 +240,16 @@ static enum cuda_restore_tid_result get_cuda_restore_tid(int root_pid, int *tid)
 		return CUDA_RESTORE_TID_NOT_FOUND;
 	}
 
-	*tid = atoi(pid_out);
+	errno = 0;
+	value = strtol(pid_out, &end, 10);
+	while (isspace((unsigned char)*end))
+		end++;
+	if (errno || end == pid_out || *end || value <= 0 || value > INT_MAX) {
+		pr_err("Invalid CUDA restore tid for pid %d: %s\n", root_pid, pid_out);
+		return CUDA_RESTORE_TID_ERROR;
+	}
+
+	*tid = (int)value;
 	return CUDA_RESTORE_TID_FOUND;
 }
 
