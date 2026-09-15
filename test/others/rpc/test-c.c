@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
 		(char *)"unknown.option=ignored",
 		(char *)"test-plugin.test-option=test-value",
 		(char *)"test-plugin.test=abbreviation-must-be-ignored",
+		(char *)"test-plugin.test",
 	};
 	CriuResp *resp = NULL;
 	int fd, dir_fd;
@@ -106,7 +107,7 @@ int main(int argc, char *argv[])
 	req.opts->log_level = 4;
 	req.opts->has_network_lock = true;
 	req.opts->network_lock = CRIU_NETWORK_LOCK_METHOD__SKIP;
-	req.opts->n_plugin_options = 3;
+	req.opts->n_plugin_options = 4;
 	req.opts->plugin_options = plugin_options;
 
 	/*
