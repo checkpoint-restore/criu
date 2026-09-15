@@ -2390,7 +2390,7 @@ int prepare_cgroup(void)
 	n_controllers = ce->n_controllers;
 	controllers = ce->controllers;
 
-	if (n_sets) {
+	if (n_sets && opts.manage_cgroups != CG_MODE_IGNORE) {
 		/*
 		 * We rely on the fact that all sets contain the same
 		 * set of controllers. This is checked during dump
