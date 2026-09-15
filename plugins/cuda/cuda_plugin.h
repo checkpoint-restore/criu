@@ -14,6 +14,7 @@ struct cuda_plugin_backend {
 	int (*resume_devices_late)(int pid);
 };
 
+extern const struct cuda_plugin_backend cuda_driver_backend;
 extern const struct cuda_plugin_backend cuda_cli_backend;
 
 #endif /* CUDA_PLUGIN_H */

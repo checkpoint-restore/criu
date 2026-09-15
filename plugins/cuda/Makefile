@@ -1,7 +1,7 @@
 PLUGIN_NAME := cuda_plugin
 PLUGIN_SOBJ := cuda_plugin.so
-PLUGIN_SRCS := cuda_plugin.c cuda_plugin_cli.c
-PLUGIN_HEADERS := cuda_plugin.h
+PLUGIN_SRCS := cuda_plugin.c cuda_plugin_driver.c cuda_plugin_cli.c
+PLUGIN_HEADERS := cuda_plugin.h cuda_checkpoint.h
 
 DEPS_CUDA := $(PLUGIN_SOBJ)
 
@@ -21,7 +21,7 @@ all: $(DEPS_CUDA)
 
 cuda_plugin.so: $(PLUGIN_SRCS) $(PLUGIN_HEADERS)
 	$(call msg-gen, $@)
-	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS)
+	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl
 
 clean:
 	$(call msg-clean, $@)
