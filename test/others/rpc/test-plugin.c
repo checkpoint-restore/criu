@@ -11,12 +11,20 @@
 #define TEST_OPTION_VALUE "test-value"
 #define TEST_LONG_OPTION  TEST_PLUGIN_NAME "." TEST_OPTION_NAME
 
-static bool test_plugin_option_matches(const char *arg, const char *name)
+static bool test_plugin_option_matches(const char *arg, const char *name,
+				       const char *optarg_val, int *err)
 {
 	size_t len = strlen(name);
 
-	return !strncmp(arg, "--", 2) && !strncmp(arg + 2, name, len) &&
-	       arg[len + 2] == '=';
+	if (strncmp(arg, "--", 2) || strncmp(arg + 2, name, len))
+		return false;
+
+	if (arg[len + 2] == '\0') {
+		*err = -EINVAL;
+		return false;
+	}
+
+	return arg[len + 2] == '=' && optarg_val != NULL;
 }
 
 static int record_test_plugin_option(void)
@@ -42,7 +50,7 @@ static int record_test_plugin_option(void)
 static int test_plugin_init(int stage)
 {
 	static const struct option options[] = {
-		{ TEST_LONG_OPTION, required_argument, NULL, 't' },
+		{ TEST_LONG_OPTION, optional_argument, NULL, 't' },
 		{},
 	};
 	char **argv = NULL;
@@ -66,20 +74,23 @@ static int test_plugin_init(int stage)
 	saved_optind = optind;
 	opterr = 0;
 	optind = 0;
-	while ((option = getopt_long(argc, argv, ":", options, NULL)) != -1) {
+	while ((option = getopt_long(argc, argv, "", options, NULL)) != -1) {
 		switch (option) {
 		case 't':
-			if (test_plugin_option_matches(argv[optind - 1], TEST_LONG_OPTION))
+			if (test_plugin_option_matches(argv[optind - 1],
+						       TEST_LONG_OPTION,
+						       optarg, &ret))
 				value = optarg;
 			break;
 		case '?':
 			/* The option belongs to another plugin. */
 			break;
-		case ':':
 		default:
 			ret = -EINVAL;
 			goto restore_getopt;
 		}
+		if (ret)
+			goto restore_getopt;
 	}
 restore_getopt:
 	optarg = saved_optarg;
