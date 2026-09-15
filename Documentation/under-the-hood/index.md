@@ -12,6 +12,7 @@ This directory contains technical documentation detailing the internal implement
 * [Final States](final-states.md): The state of processes after restore.
 * [Technologies Used](technologies.md): Overview of kernel technologies CRIU depends on.
 * [Kerndat](kerndat.md): How CRIU probes and caches kernel feature support.
+* [Plugins](plugins.md): Extending CRIU for external resources
 
 ## Memory Management
 

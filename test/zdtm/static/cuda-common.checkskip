@@ -1,0 +1,180 @@
+#!/bin/sh
+
+set -u
+
+MIN_DEVICES=1
+FEATURES=
+NEED_CUBLAS=0
+
+if [ "$(uname -m)" != "x86_64" ] || [ "${COMPAT_TEST:-}" = "y" ]; then
+	echo "CUDA checkpointing is supported only on native x86-64"
+	exit 1
+fi
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+	--min-devices)
+		shift
+		MIN_DEVICES="$1"
+		;;
+	--host-map)
+		FEATURES="$FEATURES host-map"
+		;;
+	--mempool)
+		FEATURES="$FEATURES mempool"
+		;;
+	--cublas)
+		NEED_CUBLAS=1
+		;;
+	*)
+		echo "unknown CUDA checkskip option: $1"
+		exit 1
+		;;
+	esac
+	shift
+done
+
+test -d /proc/driver/nvidia/gpus || exit 1
+
+NVCC=${NVCC:-nvcc}
+if ! command -v "$NVCC" >/dev/null 2>&1 && ! test -x "$NVCC"; then
+	exit 1
+fi
+
+if [ "$NEED_CUBLAS" -eq 1 ]; then
+	NVCC_PATH=$(command -v "$NVCC" 2>/dev/null || echo "$NVCC")
+	CUDA_HOME=${CUDA_HOME:-${NVCC_PATH%/bin/nvcc}}
+	CUDA_LIBDIR=${CUDA_LIBDIR:-}
+	if [ -z "$CUDA_LIBDIR" ]; then
+		if [ -d "$CUDA_HOME/lib64" ]; then
+			CUDA_LIBDIR=$CUDA_HOME/lib64
+		else
+			CUDA_LIBDIR=$CUDA_HOME/lib
+		fi
+	fi
+
+	if ! test -r "$CUDA_HOME/include/cublas_v2.h" && ! test -r /usr/include/cublas_v2.h; then
+		echo "cublas_v2.h not found"
+		exit 1
+	fi
+
+	if ! find "$CUDA_LIBDIR" -maxdepth 1 -name 'libcublas.so*' -print -quit 2>/dev/null | grep -q .; then
+		python3 - <<'PY' || exit 1
+import ctypes
+import ctypes.util
+import sys
+
+name = ctypes.util.find_library("cublas")
+if not name:
+    print("libcublas.so not found")
+    sys.exit(1)
+try:
+    ctypes.CDLL(name)
+except OSError as err:
+    print(err)
+    sys.exit(1)
+PY
+	fi
+fi
+
+CUDA_CHECKPOINT=${CUDA_CHECKPOINT:-cuda-checkpoint}
+CLI_SUPPORTED=0
+if command -v "$CUDA_CHECKPOINT" >/dev/null 2>&1 || test -x "$CUDA_CHECKPOINT"; then
+	if "$CUDA_CHECKPOINT" -h 2>&1 | grep -q -- '--action'; then
+		CLI_SUPPORTED=1
+	fi
+fi
+
+python3 - "$MIN_DEVICES" "$FEATURES" "$CLI_SUPPORTED" <<'PY'
+import ctypes
+import sys
+
+min_devices = int(sys.argv[1])
+features = set(sys.argv[2].split())
+cli_supported = bool(int(sys.argv[3]))
+
+symbols = [
+    "cuInit",
+    "cuDeviceGet",
+    "cuDeviceGetAttribute",
+    "cuDeviceGetCount",
+]
+
+checkpoint_symbols = [
+    "cuDriverGetVersion",
+    "cuCheckpointProcessLock",
+    "cuCheckpointProcessCheckpoint",
+    "cuCheckpointProcessRestore",
+    "cuCheckpointProcessUnlock",
+    "cuCheckpointProcessGetState",
+    "cuCheckpointProcessGetRestoreThreadId",
+]
+
+CU_DEVICE_ATTRIBUTE_CAN_MAP_HOST_MEMORY = 19
+CU_DEVICE_ATTRIBUTE_MEMORY_POOLS_SUPPORTED = 115
+
+try:
+    libcuda = ctypes.CDLL("libcuda.so.1")
+except OSError as err:
+    print(err)
+    sys.exit(1)
+
+for symbol in symbols:
+    if not hasattr(libcuda, symbol):
+        print("missing CUDA symbol %s" % symbol)
+        sys.exit(1)
+
+libcuda.cuInit.argtypes = [ctypes.c_uint]
+libcuda.cuInit.restype = ctypes.c_int
+libcuda.cuDeviceGetCount.argtypes = [ctypes.POINTER(ctypes.c_int)]
+libcuda.cuDeviceGetCount.restype = ctypes.c_int
+libcuda.cuDeviceGet.argtypes = [ctypes.POINTER(ctypes.c_int), ctypes.c_int]
+libcuda.cuDeviceGet.restype = ctypes.c_int
+libcuda.cuDeviceGetAttribute.argtypes = [ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.c_int]
+libcuda.cuDeviceGetAttribute.restype = ctypes.c_int
+
+if libcuda.cuInit(0) != 0:
+    print("cuInit failed")
+    sys.exit(1)
+
+direct_supported = all(hasattr(libcuda, symbol) for symbol in checkpoint_symbols)
+if direct_supported:
+    libcuda.cuDriverGetVersion.argtypes = [ctypes.POINTER(ctypes.c_int)]
+    libcuda.cuDriverGetVersion.restype = ctypes.c_int
+    driver_version = ctypes.c_int()
+    ret = libcuda.cuDriverGetVersion(ctypes.byref(driver_version))
+    if ret != 0:
+        print("cuDriverGetVersion failed: %d" % ret)
+        sys.exit(1)
+    direct_supported = driver_version.value >= 13000
+
+if not direct_supported and not cli_supported:
+    print("neither the CUDA 13.0 Driver API backend nor cuda-checkpoint --action is available")
+    sys.exit(1)
+
+count = ctypes.c_int()
+if libcuda.cuDeviceGetCount(ctypes.byref(count)) != 0 or count.value < min_devices:
+    print("need at least %d CUDA devices, found %d" % (min_devices, count.value))
+    sys.exit(1)
+
+device = ctypes.c_int()
+if libcuda.cuDeviceGet(ctypes.byref(device), 0) != 0:
+    print("cuDeviceGet failed")
+    sys.exit(1)
+
+def device_attr(attr):
+    value = ctypes.c_int()
+    ret = libcuda.cuDeviceGetAttribute(ctypes.byref(value), attr, device.value)
+    if ret != 0:
+        print("cuDeviceGetAttribute(%d) failed: %d" % (attr, ret))
+        sys.exit(1)
+    return value.value
+
+if "host-map" in features and device_attr(CU_DEVICE_ATTRIBUTE_CAN_MAP_HOST_MEMORY) <= 0:
+    print("CUDA device cannot map host memory")
+    sys.exit(1)
+
+if "mempool" in features and device_attr(CU_DEVICE_ATTRIBUTE_MEMORY_POOLS_SUPPORTED) <= 0:
+    print("CUDA device does not support memory pools")
+    sys.exit(1)
+PY
