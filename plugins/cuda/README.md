@@ -18,11 +18,33 @@ probes the CLI backend. A selected backend is never replaced after an operation
 starts: lock, checkpoint, restore, and unlock errors are fatal and do not cause
 fallback.
 
+Users can override automatic selection with the plugin-specific `backend`
+option:
+
+```
+--plugin-option=cuda_plugin.backend=auto
+--plugin-option=cuda_plugin.backend=driver-api
+--plugin-option=cuda_plugin.backend=cuda-checkpoint
+```
+
+`auto` is the default. Once CUDA handling is activated, an explicit
+`driver-api` or `cuda-checkpoint` selection probes only that backend and fails
+plugin initialization when it is unavailable; it never falls back to the other
+backend. In particular, `cuda-checkpoint` forces the older CLI interface even
+when the Driver API backend is supported. A dump on a host without an NVIDIA
+GPU still disables the optional plugin before probing a backend. The CUDA
+plugin ignores namespaced arguments it does not recognize so other plugins can
+parse the same list. Unknown and empty `cuda_plugin.backend` values are
+rejected. The plugin validates recognized arguments during initialization,
+including pre-dump and CPU-only restore, but does not probe a backend for either
+of those cases.
+
 CRIU records the stable logical name `cuda_plugin` in its image inventory. It
 does not record the selected backend or NVIDIA driver version, so an image
 dumped with one backend can be restored with the other. Workloads that depend
 on capabilities from a newer driver still require those capabilities on the
-restore host.
+restore host. If an override is required for both operations, pass the option
+separately to the dump and restore commands.
 
 During restore, the plugin does not probe either backend unless the image
 requires `cuda_plugin`. It consumes that requirement only after one backend has
