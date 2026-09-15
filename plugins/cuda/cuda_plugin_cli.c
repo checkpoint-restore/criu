@@ -51,7 +51,7 @@ enum cuda_restore_tid_result {
 
 struct pid_info {
 	int pid;
-	char checkpointed;
+	cuda_task_state_t current_task_state;
 	cuda_task_state_t initial_task_state;
 	struct list_head list;
 };
@@ -72,7 +72,8 @@ static void dealloc_pid_buffer(struct list_head *pid_buf)
 	}
 }
 
-static int add_pid_to_buf(struct list_head *pid_buf, int pid, cuda_task_state_t state)
+static int add_pid_to_buf(struct list_head *pid_buf, int pid, cuda_task_state_t initial_state,
+			  cuda_task_state_t current_state)
 {
 	struct pid_info *new = xmalloc(sizeof(*new));
 
@@ -81,11 +82,23 @@ static int add_pid_to_buf(struct list_head *pid_buf, int pid, cuda_task_state_t 
 	}
 
 	new->pid = pid;
-	new->checkpointed = 0;
-	new->initial_task_state = state;
+	new->initial_task_state = initial_state;
+	new->current_task_state = current_state;
 	list_add_tail(&new->list, pid_buf);
 
 	return 0;
+}
+
+static struct pid_info *find_cuda_pid(int pid)
+{
+	struct pid_info *info;
+
+	list_for_each_entry(info, &cuda_pids, list) {
+		if (info->pid == pid)
+			return info;
+	}
+
+	return NULL;
 }
 
 static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
@@ -368,13 +381,14 @@ static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 static int cuda_cli_checkpoint_devices(int pid)
 {
 	enum cuda_restore_tid_result tid_result;
+	cuda_task_state_t observed_task_state;
 	int restore_tid;
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	int int_ret;
+	int ret = 0;
 	int status;
 	k_rtsigset_t save_sigset;
 	struct pid_info *task_info;
-	bool pid_found = false;
 
 	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
@@ -390,24 +404,17 @@ static int cuda_cli_checkpoint_devices(int pid)
 	if (tid_result == CUDA_RESTORE_TID_ERROR)
 		return -1;
 
-	/* Check if the process is already in a checkpointed state */
-	list_for_each_entry(task_info, &cuda_pids, list) {
-		if (task_info->pid == pid) {
-			if (task_info->initial_task_state == CUDA_TASK_CHECKPOINTED) {
-				pr_info("pid %d already in a checkpointed state\n", pid);
-				return 0;
-			}
-			pid_found = true;
-			break;
-		}
-	}
-
-	if (pid_found == false) {
+	task_info = find_cuda_pid(pid);
+	if (!task_info) {
 		/* We return an error here. The task should be restored
 		 * to its original state at cuda_plugin_fini().
 		 */
 		pr_err("Failed to track pid %d\n", pid);
 		return -1;
+	}
+	if (task_info->initial_task_state == CUDA_TASK_CHECKPOINTED) {
+		pr_info("pid %d already in a checkpointed state\n", pid);
+		return 0;
 	}
 
 	pr_info("Checkpointing CUDA devices on pid %d restore_tid %d\n", pid, restore_tid);
@@ -418,14 +425,30 @@ static int cuda_cli_checkpoint_devices(int pid)
 		return -1;
 	}
 
-	task_info->checkpointed = 1;
+	/* A failed checkpoint may leave the task LOCKED or CHECKPOINTED. Assume
+	 * CHECKPOINTED until a failure-state query proves otherwise.
+	 */
+	task_info->current_task_state = CUDA_TASK_CHECKPOINTED;
 	status = cuda_process_checkpoint_action(pid, ACTION_CHECKPOINT, 0, msg_buf, sizeof(msg_buf));
 	if (status) {
 		pr_err("CHECKPOINT_DEVICES failed with %s\n", msg_buf);
+		ret = -1;
+
+		/* The restore thread must be running while cuda-checkpoint asks the
+		 * driver for the state reached by the failed action.
+		 */
+		observed_task_state = get_cuda_state(pid);
+		if (observed_task_state != CUDA_TASK_UNKNOWN)
+			task_info->current_task_state = observed_task_state;
+		else
+			pr_err("Unable to determine CUDA state after checkpoint failure for pid %d\n", pid);
 	}
 
 	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
-	return status != 0 ? -1 : int_ret;
+	if (!ret)
+		ret = int_ret;
+
+	return ret;
 }
 
 static int cuda_cli_pause_devices(int pid)
@@ -444,9 +467,9 @@ static int cuda_cli_pause_devices(int pid)
 	if (tid_result == CUDA_RESTORE_TID_ERROR)
 		return -1;
 
-	task_state = get_cuda_state(restore_tid);
+	task_state = get_cuda_state(pid);
 	if (task_state == CUDA_TASK_UNKNOWN) {
-		pr_err("Failed to get CUDA state for PID %d\n", restore_tid);
+		pr_err("Failed to get CUDA state for pid %d\n", pid);
 		return -1;
 	}
 
@@ -456,27 +479,26 @@ static int cuda_cli_pause_devices(int pid)
 	if (task_state == CUDA_TASK_LOCKED) {
 		pr_info("pid %d already in a locked state\n", pid);
 		/* Leave this PID in a "locked" state at resume_device() */
-		add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_LOCKED);
-		return 0;
+		return add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_LOCKED, CUDA_TASK_LOCKED);
 	}
 
 	if (task_state == CUDA_TASK_CHECKPOINTED) {
 		/* We need to skip this PID in cuda_plugin_checkpoint_devices(),
 		 * and leave it in a "checkpointed" state at resume_device(). */
-		add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_CHECKPOINTED);
-		return 0;
+		return add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_CHECKPOINTED);
 	}
 
 	pr_info("pausing devices on pid %d\n", pid);
 	int status = cuda_process_checkpoint_action(pid, ACTION_LOCK, opts.timeout * 1000, msg_buf, sizeof(msg_buf));
 	if (status) {
 		pr_err("PAUSE_DEVICES failed with %s\n", msg_buf);
-		if (alarm_timeouted())
+		task_state = get_cuda_state(pid);
+		if (task_state == CUDA_TASK_LOCKED || alarm_timeouted())
 			goto unlock;
 		return -1;
 	}
 
-	if (add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_RUNNING)) {
+	if (add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_RUNNING, CUDA_TASK_LOCKED)) {
 		pr_err("unable to track paused pid %d\n", pid);
 		goto unlock;
 	}
@@ -490,10 +512,12 @@ unlock:
 	return -1;
 }
 
-int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_state)
+static int resume_device(int pid, cuda_task_state_t current_task_state,
+			 cuda_task_state_t initial_task_state)
 {
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	enum cuda_restore_tid_result tid_result;
+	cuda_task_state_t observed_task_state;
 	int restore_tid;
 	int status;
 	int ret = 0;
@@ -503,6 +527,15 @@ int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_stat
 	if (initial_task_state == CUDA_TASK_UNKNOWN) {
 		pr_info("skip resume for PID %d (unknown state)\n", pid);
 		return 0;
+	}
+
+	if (current_task_state == initial_task_state)
+		return 0;
+
+	if (initial_task_state == CUDA_TASK_CHECKPOINTED) {
+		pr_err("Cannot return pid %d from CUDA state %d to checkpointed state\n",
+		       pid, current_task_state);
+		return -1;
 	}
 
 	tid_result = get_cuda_restore_tid(pid, &restore_tid);
@@ -526,23 +559,68 @@ int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_stat
 		return -1;
 	}
 
-	if (checkpointed && (initial_task_state == CUDA_TASK_RUNNING || initial_task_state == CUDA_TASK_LOCKED)) {
+	/* cuda-checkpoint state queries may wait for the dedicated restore thread,
+	 * so refresh the tracked state only after that thread is running.
+	 */
+	observed_task_state = get_cuda_state(pid);
+	if (observed_task_state != CUDA_TASK_UNKNOWN)
+		current_task_state = observed_task_state;
+	else {
+		pr_warn("Unable to query CUDA state for pid %d; using tracked state %d\n",
+			pid, current_task_state);
+		ret = -1;
+	}
+
+	if (current_task_state == CUDA_TASK_UNKNOWN) {
+		pr_err("Unable to determine CUDA state for pid %d\n", pid);
+		goto interrupt;
+	}
+	if (current_task_state == initial_task_state)
+		goto interrupt;
+
+	if (current_task_state == CUDA_TASK_CHECKPOINTED) {
 		/* If the process was "locked" or "running" before checkpointing it, we need to restore it */
 		status = cuda_process_checkpoint_action(pid, ACTION_RESTORE, 0, msg_buf, sizeof(msg_buf));
 		if (status) {
 			pr_err("RESUME_DEVICES RESTORE failed with %s\n", msg_buf);
 			ret = -1;
-			goto interrupt;
+
+			observed_task_state = get_cuda_state(pid);
+			if (observed_task_state != CUDA_TASK_UNKNOWN)
+				current_task_state = observed_task_state;
+			else
+				pr_err("Unable to determine CUDA state after restore failure for pid %d\n", pid);
+		} else {
+			current_task_state = CUDA_TASK_LOCKED;
 		}
 	}
 
 	if (initial_task_state == CUDA_TASK_RUNNING) {
-		/* If the process was "running" before we paused it, we need to unlock it */
-		status = cuda_process_checkpoint_action(pid, ACTION_UNLOCK, 0, msg_buf, sizeof(msg_buf));
-		if (status) {
-			pr_err("RESUME_DEVICES UNLOCK failed with %s\n", msg_buf);
+		if (current_task_state == CUDA_TASK_LOCKED) {
+			/* If the process was running before we paused it, unlock it. */
+			status = cuda_process_checkpoint_action(pid, ACTION_UNLOCK, 0, msg_buf, sizeof(msg_buf));
+			if (status) {
+				pr_err("RESUME_DEVICES UNLOCK failed with %s\n", msg_buf);
+				ret = -1;
+
+				observed_task_state = get_cuda_state(pid);
+				if (observed_task_state != CUDA_TASK_UNKNOWN)
+					current_task_state = observed_task_state;
+				else
+					pr_err("Unable to determine CUDA state after unlock failure for pid %d\n", pid);
+			} else {
+				current_task_state = CUDA_TASK_RUNNING;
+			}
+		}
+
+		if (current_task_state != CUDA_TASK_RUNNING) {
+			pr_err("Unable to return pid %d to running state from CUDA state %d\n",
+			       pid, current_task_state);
 			ret = -1;
 		}
+	} else if (current_task_state != CUDA_TASK_LOCKED) {
+		pr_err("Unable to return pid %d to locked state from CUDA state %d\n", pid, current_task_state);
+		ret = -1;
 	}
 
 interrupt:
@@ -558,7 +636,7 @@ static int cuda_cli_resume_devices_late(int pid)
 	 * to be in a "running" state after restore, even if it was
 	 * in a "locked" or "checkpointed" state during `criu dump`.
 	 */
-	return resume_device(pid, 1, CUDA_TASK_RUNNING);
+	return resume_device(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_RUNNING);
 }
 
 static int cuda_cli_probe(void)
@@ -594,7 +672,8 @@ static void cuda_cli_fini(int stage, int ret)
 	if (stage == CR_PLUGIN_STAGE__DUMP && (opts.final_state == TASK_ALIVE || ret != 0)) {
 		struct pid_info *info;
 		list_for_each_entry(info, &cuda_pids, list) {
-			resume_device(info->pid, info->checkpointed, info->initial_task_state);
+			if (resume_device(info->pid, info->current_task_state, info->initial_task_state))
+				pr_err("Unable to restore CUDA state for pid %d during dump cleanup\n", info->pid);
 		}
 	}
 	if (stage == CR_PLUGIN_STAGE__DUMP) {
