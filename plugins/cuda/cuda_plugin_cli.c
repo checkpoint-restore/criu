@@ -12,6 +12,7 @@
 #include <compel/infect.h>
 
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -33,6 +34,12 @@ typedef enum {
 	CUDA_TASK_CHECKPOINTED,
 	CUDA_TASK_UNKNOWN = -1
 } cuda_task_state_t;
+
+enum cuda_restore_tid_result {
+	CUDA_RESTORE_TID_FOUND,
+	CUDA_RESTORE_TID_NOT_FOUND,
+	CUDA_RESTORE_TID_ERROR,
+};
 
 #define CUDA_CKPT_BUF_SIZE (128)
 
@@ -179,6 +186,9 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 			 "<=== cuda-checkpoint output\n",
 			 buf);
 
+	if (exit_code != EXIT_SUCCESS && !strncmp(buf, "execvp(\"", 8))
+		return -ENOENT;
+
 	return exit_code;
 err:
 	kill(child_pid, SIGKILL);
@@ -189,41 +199,53 @@ err:
 /**
  * Checks if a given flag is supported by the cuda-checkpoint utility
  *
- * Returns:
- *  1 if the flag is supported,
- *  0 if the flag is not supported,
- *  -1 if there was an error launching the cuda-checkpoint utility.
+ * Returns 0 if the flag is supported, -ENOTSUP if cuda-checkpoint ran but the
+ * flag is unavailable, -ENOENT if cuda-checkpoint could not be executed, and
+ * another negative error for a broken probe.
  */
 static int cuda_checkpoint_supports_flag(const char *flag)
 {
 	char msg_buf[2048];
 	const char *args[] = { CUDA_CHECKPOINT, "-h", NULL };
+	int ret;
 
-	if (launch_cuda_checkpoint(args, msg_buf, sizeof(msg_buf)) != 0)
-		return -1;
+	ret = launch_cuda_checkpoint(args, msg_buf, sizeof(msg_buf));
+	if (ret < 0)
+		return ret;
+	if (ret > 0) {
+		pr_err("%s help probe failed with exit status %d: %s\n",
+		       CUDA_CHECKPOINT, ret, msg_buf);
+		return -EIO;
+	}
 
 	if (strstr(msg_buf, flag) == NULL)
-		return 0;
+		return -ENOTSUP;
 
-	return 1;
+	return 0;
 }
 
-/* Retrieve the cuda restore thread TID from the root pid */
-static int get_cuda_restore_tid(int root_pid)
+/* Retrieve the CUDA restore thread TID from the root pid. */
+static enum cuda_restore_tid_result get_cuda_restore_tid(int root_pid, int *tid)
 {
 	char pid_buf[16];
 	char pid_out[CUDA_CKPT_BUF_SIZE];
+	int ret;
 
 	snprintf(pid_buf, sizeof(pid_buf), "%d", root_pid);
 
 	const char *args[] = { CUDA_CHECKPOINT, "--get-restore-tid", "--pid", pid_buf, NULL };
-	int ret = launch_cuda_checkpoint(args, pid_out, sizeof(pid_out));
-	if (ret != 0) {
-		pr_err("Failed to launch cuda-checkpoint to retrieve restore tid: %s\n", pid_out);
-		return -1;
+	ret = launch_cuda_checkpoint(args, pid_out, sizeof(pid_out));
+	if (ret < 0) {
+		pr_err("Failed to run cuda-checkpoint to retrieve the restore tid\n");
+		return CUDA_RESTORE_TID_ERROR;
+	}
+	if (ret > 0) {
+		pr_debug("PID %d has no CUDA restore thread: %s\n", root_pid, pid_out);
+		return CUDA_RESTORE_TID_NOT_FOUND;
 	}
 
-	return atoi(pid_out);
+	*tid = atoi(pid_out);
+	return CUDA_RESTORE_TID_FOUND;
 }
 
 static cuda_task_state_t get_task_state_enum(const char *state_str)
@@ -340,6 +362,7 @@ static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 
 static int cuda_cli_checkpoint_devices(int pid)
 {
+	enum cuda_restore_tid_result tid_result;
 	int restore_tid;
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	int int_ret;
@@ -352,17 +375,19 @@ static int cuda_cli_checkpoint_devices(int pid)
 		return -ENOTSUP;
 	}
 
-	restore_tid = get_cuda_restore_tid(pid);
+	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
 	/* We can possibly hit a race with cuInit() where we are past the point of
 	 * locking the process but at lock time cuInit() hadn't completed in which
 	 * case cuda-checkpoint will report that we're in an invalid state to
 	 * checkpoint
 	 */
-	if (restore_tid == -1) {
+	if (tid_result == CUDA_RESTORE_TID_NOT_FOUND) {
 		pr_info("No need to checkpoint devices on pid %d\n", pid);
-		return 0;
+		return -ENOTSUP;
 	}
+	if (tid_result == CUDA_RESTORE_TID_ERROR)
+		return -1;
 
 	/* Check if the process is already in a checkpointed state */
 	list_for_each_entry(task_info, &cuda_pids, list) {
@@ -404,6 +429,7 @@ static int cuda_cli_checkpoint_devices(int pid)
 
 static int cuda_cli_pause_devices(int pid)
 {
+	enum cuda_restore_tid_result tid_result;
 	int restore_tid;
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	cuda_task_state_t task_state;
@@ -412,12 +438,14 @@ static int cuda_cli_pause_devices(int pid)
 		return -ENOTSUP;
 	}
 
-	restore_tid = get_cuda_restore_tid(pid);
+	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
-	if (restore_tid == -1) {
+	if (tid_result == CUDA_RESTORE_TID_NOT_FOUND) {
 		pr_info("no need to pause devices on pid %d\n", pid);
-		return 0;
+		return -ENOTSUP;
 	}
+	if (tid_result == CUDA_RESTORE_TID_ERROR)
+		return -1;
 
 	task_state = get_cuda_state(restore_tid);
 	if (task_state == CUDA_TASK_UNKNOWN) {
@@ -473,6 +501,8 @@ unlock:
 int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_state)
 {
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
+	enum cuda_restore_tid_result tid_result;
+	int restore_tid;
 	int status;
 	int ret = 0;
 	int int_ret;
@@ -483,11 +513,13 @@ int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_stat
 		return 0;
 	}
 
-	int restore_tid = get_cuda_restore_tid(pid);
-	if (restore_tid == -1) {
+	tid_result = get_cuda_restore_tid(pid, &restore_tid);
+	if (tid_result == CUDA_RESTORE_TID_NOT_FOUND) {
 		pr_info("No need to resume devices on pid %d\n", pid);
-		return 0;
+		return -ENOTSUP;
 	}
+	if (tid_result == CUDA_RESTORE_TID_ERROR)
+		return -1;
 
 	pr_info("resuming devices on pid %d\n", pid);
 	/* The resuming process has to stay frozen during this time otherwise
@@ -579,14 +611,14 @@ static int cuda_cli_init(int stage)
 	}
 
 	ret = cuda_checkpoint_supports_flag("--action");
-	if (ret == -1) {
-		pr_warn("check that %s is present in $PATH\n", CUDA_CHECKPOINT);
+	if (ret == -ENOTSUP) {
+		pr_warn("cuda-checkpoint --action flag not supported, an r555 or higher version driver is required. Disabling CUDA plugin\n");
 		plugin_disabled = true;
 		return 0;
 	}
 
-	if (ret == 0) {
-		pr_warn("cuda-checkpoint --action flag not supported, an r555 or higher version driver is required. Disabling CUDA plugin\n");
+	if (ret < 0) {
+		pr_warn("check that %s is present in $PATH\n", CUDA_CHECKPOINT);
 		plugin_disabled = true;
 		return 0;
 	}
