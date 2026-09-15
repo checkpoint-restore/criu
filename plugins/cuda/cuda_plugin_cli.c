@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -113,14 +114,14 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 {
 #define READ  0
 #define WRITE 1
-	int fd[2], buf_off;
+	int fd[2], buf_off = 0;
+
+	buf[0] = '\0';
 
 	if (pipe(fd) != 0) {
 		pr_perror("Couldn't create pipes for reading cuda-checkpoint output");
 		return -1;
 	}
-
-	buf[0] = '\0';
 
 	int child_pid = fork();
 	if (child_pid == -1) {
@@ -152,11 +153,11 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 	}
 
 	close(fd[WRITE]);
-	buf_off = 0;
 	/* Reserve one byte for the null character. */
 	buf_size--;
 	while (buf_off < buf_size) {
 		int bytes_read;
+
 		bytes_read = read(fd[READ], buf + buf_off, buf_size - buf_off);
 		if (bytes_read == -1) {
 			pr_perror("Unable to read output of cuda-checkpoint");
@@ -165,6 +166,7 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 		if (bytes_read == 0)
 			break;
 		buf_off += bytes_read;
+		buf[buf_off] = '\0';
 	}
 	buf[buf_off] = '\0';
 
@@ -172,6 +174,7 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 	while (true) {
 		char scratch[1024];
 		int bytes_read;
+
 		bytes_read = read(fd[READ], scratch, sizeof(scratch));
 		if (bytes_read == -1) {
 			pr_perror("Unable to read output of cuda-checkpoint");
@@ -181,6 +184,7 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 			break;
 	}
 	close(fd[READ]);
+	fd[READ] = -1;
 
 	int status, exit_code = -1;
 	if (waitpid(child_pid, &status, 0) == -1) {
@@ -206,8 +210,13 @@ static int launch_cuda_checkpoint(const char **args, char *buf, int buf_size)
 
 	return exit_code;
 err:
-	kill(child_pid, SIGKILL);
-	waitpid(child_pid, NULL, 0);
+	buf[buf_off] = '\0';
+	if (fd[READ] >= 0)
+		close(fd[READ]);
+	if (kill(child_pid, SIGKILL) < 0 && errno != ESRCH)
+		pr_perror("Unable to kill cuda-checkpoint process %d during cleanup", child_pid);
+	if (waitpid(child_pid, NULL, 0) < 0)
+		pr_perror("Unable to wait for cuda-checkpoint process %d during cleanup", child_pid);
 	return -1;
 }
 
