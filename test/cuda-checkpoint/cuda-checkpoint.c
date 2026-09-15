@@ -2,10 +2,27 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int main(int argc, char *argv[])
 {
+	const char *marker;
+	FILE *marker_file;
 	int c;
+
+	marker = getenv("CRIU_CUDA_MOCK_CLI_MARKER");
+	if (marker) {
+		marker_file = fopen(marker, "a");
+		if (!marker_file) {
+			perror("Unable to open CUDA CLI marker");
+			return 1;
+		}
+		fputs("invoked\n", marker_file);
+		fclose(marker_file);
+	}
+
+	if (getenv("CRIU_CUDA_MOCK_CLI_FAIL"))
+		return 1;
 
 	while (1) {
 		int option_index = 0;
@@ -29,8 +46,17 @@ int main(int argc, char *argv[])
 			printf("%s\n", optarg);
 			break;
 		case 'g':
-		case 'a':
 		case 't':
+			break;
+		case 'a':
+			marker = getenv("CRIU_CUDA_MOCK_LOCK_MARKER");
+			if (marker && !strcmp(optarg, "lock")) {
+				marker_file = fopen(marker, "a");
+				if (!marker_file)
+					return 1;
+				fputs("lock\n", marker_file);
+				fclose(marker_file);
+			}
 			break;
 		case 's':
 			printf("running\n");
