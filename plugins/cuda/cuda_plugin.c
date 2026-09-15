@@ -34,11 +34,32 @@ static bool is_cuda_device_available(void)
 
 static int select_cuda_backend(void)
 {
-	int ret = cuda_cli_backend.probe();
+	int ret;
+	ret = cuda_driver_backend.probe();
+	if (!ret) {
+		active_backend = &cuda_driver_backend;
+		return 0;
+	}
+	if (ret != -ENOTSUP) {
+		pr_err("Unable to probe %s backend: %d\n", cuda_driver_backend.name, ret);
+		return ret;
+	}
 
-	if (!ret)
+	pr_info("%s backend is unsupported; probing %s backend\n",
+		cuda_driver_backend.name, cuda_cli_backend.name);
+
+	ret = cuda_cli_backend.probe();
+	if (!ret) {
 		active_backend = &cuda_cli_backend;
-	return ret;
+		return 0;
+	}
+	if (ret != -ENOTSUP) {
+		pr_err("Unable to probe %s backend: %d\n", cuda_cli_backend.name, ret);
+		return ret;
+	}
+
+	pr_info("No supported CUDA checkpoint backend is available\n");
+	return -ENOTSUP;
 }
 
 int cuda_plugin_add_inventory(void)
