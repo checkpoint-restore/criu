@@ -318,6 +318,8 @@ static int cuda_process_checkpoint_action(int pid, const char *action, unsigned 
 
 static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
 {
+	int ret = 0;
+
 	/* Since we resumed a thread that CRIU previously already froze we need to
 	 * INTERRUPT it once again, task was already SEIZE'd so we don't need to do
 	 * a compel_interrupt_task()
@@ -336,20 +338,23 @@ static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigse
 
 	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD)) {
 		pr_perror("Failed to set ptrace options on interrupt for restore tid %d", restore_tid);
-		return -1;
+		ret = -1;
 	}
 
 	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*restore_sigset), restore_sigset)) {
 		pr_perror("Unable to restore original sigmask to restore tid %d", restore_tid);
-		return -1;
+		ret = -1;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 {
+	const unsigned long ptrace_options = PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD;
 	k_rtsigset_t block;
+	bool options_cleared = false;
+	bool sigmask_changed = false;
 
 	if (ptrace(PTRACE_GETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset)) {
 		pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
@@ -363,19 +368,30 @@ static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 		pr_perror("Failed to block signals on restore tid %d", restore_tid);
 		return -1;
 	}
+	sigmask_changed = true;
 
-	// Clear out PTRACE_O_SUSPEND_SECCOMP when we resume the restore thread
+	/* Clear PTRACE_O_SUSPEND_SECCOMP when resuming the restore thread. */
 	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, 0)) {
 		pr_perror("Could not clear ptrace options on restore tid %d", restore_tid);
-		return -1;
+		goto err_restore;
 	}
+	options_cleared = true;
 
 	if (ptrace(PTRACE_CONT, restore_tid, NULL, 0)) {
 		pr_perror("Could not resume cuda restore tid %d", restore_tid);
-		return -1;
+		goto err_restore;
 	}
 
 	return 0;
+
+err_restore:
+	if (options_cleared && ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, ptrace_options))
+		pr_perror("Unable to restore ptrace options for CUDA restore tid %d", restore_tid);
+	if (sigmask_changed &&
+	    ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset))
+		pr_perror("Unable to restore signal mask for CUDA restore tid %d", restore_tid);
+
+	return -1;
 }
 
 static int cuda_cli_checkpoint_devices(int pid)
