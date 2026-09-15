@@ -34,6 +34,12 @@ typedef enum {
 	CUDA_TASK_UNKNOWN = -1
 } cuda_task_state_t;
 
+enum cuda_restore_tid_result {
+	CUDA_RESTORE_TID_FOUND,
+	CUDA_RESTORE_TID_NOT_FOUND,
+	CUDA_RESTORE_TID_ERROR,
+};
+
 #define CUDA_CKPT_BUF_SIZE (128)
 
 #ifdef LOG_PREFIX
@@ -210,22 +216,28 @@ static int cuda_checkpoint_supports_flag(const char *flag)
 	return 0;
 }
 
-/* Retrieve the cuda restore thread TID from the root pid */
-static int get_cuda_restore_tid(int root_pid)
+/* Retrieve the CUDA restore thread TID from the root pid. */
+static enum cuda_restore_tid_result get_cuda_restore_tid(int root_pid, int *tid)
 {
 	char pid_buf[16];
 	char pid_out[CUDA_CKPT_BUF_SIZE];
+	int ret;
 
 	snprintf(pid_buf, sizeof(pid_buf), "%d", root_pid);
 
 	const char *args[] = { CUDA_CHECKPOINT, "--get-restore-tid", "--pid", pid_buf, NULL };
-	int ret = launch_cuda_checkpoint(args, pid_out, sizeof(pid_out));
-	if (ret != 0) {
-		pr_err("Failed to launch cuda-checkpoint to retrieve restore tid: %s\n", pid_out);
-		return -1;
+	ret = launch_cuda_checkpoint(args, pid_out, sizeof(pid_out));
+	if (ret < 0) {
+		pr_err("Failed to run cuda-checkpoint to retrieve the restore tid\n");
+		return CUDA_RESTORE_TID_ERROR;
+	}
+	if (ret > 0) {
+		pr_debug("PID %d has no CUDA restore thread: %s\n", root_pid, pid_out);
+		return CUDA_RESTORE_TID_NOT_FOUND;
 	}
 
-	return atoi(pid_out);
+	*tid = atoi(pid_out);
+	return CUDA_RESTORE_TID_FOUND;
 }
 
 static cuda_task_state_t get_task_state_enum(const char *state_str)
@@ -342,6 +354,7 @@ static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 
 static int cuda_cli_checkpoint_devices(int pid)
 {
+	enum cuda_restore_tid_result tid_result;
 	int restore_tid;
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	int int_ret;
@@ -350,17 +363,19 @@ static int cuda_cli_checkpoint_devices(int pid)
 	struct pid_info *task_info;
 	bool pid_found = false;
 
-	restore_tid = get_cuda_restore_tid(pid);
+	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
 	/* We can possibly hit a race with cuInit() where we are past the point of
 	 * locking the process but at lock time cuInit() hadn't completed in which
 	 * case cuda-checkpoint will report that we're in an invalid state to
 	 * checkpoint
 	 */
-	if (restore_tid == -1) {
+	if (tid_result == CUDA_RESTORE_TID_NOT_FOUND) {
 		pr_info("No need to checkpoint devices on pid %d\n", pid);
-		return 0;
+		return -ENOTSUP;
 	}
+	if (tid_result == CUDA_RESTORE_TID_ERROR)
+		return -1;
 
 	/* Check if the process is already in a checkpointed state */
 	list_for_each_entry(task_info, &cuda_pids, list) {
@@ -402,16 +417,19 @@ static int cuda_cli_checkpoint_devices(int pid)
 
 static int cuda_cli_pause_devices(int pid)
 {
+	enum cuda_restore_tid_result tid_result;
 	int restore_tid;
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	cuda_task_state_t task_state;
 
-	restore_tid = get_cuda_restore_tid(pid);
+	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
-	if (restore_tid == -1) {
+	if (tid_result == CUDA_RESTORE_TID_NOT_FOUND) {
 		pr_info("no need to pause devices on pid %d\n", pid);
-		return 0;
+		return -ENOTSUP;
 	}
+	if (tid_result == CUDA_RESTORE_TID_ERROR)
+		return -1;
 
 	task_state = get_cuda_state(restore_tid);
 	if (task_state == CUDA_TASK_UNKNOWN) {
@@ -462,6 +480,8 @@ unlock:
 int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_state)
 {
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
+	enum cuda_restore_tid_result tid_result;
+	int restore_tid;
 	int status;
 	int ret = 0;
 	int int_ret;
@@ -472,11 +492,13 @@ int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_stat
 		return 0;
 	}
 
-	int restore_tid = get_cuda_restore_tid(pid);
-	if (restore_tid == -1) {
+	tid_result = get_cuda_restore_tid(pid, &restore_tid);
+	if (tid_result == CUDA_RESTORE_TID_NOT_FOUND) {
 		pr_info("No need to resume devices on pid %d\n", pid);
-		return 0;
+		return -ENOTSUP;
 	}
+	if (tid_result == CUDA_RESTORE_TID_ERROR)
+		return -1;
 
 	pr_info("resuming devices on pid %d\n", pid);
 	/* The resuming process has to stay frozen during this time otherwise
