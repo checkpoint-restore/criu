@@ -6,7 +6,6 @@
 #include "pid.h"
 #include "proc_parse.h"
 #include "seize.h"
-#include "fault-injection.h"
 
 #include <common/list.h>
 #include <compel/infect.h>
@@ -50,13 +49,6 @@ enum cuda_restore_tid_result {
 #undef LOG_PREFIX
 #endif
 #define LOG_PREFIX "cuda_plugin: "
-
-/* Disable plugin functionality if cuda-checkpoint is not in $PATH or driver
- * version doesn't support --action flag
- */
-bool plugin_disabled = false;
-
-bool plugin_added_to_inventory = false;
 
 struct pid_info {
 	int pid;
@@ -423,10 +415,6 @@ static int cuda_cli_checkpoint_devices(int pid)
 	k_rtsigset_t save_sigset;
 	struct pid_info *task_info;
 
-	if (plugin_disabled) {
-		return -ENOTSUP;
-	}
-
 	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
 	/* We can possibly hit a race with cuInit() where we are past the point of
@@ -444,7 +432,7 @@ static int cuda_cli_checkpoint_devices(int pid)
 	task_info = find_cuda_pid(pid);
 	if (!task_info) {
 		/* We return an error here. The task should be restored
-		 * to its original state at cuda_cli_fini().
+		 * to its original state at cuda_plugin_fini().
 		 */
 		pr_err("Failed to track pid %d\n", pid);
 		return -1;
@@ -495,10 +483,6 @@ static int cuda_cli_pause_devices(int pid)
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	cuda_task_state_t task_state;
 
-	if (plugin_disabled) {
-		return -ENOTSUP;
-	}
-
 	tid_result = get_cuda_restore_tid(pid, &restore_tid);
 
 	if (tid_result == CUDA_RESTORE_TID_NOT_FOUND) {
@@ -514,13 +498,8 @@ static int cuda_cli_pause_devices(int pid)
 		return -1;
 	}
 
-	if (!plugin_added_to_inventory) {
-		if (add_inventory_plugin(CR_PLUGIN_DESC.name)) {
-			pr_err("Failed to add CUDA plugin to inventory image\n");
-			return -1;
-		}
-		plugin_added_to_inventory = true;
-	}
+	if (cuda_plugin_add_inventory())
+		return -1;
 
 	if (task_state == CUDA_TASK_LOCKED) {
 		pr_info("pid %d already in a locked state\n", pid);
@@ -529,7 +508,7 @@ static int cuda_cli_pause_devices(int pid)
 	}
 
 	if (task_state == CUDA_TASK_CHECKPOINTED) {
-		/* We need to skip this PID in cuda_cli_checkpoint_devices(),
+		/* We need to skip this PID in cuda_plugin_checkpoint_devices(),
 		 * and leave it in a "checkpointed" state at resume_device(). */
 		return add_pid_to_buf(&cuda_pids, pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_CHECKPOINTED);
 	}
@@ -677,10 +656,6 @@ interrupt:
 
 static int cuda_cli_resume_devices_late(int pid)
 {
-	if (plugin_disabled) {
-		return -ENOTSUP;
-	}
-
 	/* RESUME_DEVICES_LATE is used during `criu restore`.
 	 * Here, we assume that users expect the target process
 	 * to be in a "running" state after restore, even if it was
@@ -689,58 +664,21 @@ static int cuda_cli_resume_devices_late(int pid)
 	return resume_device(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_RUNNING);
 }
 
-/**
- * Check if a CUDA device is available on the system
- */
-static bool is_cuda_device_available(void)
+static int cuda_cli_probe(void)
 {
-	const char *gpu_path = "/proc/driver/nvidia/gpus/";
-	struct stat sb;
+	int ret;
 
-	if (stat(gpu_path, &sb) != 0)
-		return false;
+	ret = cuda_checkpoint_supports_flag("--action");
+	if (ret == -ENOTSUP || ret == -ENOENT) {
+		pr_info("%s with --action support is unavailable\n", CUDA_CHECKPOINT);
+		return -ENOTSUP;
+	}
 
-	return S_ISDIR(sb.st_mode);
+	return ret;
 }
 
 static int cuda_cli_init(int stage)
 {
-	int ret;
-
-	/* Disable CUDA checkpointing with pre-dump */
-	if (stage == CR_PLUGIN_STAGE__PRE_DUMP) {
-		plugin_disabled = true;
-		return 0;
-	}
-
-	if (stage == CR_PLUGIN_STAGE__RESTORE) {
-		if (!check_and_remove_inventory_plugin(CR_PLUGIN_DESC.name)) {
-			plugin_disabled = true;
-			return 0;
-		}
-	}
-
-	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) && !is_cuda_device_available()) {
-		pr_info("No GPU device found; CUDA plugin is disabled\n");
-		plugin_disabled = true;
-		return 0;
-	}
-
-	ret = cuda_checkpoint_supports_flag("--action");
-	if (ret == -ENOTSUP) {
-		pr_warn("cuda-checkpoint --action flag not supported, an r555 or higher version driver is required. Disabling CUDA plugin\n");
-		plugin_disabled = true;
-		return 0;
-	}
-
-	if (ret < 0) {
-		pr_warn("check that %s is present in $PATH\n", CUDA_CHECKPOINT);
-		plugin_disabled = true;
-		return 0;
-	}
-
-	pr_info("initialized: %s stage %d\n", CR_PLUGIN_DESC.name, stage);
-
 	/* In the DUMP stage track all the PID's we've paused CUDA operations on to
 	 * release them when we're done if the user requested the leave-running option
 	 */
@@ -748,19 +686,11 @@ static int cuda_cli_init(int stage)
 		INIT_LIST_HEAD(&cuda_pids);
 	}
 
-	set_compel_interrupt_only_mode();
-
 	return 0;
 }
 
 static void cuda_cli_fini(int stage, int ret)
 {
-	if (plugin_disabled) {
-		return;
-	}
-
-	pr_info("finished %s stage %d err %d\n", CR_PLUGIN_DESC.name, stage, ret);
-
 	/* Release all the paused PID's at the end of the DUMP stage in case the
 	 * user provides the -R (leave-running) flag or an error occurred
 	 */
@@ -778,6 +708,7 @@ static void cuda_cli_fini(int stage, int ret)
 
 const struct cuda_plugin_backend cuda_cli_backend = {
 	.name = "cuda-checkpoint CLI",
+	.probe = cuda_cli_probe,
 	.init = cuda_cli_init,
 	.fini = cuda_cli_fini,
 	.pause_devices = cuda_cli_pause_devices,
