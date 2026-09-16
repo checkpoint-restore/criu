@@ -71,6 +71,37 @@ The direct backend does not require CUDA toolkit headers at build time. The
 CUDA 13.0 restore ABI on older drivers merely because checkpoint symbols are
 present.
 
+The CLI backend executes `cuda-checkpoint` for each request and monitors the
+CUDA restore thread while waiting. Unexpected stops or exits fail the operation
+regardless of the configured timeout. By default, helpers have no deadline, so
+large checkpoints and restores can take as long as needed. To impose a limit:
+
+```
+--plugin-option=cuda_plugin.timeout=600
+```
+
+The value is a nonnegative number of seconds; the default, `0`, means unlimited.
+A positive value gives each CLI invocation one deadline covering all output
+reads and helper exit, including capability probes and state queries. It does
+not impose a deadline on in-process Driver API calls. CRIU's `--timeout` is
+separate: it controls task freezing and is also passed to CUDA's native lock
+operation by both backends. With the default helper timeout, a silent helper
+hang can wait indefinitely even though unexpected restore-thread stops and
+helper exits are still detected.
+
+The CLI backend uses finite internal budgets when waiting for an interrupted
+restore thread to stop or for a terminated helper to exit. These waits remain
+bounded even when `cuda_plugin.timeout=0`. If a lock helper times out and is
+terminated and reaped, rollback queries the task's state and unlocks it after
+CRIU cancels its freezing alarm. These recovery helpers ignore the expired
+freezing timer and honor `cuda_plugin.timeout`, including zero for unlimited.
+After a fatal helper or
+restore-thread failure, the plugin skips further CUDA operations during
+rollback. Terminating a helper does not establish that CUDA state was rolled
+back: GPU state may remain locked or partially checkpointed, and the application
+may need to be restarted. The plugin cannot recover a CUDA job after a fatal
+driver fault.
+
 The plugin contains independently authored declarations for the CUDA checkpoint
 argument structures because CRIU does not build against the CUDA toolkit
 headers. These declarations describe the ABI used by the plugin; they are not a
@@ -91,6 +122,21 @@ checkpoint, restore, and unlock.
 
 These actions are facilitated by a CUDA checkpoint+restore thread that the CUDA
 plugin will re-wake when needed.
+
+# Testing
+
+The CPU-only regression tests exercise the CLI backend with the mock
+`cuda-checkpoint` and real ptrace stops, including unlimited and finite helper
+waits, faults, helper exits, bounded stop and reap waits, and rollback:
+
+```
+make cuda_plugin
+make -C test/cuda-checkpoint test
+sudo python3 test/cuda-checkpoint/backend-errors.py
+```
+
+Real CUDA workloads are still needed to validate GPU checkpoint/restore and
+measure backend performance.
 
 # Known Limitations
 * Currently GPU memory contents are brought into main system memory and CRIU
