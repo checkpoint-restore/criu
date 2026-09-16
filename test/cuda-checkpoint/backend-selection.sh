@@ -85,6 +85,7 @@ run_success "supported Driver API dump" env \
 	--log-file dump.log \
 	--verbosity=4 \
 	--libdir "$PLUGIN_DIR" \
+	--plugin-option=cuda_plugin.timeout=1 \
 	--shell-job \
 	-R \
 	--timeout 10
@@ -155,6 +156,7 @@ run_success "forced cuda-checkpoint CLI dump" env \
 	--plugin-option=cuda_plugin.back \
 	--plugin-option=cuda_plugin.backend=cuda-checkpoint \
 	--plugin-option=cuda_plugin.back=driver-api \
+	--plugin-option=cuda_plugin.timeout=0 \
 	--shell-job \
 	-R \
 	--timeout 10
@@ -168,6 +170,31 @@ if [ ! -s "$CLI_MARKER" ]; then
 	exit 1
 fi
 stop_target
+
+# Both backends accept positive helper deadlines, including the maximum value.
+# This option does not impose a deadline on an in-process Driver API call.
+for TIMEOUT_VALUE in 1 4294967295; do
+	for BACKEND in driver-api cuda-checkpoint; do
+		next_case
+		run_success "$BACKEND with helper timeout $TIMEOUT_VALUE" env \
+			CRIU_FAULT=138 \
+			PATH="$MOCK_DIR:$PATH" \
+			LD_LIBRARY_PATH="$MOCK_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+			"$CRIU" dump \
+			--no-default-config \
+			--tree "$TARGET_PID" \
+			--images-dir "$IMAGE_DIR" \
+			--log-file dump.log \
+			--verbosity=4 \
+			--libdir "$PLUGIN_DIR" \
+			"--plugin-option=cuda_plugin.backend=$BACKEND" \
+			"--plugin-option=cuda_plugin.timeout=$TIMEOUT_VALUE" \
+			--shell-job \
+			-R \
+			--timeout 10
+		stop_target
+	done
+done
 
 # A forced Driver API backend below the support floor is a hard error. The
 # plugin must not recover by probing the available CLI backend.
@@ -249,7 +276,9 @@ fi
 stop_target
 
 # Invalid, empty, and missing values fail before either backend is probed.
-for BACKEND_ARG in backend=invalid backend= backend; do
+for OPTION_ARG in backend=invalid backend= backend \
+	timeout=invalid timeout= timeout timeout=-1 timeout=-18446744073709551615 \
+	timeout=4294967296 timeout=18446744073709551616 timeout=1x 'timeout= 1'; do
 	next_case
 	CLI_MARKER="$IMAGE_DIR/cli-invoked"
 	DRIVER_MARKER="$IMAGE_DIR/driver-probed"
@@ -267,23 +296,23 @@ for BACKEND_ARG in backend=invalid backend= backend; do
 		--log-file dump.log \
 		--verbosity=4 \
 		--libdir "$PLUGIN_DIR" \
-		"--plugin-option=cuda_plugin.$BACKEND_ARG" \
+		"--plugin-option=cuda_plugin.$OPTION_ARG" \
 		--shell-job \
 		-R \
 		--timeout 10
 	STATUS=$?
 	set -e
 	if [ "$STATUS" -eq 0 ]; then
-		echo "invalid cuda_plugin.backend value unexpectedly succeeded"
+		echo "invalid cuda_plugin.$OPTION_ARG unexpectedly succeeded"
 		exit 1
 	fi
 	if [ "$STATUS" -eq 124 ]; then
-		echo "invalid cuda_plugin.backend value timed out"
+		echo "invalid cuda_plugin.$OPTION_ARG timed out"
 		exit 1
 	fi
-	grep -Eq "Invalid cuda_plugin.backend value|cuda_plugin.backend requires a value" "$IMAGE_DIR/dump.log"
+	grep -Eq "Invalid cuda_plugin.(backend|timeout) value|cuda_plugin.(backend|timeout) requires a value" "$IMAGE_DIR/dump.log"
 	if [ -e "$CLI_MARKER" ] || [ -e "$DRIVER_MARKER" ]; then
-		echo "invalid cuda_plugin.backend value probed a backend"
+		echo "invalid cuda_plugin.$OPTION_ARG probed a backend"
 		exit 1
 	fi
 	stop_target

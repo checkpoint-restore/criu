@@ -49,7 +49,9 @@ def target(directory, mixed=False):
 
 
 def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
-             expected_success=True, leave_running=False, action_script=None, **variables):
+             expected_success=True, leave_running=False, action_script=None,
+             command_timeout=30, freezing_timeout=10,
+             plugin_timeout=None, **variables):
     environment = {key: value for key, value in os.environ.items()
                    if not key.startswith("CRIU_CUDA_MOCK_")}
     environment.update(CRIU_FAULT="138", LD_LIBRARY_PATH=str(library or MOCK),
@@ -59,7 +61,9 @@ def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
     command = [str(ROOT / "criu/criu"), operation, "--no-default-config",
                "--images-dir", str(directory), "--log-file", f"{operation}.log",
                "--verbosity=4", "--libdir", str(plugin or ROOT / "plugins/cuda"),
-               "--shell-job", "--timeout", "10"]
+               "--shell-job", "--timeout", str(freezing_timeout)]
+    if plugin_timeout is not None:
+        command += ["--plugin-option", f"cuda_plugin.timeout={plugin_timeout}"]
     if operation == "dump":
         command += ["--tree", str(pid)]
         if leave_running:
@@ -68,7 +72,7 @@ def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
         command += ["--restore-detached"]
     if action_script:
         command += ["--action-script", str(action_script)]
-    result = subprocess.run(command, env=environment, timeout=30)
+    result = subprocess.run(command, env=environment, timeout=command_timeout)
     log = (directory / f"{operation}.log").read_text()
     if (result.returncode == 0) != expected_success:
         raise RuntimeError(f"{directory.name} {operation}: status {result.returncode}\n{log}")
@@ -220,6 +224,39 @@ def test_post_dump_failure(work):
                     assert (directory / "state").read_text().strip() == expected_state
 
 
+def test_freezing_timeout(work):
+    cases = ((behavior, timeout)
+             for behavior in ("1", "closed-output", "locked", "locked-closed-output")
+             for timeout in (0, 30))
+    for behavior, timeout in cases:
+        library = MOCK / "unsupported"
+        directory = work / f"freezing-timeout-{behavior}-{timeout}"
+        directory.mkdir()
+        marker = directory / "api.calls"
+        with target(directory) as (process, pids):
+            start = time.monotonic()
+            log = run_criu(directory, "dump", pid=pids[0], library=library,
+                           expected_success=False, freezing_timeout=1,
+                           plugin_timeout=timeout, command_timeout=10,
+                           CRIU_CUDA_MOCK_LOCK_HANG=behavior,
+                           CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"),
+                           CRIU_CUDA_MOCK_API_MARKER=str(marker))
+            assert time.monotonic() - start < 5
+            assert "selected cuda-checkpoint CLI backend" in log
+            assert "interrupted by CRIU's freezing timeout" in log
+            assert "FATAL: Unable to interrupt" not in log
+            assert "Dumping FAILED" in log
+            assert process.poll() is None
+            assert_untraced(pids[0])
+            if behavior.startswith("locked"):
+                assert (directory / "state").read_text().strip() == "running"
+                assert any(line.startswith("unlock ") for line in marker.read_text().splitlines())
+            workers = {int(line.split()[2]) for line in marker.read_text().splitlines()}
+            assert workers
+            for worker in workers:
+                assert not Path(f"/proc/{worker}").exists(), f"CUDA helper {worker} leaked"
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory(prefix="criu-cuda-backend-errors-") as directory:
         work = Path(directory)
@@ -227,4 +264,5 @@ if __name__ == "__main__":
         test_inventory_failure(work)
         test_dump_finish(work)
         test_post_dump_failure(work)
-    print("CUDA process discovery and inventory-allocation regression tests PASS")
+        test_freezing_timeout(work)
+    print("CUDA backend error regression tests PASS")
