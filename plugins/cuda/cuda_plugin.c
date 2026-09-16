@@ -7,8 +7,10 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -19,6 +21,9 @@
 
 #define CUDA_PLUGIN_NAME	       "cuda_plugin"
 #define CUDA_PLUGIN_BACKEND_OPTION CUDA_PLUGIN_NAME ".backend"
+#define CUDA_PLUGIN_TIMEOUT_OPTION     CUDA_PLUGIN_NAME ".timeout"
+
+unsigned int cuda_plugin_timeout;
 
 static const struct cuda_plugin_backend *active_backend;
 static bool cuda_tasks_handled;
@@ -33,6 +38,7 @@ static enum cuda_backend_selection backend_selection;
 
 enum {
 	CUDA_PLUGIN_OPTION_BACKEND = 1000,
+	CUDA_PLUGIN_OPTION_TIMEOUT,
 };
 
 static bool cuda_plugin_option_matches(const char *arg, const char *name,
@@ -77,9 +83,11 @@ static int parse_cuda_plugin_options(void)
 {
 	static const struct option long_options[] = {
 		{ CUDA_PLUGIN_BACKEND_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_BACKEND },
+		{ CUDA_PLUGIN_TIMEOUT_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_TIMEOUT },
 		{},
 	};
 	const char *backend_value = NULL;
+	const char *timeout_value = NULL;
 	char *saved_optarg;
 	char **argv = NULL;
 	int saved_optopt;
@@ -90,6 +98,7 @@ static int parse_cuda_plugin_options(void)
 	int ret;
 
 	backend_selection = CUDA_BACKEND_AUTO;
+	cuda_plugin_timeout = 0;
 	ret = criu_plugin_get_options(&argc, &argv);
 	if (ret) {
 		pr_err("Unable to read plugin options: %d\n", ret);
@@ -110,6 +119,10 @@ static int parse_cuda_plugin_options(void)
 						       optarg, &ret))
 				backend_value = optarg;
 			break;
+		case CUDA_PLUGIN_OPTION_TIMEOUT:
+			if (cuda_plugin_option_matches(argv[optind - 1], CUDA_PLUGIN_TIMEOUT_OPTION, optarg, &ret))
+				timeout_value = optarg;
+			break;
 		case '?':
 			/* Every plugin receives the same namespaced option list. */
 			break;
@@ -127,8 +140,25 @@ static int parse_cuda_plugin_options(void)
 	if (ret)
 		return ret;
 
-	if (backend_value)
+	if (backend_value) {
 		ret = parse_cuda_backend_option(backend_value);
+		if (ret)
+			return ret;
+	}
+
+	if (timeout_value) {
+		char *end;
+		unsigned long timeout;
+
+		/* strtoul() accepts signs and leading whitespace; require an initial digit. */
+		errno = 0;
+		timeout = strtoul(timeout_value, &end, 10);
+		if (errno || timeout_value[0] < '0' || timeout_value[0] > '9' || *end || timeout > UINT_MAX) {
+			pr_err("Invalid cuda_plugin.timeout value '%s' (expected nonnegative seconds)\n", timeout_value);
+			return -EINVAL;
+		}
+		cuda_plugin_timeout = timeout;
+	}
 
 	return ret;
 }
