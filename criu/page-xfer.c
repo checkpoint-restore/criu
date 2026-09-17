@@ -1391,6 +1391,16 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 		}
 
 		timing_stop(TIME_MEMWRITE);
+
+		/*
+		 * SPLICE_F_GIFT allows the pipe/socket path to retain these
+		 * pages after write_pages() returns. Drop the mapping before
+		 * refilling the buffer so process_vm_readv() gets fresh pages.
+		 */
+		if (madvise(userbuf, userbuf_len, MADV_DONTNEED)) {
+			pr_perror("Unable to release pre-dump buffer pages");
+			goto err;
+		}
 	}
 
 	munmap(userbuf, userbuf_len);
