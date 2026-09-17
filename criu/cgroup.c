@@ -31,6 +31,7 @@
 #include "fs-magic.h"
 #include "mount-v2.h"
 #include "linux/mount.h"
+#include "fault-injection.h"
 
 /*
  * This structure describes set of controller groups
@@ -647,6 +648,9 @@ static bool has_root_cgroupv2_mount(void)
 
 	has_root_cgroupv2 = 0;
 	if (!kdat.has_statmount)
+		return false;
+
+	if (fault_injected(FI_CGROUP2_NO_ROOT_MOUNT))
 		return false;
 
 	if (!(kdat.statmount_supported_mask & STATMOUNT_MNT_ROOT) ||

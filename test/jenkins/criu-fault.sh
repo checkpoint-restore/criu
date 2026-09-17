@@ -48,3 +48,6 @@ fi
 if ./test/zdtm.py run -t zdtm/static/vfork00 --fault 136 --report report -f h ; then
 	fail
 fi
+
+# Check the case when /sys/fs/cgroup isn't the root cgroupv2 mount.
+./test/zdtm.py run -t zdtm/static/cgroupns -t zdtm/static/cgroupv2_00 --fault 139 || fail
