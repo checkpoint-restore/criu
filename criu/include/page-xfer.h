@@ -2,6 +2,25 @@
 #define __CR_PAGE_XFER__H__
 #include "pagemap.h"
 #include "pagemap-block.h"
+#include <stdbool.h>
+
+struct remote_parent_coverage;
+struct remote_parent_writer;
+
+enum page_parent_kind {
+	PAGE_PARENT_NONE = 0,
+	PAGE_PARENT_LOCAL,
+	PAGE_PARENT_REMOTE_COVERAGE,
+	PAGE_PARENT_SERVER,
+};
+
+struct page_parent_backend {
+	enum page_parent_kind kind;
+	union {
+		struct page_read *local;
+		struct remote_parent_coverage *remote;
+	};
+};
 
 struct ps_info {
 	int pid;
@@ -57,7 +76,8 @@ struct page_xfer {
 		};
 	};
 
-	struct page_read *parent;
+	struct page_parent_backend parent;
+	struct remote_parent_writer *remote_parent_writer;
 
 	/*
 	 * Pending pagemap entry for compressed writes.
@@ -80,6 +100,11 @@ struct page_xfer {
 		bool payload_started;
 	} pending_pe;
 };
+
+static inline bool page_xfer_has_parent(const struct page_xfer *xfer)
+{
+	return xfer->parent.kind != PAGE_PARENT_NONE;
+}
 
 extern int open_page_xfer(struct page_xfer *xfer, int fd_type, unsigned long id);
 struct page_pipe;

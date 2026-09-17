@@ -18,6 +18,8 @@
 #include "servicefd.h"
 #include "image.h"
 #include "page-xfer.h"
+#include "bfd.h"
+#include "remote-parent.h"
 #include "page-pipe.h"
 #include "util.h"
 #include "protobuf.h"
@@ -341,11 +343,15 @@ static int write_pagemap_to_server(struct page_xfer *xfer, struct iovec *iov, u3
 		.dst_id = xfer->dst_id,
 	};
 
+	if (remote_parent_writer_record(xfer->remote_parent_writer, iov, flags))
+		return -1;
 	return send_psi(xfer->sk, &pi);
 }
 
 static void close_server_xfer(struct page_xfer *xfer)
 {
+	remote_parent_writer_close(xfer->remote_parent_writer);
+	xfer->remote_parent_writer = NULL;
 	xfer->sk = -1;
 }
 
@@ -361,7 +367,9 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, unsigned l
 	xfer->write_pages = opts.compress_mode ? write_pages_to_server_compressed : write_pages_to_server;
 	xfer->close = close_server_xfer;
 	xfer->dst_id = encode_pm(fd_type, img_id);
-	xfer->parent = NULL;
+	xfer->parent.kind = PAGE_PARENT_NONE;
+	xfer->parent.local = NULL;
+	xfer->remote_parent_writer = NULL;
 
 	pi.dst_id = xfer->dst_id;
 	if (send_psi(xfer->sk, &pi)) {
@@ -377,7 +385,10 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, unsigned l
 	}
 
 	if (has_parent)
-		xfer->parent = (void *)1; /* This is required for generate_iovs() */
+		xfer->parent.kind = PAGE_PARENT_SERVER;
+
+	if (remote_parent_writer_open(fd_type, img_id, &xfer->remote_parent_writer))
+		return -1;
 
 	return 0;
 }
@@ -403,6 +414,8 @@ static int clear_o_direct(int fd)
 }
 
 static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov);
+static int check_pagehole_in_xfer_parent(struct page_xfer *xfer, struct iovec *iov);
+static bool page_parent_can_dedup(const struct page_xfer *xfer);
 
 static int write_pagemap_loc_compressed(struct page_xfer *xfer, struct iovec *iov, u32 flags)
 {
@@ -413,8 +426,8 @@ static int write_pagemap_loc_compressed(struct page_xfer *xfer, struct iovec *io
 		unsigned int block_pages = 0;
 		size_t total_blocks;
 
-		if (opts.auto_dedup && xfer->parent != NULL) {
-			ret = dedup_one_iovec(xfer->parent, encode_pointer(iov->iov_base), iov->iov_len);
+		if (opts.auto_dedup && page_parent_can_dedup(xfer)) {
+			ret = dedup_one_iovec(xfer->parent.local, encode_pointer(iov->iov_base), iov->iov_len);
 			if (ret == -1) {
 				pr_err("Auto-deduplication failed\n");
 				return ret;
@@ -446,8 +459,8 @@ static int write_pagemap_loc_compressed(struct page_xfer *xfer, struct iovec *io
 
 	/* Non-present pages (holes, parent refs): write immediately */
 	if (flags & PE_PARENT) {
-		if (xfer->parent != NULL) {
-			ret = check_pagehole_in_parent(xfer->parent, iov);
+		if (page_xfer_has_parent(xfer)) {
+			ret = check_pagehole_in_xfer_parent(xfer, iov);
 			if (ret) {
 				pr_err("Hole %p - %p not found in parent\n",
 				       iov->iov_base, iov->iov_base + iov->iov_len);
@@ -807,6 +820,32 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 	}
 }
 
+static bool page_parent_can_dedup(const struct page_xfer *xfer)
+{
+	return xfer->parent.kind == PAGE_PARENT_LOCAL;
+}
+
+static int check_pagehole_in_xfer_parent(struct page_xfer *xfer, struct iovec *iov)
+{
+	switch (xfer->parent.kind) {
+	case PAGE_PARENT_LOCAL:
+		return check_pagehole_in_parent(xfer->parent.local, iov);
+	case PAGE_PARENT_REMOTE_COVERAGE:
+		if (remote_parent_coverage_contains(xfer->parent.remote,
+						    (unsigned long)iov->iov_base, iov->iov_len))
+			return 0;
+		pr_err("Missing %p - %p in remote parent coverage\n",
+		       iov->iov_base, iov->iov_base + iov->iov_len);
+		return -1;
+	case PAGE_PARENT_SERVER:
+		/* The destination page-server validates inherited ranges. */
+		return 0;
+	case PAGE_PARENT_NONE:
+	default:
+		return -1;
+	}
+}
+
 static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flags)
 {
 	int ret;
@@ -819,16 +858,16 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 	pe.has_nr_pages = true;
 
 	if (flags & PE_PRESENT) {
-		if (opts.auto_dedup && xfer->parent != NULL) {
-			ret = dedup_one_iovec(xfer->parent, pe.vaddr, pagemap_len(&pe));
+		if (opts.auto_dedup && page_parent_can_dedup(xfer)) {
+			ret = dedup_one_iovec(xfer->parent.local, pe.vaddr, pagemap_len(&pe));
 			if (ret == -1) {
 				pr_perror("Auto-deduplication failed");
 				return ret;
 			}
 		}
 	} else if (flags & PE_PARENT) {
-		if (xfer->parent != NULL) {
-			ret = check_pagehole_in_parent(xfer->parent, iov);
+		if (page_xfer_has_parent(xfer)) {
+			ret = check_pagehole_in_xfer_parent(xfer, iov);
 			if (ret) {
 				pr_err("Hole %p - %p not found in parent\n",
 				       iov->iov_base, iov->iov_base + iov->iov_len);
@@ -845,11 +884,14 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 
 static void close_page_xfer(struct page_xfer *xfer)
 {
-	if (xfer->parent != NULL) {
-		xfer->parent->close(xfer->parent);
-		xfree(xfer->parent);
-		xfer->parent = NULL;
+	if (xfer->parent.kind == PAGE_PARENT_LOCAL && xfer->parent.local) {
+		xfer->parent.local->close(xfer->parent.local);
+		xfree(xfer->parent.local);
+	} else if (xfer->parent.kind == PAGE_PARENT_REMOTE_COVERAGE) {
+		remote_parent_coverage_close(xfer->parent.remote);
 	}
+	xfer->parent.kind = PAGE_PARENT_NONE;
+	xfer->parent.local = NULL;
 	xfree(xfer->pending_pe.b_layout.sizes);
 	xfer->pending_pe.b_layout.sizes = NULL;
 	close_image(xfer->pi);
@@ -882,7 +924,8 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, unsigned lo
 	 * 2) when writing a hole, the respective place would be checked
 	 *    to exist in parent (either pagemap or hole)
 	 */
-	xfer->parent = NULL;
+	xfer->parent.kind = PAGE_PARENT_NONE;
+	xfer->parent.local = NULL;
 	if (fd_type == CR_FD_PAGEMAP || fd_type == CR_FD_SHMEM_PAGEMAP) {
 		int ret;
 		int pfd;
@@ -897,19 +940,35 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, unsigned lo
 		if (pfd < 0)
 			goto out;
 
-		xfer->parent = xmalloc(sizeof(*xfer->parent));
-		if (!xfer->parent) {
+		xfer->parent.local = xmalloc(sizeof(*xfer->parent.local));
+		if (!xfer->parent.local) {
 			close(pfd);
 			goto err_pi;
 		}
 
-		ret = open_page_read_at(pfd, img_id, xfer->parent, pr_flags);
-		if (ret <= 0) {
-			pr_perror("No parent image found, though parent directory is set");
-			xfree(xfer->parent);
-			xfer->parent = NULL;
+		ret = open_page_read_at(pfd, img_id, xfer->parent.local, pr_flags);
+		if (ret > 0) {
+			xfer->parent.kind = PAGE_PARENT_LOCAL;
 			close(pfd);
 			goto out;
+		}
+
+		xfree(xfer->parent.local);
+		xfer->parent.local = NULL;
+		if (ret < 0) {
+			close(pfd);
+			goto err_pi;
+		}
+		ret = remote_parent_coverage_open(pfd, fd_type, img_id, &xfer->parent.remote);
+		if (ret < 0) {
+			close(pfd);
+			goto err_pi;
+		}
+		if (ret > 0) {
+			xfer->parent.kind = PAGE_PARENT_REMOTE_COVERAGE;
+			pr_info("Using remote parent coverage for %d/%lu\n", fd_type, img_id);
+		} else {
+			pr_debug("No parent image for %d/%lu\n", fd_type, img_id);
 		}
 		close(pfd);
 	}
@@ -1481,6 +1540,12 @@ int check_parent_local_xfer(int fd_type, unsigned long img_id)
 		return -1;
 	}
 
+	if (ret == -1 && errno == ENOENT) {
+		ret = remote_parent_coverage_exists(pfd, fd_type, img_id);
+		close(pfd);
+		return ret;
+	}
+
 	close(pfd);
 	return (ret == 0);
 }
@@ -1592,7 +1657,7 @@ static int page_server_open(int sk, struct page_server_iov *pi)
 	cxfer.dst_id = pi->dst_id;
 
 	if (sk >= 0) {
-		char has_parent = !!cxfer.loc_xfer.parent;
+		char has_parent = page_xfer_has_parent(&cxfer.loc_xfer);
 		if (send_full(sk, &has_parent, sizeof(has_parent), "page-server open response")) {
 			page_server_close();
 			return -1;
@@ -1673,8 +1738,8 @@ static int page_server_add_compressed(int sk, struct page_server_iov *pi, u32 fl
 		return 0;
 	}
 
-	if (opts.auto_dedup && lxfer->parent != NULL) {
-		int ret = dedup_one_iovec(lxfer->parent, encode_pointer(iov.iov_base), iov.iov_len);
+	if (opts.auto_dedup && page_parent_can_dedup(lxfer)) {
+		int ret = dedup_one_iovec(lxfer->parent.local, encode_pointer(iov.iov_base), iov.iov_len);
 
 		if (ret == -1) {
 			pr_err("Auto-deduplication failed\n");
@@ -1962,7 +2027,11 @@ static int page_server_serve(int sk)
 		case PS_IOV_FORCE_CLOSE: {
 			int32_t status = 0;
 
-			ret = 0;
+			if (receiving_pages) {
+				page_server_close();
+				status = bfd_flush_images();
+			}
+			ret = status;
 
 			/*
 			 * An answer must be sent back to inform another side,
@@ -2397,6 +2466,7 @@ out:
 	tls_terminate_session(ret != 0);
 	close_safe(&page_server_sk);
 
+	/* The pre-dump owner commits coverage after checking local outputs. */
 	return ret ?: status;
 }
 

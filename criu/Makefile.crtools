@@ -52,6 +52,7 @@ obj-y			+= pagemap-cache.o
 obj-y			+= page-pipe.o
 obj-y			+= pagemap.o
 obj-y			+= page-xfer.o
+obj-y			+= remote-parent.o
 obj-y			+= parasite-syscall.o
 obj-y			+= pie-util.o
 obj-y			+= pipes.o
