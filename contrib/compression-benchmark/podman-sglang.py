@@ -18,6 +18,8 @@ memory-page compression through /etc/criu/runc.conf. Podman's own checkpoint
 archive compression is kept at "none" by default so the reported archive size
 reflects CRIU image size rather than tar-level gzip/zstd compression.
 
+Use --cuda-migrate-gpus SOURCE TARGET with TP=1 to test physical GPU migration.
+
 Example:
   sudo HF_TOKEN=... python3 contrib/compression-benchmark/podman-sglang.py \\
        --model Qwen/Qwen3-0.6B -n 3 \\
@@ -37,6 +39,7 @@ if _BENCHMARK_DIR not in sys.path:
     sys.path.insert(0, _BENCHMARK_DIR)
 
 import podman_common as common  # noqa: E402
+import cuda_migration  # noqa: E402
 
 
 class SglangAdapter:
@@ -90,6 +93,11 @@ class SglangAdapter:
             "--cuda-backends", nargs="+",
             choices=["driver-api", "cuda-checkpoint"],
             help="Compare explicit CUDA backends in alternating trial order",
+        )
+        parser.add_argument(
+            "--cuda-migrate-gpus", nargs=2, metavar=("SOURCE", "TARGET"),
+            help="Test TP=1 GPU migration using nvidia-smi indices or full UUIDs; "
+                 "sets CUDA visibility to both GPUs and swaps them during restore",
         )
         parser.add_argument(
             "--disable-memory-saver",
@@ -169,6 +177,9 @@ class SglangAdapter:
                     f"Host cuda-checkpoint executable not found: {args.cuda_checkpoint_binary}"
                 )
             args.cuda_checkpoint_binary = os.path.abspath(binary)
+        args.cuda_migration = None
+        if getattr(args, "cuda_migrate_gpus", None):
+            cuda_migration.prepare(args)
 
     @staticmethod
     def extra_podman_args(args):
@@ -251,8 +262,12 @@ class SglangAdapter:
     def server_summary(args):
         memory_saver = "on" if args.memory_saver else "off"
         launch_job = "on" if args.cuda_checkpoint_launch_job else "off"
-        return (f"model-arg={args.sglang_model_arg}, "
-                f"memory-saver={memory_saver}, launch-job={launch_job}")
+        summary = (f"model-arg={args.sglang_model_arg}, "
+                   f"memory-saver={memory_saver}, launch-job={launch_job}")
+        if getattr(args, "cuda_migration", None):
+            migration = args.cuda_migration
+            summary += f", GPU migration={migration['source']['uuid']} -> {migration['target']['uuid']}"
+        return summary
 
 
 _benchmark = common.ServingBenchmark(SglangAdapter(), __doc__)
