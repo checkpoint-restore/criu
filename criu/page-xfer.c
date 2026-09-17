@@ -1182,7 +1182,7 @@ unsigned long handle_faulty_iov(int pid, struct iovec *riov, unsigned long fault
 		}
 
 		/* If aux-iov can merge and expand or new entry required */
-		if (aux_iov[(*aux_len) - 1].iov_base + aux_iov[(*aux_len) - 1].iov_len == dummy.iov_base)
+		if (*aux_len && aux_iov[(*aux_len) - 1].iov_base + aux_iov[(*aux_len) - 1].iov_len == dummy.iov_base)
 			aux_iov[(*aux_len) - 1].iov_len += bytes_read;
 		else {
 			aux_iov[*aux_len].iov_base = dummy.iov_base;
@@ -1305,11 +1305,11 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 {
 	struct page_pipe_buf *ppb;
 	unsigned int cur_hole = 0, i;
-	unsigned long ret, bytes_read;
+	ssize_t ret, bytes_read;
 	unsigned long userbuf_len;
 	struct iovec bufvec;
 
-	struct iovec *aux_iov;
+	struct iovec *aux_iov = NULL;
 	unsigned long aux_len;
 	void *userbuf;
 
@@ -1360,7 +1360,7 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 		ret = vmsplice(ppb->p[1], &bufvec, 1, SPLICE_F_NONBLOCK | SPLICE_F_GIFT);
 
 		if (ret == -1 || ret != bytes_read) {
-			pr_err("vmsplice: Failed to splice user buffer to pipe %ld\n", ret);
+			pr_err("vmsplice: Failed to splice user buffer to pipe %zd\n", ret);
 			goto err;
 		}
 
