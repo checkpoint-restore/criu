@@ -1126,7 +1126,8 @@ log-file /tmp/criu.log"""
             keep_running=False,
         )
 
-    def run_mocked_trial(self, module, workdir, responses, keep_running=False):
+    def run_mocked_trial(self, module, workdir, responses, keep_running=False,
+                         args=None, cfg=None):
         events = []
 
         def stream_chat(*_args):
@@ -1180,13 +1181,73 @@ log-file /tmp/criu.log"""
             mock.patch.object(module.common.os.path, "getsize", return_value=1234),
         ):
             result = module.run_trial(
-                {"mode": "uncompressed", "block_size": 0},
+                cfg or {"mode": "uncompressed", "block_size": 0},
                 workdir,
-                self.trial_args(),
+                args or self.trial_args(),
                 1,
                 keep_running,
             )
         return result, events
+
+    def test_gpu_migration_rejects_same_gpu_despite_matching_inference(self):
+        import tempfile
+
+        source = "GPU-00000000-0000-0000-0000-000000000001"
+        target = "GPU-00000000-0000-0000-0000-000000000002"
+        before = [{"host_pid": 100, "container_pid": 42, "gpu_uuids": [source]}]
+        after = [{"host_pid": 200, "container_pid": 42, "gpu_uuids": [source]}]
+        args = self.trial_args()
+        args.cuda_migration = {"source": {"uuid": source}, "target": {"uuid": target}}
+        args.compress_acceleration = 1
+        args.decompress_threads = None
+        with tempfile.TemporaryDirectory() as directory:
+            args.runc_conf = os.path.join(directory, "runc.conf")
+            cfg = {"mode": "uncompressed", "block_size": 0,
+                   "cuda_backend": "driver-api", "criu_libdir": "/plugins",
+                   "cuda_device_map": f"{source}={target},{target}={source}"}
+            try:
+                with (
+                    mock.patch.object(self.sglang.cuda_migration, "observe",
+                                      side_effect=[before, after]),
+                    self.assertRaisesRegex(RuntimeError, "expected only " + target),
+                ):
+                    self.run_mocked_trial(
+                        self.sglang, directory, ["same", "same", "same"],
+                        args=args, cfg=cfg,
+                    )
+                with open(os.path.join(directory, "gpu-placement-after.json")) as artifact:
+                    self.assertIn(source, artifact.read())
+            finally:
+                self.sglang.restore_runc_conf()
+
+    def test_gpu_migration_records_verified_workers_with_changed_host_pids(self):
+        import tempfile
+
+        source, target = "GPU-source", "GPU-target"
+        before = [{"host_pid": 100, "container_pid": 42, "gpu_uuids": [source]}]
+        after = [{"host_pid": 200, "container_pid": 42, "gpu_uuids": [target]}]
+        args = self.trial_args()
+        args.cuda_migration = {"source": {"uuid": source}, "target": {"uuid": target}}
+        args.compress_acceleration = 1
+        args.decompress_threads = None
+        with tempfile.TemporaryDirectory() as directory:
+            args.runc_conf = os.path.join(directory, "runc.conf")
+            cfg = {"mode": "uncompressed", "block_size": 0,
+                   "cuda_backend": "driver-api", "criu_libdir": "/plugins",
+                   "cuda_device_map": f"{source}={target},{target}={source}"}
+            try:
+                with mock.patch.object(self.sglang.cuda_migration, "observe",
+                                       side_effect=[before, after]):
+                    result, _ = self.run_mocked_trial(
+                        self.sglang, directory, ["same", "same", "same"],
+                        args=args, cfg=cfg,
+                    )
+                self.assertTrue(result["valid"])
+                self.assertEqual(result["cuda_migration"], {
+                    "before": before, "after": after, "verified": True,
+                })
+            finally:
+                self.sglang.restore_runc_conf()
 
     def test_mocked_framework_restore_validates_identical_response(self):
         import tempfile
