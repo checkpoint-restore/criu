@@ -373,6 +373,16 @@ run_non_shardable_tests() {
 		echo "Skipping hugetlb compression tests"
 	fi
 
+	# Remote pre-dumps followed by a local final dump, including write faults.
+	if criu/criu check --feature mem_dirty_track; then
+		for predump_mode in splice read; do
+			PRE_DUMP_MODE="$predump_mode" make -C test/others/page-server-remote-parent regression
+		done
+		make -C test/others/page-server-remote-parent shared-regression
+	else
+		echo "Skipping remote-parent tests: memory dirty tracking unavailable"
+	fi
+
 	# Compression pre-dump and incremental parent-chain coverage.
 	if criu/criu check --feature compress && criu/criu check --feature mem_dirty_track; then
 		make -C test/others/compression/vma-boundary run
