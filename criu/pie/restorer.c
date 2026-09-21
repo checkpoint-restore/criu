@@ -1615,6 +1615,15 @@ static int fd_poll(int inotify_fd)
 	return sys_ppoll(&pfd, 1, &tmo, NULL, sizeof(sigset_t));
 }
 
+/* When auto_dedup is on, free just-read pages image bytes back to the fs. */
+static void dedup_punch_hole(int fd, loff_t off, size_t len)
+{
+	long fr = sys_fallocate(fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE, off, len);
+
+	if (fr < 0)
+		pr_debug("Failed to punch holes with fallocate: %ld\n", fr);
+}
+
 /*
  * Advance restore_vma_io by 'res' bytes consumed. Updates rio in place.
  * Returns the new (iov_ptr, nr_iovs) for resubmission, or 0 if fully done.
@@ -1684,12 +1693,8 @@ static int process_aio_event(struct task_restore_args *args, aio_context_t aio_c
 	idx = cb - iocbs;
 	r = rio_ptrs[idx];
 
-	if (args->auto_dedup && r->storage == VMA_IO_UNCOMPRESSED) {
-		long fr = sys_fallocate(fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE,
-					cb->aio_offset, res);
-		if (fr < 0)
-			pr_debug("Failed to punch holes with fallocate: %ld\n", fr);
-	}
+	if (args->auto_dedup && r->storage == VMA_IO_UNCOMPRESSED)
+		dedup_punch_hole(fd, cb->aio_offset, res);
 
 	if (res == ev->data)
 		return 0;
@@ -1839,58 +1844,57 @@ static int validate_direct_vma_io(struct restore_vma_io *rio)
 	return 0;
 }
 
+/* Step to the next variable-length entry in a packed restore_vma_io array. */
+static struct restore_vma_io *rio_next(struct restore_vma_io *rio)
+{
+	return (struct restore_vma_io *)((char *)rio + RIO_SIZE(rio->nr_iovs));
+}
+
+/*
+ * Restore the content of one delayed VMA IO entry via buffered syscalls.
+ * Actual LZ4 blocks are restored into premapped VMAs before PIE, so a delayed
+ * entry can only be uncompressed pages, packed raw-fallback blocks, or zeroes.
+ * Reads are offset-explicit (preadv at rio->off), so this is safe to call
+ * concurrently from several threads on disjoint entries sharing one fd.
+ */
+static int fill_one_rio(struct task_restore_args *args, struct restore_vma_io *rio)
+{
+	int j;
+
+	if (rio->storage == VMA_IO_UNCOMPRESSED || rio->storage == VMA_IO_PACKED_RAW) {
+		if (args->vma_ios_fd == -1) {
+			pr_err("No pages image fd for VMA IO entry (storage %d)\n", rio->storage);
+			return -1;
+		}
+		if (rio->storage == VMA_IO_PACKED_RAW && validate_direct_vma_io(rio))
+			return -1;
+		return restore_vma_preadv_one(args, rio, rio->storage == VMA_IO_UNCOMPRESSED);
+	}
+	if (rio->storage == VMA_IO_ZERO) {
+		if (validate_direct_vma_io(rio))
+			return -1;
+		for (j = 0; j < rio->nr_iovs; j++)
+			memset(rio->iovs[j].iov_base, 0, rio->iovs[j].iov_len);
+		return 0;
+	}
+	if (rio->storage != VMA_IO_ENCODED) {
+		pr_err("Unknown VMA IO storage kind %d\n", rio->storage);
+		return -1;
+	}
+	pr_err("Delayed VMA IO unexpectedly contains an LZ4 block\n");
+	return -1;
+}
+
 static int restore_vma_preadv_mixed(struct task_restore_args *args)
 {
 	struct restore_vma_io *rio = args->vma_ios;
 	unsigned int i;
 	int ret = -1;
 
-	/*
-	 * Actual LZ4 blocks are restored into premapped VMAs before PIE.  A
-	 * delayed VMA can therefore contain only ordinary uncompressed pages,
-	 * packed raw-fallback blocks, or zero blocks, all of which PIE can
-	 * restore with native syscalls.
-	 */
 	for (i = 0; i < args->vma_ios_n; i++) {
-		if (rio->storage == VMA_IO_UNCOMPRESSED) {
-			if (args->vma_ios_fd == -1) {
-				pr_err("No pages image fd for uncompressed VMA IO entry\n");
-				goto out;
-			}
-
-			if (restore_vma_preadv_one(args, rio, true))
-				goto out;
-			goto next;
-		}
-		if (rio->storage == VMA_IO_PACKED_RAW) {
-			if (args->vma_ios_fd == -1) {
-				pr_err("No pages image fd for packed-raw VMA IO entry\n");
-				goto out;
-			}
-			if (validate_direct_vma_io(rio) ||
-			    restore_vma_preadv_one(args, rio, false))
-				goto out;
-			goto next;
-		}
-		if (rio->storage == VMA_IO_ZERO) {
-			int j;
-
-			if (validate_direct_vma_io(rio))
-				goto out;
-			for (j = 0; j < rio->nr_iovs; j++)
-				memset(rio->iovs[j].iov_base, 0,
-				       rio->iovs[j].iov_len);
-			goto next;
-		}
-		if (rio->storage != VMA_IO_ENCODED) {
-			pr_err("Unknown VMA IO storage kind %d\n", rio->storage);
+		if (fill_one_rio(args, rio))
 			goto out;
-		}
-		pr_err("Delayed VMA IO unexpectedly contains an LZ4 block\n");
-		goto out;
-
-next:
-		rio = (struct restore_vma_io *)((char *)rio + RIO_SIZE(rio->nr_iovs));
+		rio = rio_next(rio);
 	}
 
 	ret = 0;
@@ -1970,12 +1974,8 @@ static int restore_vma_preadv_one(struct task_restore_args *args,
 		 * If the file is open for writing, then it means we should
 		 * punch holes in it.
 		 */
-		if (args->auto_dedup && allow_dedup) {
-			int fr = sys_fallocate(args->vma_ios_fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE,
-					       rio->off, r);
-			if (fr < 0)
-				pr_debug("Failed to punch holes with fallocate: %d\n", fr);
-		}
+		if (args->auto_dedup && allow_dedup)
+			dedup_punch_hole(args->vma_ios_fd, rio->off, r);
 		rio->off += r;
 		/* Advance the iovecs */
 		do {

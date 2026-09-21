@@ -66,16 +66,6 @@ static void *asyncd_thread(void *arg)
  * bottleneck, so matching the pool to the available cores is a good default.
  */
 #define ASYNC_THREAD_NR_MAX 16
-static int get_avail_cpus(void)
-{
-	cpu_set_t cpuset;
-
-	CPU_ZERO(&cpuset);
-	if (sched_getaffinity(0, sizeof(cpuset), &cpuset) == 0)
-		return CPU_COUNT(&cpuset);
-
-	return sysconf(_SC_NPROCESSORS_ONLN);
-}
 
 static int asyncd(int sk)
 {

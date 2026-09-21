@@ -1519,6 +1519,17 @@ out:
 	return ret;
 }
 
+int get_avail_cpus(void)
+{
+	cpu_set_t cpuset;
+
+	CPU_ZERO(&cpuset);
+	if (sched_getaffinity(0, sizeof(cpuset), &cpuset) == 0)
+		return CPU_COUNT(&cpuset);
+
+	return sysconf(_SC_NPROCESSORS_ONLN);
+}
+
 void rlimit_unlimit_nofile(void)
 {
 	struct rlimit new;
