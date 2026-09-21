@@ -256,6 +256,15 @@ int page_read_resolve_offset(struct page_read *pr, unsigned long vaddr,
 			     int *fd_out, off_t *off_out);
 
 /*
+ * mmap the whole raw pages image read-only and return its base address, with
+ * the mapping length via @size_out. Lets the parallel drain hand UFFDIO_COPY a
+ * source straight from the page cache, with no staging-buffer copy. Only valid
+ * for a page_read where page_read_parallel_drainable() holds. Returns NULL on
+ * error.
+ */
+void *page_read_mmap_pages(struct page_read *pr, off_t *size_out);
+
+/*
  * Try to enable O_DIRECT on a pages-image fd and verify with one
  * aligned probe read.
  *

@@ -10,9 +10,9 @@ sudo rm -f ~/.cache/criu/*
 
 sleep 10
 
-sudo time $CRIU dump --display-stats -t $pid  -D  ~/.cache/criu --ext-unix-sk
+sudo $CRIU dump --display-stats -t $pid  -D  ~/.cache/criu --ext-unix-sk
 
-sudo time $CRIU lazy-pages -v2  --lazy-pages-threads 2 -D  ~/.cache/criu &
+sudo time $CRIU lazy-pages -v2  --lazy-pages-threads 8 -D  ~/.cache/criu &
 sleep 0.1
 sudo $CRIU restore --display-stats --lazy-pages  -D  ~/.cache/criu --ext-unix-sk --restore-detached || true
 
@@ -28,8 +28,7 @@ sudo rm -f ~/.cache/criu/*
 
 sleep 10
 
-sudo time $CRIU dump --display-stats -t $pid  -D  ~/.cache/criu --ext-unix-sk
-
+sudo $CRIU dump --display-stats -t $pid  -D  ~/.cache/criu --ext-unix-sk
 
 sudo time /usr/local/sbin/criu lazy-pages -v2  -D  ~/.cache/criu &
 sleep 0.1

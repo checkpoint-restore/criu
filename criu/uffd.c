@@ -83,6 +83,9 @@ struct lazy_pages_info {
 	bool exited;
 	bool parallel; /* content can be drained with the worker pool */
 
+	void *pages_map;	    /* raw pages image mmapped for the parallel drain */
+	off_t pages_map_size;
+
 	struct list_head iovs;
 	struct list_head reqs;
 
@@ -170,6 +173,8 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 	if (!lpi)
 		return;
 	xfree(lpi->buf);
+	if (lpi->pages_map)
+		munmap(lpi->pages_map, lpi->pages_map_size);
 	free_iovs(lpi);
 	if (lpi->lpfd.fd > 0)
 		close(lpi->lpfd.fd);
@@ -1054,26 +1059,28 @@ static int xfer_pages(struct lazy_pages_info *lpi)
  * is safe for concurrent callers on one uffd (races lose with EEXIST), so
  * workers fill disjoint ranges through the same fd at once.
  *
+ * The pages image is mmapped read-only once per task, so UFFDIO_COPY reads its
+ * source straight from the page cache (one copy into the target page, no
+ * staging buffer).
+ *
  * The main epoll thread keeps ownership of all page_read cursor state and all
  * lazy_iov list surgery: it resolves each range's file offset, hands workers
- * self-contained {fd, offset, dst, nr} jobs, waits for the batch, then
- * accounts the results. Workers only pread() image content and issue the
- * ioctl; they never touch the page_read or the iov lists. Draining one batch
- * at a time and returning to epoll between batches keeps demand faults and
- * non-cooperative events serviced.
+ * self-contained {src, dst, nr} jobs, waits for the batch, then accounts the
+ * results. Workers only issue the ioctl; they never touch the page_read or the
+ * iov lists. Draining one batch at a time and returning to epoll between
+ * batches keeps demand faults and non-cooperative events serviced.
  */
 #define DRAIN_THREAD_NR_MAX 16
 
 struct drain_job {
 	/* inputs, read by workers */
 	int uffd;
-	int src_fd;
-	off_t src_off;
+	unsigned long src; /* page content in the mmapped pages image */
 	unsigned long dst;
 	unsigned long nr_pages;
 
 	/* outputs, written by workers */
-	int result;    /* 0 ok, -1 ioctl error, -2 read error */
+	int result;    /* 0 ok, -1 ioctl error */
 	int err;       /* errno of a failed operation */
 	long mcopy_rc; /* uffdio_copy.copy */
 
@@ -1083,7 +1090,6 @@ struct drain_job {
 };
 
 static pthread_t drain_threads[DRAIN_THREAD_NR_MAX];
-static void *drain_bufs[DRAIN_THREAD_NR_MAX];
 static int nr_drain_threads;
 static bool drain_pool_failed;
 
@@ -1096,32 +1102,18 @@ static int drain_next_job;
 static int drain_done_jobs;
 static bool drain_stop;
 
-static void drain_do_job(struct drain_job *j, void *buf)
+static void drain_do_job(struct drain_job *j)
 {
-	unsigned long len = j->nr_pages * page_size();
 	struct uffdio_copy uffdio_copy;
-	size_t rd = 0;
 
-	while (rd < len) {
-		ssize_t r = pread(j->src_fd, (char *)buf + rd, len - rd, j->src_off + rd);
-		if (r < 0) {
-			if (errno == EINTR)
-				continue;
-			j->result = -2;
-			j->err = errno;
-			return;
-		}
-		if (r == 0) {
-			j->result = -2;
-			j->err = EIO;
-			return;
-		}
-		rd += r;
-	}
-
+	/*
+	 * UFFDIO_COPY reads the source straight from the mmapped pages image
+	 * (page cache -> target page, one copy), so the worker touches no
+	 * staging buffer and does no pread().
+	 */
 	uffdio_copy.dst = j->dst;
-	uffdio_copy.src = (unsigned long)buf;
-	uffdio_copy.len = len;
+	uffdio_copy.src = j->src;
+	uffdio_copy.len = j->nr_pages * page_size();
 	uffdio_copy.mode = 0;
 	uffdio_copy.copy = 0;
 
@@ -1136,9 +1128,6 @@ static void drain_do_job(struct drain_job *j, void *buf)
 
 static void *drain_worker(void *arg)
 {
-	long idx = (long)arg;
-	void *buf = drain_bufs[idx];
-
 	pthread_mutex_lock(&drain_lock);
 	while (1) {
 		int job;
@@ -1151,7 +1140,7 @@ static void *drain_worker(void *arg)
 		job = drain_next_job++;
 		pthread_mutex_unlock(&drain_lock);
 
-		drain_do_job(&drain_jobs[job], buf);
+		drain_do_job(&drain_jobs[job]);
 
 		pthread_mutex_lock(&drain_lock);
 		if (++drain_done_jobs == drain_nr_jobs)
@@ -1176,9 +1165,6 @@ static void stop_drain_pool(void)
 
 	for (i = 0; i < nr_drain_threads; i++)
 		pthread_join(drain_threads[i], NULL);
-
-	for (i = 0; i < nr_drain_threads; i++)
-		free(drain_bufs[i]);
 
 	xfree(drain_jobs);
 	drain_jobs = NULL;
@@ -1225,13 +1211,6 @@ static int start_drain_pool(void)
 	if (!drain_jobs)
 		goto fail;
 
-	for (i = 0; i < n; i++) {
-		if (posix_memalign(&drain_bufs[i], PAGE_SIZE, MAX_XFER_LEN)) {
-			drain_bufs[i] = NULL;
-			goto fail;
-		}
-	}
-
 	drain_stop = false;
 	drain_nr_jobs = 0;
 	drain_next_job = 0;
@@ -1259,10 +1238,6 @@ static int start_drain_pool(void)
 	return 0;
 
 fail:
-	for (i = 0; i < n; i++) {
-		free(drain_bufs[i]);
-		drain_bufs[i] = NULL;
-	}
 	xfree(drain_jobs);
 	drain_jobs = NULL;
 	drain_pool_failed = true;
@@ -1291,6 +1266,12 @@ static int drain_parallel(struct lazy_pages_info *lpi)
 	int nr_jobs = 0;
 	int i;
 
+	if (!lpi->pages_map) {
+		lpi->pages_map = page_read_mmap_pages(&lpi->pr, &lpi->pages_map_size);
+		if (!lpi->pages_map)
+			return -1;
+	}
+
 	while (nr_jobs < nr_drain_threads) {
 		struct lazy_iov *iov;
 		unsigned long len;
@@ -1318,14 +1299,20 @@ static int drain_parallel(struct lazy_pages_info *lpi)
 			return -1;
 		}
 
+		len = iov->end - iov->start;
+		if (off < 0 || off + (off_t)len > lpi->pages_map_size) {
+			lp_err(lpi, "pages image offset %ld+%lu out of bounds for %lx\n", (long)off, len,
+			       iov->img_start);
+			return -1;
+		}
+
 		list_move(&iov->l, &lpi->reqs);
 
 		drain_jobs[nr_jobs++] = (struct drain_job){
 			.uffd = lpi->lpfd.fd,
-			.src_fd = fd,
-			.src_off = off,
+			.src = (unsigned long)lpi->pages_map + off,
 			.dst = iov->start,
-			.nr_pages = (iov->end - iov->start) / PAGE_SIZE,
+			.nr_pages = len / PAGE_SIZE,
 			.req = iov,
 			.req_start = iov->start,
 		};
@@ -1341,17 +1328,11 @@ static int drain_parallel(struct lazy_pages_info *lpi)
 		unsigned long nr = j->nr_pages;
 
 		/*
-		 * Every job's pages were pread() from the image regardless
-		 * of how many UFFDIO_COPY ends up installing; the difference
-		 * is drain work thrown away to a racing demand fault.
+		 * Every job's pages were faulted in from the image and handed
+		 * to UFFDIO_COPY regardless of how many it installs; the
+		 * difference is drain work thrown away to a racing demand fault.
 		 */
 		lpi->drain_read_pages += j->nr_pages;
-
-		if (j->result == -2) {
-			errno = j->err;
-			lp_perror(lpi, "Read error draining %lx", j->req_start);
-			return -1;
-		}
 
 		if (j->result == -1) {
 			if (uffd_check_op_error(lpi, "copy", &nr, j->err, j->mcopy_rc))

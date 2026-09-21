@@ -5,6 +5,7 @@
 #include <string.h>
 #include <linux/falloc.h>
 #include <sys/uio.h>
+#include <sys/mman.h>
 #include <limits.h>
 
 #include "types.h"
@@ -2269,6 +2270,30 @@ int page_read_resolve_offset(struct page_read *pr, unsigned long vaddr,
 	*off_out = pr->pi_off;
 
 	return 0;
+}
+
+void *page_read_mmap_pages(struct page_read *pr, off_t *size_out)
+{
+	off_t size;
+	void *map;
+	int fd;
+
+	fd = img_raw_fd(pr->pi);
+	if (fd < 0)
+		return NULL;
+
+	size = img_raw_size(pr->pi);
+	if (size <= 0)
+		return NULL;
+
+	map = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (map == MAP_FAILED) {
+		pr_perror("Can't mmap pages image");
+		return NULL;
+	}
+
+	*size_out = size;
+	return map;
 }
 
 /*
