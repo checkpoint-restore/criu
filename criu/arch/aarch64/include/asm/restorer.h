@@ -14,7 +14,7 @@
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,		\
 			     thread_args, clone_restore_fn)			\
 	asm volatile(								\
-			"clone_emul:					\n"	\
+			"clone_emul%=:					\n"	\
 			"ldr x1, %2					\n"	\
 			"and x1, x1, #~15				\n"	\
 			"sub x1, x1, #16				\n"	\
@@ -25,16 +25,16 @@
 			"mov x8, #"__stringify(__NR_clone)"		\n"	\
 			"svc #0						\n"	\
 										\
-			"cbz x0, thread_run				\n"	\
+			"cbz x0, thread_run%=				\n"	\
 										\
 			"mov %0, x0					\n"	\
-			"b   clone_end					\n"	\
+			"b   clone_end%=				\n"	\
 										\
-			"thread_run:					\n"	\
+			"thread_run%=:					\n"	\
 			"ldp x1, x0, [sp]				\n"	\
 			"br  x1						\n"	\
 										\
-			"clone_end:					\n"	\
+			"clone_end%=:					\n"	\
 			: "=r"(ret)						\
 			: "r"(clone_flags),					\
 			  "m"(new_sp),						\

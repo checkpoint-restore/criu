@@ -11,7 +11,7 @@
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
 			thread_args, clone_restore_fn)			\
 		asm volatile(								\
-				"clone_emul:					\n"	\
+				"clone_emul%=:					\n"	\
 				"ld.d		$a1, %2				\n"	\
 				"addi.d		$a1, $a1, -16 		\n"	\
 				"st.d		%5, $a1, 0			\n"	\
@@ -22,17 +22,17 @@
 				"ori 		$a7, $zero, "__stringify(__NR_clone)"	\n"	\
 				"syscall	0					\n"	\
 												   	\
-				"beqz		$a0, thread_run     \n"	\
+				"beqz		$a0, thread_run%=   \n"	\
 												   	\
 				"or			%0, $zero, $a0		\n"	\
-				"b			clone_end			\n"	\
+				"b			clone_end%=			\n"	\
 												   	\
-				"thread_run:					\n"	\
+				"thread_run%=:					\n"	\
 				"ld.d		$a1, $sp, 0			\n"	\
 				"ld.d		$a0, $sp, 8			\n"	\
 				"jirl		$ra, $a1, 0			\n"	\
 												   	\
-				"clone_end:						\n"	\
+				"clone_end%=:						\n"	\
 				: "=r"(ret)							\
 				: "r"(clone_flags),					\
 				  "ZB"(new_sp),						\

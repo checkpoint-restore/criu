@@ -18,7 +18,7 @@
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
 			     thread_args, clone_restore_fn)		\
 	asm volatile(							\
-		"clone_emul:					\n"	\
+		"clone_emul%=:					\n"	\
 		"/* Save fn, args, stack across syscall. */ 	\n"	\
 		"mr	14, %5	/* clone_restore_fn in r14 */ 	\n"	\
 		"mr	15, %6	/* &thread_args[i] in r15 */ 	\n"	\
@@ -32,13 +32,13 @@
 		"/* Check for child process.  */		\n"	\
 		"cmpdi   cr1,3,0 				\n"	\
 		"crandc  cr1*4+eq,cr1*4+eq,cr0*4+so 		\n"	\
-		"bne-    cr1,clone_end 				\n"	\
+		"bne-    cr1,clone_end%= 			\n"	\
 		"/* child */					\n"	\
 		"addi 14, 14, 8 /* jump over r2 fixup */	\n"	\
 		"mtctr	14					\n"	\
 		"mr	3,15 					\n"	\
 		"bctr 						\n"	\
-		"clone_end:					\n"	\
+		"clone_end%=:					\n"	\
 		"mr	%0,3 \n"					\
 		: "=r"(ret)			/* %0 */		\
 		: "r"(clone_flags),		/* %1 */		\

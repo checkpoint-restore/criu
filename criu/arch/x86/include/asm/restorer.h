@@ -41,13 +41,20 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
  * int clone(unsigned long clone_flags, unsigned long newsp,
  *           int *parent_tidptr, int *child_tidptr,
  *           unsigned long tls);
+ *
+ * The asm labels carry a "%=" suffix, which the compiler expands to a number
+ * unique to each instantiation of the asm template. Without it the labels
+ * would be plain global symbols, so expanding this macro twice in one
+ * translation unit would emit duplicate symbols and fail to assemble. The
+ * suffix lets the macro be used more than once per file (e.g. both the
+ * real-thread restore loop and the parallel memory-fill pool in restorer.c).
  */
 
 /* clang-format off */
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
 			     thread_args, clone_restore_fn)		\
 	asm volatile(							\
-		     "clone_emul:				\n"	\
+		     "clone_emul%=:				\n"	\
 		     "movq %2, %%rsi				\n"	\
 		     "subq $16, %%rsi				\n"	\
 		     "movq %6, %%rdi				\n"	\
@@ -61,18 +68,18 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 		     "syscall					\n"	\
 									\
 		     "testq %%rax,%%rax				\n"	\
-		     "jz thread_run				\n"	\
+		     "jz thread_run%=				\n"	\
 									\
 		     "movq %%rax, %0				\n"	\
-		     "jmp clone_end				\n"	\
+		     "jmp clone_end%=				\n"	\
 									\
-		     "thread_run:				\n"	\
+		     "thread_run%=:				\n"	\
 		     "xorq %%rbp, %%rbp				\n"	\
 		     "popq %%rax				\n"	\
 		     "popq %%rdi				\n"	\
 		     "callq *%%rax				\n"	\
 									\
-		     "clone_end:				\n"	\
+		     "clone_end%=:				\n"	\
 		     : "=r"(ret)					\
 		     : "g"(clone_flags),				\
 		       "g"(new_sp),					\

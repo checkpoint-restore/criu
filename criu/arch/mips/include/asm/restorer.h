@@ -43,19 +43,19 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 		 "li    $2, "__stringify(__NR_clone)"	\n"		\
 		 "syscall  	\n"	/* syscall */			\
 		 "sync  	\n"				\
-		 "bnez	$7,err  	\n"				\
+		 "bnez	$7,err%=  	\n"				\
 		 "nop  	\n"						\
-		 "beqz	$2,thread_start  	\n"			\
+		 "beqz	$2,thread_start%=  	\n"			\
 		 "nop 	                        \n"			\
 		 "move %0,$2 	                \n"			\
-		 "b  end 	                \n"			\
-		 "err:break  \n"					\
-		 "thread_start:  	\n"				\
+		 "b  end%= 	                \n"			\
+		 "err%=:break  \n"					\
+		 "thread_start%=:  	\n"				\
 		 "ld 	$25,0($29)         \n"				\
 		 "ld 	$4,8($29)      \n"				\
 		 "jal 	$25  \n"					\
 		 "nop  \n"						\
-		 "end:  \n"						\
+		 "end%=:  \n"						\
 		     : "=r"(ret)					\
 		     : "r"(clone_flags),				\
 		       "m"(new_sp),					\
