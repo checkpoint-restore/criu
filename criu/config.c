@@ -430,6 +430,7 @@ int init_opts(void)
 	opts.ps_socket = -1;
 	opts.ghost_limit = DEFAULT_GHOST_LIMIT;
 	opts.timeout = DEFAULT_TIMEOUT;
+	opts.lazy_pages_threads = -1;
 	opts.empty_ns = 0;
 	opts.status_fd = -1;
 	opts.log_level = DEFAULT_LOGLEVEL;
@@ -771,6 +772,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "compress-block", required_argument, 0, 1103 },
 		{ "decompress-threads", required_argument, 0, 1104 },
 		{ "plugin-option", required_argument, 0, 1105 },
+		{ "lazy-pages-threads", required_argument, 0, 1106 },
 		{},
 	};
 
@@ -929,6 +931,19 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			if (cr_plugin_option_add_arg(optarg))
 				return 1;
 			break;
+		case 1106: {
+			char *endptr;
+			long n;
+
+			errno = 0;
+			n = strtol(optarg, &endptr, 10);
+			if (errno == ERANGE || endptr == optarg || *endptr != '\0' || n < 0 || n > 1024) {
+				pr_err("Invalid --lazy-pages-threads value '%s' (must be 0..1024)\n", optarg);
+				return 1;
+			}
+			opts.lazy_pages_threads = (int)n;
+			break;
+		}
 		case 1043: {
 			int fd;
 

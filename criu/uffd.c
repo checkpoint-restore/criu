@@ -94,6 +94,8 @@ struct lazy_pages_info {
 	unsigned long xfer_len; /* in pages */
 	unsigned long total_pages;
 	unsigned long copied_pages;
+	unsigned long drain_read_pages;  /* pages read from the image by the drain pool */
+	unsigned long drain_waste_pages; /* drain pages read but not installed (lost to a racing fault) */
 
 	struct epoll_rfd lpfd;
 
@@ -1188,6 +1190,10 @@ static int drain_pool_size(void)
 	cpu_set_t set;
 	int n = -1;
 
+	/* --lazy-pages-threads overrides the CPU-derived default. */
+	if (opts.lazy_pages_threads >= 0)
+		return min_t(int, opts.lazy_pages_threads, DRAIN_THREAD_NR_MAX);
+
 	CPU_ZERO(&set);
 	if (sched_getaffinity(0, sizeof(set), &set) == 0)
 		n = CPU_COUNT(&set);
@@ -1209,6 +1215,11 @@ static int start_drain_pool(void)
 		return -1;
 
 	n = drain_pool_size();
+	if (n <= 1) {
+		/* Pool disabled by the user: use the serial drain. */
+		drain_pool_failed = true;
+		return -1;
+	}
 
 	drain_jobs = xmalloc(sizeof(*drain_jobs) * n);
 	if (!drain_jobs)
@@ -1329,6 +1340,13 @@ static int drain_parallel(struct lazy_pages_info *lpi)
 		struct drain_job *j = &drain_jobs[i];
 		unsigned long nr = j->nr_pages;
 
+		/*
+		 * Every job's pages were pread() from the image regardless
+		 * of how many UFFDIO_COPY ends up installing; the difference
+		 * is drain work thrown away to a racing demand fault.
+		 */
+		lpi->drain_read_pages += j->nr_pages;
+
 		if (j->result == -2) {
 			errno = j->err;
 			lp_perror(lpi, "Read error draining %lx", j->req_start);
@@ -1343,6 +1361,7 @@ static int drain_parallel(struct lazy_pages_info *lpi)
 				return 0;
 		}
 
+		lpi->drain_waste_pages += j->nr_pages - nr;
 		lpi->copied_pages += nr;
 		iov_list_insert(j->req, &lpi->iovs);
 		if (drop_iovs(lpi, j->req_start, nr * PAGE_SIZE))
@@ -1552,6 +1571,15 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 static void lazy_pages_summary(struct lazy_pages_info *lpi)
 {
 	lp_debug(lpi, "UFFD transferred pages: (%ld/%ld)\n", lpi->copied_pages, lpi->total_pages);
+
+	/*
+	 * Pages the drain pool read from the image but could not install
+	 * (lost to a racing demand fault) are wasted read + copy work: the
+	 * gap between the CPU the pool burns and the wall-clock it saves.
+	 */
+	if (lpi->drain_read_pages)
+		lp_info(lpi, "UFFD drain pool: read %ld pages, %ld wasted (%ld%%)\n", lpi->drain_read_pages,
+			lpi->drain_waste_pages, lpi->drain_waste_pages * 100 / lpi->drain_read_pages);
 
 #if 0
 	if ((lpi->copied_pages != lpi->total_pages) && (lpi->total_pages > 0)) {

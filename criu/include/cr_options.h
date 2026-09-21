@@ -205,6 +205,7 @@ struct cr_options {
 	unsigned int empty_ns;
 	int tcp_skip_in_flight;
 	bool lazy_pages;
+	int lazy_pages_threads;
 	char *work_dir;
 	int network_lock_method;
 	int skip_file_rwx_check;
