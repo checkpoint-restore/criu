@@ -1908,6 +1908,285 @@ out:
 }
 
 /*
+ * Parallel buffered fill.
+ *
+ * We split the delayed private content into self-contained jobs and hand them
+ * to a pool of ephemeral worker threads plus the leader, each claiming jobs
+ * through one atomic cursor. Reads are offset-explicit (pread/preadv), the
+ * destinations are disjoint already-mapped VMA subranges, and jobs carry no
+ * pointers into mutable lists, so the fill needs no locking on the data path.
+ *
+ * A fully-committed contiguous heap coalesces into a single vma_io entry with
+ * one huge destination iovec, so entry-level splitting alone would not
+ * parallelize the JVM target. Uncompressed entries (where file bytes map 1:1
+ * and linearly onto memory bytes) are therefore cut into fixed-size
+ * single-region pread jobs. Packed-raw and zero entries carry per-rio block
+ * metadata that must stay together, so each stays a whole-entry job.
+ *
+ * Workers are CLONE_THREAD siblings so they raise no SIGCHLD, and
+ * CLONE_CHILD_CLEARTID lets the leader join them via a futex before returning.
+ *
+ * TID safety: every clone consumes a TID from the kernel's global sequence,
+ * and the restorer relies on reproducing each thread's exact TID later
+ * (clone3 set_tid / ns_last_pid). We hold the tree-wide last_pid_mutex across
+ * the whole spawn/fill/join window and join all workers (freeing their TIDs)
+ * before the real-thread clone loop runs, so a worker TID can never collide
+ * with a target TID in this or any sibling task.
+ */
+
+/* Per-job read granularity for splitting large uncompressed ranges. */
+#define MEM_FILL_CHUNK (4 << 20)
+
+struct mem_fill_job {
+	/*
+	 * Whole-entry job when rio != NULL (packed-raw / zero); otherwise a
+	 * simple contiguous read of len bytes at file offset off into base.
+	 */
+	struct restore_vma_io *rio;
+	loff_t off;
+	void *base;
+	size_t len;
+};
+
+struct mem_fill_pool {
+	struct task_restore_args *args;
+	struct mem_fill_job *jobs;
+	unsigned int nr_jobs;
+	atomic_t cursor; /* next job to claim */
+	atomic_t error;	 /* set by any worker that fails */
+};
+
+struct mem_worker_arg {
+	/*
+	 * Named 'pid' and placed first so RUN_CLONE_RESTORE_FN can use
+	 * &thread_args[i].pid as the clone child_tid pointer. The kernel
+	 * writes the new TID here on clone and clears it on exit
+	 * (CLONE_CHILD_CLEARTID), which doubles as the join futex.
+	 */
+	pid_t pid;
+	struct mem_fill_pool *pool;
+};
+
+/* Read one contiguous chunk, retrying short reads; punch holes if dedup. */
+static int fill_simple_job(struct task_restore_args *args, struct mem_fill_job *job)
+{
+	char *base = job->base;
+	size_t len = job->len;
+	loff_t off = job->off;
+
+	while (len) {
+		ssize_t r = sys_pread(args->vma_ios_fd, base, len, off);
+
+		if (r < 0) {
+			pr_err("Can't read pages data (%d)\n", (int)r);
+			return -1;
+		}
+		if (r == 0) {
+			pr_err("Unexpected EOF reading pages data at offset %ld (%zu left)\n", (long)off, len);
+			return -1;
+		}
+		if (args->auto_dedup)
+			dedup_punch_hole(args->vma_ios_fd, off, r);
+		base += r;
+		off += r;
+		len -= r;
+	}
+	return 0;
+}
+
+static int mem_run_job(struct task_restore_args *args, struct mem_fill_job *job)
+{
+	if (job->rio)
+		return fill_one_rio(args, job->rio);
+	return fill_simple_job(args, job);
+}
+
+/*
+ * Split one entry into fill jobs, returning the job count. Emits into jobs[]
+ * when non-NULL; with jobs == NULL it only counts, using the same walk so the
+ * sizing pass and the emit pass can never disagree. Uncompressed entries map
+ * file bytes 1:1 onto memory and are cut into MEM_FILL_CHUNK pieces so a single
+ * huge iovec still parallelizes; packed-raw/zero carry per-rio block metadata
+ * and stay whole-entry jobs.
+ */
+static unsigned int rio_split(struct restore_vma_io *rio, struct mem_fill_job *jobs)
+{
+	unsigned int k = 0;
+	loff_t consumed = 0;
+	int i;
+
+	if (rio->storage != VMA_IO_UNCOMPRESSED) {
+		if (jobs)
+			jobs[0].rio = rio;
+		return 1;
+	}
+
+	for (i = 0; i < rio->nr_iovs; i++) {
+		char *base = rio->iovs[i].iov_base;
+		size_t o = 0;
+
+		while (o < rio->iovs[i].iov_len) {
+			size_t piece = rio->iovs[i].iov_len - o;
+
+			if (piece > MEM_FILL_CHUNK)
+				piece = MEM_FILL_CHUNK;
+			if (jobs) {
+				jobs[k].rio = NULL;
+				jobs[k].off = rio->off + consumed + o;
+				jobs[k].base = base + o;
+				jobs[k].len = piece;
+			}
+			k++;
+			o += piece;
+		}
+		consumed += rio->iovs[i].iov_len;
+	}
+	return k;
+}
+
+static void mem_fill_drain(struct mem_fill_pool *pool)
+{
+	while (!atomic_read(&pool->error)) {
+		int idx = atomic_inc_return(&pool->cursor) - 1;
+
+		if (idx >= (int)pool->nr_jobs)
+			break;
+		if (mem_run_job(pool->args, &pool->jobs[idx]))
+			atomic_set(&pool->error, 1);
+	}
+}
+
+static int mem_worker_thread(void *arg)
+{
+	struct mem_worker_arg *wa = arg;
+	k_rtsigset_t to_block;
+
+	/* Ephemeral workers do no signal-sensitive work; let the leader
+	 * remain the sole signal target (it owns the SIGCHLD handler). */
+	ksigfillset(&to_block);
+	sys_sigprocmask(SIG_SETMASK, &to_block, NULL, sizeof(k_rtsigset_t));
+
+	mem_fill_drain(wa->pool);
+	sys_exit(0);
+	return 0;
+}
+
+static int restore_vma_preadv_parallel(struct task_restore_args *args)
+{
+	int nr_helpers = args->nr_mem_workers - 1;
+	unsigned long stack_sz = RESTORE_STACK_SIZE;
+	unsigned long map_sz;
+	struct mem_fill_pool pool;
+	struct mem_worker_arg *wargs;
+	struct mem_fill_job *jobs, *jp;
+	unsigned int nr_jobs = 0;
+	void *mem;
+	struct restore_vma_io *rio;
+	/*
+	 * PARENT_SETTID writes the worker TID into wargs[i].pid synchronously
+	 * (before clone returns), CHILD_CLEARTID zeroes it and wakes the futex
+	 * on exit -- together a race-free join word (see block comment).
+	 */
+	long clone_flags = CLONE_VM | CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM |
+			   CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID;
+	int i, ret = -1;
+	unsigned int n;
+
+	rio = args->vma_ios;
+	for (n = 0; n < args->vma_ios_n; n++) {
+		nr_jobs += rio_split(rio, NULL);
+		rio = rio_next(rio);
+	}
+
+	/* No point in more helpers than jobs to claim. */
+	if (nr_helpers > (int)nr_jobs - 1)
+		nr_helpers = (int)nr_jobs - 1;
+
+	/* Job array + per-helper args + per-helper stacks in one mapping. */
+	map_sz = nr_jobs * sizeof(*jobs) + nr_helpers * (sizeof(*wargs) + stack_sz);
+	map_sz = round_up(map_sz, PAGE_SIZE);
+
+	mem = (void *)sys_mmap(NULL, map_sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (IS_ERR(mem)) {
+		pr_err("Can't mmap mem-worker pool: %ld\n", PTR_ERR(mem));
+		goto close;
+	}
+
+	jobs = mem;
+	wargs = (struct mem_worker_arg *)((char *)jobs + nr_jobs * sizeof(*jobs));
+
+	jp = jobs;
+	rio = args->vma_ios;
+	for (n = 0; n < args->vma_ios_n; n++) {
+		jp += rio_split(rio, jp);
+		rio = rio_next(rio);
+	}
+
+	pool.args = args;
+	pool.jobs = jobs;
+	pool.nr_jobs = jp - jobs;
+	atomic_set(&pool.cursor, 0);
+	atomic_set(&pool.error, 0);
+
+	/*
+	 * Serialize TID consumption against every other task's thread
+	 * creation for the whole worker lifetime (see the block comment).
+	 */
+	mutex_lock(&task_entries_local->last_pid_mutex);
+
+	for (i = 0; i < nr_helpers; i++) {
+		void *stack_base = (char *)wargs + nr_helpers * sizeof(*wargs) + i * stack_sz;
+		unsigned long new_sp = RESTORE_ALIGN_STACK((long)stack_base, stack_sz);
+		long clone_ret;
+
+		wargs[i].pid = 0;
+		wargs[i].pool = &pool;
+
+		/*
+		 * Reuse the thread-restore clone macro with no new per-arch
+		 * assembly. It uses &parent_tid for CLONE_PARENT_SETTID and
+		 * &thread_args[i].pid for CLONE_CHILD_CLEARTID; both must be the
+		 * same join word, so pass wargs[i].pid as parent_tid and wargs
+		 * as thread_args -- &wargs[i].pid resolves both.
+		 */
+		RUN_CLONE_RESTORE_FN(clone_ret, clone_flags, new_sp, wargs[i].pid, wargs, mem_worker_thread);
+		if (clone_ret < 0) {
+			pr_err("Can't clone mem worker %d: %ld\n", i, clone_ret);
+			/* Fall back: leader drains the rest solo. */
+			nr_helpers = i;
+			break;
+		}
+	}
+
+	/* The leader is worker 0. */
+	mem_fill_drain(&pool);
+
+	/* Join helpers: CLONE_CHILD_CLEARTID zeroes .pid and wakes the futex. */
+	for (i = 0; i < nr_helpers; i++) {
+		while (1) {
+			pid_t tid = atomic_read((atomic_t *)&wargs[i].pid);
+
+			if (tid == 0)
+				break;
+			sys_futex((uint32_t *)&wargs[i].pid, FUTEX_WAIT, tid, NULL, NULL, 0);
+		}
+	}
+
+	mutex_unlock(&task_entries_local->last_pid_mutex);
+
+	if (!atomic_read(&pool.error))
+		ret = 0;
+
+	sys_munmap(mem, map_sz);
+close:
+	if (args->vma_ios_fd != -1) {
+		sys_close(args->vma_ios_fd);
+		args->vma_ios_fd = -1;
+	}
+	return ret;
+}
+
+/*
  * Call preadv() but limit size of the read. Zero `max_to_read` skips the limit.
  */
 static ssize_t preadv_limited(int fd, struct iovec *iovs, int nr, off_t offs, size_t max_to_read)
@@ -2424,6 +2703,8 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	 * probe_pages_o_direct() at restore-args build time:
 	 *   true  -> restore_vma_aio()    (io_submit, O_DIRECT, batched)
 	 *   false -> restore_vma_preadv_mixed() (buffered, sequential I/O)
+	 * The buffered engine is parallelized across args->nr_mem_workers
+	 * threads when the delayed content is large enough (set in mem.c).
 	 * The selected reader consumes args->vma_ios and closes
 	 * args->vma_ios_fd on exit. Compressed images can use AIO when every
 	 * delayed file-backed range is raw and page-aligned; encoded ranges are
@@ -2432,11 +2713,15 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	if (args->vma_ios_n > 0 && args->vma_ios_fd != -1) {
 		int rc;
 
-		if (args->vma_ios_use_direct)
+		if (args->vma_ios_use_direct) {
 			pr_debug("Restoring delayed VMA I/O with native AIO\n");
-		rc = args->vma_ios_use_direct ?
-			     restore_vma_aio(args) :
-			     restore_vma_preadv_mixed(args);
+			rc = restore_vma_aio(args);
+		} else if (args->nr_mem_workers > 1) {
+			pr_debug("Restoring delayed VMA I/O with %d threads\n", args->nr_mem_workers);
+			rc = restore_vma_preadv_parallel(args);
+		} else {
+			rc = restore_vma_preadv_mixed(args);
+		}
 		if (rc < 0)
 			goto core_restore_end;
 	}

@@ -1654,6 +1654,43 @@ int open_vmas(struct pstree_item *t)
 	return 0;
 }
 
+/*
+ * Only spin up the PIE fill pool when the delayed private content is large
+ * enough that parallel copies outweigh the clone/join overhead. Small tasks
+ * keep the zero-overhead serial path.
+ */
+#define MEM_WORKER_MIN_PAGES (2048) /* 8 MiB at 4 KiB pages */
+
+static void set_mem_workers(struct pstree_item *t, struct task_restore_args *ta)
+{
+	struct page_read_iov *piov;
+	unsigned long nr_pages = 0;
+	int nr_cpus;
+
+	ta->nr_mem_workers = 1;
+
+	/*
+	 * The AIO engine already overlaps I/O on its own; the pool targets the
+	 * buffered preadv path, whose copy is CPU-bound. A contiguous heap
+	 * coalesces into a single entry, so gate on total content size (the
+	 * fill splits large entries into per-worker chunks), not entry count.
+	 */
+	if (ta->vma_ios_use_direct || ta->vma_ios_n < 1)
+		return;
+
+	list_for_each_entry(piov, &rsti(t)->vma_io, l)
+		nr_pages += piov->n_pages;
+
+	if (nr_pages < MEM_WORKER_MIN_PAGES)
+		return;
+
+	nr_cpus = get_avail_cpus();
+	if (nr_cpus < 2)
+		return;
+
+	ta->nr_mem_workers = min_t(int, nr_cpus, MEM_WORKER_MAX);
+}
+
 static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 {
 	struct cr_img *pages;
@@ -1703,8 +1740,11 @@ static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 	if (ret) {
 		close_image(pages);
 		ta->vma_ios_fd = -1;
+		return ret;
 	}
-	return ret;
+
+	set_mem_workers(t, ta);
+	return 0;
 }
 
 int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
