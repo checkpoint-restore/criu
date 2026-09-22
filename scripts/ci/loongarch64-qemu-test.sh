@@ -59,11 +59,16 @@ do
 done
 echo "The loongarch64 vm is started!"
 
-# Tar criu and send to vm
-tar -cf criu.tar ../../../criu
+# Tar criu and send to vm.
+# The archive is created from the top of the source tree rather than from a
+# path that assumes the checkout is named "criu", and .git is left out since
+# the VM only needs the sources to build and test.
+CRIU_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+
+tar --exclude=.git -cf criu.tar -C "$CRIU_ROOT" .
 sshpass -p $PASSWORD scp -o StrictHostKeyChecking=no -P $PORT criu.tar $USER@127.0.0.1:/root
 
 # build and test
-run 'cd /root; tar -xf criu.tar'
+run 'mkdir -p /root/criu; cd /root/criu; tar -xf ../criu.tar'
 run 'cd /root/criu; make -j4 && make -j4 -C test/zdtm'
 run "cd /root/criu; ./test/zdtm.py run -t zdtm/static/maps02 -t zdtm/static/maps05 -t zdtm/static/maps06 -t zdtm/static/maps10 -t zdtm/static/maps_file_prot -t zdtm/static/memfd00 -t zdtm/transition/fork -t zdtm/transition/fork2 -t zdtm/transition/shmem -f h"
