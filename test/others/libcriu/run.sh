@@ -78,6 +78,11 @@ if criu check --feature pidfd_store > /dev/null; then
 fi
 run_test test_feature_check
 
+# The TLS test needs a CRIU binary built with GnuTLS support.
+if criu --help | grep -q -- '--tls  '; then
+	run_test test_tls
+fi
+
 echo "== Tests done"
 [ "${RESULT}" -eq 0 ] && echo "Success" || echo "FAIL"
 exit "${RESULT}"
