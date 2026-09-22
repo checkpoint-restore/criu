@@ -260,6 +260,10 @@ void criu_local_free_opts(criu_opts *opts)
 	free(opts->rpc->log_file);
 	free(opts->rpc->lsm_profile);
 	free(opts->rpc->lsm_mount_context);
+	free(opts->rpc->tls_cacert);
+	free(opts->rpc->tls_cacrl);
+	free(opts->rpc->tls_cert);
+	free(opts->rpc->tls_key);
 	free(opts->rpc);
 	criu_free_service(opts);
 	free(opts);
@@ -1387,6 +1391,68 @@ int criu_local_set_page_server_address_port(criu_opts *opts, const char *address
 int criu_set_page_server_address_port(const char *address, int port)
 {
 	return criu_local_set_page_server_address_port(global_opts, address, port);
+}
+
+void criu_local_set_tls(criu_opts *opts, bool tls)
+{
+	opts->rpc->has_tls = true;
+	opts->rpc->tls = tls;
+}
+
+void criu_set_tls(bool tls)
+{
+	criu_local_set_tls(global_opts, tls);
+}
+
+void criu_local_set_tls_no_cn_verify(criu_opts *opts, bool no_cn_verify)
+{
+	opts->rpc->has_tls_no_cn_verify = true;
+	opts->rpc->tls_no_cn_verify = no_cn_verify;
+}
+
+void criu_set_tls_no_cn_verify(bool no_cn_verify)
+{
+	criu_local_set_tls_no_cn_verify(global_opts, no_cn_verify);
+}
+
+int criu_local_set_tls_cacert(criu_opts *opts, const char *cacert)
+{
+	return set_opts_string(&opts->rpc->tls_cacert, cacert);
+}
+
+int criu_set_tls_cacert(const char *cacert)
+{
+	return criu_local_set_tls_cacert(global_opts, cacert);
+}
+
+int criu_local_set_tls_cacrl(criu_opts *opts, const char *cacrl)
+{
+	return set_opts_string(&opts->rpc->tls_cacrl, cacrl);
+}
+
+int criu_set_tls_cacrl(const char *cacrl)
+{
+	return criu_local_set_tls_cacrl(global_opts, cacrl);
+}
+
+int criu_local_set_tls_cert(criu_opts *opts, const char *cert)
+{
+	return set_opts_string(&opts->rpc->tls_cert, cert);
+}
+
+int criu_set_tls_cert(const char *cert)
+{
+	return criu_local_set_tls_cert(global_opts, cert);
+}
+
+int criu_local_set_tls_key(criu_opts *opts, const char *key)
+{
+	return set_opts_string(&opts->rpc->tls_key, key);
+}
+
+int criu_set_tls_key(const char *key)
+{
+	return criu_local_set_tls_key(global_opts, key);
 }
 
 void criu_local_set_mntns_compat_mode(criu_opts *opts, bool val)
