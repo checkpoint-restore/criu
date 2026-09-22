@@ -1187,6 +1187,26 @@ int criu_local_add_cg_yard(criu_opts *opts, const char *path)
 	return 0;
 }
 
+int criu_add_cg_props(const char *stream)
+{
+	return criu_local_add_cg_props(global_opts, stream);
+}
+
+int criu_add_cg_props_file(const char *path)
+{
+	return criu_local_add_cg_props_file(global_opts, path);
+}
+
+int criu_add_cg_dump_controller(const char *name)
+{
+	return criu_local_add_cg_dump_controller(global_opts, name);
+}
+
+int criu_add_cg_yard(const char *path)
+{
+	return criu_local_add_cg_yard(global_opts, path);
+}
+
 int criu_add_skip_mnt(const char *mnt)
 {
 	return criu_local_add_skip_mnt(global_opts, mnt);
