@@ -1284,9 +1284,28 @@ static int timerfd_arm(struct task_restore_args *args)
 				 (unsigned long long)t->val.it_value.tv_nsec);
 		}
 
-		ret = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
-		if (t->ticks)
+		/*
+		 * Cases like it_value == (0,0), it_interval != {0,0} are
+		 * the edge case, and we should look the ticks value.
+		 * If ticks = 0 - the timerfd is switched off
+		 * If ticks != 0 - the timerfd is periodic and just expired
+		 * After the restore timerfd does not know it switched off or periodic,
+		 * even after setup ticks value to kernel(TFD_IOC_SET_TICKS). 
+		 * Just do it like in posix timers (decode_itimer()).
+		 */
+		if (t->ticks) {
+			if(!(t->val.it_value.tv_sec | t->val.it_value.tv_nsec) && 
+			(t->val.it_interval.tv_sec | t->val.it_interval.tv_nsec)) {
+				pr_info("Zeroed periodic timer are found! Id: %x \n", t->id);
+				t->val.it_value.tv_sec = t->val.it_interval.tv_sec;
+				t->val.it_value.tv_nsec = t->val.it_interval.tv_nsec;
+			}
+			ret = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);			
 			ret |= sys_ioctl(t->fd, TFD_IOC_SET_TICKS, (unsigned long)&t->ticks);
+		} 
+		else
+			ret = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
+
 		if (ret) {
 			pr_err("Can't restore ticks/time for timerfd - %d\n", i);
 			return ret;
