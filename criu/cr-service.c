@@ -908,6 +908,15 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		opts.decompress_threads = req->decompress_threads;
 	}
 
+	if (req->has_host_mem_workers) {
+		if (req->host_mem_workers > 1024) {
+			pr_err("Invalid host_mem_workers value %u (must be 0..1024)\n",
+			       req->host_mem_workers);
+			goto err;
+		}
+		opts.host_mem_workers = req->host_mem_workers;
+	}
+
 	if (check_options())
 		goto err;
 

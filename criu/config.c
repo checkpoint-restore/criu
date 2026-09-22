@@ -439,6 +439,7 @@ int init_opts(void)
 	opts.network_lock_method = NETWORK_LOCK_DEFAULT;
 	opts.ghost_fiemap = FIEMAP_DEFAULT;
 	opts.decompress_threads = 1;
+	opts.host_mem_workers = 1;
 
 	if (cr_plugin_options_init())
 		return -1;
@@ -771,6 +772,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "compress-block", required_argument, 0, 1103 },
 		{ "decompress-threads", required_argument, 0, 1104 },
 		{ "plugin-option", required_argument, 0, 1105 },
+		{ "host-mem-workers", required_argument, 0, 1106 },
 		{},
 	};
 
@@ -929,6 +931,21 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			if (cr_plugin_option_add_arg(optarg))
 				return 1;
 			break;
+		case 1106: {
+			char *endptr;
+			long n;
+
+			errno = 0;
+			n = strtol(optarg, &endptr, 10);
+			if (errno == ERANGE || endptr == optarg || *endptr != '\0' ||
+			    n < 0 || n > 1024) {
+				pr_err("Invalid --host-mem-workers value '%s' (must be 0..1024)\n",
+				       optarg);
+				return 1;
+			}
+			opts.host_mem_workers = (unsigned int)n;
+			break;
+		}
 		case 1043: {
 			int fd;
 

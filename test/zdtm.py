@@ -1094,6 +1094,16 @@ class criu_rpc:
                             "--decompress-threads requires a value")
                     val = args.pop(0)
                 criu.opts.decompress_threads = int(val)
+            elif arg == "--host-mem-workers" or \
+                    arg.startswith("--host-mem-workers="):
+                if "=" in arg:
+                    val = arg.split("=", 1)[1]
+                else:
+                    if not args:
+                        raise test_fail_exc(
+                            "--host-mem-workers requires a value")
+                    val = args.pop(0)
+                criu.opts.host_mem_workers = int(val)
             else:
                 raise test_fail_exc(
                     'RPC for %s(%s) required' % (arg, args))
@@ -1219,6 +1229,7 @@ class criu:
         self.__crit_bin = opts['crit_bin']
         self.__pre_dump_mode = opts['pre_dump_mode']
         self.__image_io_mode = opts['image_io_mode']
+        self.__host_mem_workers = opts.get('host_mem_workers')
         self.__preload_libfault = bool(opts['preload_libfault'])
         self.__mntns_compat_mode = bool(opts['mntns_compat_mode'])
         self.__compress = bool(opts['compress'])
@@ -1752,6 +1763,9 @@ class criu:
 
         if self.__image_io_mode:
             r_opts += ["--image-io-mode", self.__image_io_mode]
+
+        if self.__host_mem_workers is not None:
+            r_opts += ["--host-mem-workers", "%d" % self.__host_mem_workers]
 
         self.__prev_dump_iter = None
         criu_dir = os.path.dirname(os.getcwd())
@@ -2393,7 +2407,7 @@ class Launcher:
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'image_io_mode', 'mntns_compat_mode',
               'rootless', 'preload_libfault', 'mocked_cuda_checkpoint',
               'compress', 'compress_acceleration', 'compress_block',
-              'pycriu_search_path')
+              'host_mem_workers', 'pycriu_search_path')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
         if self.__use_log:
@@ -3103,6 +3117,11 @@ def get_cli_args():
                     help="Set the pages image I/O mode",
                     choices=['writeback', 'direct'],
                     default=None)
+    rp.add_argument("--host-mem-workers",
+                    help="Worker concurrency for the host-side buffered fill of "
+                         "delayed private-anon VMA content on restore "
+                         "(0=auto, 1=serial/default, N>1=explicit)",
+                    type=int, default=None)
     rp.add_argument("--mntns-compat-mode",
                     help="Use old compat mounts restore engine",
                     action='store_true')

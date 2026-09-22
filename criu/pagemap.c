@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <pthread.h>
 #include <linux/falloc.h>
 #include <sys/uio.h>
 #include <limits.h>
@@ -18,6 +19,7 @@
 #include "page-xfer.h"
 #include "pagemap-block.h"
 #include "compression.h"
+#include "util.h"
 
 #include "fault-injection.h"
 #include "xmalloc.h"
@@ -1716,6 +1718,292 @@ static bool page_read_chain_has_encoded_async(struct page_read *pr)
 }
 
 /*
+ * Host-side parallel fill for the buffered async queue.
+ *
+ * Only engaged for the top-level reader of a non-incremental restore with no
+ * LZ4 content and no O_DIRECT: exactly the warm-cache uncompressed
+ * private-anon heap this accelerates. Compressed, incremental, or O_DIRECT
+ * queues keep the existing serial drain below, which already overlaps
+ * decode work with the LZ4 pool or DMA with the AIO engine.
+ *
+ * An uncompressed entry maps file bytes 1:1 onto memory, so it is cut into
+ * HOST_MEM_FILL_CHUNK pieces to parallelize even a single-entry contiguous
+ * heap. Zero/packed-raw entries carry per-block metadata that must stay
+ * together and remain whole-entry jobs. Reads are offset-explicit (pread or
+ * preadv at the job's own file offset) into disjoint already-mapped
+ * destinations, so workers need no locking on the data path.
+ */
+#define HOST_MEM_FILL_MIN_BYTES (1UL << 20)
+#define HOST_MEM_FILL_CHUNK (4UL << 20)
+
+struct host_fill_job {
+	struct page_read_iov *piov; /* non-NULL: whole-entry zero/packed-raw job */
+	loff_t off;
+	void *base;
+	size_t len;
+};
+
+struct host_fill_pool {
+	int fd;
+	struct host_fill_job *jobs;
+	unsigned int nr_jobs;
+	atomic_t cursor;
+	atomic_t error;
+};
+
+static int host_fill_pread_chunk(int fd, void *base, size_t len, loff_t off)
+{
+	char *p = base;
+
+	while (len) {
+		ssize_t r = pread(fd, p, len, off);
+
+		if (r < 0) {
+			pr_err("Can't read pages data at offset %lld: %s\n", (long long)off, strerror(errno));
+			return -1;
+		}
+		if (r == 0) {
+			pr_err("Unexpected EOF reading pages data at offset %lld (%zu left)\n", (long long)off,
+			       len);
+			return -1;
+		}
+		p += r;
+		off += r;
+		len -= r;
+	}
+	return 0;
+}
+
+static int host_fill_preadv_entry(int fd, struct page_read_iov *piov)
+{
+	while (1) {
+		ssize_t r = preadv(fd, piov->to, piov->nr, piov->from);
+
+		if (r < 0) {
+			pr_err("Can't read pages data at offset %ju: %s\n", (uintmax_t)piov->from, strerror(errno));
+			return -1;
+		}
+		if (r == 0 && piov->end != piov->from) {
+			pr_err("Unexpected EOF reading pages at offset %ju\n", (uintmax_t)piov->from);
+			return -1;
+		}
+		if (r == piov->end - piov->from)
+			return 0;
+		advance_piov(piov, r);
+	}
+}
+
+static int host_fill_run_job(int fd, struct host_fill_job *job)
+{
+	struct page_read_iov *piov = job->piov;
+	unsigned int i;
+
+	if (!piov)
+		return host_fill_pread_chunk(fd, job->base, job->len, job->off);
+
+	if (validate_direct_compressed_iov(piov))
+		return -1;
+
+	if (piov->storage == VMA_IO_ZERO) {
+		for (i = 0; i < piov->nr; i++)
+			memset(piov->to[i].iov_base, 0, piov->to[i].iov_len);
+		return 0;
+	}
+
+	if (piov->storage == VMA_IO_PACKED_RAW)
+		return host_fill_preadv_entry(fd, piov);
+
+	pr_err("Unexpected storage kind %d in parallel host fill\n", piov->storage);
+	return -1;
+}
+
+/* Zero/packed-raw blocks are packed contiguously; punching one would
+ * destroy neighbouring blocks sharing the same filesystem block. */
+static void host_fill_punch(int fd, struct host_fill_job *job)
+{
+	if (!opts.auto_dedup || job->piov || !job->len)
+		return;
+
+	if (fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, job->off, job->len))
+		pr_debug("Failed to punch holes with fallocate: %s\n", strerror(errno));
+}
+
+static void host_fill_drain(struct host_fill_pool *pool)
+{
+	while (!atomic_read(&pool->error)) {
+		int idx = atomic_inc_return(&pool->cursor) - 1;
+
+		if (idx >= (int)pool->nr_jobs)
+			break;
+		if (host_fill_run_job(pool->fd, &pool->jobs[idx])) {
+			atomic_set(&pool->error, 1);
+			break;
+		}
+		host_fill_punch(pool->fd, &pool->jobs[idx]);
+	}
+}
+
+static void *host_fill_worker(void *arg)
+{
+	host_fill_drain((struct host_fill_pool *)arg);
+	return NULL;
+}
+
+/*
+ * Split one queue entry into fill jobs, returning the job count. Emits into
+ * jobs[] when non-NULL; with jobs == NULL it only counts, using the same walk
+ * so the sizing pass and the emit pass can never disagree.
+ */
+static unsigned int host_fill_split(struct page_read_iov *piov, struct host_fill_job *jobs)
+{
+	unsigned int k = 0;
+	loff_t consumed = 0;
+	unsigned int i;
+
+	if (piov->storage != VMA_IO_UNCOMPRESSED) {
+		if (jobs) {
+			jobs[0].piov = piov;
+			jobs[0].off = 0;
+			jobs[0].base = NULL;
+			jobs[0].len = 0;
+		}
+		return 1;
+	}
+
+	for (i = 0; i < piov->nr; i++) {
+		char *base = piov->to[i].iov_base;
+		size_t o = 0;
+
+		while (o < piov->to[i].iov_len) {
+			size_t piece = piov->to[i].iov_len - o;
+
+			if (piece > HOST_MEM_FILL_CHUNK)
+				piece = HOST_MEM_FILL_CHUNK;
+			if (jobs) {
+				jobs[k].piov = NULL;
+				jobs[k].off = piov->from + consumed + o;
+				jobs[k].base = base + o;
+				jobs[k].len = piece;
+			}
+			k++;
+			o += piece;
+		}
+		consumed += piov->to[i].iov_len;
+	}
+	return k;
+}
+
+/*
+ * Returns 1 if pr->async was drained here, 0 if left untouched for the
+ * caller's serial fallback (ineligible or too small to be worth it), or -1
+ * on error (queue already drained and freed).
+ */
+static int process_async_reads_parallel(struct page_read *pr)
+{
+	struct page_read_iov *piov, *n;
+	struct host_fill_job *jobs;
+	struct host_fill_pool pool;
+	pthread_t *helpers = NULL;
+	off_t first_off = OFF_MAX, last_end = OFF_MIN;
+	unsigned long total_bytes = 0;
+	unsigned int nr_jobs = 0;
+	unsigned int nr_workers, nr_helpers;
+	int fd;
+	unsigned int i;
+
+	if (pr->use_direct)
+		return 0;
+
+	fd = img_raw_fd(pr->pi);
+	if (fd < 0)
+		return 0;
+
+	list_for_each_entry(piov, &pr->async, l) {
+		/* Encoded entries need the shared LZ4 pool; let the caller's
+		 * serial path (with its decode context) handle this queue. */
+		if (piov->storage == VMA_IO_ENCODED)
+			return 0;
+		total_bytes += piov->end - piov->from;
+		nr_jobs += host_fill_split(piov, NULL);
+	}
+
+	if (total_bytes < HOST_MEM_FILL_MIN_BYTES || nr_jobs < 2)
+		return 0;
+
+	nr_workers = opts.host_mem_workers ? opts.host_mem_workers : (unsigned int)get_avail_cpus();
+	if (nr_workers > nr_jobs)
+		nr_workers = nr_jobs;
+	if (nr_workers < 2)
+		return 0;
+
+	jobs = xmalloc(nr_jobs * sizeof(*jobs));
+	if (!jobs) {
+		drain_async_queue(pr);
+		return -1;
+	}
+
+	i = 0;
+	list_for_each_entry(piov, &pr->async, l)
+		i += host_fill_split(piov, jobs + i);
+
+	list_for_each_entry(piov, &pr->async, l) {
+		if (first_off == OFF_MAX || piov->from < first_off)
+			first_off = piov->from;
+		if (piov->end > last_end)
+			last_end = piov->end;
+	}
+	if (last_end > first_off &&
+	    posix_fadvise(fd, first_off, last_end - first_off, POSIX_FADV_WILLNEED) != 0)
+		pr_debug("posix_fadvise(WILLNEED) failed for parallel async range\n");
+
+	pool.fd = fd;
+	pool.jobs = jobs;
+	pool.nr_jobs = nr_jobs;
+	atomic_set(&pool.cursor, 0);
+	atomic_set(&pool.error, 0);
+
+	nr_helpers = nr_workers - 1;
+	helpers = xmalloc(nr_helpers * sizeof(*helpers));
+	if (!helpers) {
+		xfree(jobs);
+		drain_async_queue(pr);
+		return -1;
+	}
+
+	for (i = 0; i < nr_helpers; i++) {
+		if (pthread_create(&helpers[i], NULL, host_fill_worker, &pool)) {
+			pr_warn("Can't start host-mem-fill worker %u, falling back to fewer\n", i);
+			nr_helpers = i;
+			break;
+		}
+	}
+
+	host_fill_drain(&pool);
+
+	for (i = 0; i < nr_helpers; i++)
+		pthread_join(helpers[i], NULL);
+	xfree(helpers);
+
+	if (atomic_read(&pool.error)) {
+		xfree(jobs);
+		drain_async_queue(pr);
+		return -1;
+	}
+	xfree(jobs);
+
+	BUG_ON(pr->io_complete);
+	list_for_each_entry_safe(piov, n, &pr->async, l) {
+		list_del(&piov->l);
+		xfree(piov->b_layout.sizes);
+		xfree(piov->block_pages);
+		xfree(piov->to);
+		xfree(piov);
+	}
+
+	return 1;
+}
+
+/*
  * Drain one page-reader chain in image order. Each queue element has one of
  * four storage kinds: zero and packed raw bypass LZ4, ordinary entries use
  * preadv(), and encoded entries use the shared chain context above. Parent
@@ -1731,6 +2019,17 @@ static int process_async_reads_ctx(struct page_read *pr,
 	int fd, ret = 0;
 	struct page_read_iov *piov, *n;
 	off_t first_off = OFF_MAX, last_end = OFF_MIN;
+
+	if (opts.host_mem_workers != 1) {
+		int pret = process_async_reads_parallel(pr);
+
+		if (pret) {
+			encoded_read_ctx_end_work(encoded_ctx);
+			if (pret < 0)
+				return -1;
+			goto parent;
+		}
+	}
 
 	fd = img_raw_fd(pr->pi);
 	/* Hint bounded nearby ranges before issuing their explicit preadv calls. */
@@ -1861,6 +2160,7 @@ static int process_async_reads_ctx(struct page_read *pr,
 	}
 	/* Parent readahead and raw prefixes must not inherit an idle lease. */
 	encoded_read_ctx_end_work(encoded_ctx);
+parent:
 	if (pr->parent) {
 		ret = process_async_reads_ctx(pr->parent, encoded_ctx);
 		if (ret)

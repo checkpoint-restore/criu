@@ -577,6 +577,12 @@ usage:
 	       "                        Valid range: 0..1024; affinity, batch work, and the\n"
 	       "                        restore-wide budget may reduce active width.\n"
 #endif
+	       "  --host-mem-workers N\n"
+	       "                        worker concurrency for host-side buffered fill of\n"
+	       "                        delayed private-anon VMA content on restore\n"
+	       "                        (default: 1 = serial; 0 = auto; N > 1 = aggregate\n"
+	       "                        worker limit). N != 1 also forces the premap path\n"
+	       "                        for eligible private VMAs. Valid range: 0..1024.\n"
 	       "\n"
 	       "Page/Service server options:\n"
 	       "  --address ADDR        address of server or service\n"

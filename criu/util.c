@@ -1491,6 +1491,17 @@ free_events:
 	return -1;
 }
 
+int get_avail_cpus(void)
+{
+	cpu_set_t cpuset;
+
+	CPU_ZERO(&cpuset);
+	if (sched_getaffinity(0, sizeof(cpuset), &cpuset) == 0)
+		return CPU_COUNT(&cpuset);
+
+	return sysconf(_SC_NPROCESSORS_ONLN);
+}
+
 int call_in_child_process(int (*fn)(void *), void *arg)
 {
 	int status, ret = -1;

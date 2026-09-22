@@ -267,6 +267,17 @@ struct cr_options {
 	 */
 	unsigned int decompress_threads;
 
+	/*
+	 * Worker concurrency for the host-side buffered fill of delayed private-
+	 * anon VMA content (criu/pagemap.c, restore_priv_vma_content()), including
+	 * the calling thread. 0 selects automatic concurrency (available CPUs); 1,
+	 * the default, keeps the fill serial; values above 1 cap aggregate worker
+	 * concurrency. A value other than 1 also forces every eligible private VMA
+	 * onto the premap path (pieok=false) so the PIE fills nothing and the host
+	 * pool fills everything.
+	 */
+	unsigned int host_mem_workers;
+
 	/* This stores which method to use for file validation. */
 	int file_validation_method;
 

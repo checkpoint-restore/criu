@@ -1545,6 +1545,15 @@ int prepare_mappings(struct pstree_item *t)
 	if (ret <= 0)
 		return -1;
 
+	/*
+	 * A worker count other than 1 asks for the host-side parallel fill
+	 * (see restore_priv_vma_content()). Route every eligible private VMA
+	 * onto the premap path so vma_io stays empty and the PIE fills
+	 * nothing; the host pool fills everything instead.
+	 */
+	if (opts.host_mem_workers != 1)
+		pr.pieok = false;
+
 	if (maybe_disable_thp(t, &pr))
 		return -1;
 

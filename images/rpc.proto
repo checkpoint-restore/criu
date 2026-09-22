@@ -169,6 +169,15 @@ message criu_opts {
 	optional uint32			decompress_threads	= 76 [default = 1];
 	/* Plugin-owned namespaced options in PLUGIN.NAME[=VALUE] form. */
 	repeated string			plugin_options		= 77;
+	/*
+	 * Worker concurrency for the host-side buffered fill of delayed
+	 * private-anon VMA content on restore. 0 selects automatic
+	 * concurrency (available CPUs); 1, the default, keeps the fill
+	 * serial; values above 1 cap aggregate worker concurrency. A value
+	 * other than 1 also forces every eligible private VMA onto the
+	 * premap path. Valid range: 0 through 1024. Restore-time only.
+	 */
+	optional uint32			host_mem_workers	= 78 [default = 1];
 /*	optional bool			check_mounts		= 128;	*/
 }
 
