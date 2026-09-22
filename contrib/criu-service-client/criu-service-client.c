@@ -36,6 +36,14 @@ static struct option long_opts[] = {
 	{ "log-file", required_argument, 0, 'o' },
 	{ "verbosity", optional_argument, 0, 'v' },
 	{ "service-address", required_argument, 0, 5 },
+	{ "address", required_argument, 0, 8 },
+	{ "port", required_argument, 0, 9 },
+	{ "tls", no_argument, 0, 10 },
+	{ "tls-no-cn-verify", no_argument, 0, 11 },
+	{ "tls-cert", required_argument, 0, 12 },
+	{ "tls-key", required_argument, 0, 13 },
+	{ "tls-cacert", required_argument, 0, 14 },
+	{ "tls-cacrl", required_argument, 0, 15 },
 	{ "help", no_argument, 0, 'h' },
 	{ 0, 0, 0, 0 }
 };
@@ -59,6 +67,14 @@ static void print_usage(FILE *out)
 	fprintf(out, "  -o, --log-file <FILE>         Log file path (default: criu.log)\n");
 	fprintf(out, "  -v[N], --verbosity[=N]        Log level 0-4 (default: 2); -v raises by 1\n");
 	fprintf(out, "      --service-address <SOCK>  CRIU service Unix socket path\n");
+	fprintf(out, "      --address <ADDR>          Page server address (dump/pre-dump only)\n");
+	fprintf(out, "      --port <PORT>             Page server port (dump/pre-dump only)\n");
+	fprintf(out, "      --tls                     Secure the page server connection with TLS\n");
+	fprintf(out, "      --tls-no-cn-verify        Do not verify the server certificate common name\n");
+	fprintf(out, "      --tls-cert <FILE>         TLS certificate file\n");
+	fprintf(out, "      --tls-key <FILE>          TLS private key file\n");
+	fprintf(out, "      --tls-cacert <FILE>       Trust certificates signed only by this CA\n");
+	fprintf(out, "      --tls-cacrl <FILE>        CA certificate revocation list file\n");
 	fprintf(out, "  -h, --help                    Show this help message\n");
 }
 
@@ -121,6 +137,11 @@ int main(int argc, char *argv[])
 	const char *log_file = "criu.log";
 	int log_level = CRIU_LOG_WARN;
 	const char *service_socket = NULL;
+	const char *ps_address = NULL;
+	const char *tls_cert = NULL, *tls_key = NULL;
+	const char *tls_cacert = NULL, *tls_cacrl = NULL;
+	bool tls = false, tls_no_cn_verify = false;
+	int ps_port = 0;
 	int dirfd = -1;
 	int ret = 1;
 
@@ -215,6 +236,35 @@ int main(int argc, char *argv[])
 				log_level++;
 			}
 			break;
+		case 8:
+			ps_address = optarg;
+			break;
+		case 9:
+			if (parse_int(optarg, "port", &ps_port))
+				return 1;
+			if (ps_port <= 0 || ps_port > 65535) {
+				fprintf(stderr, "Invalid port '%s'\n", optarg);
+				return 1;
+			}
+			break;
+		case 10:
+			tls = true;
+			break;
+		case 11:
+			tls_no_cn_verify = true;
+			break;
+		case 12:
+			tls_cert = optarg;
+			break;
+		case 13:
+			tls_key = optarg;
+			break;
+		case 14:
+			tls_cacert = optarg;
+			break;
+		case 15:
+			tls_cacrl = optarg;
+			break;
 		case 5:
 			service_socket = optarg;
 			break;
@@ -283,6 +333,38 @@ int main(int argc, char *argv[])
 		criu_set_ext_unix_sk(true);
 	if (file_locks)
 		criu_set_file_locks(true);
+
+	if (ps_address || ps_port) {
+		if (!ps_address || !ps_port) {
+			fprintf(stderr, "--address and --port must be used together\n");
+			goto out;
+		}
+		if (criu_set_page_server_address_port(ps_address, ps_port)) {
+			perror("criu_set_page_server_address_port");
+			goto out;
+		}
+	}
+
+	if (tls)
+		criu_set_tls(true);
+	if (tls_no_cn_verify)
+		criu_set_tls_no_cn_verify(true);
+	if (tls_cert && criu_set_tls_cert(tls_cert)) {
+		perror("criu_set_tls_cert");
+		goto out;
+	}
+	if (tls_key && criu_set_tls_key(tls_key)) {
+		perror("criu_set_tls_key");
+		goto out;
+	}
+	if (tls_cacert && criu_set_tls_cacert(tls_cacert)) {
+		perror("criu_set_tls_cacert");
+		goto out;
+	}
+	if (tls_cacrl && criu_set_tls_cacrl(tls_cacrl)) {
+		perror("criu_set_tls_cacrl");
+		goto out;
+	}
 	if (manage_cgroups)
 		criu_set_manage_cgroups(true);
 	if (track_mem)
