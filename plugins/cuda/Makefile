@@ -21,7 +21,7 @@ all: $(DEPS_CUDA)
 
 cuda_plugin.so: $(PLUGIN_SRCS) $(PLUGIN_HEADERS)
 	$(call msg-gen, $@)
-	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl
+	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl -lpthread
 
 clean:
 	$(call msg-clean, $@)
