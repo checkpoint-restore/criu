@@ -763,6 +763,28 @@ static int dump_one_gre(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, s
 	return dump_unknown_device(ifi, kind, tb, ns, fds);
 }
 
+static int dump_one_ipip(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, struct ns_id *ns,
+			 struct cr_imgset *fds)
+{
+	if (!strcmp(kind, "ipip")) {
+		char *name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
+		if (!name) {
+			pr_err("ipip device %d has no name\n", ifi->ifi_index);
+			return -1;
+		}
+
+		/* tunl0 is created by the kernel in every netns once ipip is loaded */
+		if (!strcmp(name, "tunl0")) {
+			pr_info("found %s, ignoring\n", name);
+			return 0;
+		}
+
+		pr_warn("IPIP tunnel device %s not supported natively\n", name);
+	}
+
+	return dump_unknown_device(ifi, kind, tb, ns, fds);
+}
+
 static int dump_sit(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nlattr **info)
 {
 	int ret;
@@ -931,6 +953,9 @@ static int dump_one_link(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 		break;
 	case ARPHRD_SIT:
 		ret = dump_one_sit(ifi, kind, tb, ns, fds);
+		break;
+	case ARPHRD_TUNNEL:
+		ret = dump_one_ipip(ifi, kind, tb, ns, fds);
 		break;
 	default:
 	unk:

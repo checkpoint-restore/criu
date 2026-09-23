@@ -156,6 +156,9 @@ print_env() {
 # FIXME: workaround for the issue https://github.com/checkpoint-restore/criu/issues/1866
 modprobe -v sit || :
 
+# Load ipip up front so that every test netns gets the tunl0 fallback device.
+modprobe -v ipip || :
+
 print_env
 
 ci_prep
