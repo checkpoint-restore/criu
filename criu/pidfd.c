@@ -196,7 +196,7 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 		pidfd = pidfd_open(info->pidfe->nspid, info->pidfe->flags);
 		if (pidfd < 0) {
 			pr_perror("Could not open pidfd for %d", info->pidfe->nspid);
-			goto err_close;
+			goto err;
 		}
 		goto out;
 	}
@@ -216,7 +216,7 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 
 	pid = create_tmp_process();
 	if (pid < 0)
-		goto err_close;
+		goto err;
 
 	for (child = dead->list; child; child = child->next) {
 		if (child == info)
@@ -224,7 +224,7 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 		pidfd = pidfd_open(pid, child->pidfe->flags);
 		if (pidfd < 0) {
 			pr_perror("Could not open pidfd for %d", child->pidfe->nspid);
-			goto err_close;
+			goto err;
 		}
 
 		if (send_desc_to_peer(pidfd, &child->d)) {
@@ -238,18 +238,18 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 	pidfd = pidfd_open(pid, info->pidfe->flags);
 	if (pidfd < 0) {
 		pr_perror("Could not open pidfd for %d", info->pidfe->nspid);
-		goto err_close;
+		goto err;
 	}
 	if (kill_helper(pid))
-		goto err_close;
+		goto err;
 out:
 	if (rst_file_params(pidfd, info->pidfe->fown, info->pidfe->flags)) {
-		goto err_close;
+		goto err;
 	}
 
 	*new_fd = pidfd;
 	return 0;
-err_close:
+err:
 	pr_err("Can't create pidfd %#08x NSpid: %d flags: %u\n",
 	   info->pidfe->id, info->pidfe->nspid, info->pidfe->flags);
 	return -1;
