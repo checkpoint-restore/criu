@@ -240,10 +240,13 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 		pr_perror("Could not open pidfd for %d", info->pidfe->nspid);
 		goto err;
 	}
-	if (kill_helper(pid))
+	if (kill_helper(pid)) {
+		close(pidfd);
 		goto err;
+	}
 out:
 	if (rst_file_params(pidfd, info->pidfe->fown, info->pidfe->flags)) {
+		close(pidfd);
 		goto err;
 	}
 
