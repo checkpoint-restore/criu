@@ -40,4 +40,8 @@ enum fsconfig_command {
 #define MS_MGC_MSK 0xffff0000 /* Magic flag number mask */
 #endif
 
+#ifndef CGROUP2_SUPER_MAGIC
+#define CGROUP2_SUPER_MAGIC 0x63677270
+#endif
+
 #endif

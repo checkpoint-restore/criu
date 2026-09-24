@@ -5,10 +5,12 @@
 #include <unistd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <ftw.h>
 #include <libgen.h>
 #include <sched.h>
 #include <sys/wait.h>
+#include <sys/syscall.h>
 
 #include "common/list.h"
 #include "xmalloc.h"
@@ -27,7 +29,9 @@
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
 #include "kerndat.h"
+#include "bfd.h"
 #include "linux/mount.h"
+#include "mount-v2.h"
 
 /*
  * This structure describes set of controller groups
@@ -574,6 +578,183 @@ static int add_freezer_state(struct cg_controller *controller)
 }
 
 static const char namestr[] = "name=";
+
+/*
+ * cgroup2 has a single superblock, so (re)opening it with fsopen() +
+ * FSCONFIG_CMD_CREATE or with mount() reconfigures the already mounted host
+ * instance and drops the superblock options that criu did not set (e.g.
+ * nsdelegate, memory_recursiveprot). Collect the options of the existing
+ * cgroup2 mount so they can be replayed, leaving the host mount intact (#3029).
+ */
+/* Ordered as in the kernel's cgroup2_fs_parameters[] for easy matching. */
+static const char *const cgroup2_sb_opts[] = {
+	"nsdelegate",
+	"favordynmods",
+	"memory_localevents",
+	"memory_recursiveprot",
+	"memory_hugetlb_accounting",
+	"pids_localevents",
+};
+
+static char cgroup2_sb_opts_cache[256];
+static bool cgroup2_sb_opts_cached;
+
+/*
+ * Append the allowlisted tokens of a comma-separated option string to opts.
+ * Every allowlisted option is a bare boolean superblock flag, so the result
+ * is the same whether the source is statmount(2)'s mnt_opts or the last field
+ * of a mountinfo line (which also carries the per-mount rw/relatime flags).
+ */
+static void cgroup2_filter_sb_opts(char *opts, size_t size, char *raw)
+{
+	char *tok, *saveptr;
+	size_t i;
+
+	for (tok = strtok_r(raw, ",", &saveptr); tok; tok = strtok_r(NULL, ",", &saveptr)) {
+		for (i = 0; i < ARRAY_SIZE(cgroup2_sb_opts); i++) {
+			if (strcmp(tok, cgroup2_sb_opts[i]))
+				continue;
+			if (opts[0])
+				__strlcat(opts, ",", size);
+			__strlcat(opts, tok, size);
+			break;
+		}
+	}
+}
+
+/*
+ * Fast path: read the host cgroup2 superblock options with statmount(2)
+ * instead of walking the whole (potentially huge) /proc/self/mountinfo.
+ * statmount(2) needs the unique 64-bit mount id, which statx(2) with
+ * STATX_MNT_ID_UNIQUE provides. Both land in Linux 6.8 and the mnt_opts
+ * field in 6.11; kdat.has_statmount tells us the syscall works at all, and
+ * a missing STATMOUNT_MNT_OPTS bit in the reply makes the caller fall back
+ * to mountinfo. Assumes the host cgroup2 is mounted at /sys/fs/cgroup; the
+ * cgroup2_collect_sb_opts fallback covers the rare case where it is not.
+ */
+static int cgroup2_collect_sb_opts_statmount(char *opts, size_t size)
+{
+	struct cr_statx stx = {};
+	struct cr_mnt_id_req req = {
+		.size = MNT_ID_REQ_SIZE_VER1,
+		.param = STATMOUNT_SB_BASIC | STATMOUNT_MNT_OPTS,
+	};
+	/*
+	 * statmount(2) copies the mnt_opts string into the space past the
+	 * fixed struct (cr_statmount ends in a flexible str[] member), so the
+	 * buffer must be larger than the struct itself.
+	 */
+	union {
+		struct cr_statmount sm;
+		char buf[sizeof(struct cr_statmount) + 4096];
+	} u = {};
+	int fd, exit_code = -1;
+
+	if (!kdat.has_statmount)
+		return -1;
+
+	fd = open("/sys/fs/cgroup", O_PATH);
+	if (fd < 0) {
+		pr_perror("Unable to open /sys/fs/cgroup");
+		return -1;
+	}
+
+	if (syscall(SYS_statx, fd, "", AT_EMPTY_PATH, STATX_MNT_ID_UNIQUE, &stx) < 0) {
+		pr_perror("Unable to get the cgroup2 mount id");
+		goto err;
+	}
+	if (!(stx.stx_mask & STATX_MNT_ID_UNIQUE)) {
+		pr_debug("statx did not return a unique cgroup2 mount id\n");
+		goto err;
+	}
+
+	req.mnt_id = stx.stx_mnt_id;
+
+	if (sys_statmount(&req, &u.sm, sizeof(u), 0) < 0) {
+		pr_perror("Unable to get cgroup2 superblock options");
+		goto err;
+	}
+	/* The kernel silently ignores STATMOUNT_* bits it does not support. */
+	if ((u.sm.mask & (STATMOUNT_SB_BASIC | STATMOUNT_MNT_OPTS)) !=
+	    (STATMOUNT_SB_BASIC | STATMOUNT_MNT_OPTS)) {
+		pr_debug("statmount did not return cgroup2 superblock options\n");
+		goto err;
+	}
+	if (u.sm.sb_magic != CGROUP2_SUPER_MAGIC) {
+		pr_debug("/sys/fs/cgroup is not a cgroup2 mount\n");
+		goto err;
+	}
+
+	cgroup2_filter_sb_opts(opts, size, u.sm.str + u.sm.mnt_opts);
+	exit_code = 0;
+err:
+	close(fd);
+	return exit_code;
+}
+
+/* Fallback: scan /proc/self/mountinfo for the cgroup2 superblock options. */
+static int cgroup2_collect_sb_opts_mountinfo(char *opts, size_t size)
+{
+	struct bfd f = { .fd = -1 };
+	char *line;
+	int exit_code = -1;
+
+	f.fd = open_proc(PROC_SELF, "mountinfo");
+	if (f.fd < 0) {
+		pr_perror("Can't open mountinfo to preserve cgroup2 options");
+		return -1;
+	}
+	if (bfdopenr(&f))
+		return -1;
+
+	while ((line = breadline(&f)) != NULL) {
+		char *super;
+
+		if (IS_ERR(line)) {
+			pr_err("Failed to read mountinfo\n");
+			goto err;
+		}
+		if (!strstr(line, " - cgroup2 "))
+			continue;
+
+		/* The super block options are the last field of the entry. */
+		super = strrchr(line, ' ');
+		if (!super) {
+			pr_err("Bad cgroup2 mountinfo entry: '%s'\n", line);
+			goto err;
+		}
+		super++;
+
+		cgroup2_filter_sb_opts(opts, size, super);
+		exit_code = 0;
+		break;
+	}
+	if (exit_code)
+		pr_err("Unable to find a cgroup2 mount in mountinfo\n");
+err:
+	bclose(&f);
+	return exit_code;
+}
+
+static int cgroup2_collect_sb_opts(char *opts, size_t size)
+{
+	if (cgroup2_sb_opts_cached) {
+		__strlcpy(opts, cgroup2_sb_opts_cache, size);
+		return 0;
+	}
+
+	opts[0] = '\0';
+	if (cgroup2_collect_sb_opts_statmount(opts, size)) {
+		opts[0] = '\0';
+		if (cgroup2_collect_sb_opts_mountinfo(opts, size))
+			return -1;
+	}
+
+	__strlcpy(cgroup2_sb_opts_cache, opts, sizeof(cgroup2_sb_opts_cache));
+	cgroup2_sb_opts_cached = true;
+	return 0;
+}
+
 static int __new_open_cgroupfs(struct cg_ctl *cc)
 {
 	const char *fstype = cc->name[0] == 0 ? "cgroup2" : "cgroup";
@@ -602,6 +783,20 @@ static int __new_open_cgroupfs(struct cg_ctl *cc)
 				goto err;
 			}
 			name = strtok_r(NULL, ",", &saveptr);
+		}
+	} else { /* cgroup2: replay the host superblock options (#3029) */
+		char opts[256], *tok, *saveptr;
+
+		if (cgroup2_collect_sb_opts(opts, sizeof(opts))) {
+			pr_err("Unable to collect cgroup2 superblock options\n");
+			goto err;
+		}
+		for (tok = strtok_r(opts, ",", &saveptr); tok; tok = strtok_r(NULL, ",", &saveptr)) {
+			if (cr_fsconfig(fsfd, FSCONFIG_SET_FLAG, tok, NULL, 0)) {
+				fsfd_dump_messages(fsfd);
+				pr_perror("Unable to preserve cgroup2 option %s", tok);
+				goto err;
+			}
 		}
 	}
 
@@ -636,7 +831,12 @@ static int open_cgroupfs(struct cg_ctl *cc)
 
 	if (strstartswith(cc->name, namestr))
 		snprintf(mopts, sizeof(mopts), "none,%s", cc->name);
-	else
+	else if (cc->name[0] == 0) { /* cgroup2: preserve host superblock options (#3029) */
+		if (cgroup2_collect_sb_opts(mopts, sizeof(mopts))) {
+			pr_err("Unable to collect cgroup2 superblock options\n");
+			return -1;
+		}
+	} else
 		snprintf(mopts, sizeof(mopts), "%s", cc->name);
 
 	if (mkdtemp(prefix) == NULL) {
