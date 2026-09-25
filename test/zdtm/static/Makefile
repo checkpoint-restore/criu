@@ -31,6 +31,7 @@ TST_NOFILE	:=				\
 		timers				\
 		timers01			\
 		timerfd				\
+		timerfd_abs_disarmed		\
 		timerslack_ns			\
 		unbound_sock			\
 		sched_prio00			\
