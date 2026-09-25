@@ -220,6 +220,7 @@ struct task_restore_args {
 	auxv_t mm_saved_auxv[AT_VECTOR_SIZE];
 	u32 mm_saved_auxv_size;
 	char comm[TASK_COMM_LEN];
+	u32 personality;
 
 	/*
 	 * proc_fd is a handle to /proc that the restorer blob can use to open
