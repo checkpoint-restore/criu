@@ -230,7 +230,7 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 		if (send_desc_to_peer(pidfd, &child->d)) {
 			pr_perror("Can't send file descriptor");
 			close(pidfd);
-			return -1;
+			goto err;
 		}
 		close(pidfd);
 	}
