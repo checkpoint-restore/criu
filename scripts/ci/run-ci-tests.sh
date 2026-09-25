@@ -520,6 +520,13 @@ run_non_shardable_tests() {
 	./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 --mocked-cuda-checkpoint --fault 138
 }
 
+test_fallback_links() {
+	# Loading ip_gre also creates erspan0, which needs an external-link
+	# plugin. Run this last so it does not affect the other tests.
+	modprobe -v ip_gre || :
+	make -C test/others/ext-links test-fallback
+}
+
 # When sharding is enabled, shards 0..count-1 run sharded zdtm tests and
 # shard "count" (the extra shard) runs only the non-shardable tests.
 # When sharding is not enabled, run everything sequentially.
@@ -531,10 +538,12 @@ if [ -z "$ZDTM_SHARD_COUNT" ] || [ "$ZDTM_SHARD_COUNT" -eq 0 ]; then
 	fi
 	./test/zdtm.py run -a -p 2 --keep-going --criu-config "${ZDTM_OPTS[@]}"
 	run_non_shardable_tests
+	test_fallback_links
 elif [ "$ZDTM_SHARD_INDEX" -eq "$ZDTM_SHARD_COUNT" ]; then
 	# This is the extra non-shardable shard (index == count, e.g. shard 4
 	# when count is 4). Only run non-shardable tests, skip zdtm shards.
 	run_non_shardable_tests
+	test_fallback_links
 else
 	# Shards 0..count-1: run only the sharded zdtm tests
 	./test/zdtm.py run -a -p 2 --keep-going "${SHARD_OPTS[@]}" "${ZDTM_OPTS[@]}"
