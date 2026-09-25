@@ -1624,6 +1624,7 @@ int inherit_fd_add(int fd, char *key)
 	}
 
 	inh->inh_fd = fd;
+	inh->inh_fd_id = -1;
 	list_add_tail(&inh->inh_list, &opts.inherit_fds);
 	return 0;
 }
@@ -1637,7 +1638,7 @@ void inherit_fd_log(void)
 	struct inherit_fd *inh;
 
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
-		pr_info("File %s will be restored from inherit fd %d\n", inh->inh_id, inh->inh_fd);
+		pr_info("File %s will use inherit fd %d\n", inh->inh_id, inh->inh_fd);
 	}
 }
 
@@ -1666,7 +1667,10 @@ int inherit_fd_lookup_id(char *id)
 	ret = -1;
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
 		if (!strcmp(inh->inh_id, id)) {
-			ret = fdstore_get(inh->inh_fd_id);
+			if (inh->inh_fd_id >= 0)
+				ret = fdstore_get(inh->inh_fd_id);
+			else
+				ret = dup(inh->inh_fd);
 			pr_debug("Found id %s (fd %d) in inherit fd list\n", id, ret);
 			break;
 		}
@@ -1691,8 +1695,7 @@ bool inherited_fd(struct file_desc *d, int *fd_p)
 		return true;
 
 	*fd_p = i_fd;
-	pr_info("File %s will be restored from fd %d dumped "
-		"from inherit fd %d\n",
+		pr_info("File %s will use fd %d from inherit fd %d\n",
 		id_str, *fd_p, i_fd);
 	return true;
 }
