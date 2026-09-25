@@ -643,7 +643,7 @@ static int get_task_personality(pid_t pid, u32 *personality)
 
 	if (ret >= 0) {
 		loc_buf[ret] = '\0';
-		*personality = atoi(loc_buf);
+		*personality = strtoul(loc_buf, NULL, 16);
 	}
 err:
 	return ret;
