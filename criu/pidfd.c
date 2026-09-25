@@ -224,13 +224,13 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 		pidfd = pidfd_open(pid, child->pidfe->flags);
 		if (pidfd < 0) {
 			pr_perror("Could not open pidfd for %d", child->pidfe->nspid);
-			goto err;
+			goto err_kill;
 		}
 
 		if (send_desc_to_peer(pidfd, &child->d)) {
 			pr_perror("Can't send file descriptor");
 			close(pidfd);
-			goto err;
+			goto err_kill;
 		}
 		close(pidfd);
 	}
@@ -238,7 +238,7 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 	pidfd = pidfd_open(pid, info->pidfe->flags);
 	if (pidfd < 0) {
 		pr_perror("Could not open pidfd for %d", info->pidfe->nspid);
-		goto err;
+		goto err_kill;
 	}
 	if (kill_helper(pid)) {
 		close(pidfd);
@@ -252,6 +252,8 @@ out:
 
 	*new_fd = pidfd;
 	return 0;
+err_kill:
+	kill_helper(pid);
 err:
 	pr_err("Can't create pidfd %#08x NSpid: %d flags: %u\n",
 	   info->pidfe->id, info->pidfe->nspid, info->pidfe->flags);
