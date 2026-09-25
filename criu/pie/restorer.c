@@ -1257,7 +1257,30 @@ static int timerfd_arm(struct task_restore_args *args)
 
 		pr_debug("timerfd: arm for fd %d (%d)\n", t->fd, i);
 
-		if (t->settime_flags & TFD_TIMER_ABSTIME) {
+		/*
+		 * Cases like it_value == (0,0), it_interval != {0,0} are
+		 * the edge case, and we should look the ticks value.
+		 * If ticks = 0 - the timerfd is switched off
+		 * If ticks != 0 - the timerfd is periodic and just expired
+		 * After the restore timerfd does not know it switched off or periodic,
+		 * even after setup ticks value to kernel(TFD_IOC_SET_TICKS).
+		 * Just do it like in posix timers (decode_itimer()).
+		 */
+		if (t->ticks && !(t->val.it_value.tv_sec | t->val.it_value.tv_nsec) &&
+		    (t->val.it_interval.tv_sec | t->val.it_interval.tv_nsec)) {
+			pr_info("Zeroed periodic timer are found! Id: %x \n", t->id);
+			t->val.it_value.tv_sec = t->val.it_interval.tv_sec;
+			t->val.it_value.tv_nsec = t->val.it_interval.tv_nsec;
+		}
+
+		/*
+		 * it_value is the time left until the next expiration, so an
+		 * absolute timer has to be re-anchored to the current time.
+		 * A zero it_value means that the timer is not armed: it was
+		 * disarmed, or it was a one-shot timer that already expired.
+		 * Re-anchoring would arm it to expire right after restore.
+		 */
+		if ((t->settime_flags & TFD_TIMER_ABSTIME) && (t->val.it_value.tv_sec | t->val.it_value.tv_nsec)) {
 			struct timespec ts;
 
 			/*
@@ -1284,28 +1307,9 @@ static int timerfd_arm(struct task_restore_args *args)
 				 (unsigned long long)t->val.it_value.tv_nsec);
 		}
 
-		/*
-		 * Cases like it_value == (0,0), it_interval != {0,0} are
-		 * the edge case, and we should look the ticks value.
-		 * If ticks = 0 - the timerfd is switched off
-		 * If ticks != 0 - the timerfd is periodic and just expired
-		 * After the restore timerfd does not know it switched off or periodic,
-		 * even after setup ticks value to kernel(TFD_IOC_SET_TICKS).
-		 * Just do it like in posix timers (decode_itimer()).
-		 */
-		if (t->ticks) {
-			if(!(t->val.it_value.tv_sec | t->val.it_value.tv_nsec) &&
-			(t->val.it_interval.tv_sec | t->val.it_interval.tv_nsec)) {
-				pr_info("Zeroed periodic timer are found! Id: %x \n", t->id);
-				t->val.it_value.tv_sec = t->val.it_interval.tv_sec;
-				t->val.it_value.tv_nsec = t->val.it_interval.tv_nsec;
-			}
-			ret = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
+		ret = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
+		if (t->ticks)
 			ret |= sys_ioctl(t->fd, TFD_IOC_SET_TICKS, (unsigned long)&t->ticks);
-		}
-		else
-			ret = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
-
 		if (ret) {
 			pr_err("Can't restore ticks/time for timerfd - %d\n", i);
 			return ret;
