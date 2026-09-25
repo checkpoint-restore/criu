@@ -646,9 +646,21 @@ static int dump_unknown_device(struct ifinfomsg *ifi, char *kind, struct nlattr 
 	if (ret == 0)
 		return dump_one_netdev(ND_TYPE__EXTLINK, ifi, tb, ns, fds, NULL);
 
-	if (ret == -ENOTSUP)
-		pr_err("Unsupported link %d (type %d kind %s)\n", ifi->ifi_index, ifi->ifi_type, kind);
-	return -1;
+	return ret;
+}
+
+static int dump_fallback_device(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, struct ns_id *ns,
+				struct cr_imgset *fds)
+{
+	int ret;
+
+	/* A plugin may need to preserve a configured fallback device. */
+	ret = dump_unknown_device(ifi, kind, tb, ns, fds);
+	if (ret != -ENOTSUP)
+		return ret;
+
+	pr_info("found %s, ignoring\n", (char *)RTA_DATA(tb[IFLA_IFNAME]));
+	return 0;
 }
 
 static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nlattr **info)
@@ -712,10 +724,8 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind, struct nlattr **
 			return -1;
 		}
 
-		if (!strcmp(name, "gretap0")) {
-			pr_info("found %s, ignoring\n", name);
-			return 0;
-		}
+		if (!strcmp(name, "gretap0"))
+			return dump_fallback_device(ifi, kind, tb, ns, fds);
 
 		pr_warn("GRE tap device %s not supported natively\n", name);
 	}
@@ -752,10 +762,8 @@ static int dump_one_gre(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, s
 			return -1;
 		}
 
-		if (!strcmp(name, "gre0")) {
-			pr_info("found %s, ignoring\n", name);
-			return 0;
-		}
+		if (!strcmp(name, "gre0"))
+			return dump_fallback_device(ifi, kind, tb, ns, fds);
 
 		pr_warn("GRE tunnel device %s not supported natively\n", name);
 	}
@@ -774,10 +782,8 @@ static int dump_one_ipip(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, 
 		}
 
 		/* tunl0 is created by the kernel in every netns once ipip is loaded */
-		if (!strcmp(name, "tunl0")) {
-			pr_info("found %s, ignoring\n", name);
-			return 0;
-		}
+		if (!strcmp(name, "tunl0"))
+			return dump_fallback_device(ifi, kind, tb, ns, fds);
 
 		pr_warn("IPIP tunnel device %s not supported natively\n", name);
 	}
@@ -900,10 +906,8 @@ static int dump_one_sit(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, s
 		return -1;
 	}
 
-	if (!strcmp(name, "sit0")) {
-		pr_info("found %s, ignoring\n", name);
-		return 0;
-	}
+	if (!strcmp(name, "sit0"))
+		return dump_fallback_device(ifi, kind, tb, ns, fds);
 
 	return dump_one_netdev(ND_TYPE__SIT, ifi, tb, ns, fds, dump_sit);
 }
@@ -962,6 +966,9 @@ static int dump_one_link(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 		ret = dump_unknown_device(ifi, kind, tb, ns, fds);
 		break;
 	}
+
+	if (ret == -ENOTSUP)
+		pr_err("Unsupported link %d (type %d kind %s)\n", ifi->ifi_index, ifi->ifi_type, kind);
 
 	return ret;
 }
