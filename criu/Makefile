@@ -93,6 +93,7 @@ UNIT-BUILTINS		+= $(obj)/config.o
 UNIT-BUILTINS		+= $(obj)/plugin-options.o
 UNIT-BUILTINS		+= $(obj)/log.o
 UNIT-BUILTINS		+= $(obj)/string.o
+UNIT-BUILTINS		+= $(obj)/remote-parent.o
 ifeq ($(CONFIG_LZ4),y)
 UNIT-BUILTINS		+= $(obj)/compression.o
 endif

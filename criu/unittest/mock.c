@@ -5,8 +5,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
 
+#include "servicefd.h"
 #include "compel/infect-util.h"
+
+static int image_dir_fd = -1;
 
 int add_external(char *key)
 {
@@ -78,9 +83,9 @@ int check_namespace_opts(void)
 	return 0;
 }
 
-int get_service_fd(int type)
+int get_service_fd(enum sfd_type type)
 {
-	return -1;
+	return type == IMG_FD_OFF ? image_dir_fd : -1;
 }
 
 void *shmalloc(size_t bytes)
@@ -88,13 +93,21 @@ void *shmalloc(size_t bytes)
 	return malloc(bytes);
 }
 
-int install_service_fd(int type, int fd)
+int install_service_fd(enum sfd_type type, int fd)
 {
-	return 0;
+	if (type != IMG_FD_OFF)
+		return 0;
+	close_service_fd(type);
+	image_dir_fd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
+	return image_dir_fd;
 }
 
-int close_service_fd(int type)
+int close_service_fd(enum sfd_type type)
 {
+	if (type == IMG_FD_OFF && image_dir_fd >= 0) {
+		close(image_dir_fd);
+		image_dir_fd = -1;
+	}
 	return 0;
 }
 
