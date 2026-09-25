@@ -18,6 +18,8 @@
 
 #include "tty.h"
 #include "stats.h"
+#include "filesystems.h"
+#include "common/bug.h"
 
 #ifndef SEEK_DATA
 #define SEEK_DATA 3
@@ -1787,8 +1789,10 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		if (opts.shell_job && is_tty(p->stat.st_rdev, p->stat.st_dev)) {
 			skip_for_shell_job = true;
 		} else {
-			pr_err("Can't lookup mount=%d for fd=%d path=%s\n", p->mnt_id, p->fd, link->name + 1);
-			return -1;
+			if (!(mi = mount_info_for_unmounted_mount(lfd))) {
+				pr_err("Can't lookup mount=%d for fd=%d path=%s\n", p->mnt_id, p->fd, link->name + 1);
+				return -1;
+			}
 		}
 	}
 
@@ -1813,7 +1817,8 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 	}
 
-	if (!skip_for_shell_job && check_path_remap(link, p, lfd, id, mi->nsid))
+	/* skipping for detached */
+	if (!skip_for_shell_job && !mi->unmounted && check_path_remap(link, p, lfd, id, mi->nsid))
 		return -1;
 	rfe.name = &link->name[1];
 ext:
@@ -2192,6 +2197,7 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 {
 	int tmp = -1, mntns_root, level = 0;
 	struct reg_file_info *rfi;
+	struct mount_info *mi;
 	char *orig_path = NULL;
 	char path[PATH_MAX];
 	int inh_fd = -1;
@@ -2262,6 +2268,21 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 	}
 
 	mntns_root = mntns_get_root_by_mnt_id(rfi->rfe->mnt_id);
+	mi = is_unmounted_mnt(rfi->rfe->mnt_id);
+
+	if (!mi)
+		goto ext;
+
+	if (strncmp(rfi->path, ".", 1) == 0) {
+		rfi->path = mi->plain_mountpoint;
+	} else {
+		char *plain_path = xmalloc(PATH_MAX);
+		if (!plain_path)
+			goto err;
+
+		snprintf(plain_path, PATH_MAX, "%s/%s", mi->plain_mountpoint, rfi->path);
+		rfi->path = plain_path;
+	}
 ext:
 	tmp = open_cb(mntns_root, rfi, arg);
 	if (tmp < 0) {
