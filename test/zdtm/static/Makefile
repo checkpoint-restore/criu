@@ -427,6 +427,7 @@ TST_DIR		=				\
 		overmount_fifo			\
 		overmount_sock			\
 		tempfs				\
+		tempfs_content			\
 		tempfs_overmounted		\
 		tempfs_overmounted01		\
 		tempfs_ro			\
