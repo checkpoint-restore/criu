@@ -53,6 +53,10 @@ int check_namespace_opts(void)
 		pr_err("Conflicting flags: --join-ns and --empty-ns\n");
 		return -1;
 	}
+	if ((join_ns_flags & CLONE_NEWUSER) && opts.restore_sibling) {
+		pr_err("--join-ns user is not supported with --restore-sibling\n");
+		return -1;
+	}
 	if (join_ns_flags & CLONE_NEWUSER)
 		pr_warn("join-ns with user-namespace is not fully tested and dangerous\n");
 
@@ -148,6 +152,7 @@ int join_ns_add(const char *type, char *ns_file, char *extra_opts)
 	jn = xmalloc(sizeof(*jn));
 	if (!jn)
 		return -1;
+	jn->ns_fd = -1;
 
 	jn->ns_file = xstrdup(ns_file);
 	if (!jn->ns_file) {
@@ -1378,7 +1383,8 @@ static int usernsd(int sk)
 		else
 			fd = -1;
 
-		unsc_msg_init(&um, &call, &ret, NULL, 0, fd, NULL);
+		/* SO_PASSCRED supplies credentials in the receiver's PID namespace. */
+		unsc_msg_init_nocreds(&um, &call, &ret, NULL, 0, fd);
 		if (sendmsg(sk, &um.h, 0) <= 0) {
 			pr_perror("uns: send resp error");
 			return -1;
@@ -1429,7 +1435,8 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 
 	/* Send the request */
 
-	unsc_msg_init(&um, &call, &flags, arg, arg_size, fd, NULL);
+	/* SO_PASSCRED avoids attaching a PID from a different PID namespace. */
+	unsc_msg_init_nocreds(&um, &call, &flags, arg, arg_size, fd);
 	ret = sendmsg(sk, &um.h, 0);
 	if (ret <= 0) {
 		pr_perror("uns: send req error");
@@ -1454,9 +1461,11 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 
 	/* Decode the result and return */
 
-	if (flags & UNS_FDOUT)
+	if (flags & UNS_FDOUT) {
 		unsc_msg_pid_fd(&um, NULL, &ret);
-	else
+		if (ret < 0 && res < 0)
+			ret = res;
+	} else
 		ret = res;
 out:
 	if (!async)
@@ -1788,8 +1797,15 @@ static int switch_join_ns(struct join_ns *jn)
 
 static int switch_user_join_ns(struct join_ns *jn)
 {
+	struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3];
+	struct __user_cap_header_struct cap_header = {
+		.version = _LINUX_CAPABILITY_VERSION_3,
+		.pid = 0,
+	};
+	bool keep_caps = false;
 	uid_t uid;
 	gid_t gid;
+	int i;
 
 	if (jn == NULL)
 		return 0;
@@ -1807,20 +1823,112 @@ static int switch_user_join_ns(struct join_ns *jn)
 	else
 		gid = atoi(jn->extra_opts.user_extra.gid);
 
-	/* FIXME:
-	 * if err occurs in setuid/setgid, should we just alert or
-	 * return an error
-	 */
-	if (setuid(uid)) {
-		pr_perror("setuid failed while joining userns");
-		return -1;
+	if (uid != geteuid()) {
+		if (prctl(PR_SET_KEEPCAPS, 1)) {
+			pr_perror("Unable to retain capabilities while joining userns");
+			return -1;
+		}
+		keep_caps = true;
 	}
+
 	if (setgid(gid)) {
 		pr_perror("setgid failed while joining userns");
-		return -1;
+		goto err;
+	}
+	if (setuid(uid)) {
+		pr_perror("setuid failed while joining userns");
+		goto err;
+	}
+
+	if (keep_caps) {
+		if (capget(&cap_header, cap_data)) {
+			pr_perror("Unable to read capabilities after joining userns");
+			goto err;
+		}
+		for (i = 0; i < _LINUX_CAPABILITY_U32S_3; i++)
+			cap_data[i].effective = cap_data[i].permitted;
+		if (capset(&cap_header, cap_data)) {
+			pr_perror("Unable to restore capabilities after joining userns");
+			goto err;
+		}
+		if (prctl(PR_SET_KEEPCAPS, 0)) {
+			pr_perror("Unable to clear PR_SET_KEEPCAPS after joining userns");
+			return -1;
+		}
 	}
 
 	return 0;
+err:
+	if (keep_caps)
+		prctl(PR_SET_KEEPCAPS, 0);
+	return -1;
+}
+
+static int drop_join_userns_groups(void)
+{
+	gid_t *groups = NULL;
+	int i, nr_groups;
+
+	if (!setgroups(0, NULL))
+		return 0;
+	if (errno != EPERM)
+		goto err;
+
+	nr_groups = getgroups(0, NULL);
+	if (nr_groups < 0)
+		goto err;
+	if (!nr_groups)
+		return 0;
+
+	groups = xmalloc(sizeof(*groups) * nr_groups);
+	if (!groups)
+		return -1;
+	nr_groups = getgroups(nr_groups, groups);
+	if (nr_groups < 0)
+		goto err;
+
+	for (i = 0; i < nr_groups; i++)
+		if (groups[i] != 0)
+			goto err;
+
+	xfree(groups);
+	return 0;
+err:
+	xfree(groups);
+	pr_perror("Unable to drop supplementary groups before joining userns");
+	return -1;
+}
+
+int join_user_namespace(void)
+{
+	struct join_ns *jn;
+
+	list_for_each_entry(jn, &opts.join_ns, list) {
+		if (jn->nd != &user_ns_desc)
+			continue;
+
+		if (get_join_ns_fd(jn))
+			return -1;
+
+		if (drop_join_userns_groups() || switch_join_ns(jn)) {
+			close_safe(&jn->ns_fd);
+			return -1;
+		}
+
+		/* Keep this descriptor open so the restored root inherits it. */
+		return 0;
+	}
+
+	return 0;
+}
+
+void close_join_user_namespace(void)
+{
+	struct join_ns *jn;
+
+	list_for_each_entry(jn, &opts.join_ns, list)
+		if (jn->nd == &user_ns_desc)
+			close_safe(&jn->ns_fd);
 }
 
 int join_namespaces(void)
@@ -1829,7 +1937,7 @@ int join_namespaces(void)
 	int ret = -1;
 
 	list_for_each_entry(jn, &opts.join_ns, list)
-		if (get_join_ns_fd(jn))
+		if (jn->ns_fd < 0 && get_join_ns_fd(jn))
 			goto err_out;
 
 	list_for_each_entry(jn, &opts.join_ns, list)
@@ -1848,6 +1956,11 @@ err_out:
 	list_for_each_entry(jn, &opts.join_ns, list)
 		close_safe(&jn->ns_fd);
 	return ret;
+}
+
+int userns_join_ns_requested(void)
+{
+	return !!(join_ns_flags & CLONE_NEWUSER);
 }
 
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
