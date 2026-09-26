@@ -238,10 +238,41 @@ static const char *unix_conf_entries[] = {
 #define MAX_CONF_UNIX_OPT_PATH 32
 #define MAX_CONF_UNIX_PATH     (sizeof(CONF_UNIX_FMT) + MAX_CONF_UNIX_OPT_PATH - 2)
 
+static int net_conf_write(struct sysctl_req *req, int nr, int mtu)
+{
+	struct sysctl_req current;
+	int ret, value;
+
+	if (mtu < 0)
+		return sysctl_op(req, nr, CTL_WRITE, CLONE_NEWNET);
+
+	/* Earlier writes, notably disable_ipv6, may change the IPv6 MTU. */
+	ret = sysctl_op(req, mtu, CTL_WRITE, CLONE_NEWNET);
+	if (ret < 0)
+		return ret;
+
+	current = req[mtu];
+	current.arg = &value;
+	ret = sysctl_op(&current, 1, CTL_READ, CLONE_NEWNET);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * Fallback tunnels can report an IPv6 MTU above the link MTU,
+	 * which the kernel rejects if we try to write it back.
+	 */
+	if ((current.flags & CTL_FLAGS_HAS) && value == *(int *)req[mtu].arg) {
+		pr_debug("Skip %s, already restored\n", current.name);
+		mtu++;
+	}
+
+	return sysctl_op(req + mtu, nr - mtu, CTL_WRITE, CLONE_NEWNET);
+}
+
 static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto, struct sysctl_req *req,
 		       char (*path)[MAX_CONF_OPT_PATH], int size, char **devconfs, SysctlEntry **def_conf)
 {
-	int i, ri, ar = -1;
+	int i, ri, ar = -1, mtu = -1;
 	int ret, flags = op == CTL_READ ? CTL_FLAGS_OPTIONAL : 0;
 	SysctlEntry **rconf;
 
@@ -291,6 +322,8 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 				continue;
 
 			req[ri].arg = &conf[i]->iarg;
+			if (op == CTL_WRITE && !strcmp(devconfs[i], "mtu"))
+				mtu = ri;
 			break;
 		case SYSCTL_TYPE__CTL_STR:
 			req[ri].type = CTL_STR(MAX_STR_CONF_LEN);
@@ -320,7 +353,10 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 		ri++;
 	}
 
-	ret = sysctl_op(req, ri, op, CLONE_NEWNET);
+	if (op == CTL_WRITE)
+		ret = net_conf_write(req, ri, mtu);
+	else
+		ret = sysctl_op(req, ri, op, CLONE_NEWNET);
 	if (ret < 0) {
 		pr_err("Failed to %s %s/<confs>\n", (op == CTL_READ) ? "read" : "write", tgt);
 		goto err_free;
