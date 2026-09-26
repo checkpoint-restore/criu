@@ -169,7 +169,7 @@ void pstree_free_cores(struct pstree_item *item)
 	unsigned int i;
 
 	if (item->core) {
-		for (i = 1; i < item->nr_threads; i++)
+		for (i = 0; i < item->nr_threads; i++)
 			if (item->core[i])
 				core_entry_free(item->core[i]);
 		xfree(item->core);
