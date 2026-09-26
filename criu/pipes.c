@@ -308,20 +308,20 @@ int open_pipe(struct file_desc *d, int *new_fd)
 	if (pi->pe->has_uid && pi->pe->has_gid) {
 		if (cr_fchown(pfd[0], pi->pe->uid, pi->pe->gid) < 0) {
 			pr_perror("Can't change pipe ownership");
-			return -1;
+			goto err_close;
 		}
 	}
 
 	ret = restore_pipe_data(CR_FD_PIPES_DATA, pfd[1], pi->pe->pipe_id, pd_hash_pipes);
 	if (ret)
-		return -1;
+		goto err_close;
 
 	list_for_each_entry(p, &pi->pipe_list, pipe_list) {
 		int fd = pfd[p->pe->flags & O_WRONLY];
 
 		if (send_desc_to_peer(fd, &p->d)) {
 			pr_perror("Can't send file descriptor");
-			return -1;
+			goto err_close;
 		}
 	}
 
@@ -332,13 +332,21 @@ reopen:
 	if (pi->reopen)
 		tmp = reopen_pipe(tmp, pi->pe->flags);
 
-	if (tmp >= 0)
-		if (rst_file_params(tmp, pi->pe->fown, pi->pe->flags))
-			return -1;
 	if (tmp < 0)
 		return -1;
+
+	if (rst_file_params(tmp, pi->pe->fown, pi->pe->flags)) {
+		close(tmp);
+		return -1;
+	}
+
 	*new_fd = tmp;
 	return 0;
+
+err_close:
+	close(pfd[0]);
+	close(pfd[1]);
+	return -1;
 }
 
 static struct file_desc_ops pipe_desc_ops = {
