@@ -86,6 +86,7 @@ void criu_set_images_dir_fd(int fd); /* must be set for dump/restore */
 int criu_set_parent_images(const char *path);
 void criu_set_work_dir_fd(int fd);
 void criu_set_leave_running(bool leave_running);
+void criu_set_leave_stopped(bool leave_stopped);
 void criu_set_ext_unix_sk(bool ext_unix_sk);
 int criu_add_unix_sk(unsigned int inode);
 void criu_set_tcp_established(bool tcp_established);
@@ -263,6 +264,7 @@ int criu_local_set_parent_images(criu_opts *opts, const char *path);
 int criu_local_set_service_binary(criu_opts *opts, const char *path);
 void criu_local_set_work_dir_fd(criu_opts *opts, int fd);
 void criu_local_set_leave_running(criu_opts *opts, bool leave_running);
+void criu_local_set_leave_stopped(criu_opts *opts, bool leave_stopped);
 void criu_local_set_ext_unix_sk(criu_opts *opts, bool ext_unix_sk);
 int criu_local_add_unix_sk(criu_opts *opts, unsigned int inode);
 void criu_local_set_tcp_established(criu_opts *opts, bool tcp_established);
