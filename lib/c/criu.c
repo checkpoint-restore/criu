@@ -891,6 +891,17 @@ void criu_set_log_to_stderr(bool log_to_stderr)
 	criu_local_set_log_to_stderr(global_opts, log_to_stderr);
 }
 
+void criu_local_set_display_stats(criu_opts *opts, bool display_stats)
+{
+	opts->rpc->has_display_stats = true;
+	opts->rpc->display_stats = display_stats;
+}
+
+void criu_set_display_stats(bool display_stats)
+{
+	criu_local_set_display_stats(global_opts, display_stats);
+}
+
 void criu_local_set_cpu_cap(criu_opts *opts, unsigned int cap)
 {
 	opts->rpc->has_cpu_cap = true;
