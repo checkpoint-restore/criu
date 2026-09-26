@@ -747,6 +747,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "verbosity", optional_argument, 0, 'v' },
 		{ "ps-socket", required_argument, 0, 1091 },
 		BOOL_OPT("stream", &opts.stream),
+		BOOL_OPT("memfd-images", &opts.images_in_memfd),
 		{ "config", required_argument, 0, 1089 },
 		{ "no-default-config", no_argument, 0, 1090 },
 		{ "tls-cacert", required_argument, 0, 1092 },
@@ -1325,6 +1326,23 @@ int check_options(void)
 	if (opts.track_mem && !kdat.has_dirty_track) {
 		pr_err("Tracking memory is not available. Consider omitting --track-mem option.\n");
 		return 1;
+	}
+
+	if (opts.images_in_memfd) {
+		if (opts.mode != CR_DUMP && opts.mode != CR_RESTORE) {
+			pr_err("Option --memfd-images is only valid on dump/restore dump\n");
+			return 1;
+		}
+
+		if (!kdat.has_memfd) {
+			pr_err("memfd_create is not available in this kernel, cannot use --memfd-images\n");
+			return 1;
+		}
+
+		if (opts.stream) {
+			pr_err("Options --memfd-images and --stream cannot be used together\n");
+			return 1;
+		}
 	}
 
 	if (check_namespace_opts()) {

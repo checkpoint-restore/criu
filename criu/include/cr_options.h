@@ -222,6 +222,7 @@ struct cr_options {
 	int status_fd;
 	bool orphan_pts_master;
 	int stream;
+	int images_in_memfd;
 	pid_t tree_id;
 	int log_level;
 	char *imgs_dir;

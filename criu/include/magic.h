@@ -130,6 +130,7 @@
  */
 #define STATS_MAGIC	  0x57093306 /* Ostashkov */
 #define IRMAP_CACHE_MAGIC 0x57004059 /* Ivanovo */
+#define LUO_METADATA_MAGIC  0x57091234 /* Wyborg */
 
 /*
  * Main magic for kerndat_s structure.

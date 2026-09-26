@@ -133,6 +133,17 @@ int bfd_flush_images(void)
 	return flush_failed ? -1 : 0;
 }
 
+int bfd_flush(struct bfd *f)
+{
+	if (!bfd_buffered(f))
+		return 0;
+
+	if (!f->writable)
+		return 0;
+
+	return bflush(f);
+}
+
 void bclose(struct bfd *f)
 {
 	if (bfd_buffered(f)) {

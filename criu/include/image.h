@@ -136,6 +136,8 @@ struct cr_img {
 			char *path;
 		};
 	};
+	bool luo_preserve_pending;
+	char *luo_preserve_path;
 };
 
 #define EMPTY_IMG_FD (-404)
