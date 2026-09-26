@@ -22,6 +22,8 @@ import time
 import urllib.error
 import urllib.request
 
+import cuda_migration
+
 # Sentinel distinguishing "runc.conf never touched" from "stashed, but the
 # file did not exist" (which stashes None).
 _RUNC_CONF_UNSET = object()
@@ -88,16 +90,16 @@ class ServingBenchmark:
     def podman_env(self, args):
         return podman_env(self, args)
 
-    def ensure_no_default_config_wrapper(self):
-        return ensure_no_default_config_wrapper(self)
+    def ensure_no_default_config_wrapper(self, cuda_visible_devices=None):
+        return ensure_no_default_config_wrapper(self, cuda_visible_devices)
 
     def release_runc_conf_lock(self):
         return release_runc_conf_lock(self)
 
     def set_runc_conf_for_cfg(self, path, cfg, acceleration,
-                              decompress_threads=None):
+                              decompress_threads=None, restore=False):
         return set_runc_conf_for_cfg(
-            self, path, cfg, acceleration, decompress_threads
+            self, path, cfg, acceleration, decompress_threads, restore
         )
 
     def restore_runc_conf(self):
@@ -215,8 +217,10 @@ def format_duration(microseconds):
 
 def cfg_label(cfg):
     if cfg["mode"] == "uncompressed":
-        return "Uncompressed"
-    return f"LZ4 blocks ({cfg['block_size'] // 1024} KiB)"
+        label = "Uncompressed"
+    else:
+        label = f"LZ4 blocks ({cfg['block_size'] // 1024} KiB)"
+    return f"{cfg['cuda_backend']} / {label}" if cfg.get("cuda_backend") else label
 
 
 def decompress_threads_label(threads):
@@ -242,6 +246,35 @@ def json_object(value):
     if not isinstance(obj, dict):
         raise argparse.ArgumentTypeError("expected a JSON object")
     return obj
+
+
+def cuda_benchmark_identity(args):
+    """Identify the executable artifacts, including locally modified builds."""
+    binaries = {"criu": shutil.which("criu"),
+                "plugin": os.path.join(args.criu_libdir, "cuda_plugin.so")}
+    if "cuda-checkpoint" in args.cuda_backends:
+        binaries["cuda-checkpoint"] = shutil.which("cuda-checkpoint")
+    if getattr(args, "cuda_checkpoint_launch_job", False):
+        binaries["cuda-checkpoint-launcher"] = args.cuda_checkpoint_binary
+    identity = {"binaries": {}}
+    for name, path in binaries.items():
+        if not path or not os.path.isfile(path):
+            raise RuntimeError(f"CUDA comparison requires {name}: {path}")
+        digest = hashlib.sha256()
+        with open(path, "rb") as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(chunk)
+        identity["binaries"][name] = {"path": os.path.realpath(path),
+                                       "sha256": digest.hexdigest()}
+    for name, command in (
+        ("driver", ["nvidia-smi", "--query-gpu=uuid,name,driver_version",
+                    "--format=csv,noheader"]),
+        ("runc", ["runc", "--version"]),
+    ):
+        result = subprocess.run(command, capture_output=True, text=True,
+                                check=True)
+        identity[name] = result.stdout.strip()
+    return identity
 
 
 def collect_system_info():
@@ -585,14 +618,15 @@ def podman_env(benchmark, args):
     # Start CRIU without global, user, or inherited configuration. runc still
     # supplies the benchmark-owned runc.conf through the RPC request.
     env.pop("CRIU_CONFIG_FILE", None)
-    wrapper_dir = benchmark.ensure_no_default_config_wrapper()
+    visible = args.cuda_visible_devices if getattr(args, "cuda_migration", None) else None
+    wrapper_dir = benchmark.ensure_no_default_config_wrapper(visible)
     env["PATH"] = wrapper_dir + os.pathsep + env.get("PATH", os.defpath)
     if args.criu_libdir:
         env["CRIU_LIBS_DIR"] = args.criu_libdir
     return env
 
 
-def ensure_no_default_config_wrapper(benchmark):
+def ensure_no_default_config_wrapper(benchmark, cuda_visible_devices=None):
     runtime = benchmark.state
     if runtime.criu_wrapper_dir is not None:
         return runtime.criu_wrapper_dir
@@ -609,6 +643,10 @@ def ensure_no_default_config_wrapper(benchmark):
         with os.fdopen(fd, "w") as output:
             fd = -1
             output.write("#!/bin/sh\n")
+            if cuda_visible_devices is not None:
+                # Podman's checkpoint path may pass only PATH to runc.
+                # Set visibility here so CRIU records the workload's view.
+                output.write(f"export CUDA_VISIBLE_DEVICES={shlex.quote(cuda_visible_devices)}\n")
             output.write(f"exec {shlex.quote(criu)} --no-default-config \"$@\"\n")
     finally:
         if fd >= 0:
@@ -914,8 +952,26 @@ def compression_config_lines(cfg, acceleration, decompress_threads=None):
     return lines
 
 
+def cuda_backend_config_base(base, manage_device_map=False):
+    """Replace only options owned by a CUDA backend comparison."""
+    kept = []
+    for line in base.splitlines():
+        fields = shlex.split(line, comments=True)
+        if fields:
+            option, _, inline = fields[0].lstrip("-").partition("=")
+            value = inline or (fields[1] if len(fields) > 1 else "")
+            owned = ("cuda_plugin.backend=",)
+            if manage_device_map:
+                owned += ("cuda_plugin.device-map=",)
+            if option == "libdir" or (option == "plugin-option" and
+                                      value.startswith(owned)):
+                continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
 def set_runc_conf_for_cfg(benchmark, path, cfg, acceleration,
-                          decompress_threads=None):
+                          decompress_threads=None, restore=False):
     runtime = benchmark.state
     if runtime.original_runc_conf is _RUNC_CONF_UNSET:
         path, original = acquire_runc_conf(benchmark, path)
@@ -925,6 +981,12 @@ def set_runc_conf_for_cfg(benchmark, path, cfg, acceleration,
 
     base = strip_compression_runc_options(runtime.original_runc_conf)
     lines = compression_config_lines(cfg, acceleration, decompress_threads)
+    if cfg.get("cuda_backend"):
+        base = cuda_backend_config_base(base, bool(cfg.get("cuda_device_map")))
+        lines += [f"libdir {json.dumps(cfg['criu_libdir'])}",
+                  f"plugin-option cuda_plugin.backend={cfg['cuda_backend']}"]
+        if restore and cfg.get("cuda_device_map"):
+            lines.append(f"plugin-option cuda_plugin.device-map={cfg['cuda_device_map']}")
     if lines:
         block = "\n".join([RUNC_CONF_BEGIN, *lines, RUNC_CONF_END])
         text = f"{base}\n\n{block}\n" if base else f"{block}\n"
@@ -1188,6 +1250,10 @@ def run_trial(benchmark, cfg, workdir, args, trial_id, keep_running=False):
     )
     pre_us = pre_timing["request_us"]
     pre_content = pre_timing["content"]
+    migration = getattr(args, "cuda_migration", None)
+    placement = {}
+    if migration:
+        placement["before"] = cuda_migration.verify(name, migration, workdir, "before")
     before_checkpoint = getattr(benchmark.adapter, "before_checkpoint", None)
     if before_checkpoint is not None:
         before_checkpoint(args)
@@ -1197,6 +1263,10 @@ def run_trial(benchmark, cfg, workdir, args, trial_id, keep_running=False):
     inventory_compress_mode = verify_archive_compression(archive, cfg)
     remove_container(name)
     benchmark.state.started_containers.discard(name)
+    if migration:
+        set_runc_conf_for_cfg(benchmark, args.runc_conf, cfg,
+                             args.compress_acceleration, args.decompress_threads,
+                             restore=True)
     restore_timing = benchmark.restore_container(name, archive, args)
     post_timing = benchmark.chat_stream_once(
         args.base_url, request_model, args.prompt, args.max_tokens,
@@ -1205,10 +1275,18 @@ def run_trial(benchmark, cfg, workdir, args, trial_id, keep_running=False):
     )
     post_us = post_timing["request_us"]
     post_content = post_timing["content"]
+    if migration:
+        placement["after"] = cuda_migration.verify(
+            name, migration, workdir, "after", placement["before"]
+        )
+        placement["verified"] = True
     pre_digest = hashlib.sha256(pre_content.encode()).hexdigest()
     post_digest = hashlib.sha256(post_content.encode()).hexdigest()
     valid = pre_digest == post_digest
     if not valid:
+        with open(os.path.join(workdir, "validation.json"), "w") as output:
+            json.dump({"before": pre_content, "after": post_content}, output,
+                      indent=2)
         raise RuntimeError(
             "deterministic validation response changed after restore: "
             f"before_sha256={pre_digest}, after_sha256={post_digest}"
@@ -1255,6 +1333,7 @@ def run_trial(benchmark, cfg, workdir, args, trial_id, keep_running=False):
         "valid": valid,
         "framework": benchmark.adapter.key,
         "container_name": name if keep_running else None,
+        **({"cuda_migration": placement} if migration else {}),
     }
 
 
@@ -1448,6 +1527,8 @@ def run_main(benchmark, argv=None, description=None):
     info = collect_system_info()
     print()
     adapter.prepare_args(args)
+    if getattr(args, "cuda_backends", None):
+        info["cuda_benchmark"] = cuda_benchmark_identity(args)
     if args.prompt_file:
         prompt = read_file(args.prompt_file)
         if prompt is None:
@@ -1473,6 +1554,13 @@ def run_main(benchmark, argv=None, description=None):
                 cfgs.append({"mode": "lz4-block", "block_size": bs})
         else:
             cfgs.append({"mode": mode, "block_size": 0})
+    if getattr(args, "cuda_backends", None):
+        cfgs = [dict(cfg, cuda_backend=backend,
+                     criu_libdir=os.path.abspath(args.criu_libdir))
+                for backend in args.cuda_backends for cfg in cfgs]
+    if getattr(args, "cuda_migration", None):
+        for cfg in cfgs:
+            cfg["cuda_device_map"] = args.cuda_migration["device_map"]
     labels = [cfg_label(cfg) for cfg in cfgs]
 
     print(f"  Config : {args.iterations}+1 iterations, "
@@ -1490,6 +1578,21 @@ def run_main(benchmark, argv=None, description=None):
         print(f"  Ulimit : {','.join(args.ulimit)}")
 
     results = {label: [] for label in labels}
+    warmups = {label: [] for label in labels}
+    failures = []
+
+    def save_results(status):
+        if not args.json:
+            return
+        destination = os.path.abspath(args.json)
+        with open(destination + ".tmp", "w") as output:
+            json.dump({"system": info, "framework": adapter.key,
+                       "config": json_config(args), "results": results,
+                       "warmups": warmups, "failures": failures,
+                       "status": status}, output, indent=2)
+        os.replace(destination + ".tmp", destination)
+
+    save_results("running")
     total = args.iterations + 1
     trial = 0
     for i in range(total):
@@ -1506,33 +1609,38 @@ def run_main(benchmark, argv=None, description=None):
                           i == total - 1 and
                           config_index == len(configurations) - 1)
                 result = benchmark.run_trial(cfg, workdir, args, trial, retain)
-                if not warmup:
-                    results[label].append(result)
             except Exception as e:
+                failures.append({"trial": trial, "warmup": warmup,
+                                "configuration": cfg, "error": str(e),
+                                "artifacts": workdir})
                 runtime.tempdirs.discard(workdir)
                 print(f"\n  ERROR: {label}: {e}", file=sys.stderr)
                 print(f"  Artifacts preserved in {workdir}", file=sys.stderr)
                 print(container_diagnostics(
                     f"{args.container_name}-{os.getpid()}-{trial}"),
                       file=sys.stderr)
+                try:
+                    save_results("failed")
+                except OSError as save_error:
+                    print(f"Unable to save failed trial: {save_error}",
+                          file=sys.stderr)
                 raise
             else:
+                result.update(trial=trial, configuration=cfg)
+                samples = warmups if warmup else results
+                samples[label].append(result)
                 shutil.rmtree(workdir)
                 runtime.tempdirs.discard(workdir)
+            save_results("running")
         print(f"  completed {'warmup' if warmup else f'{i}/{args.iterations}'}")
 
     benchmark.report(results, labels)
-
-    if args.json:
-        with open(args.json, "w") as f:
-            json.dump({"system": info,
-                       "framework": adapter.key,
-                       "config": json_config(args),
-                       "results": results}, f, indent=2)
-        print(f"\nResults written to {args.json}")
 
     # A successful benchmark must not report success until the host-wide
     # CRIU configuration is restored. atexit remains a fallback for errors
     # and signals, where cleanup diagnostics cannot change an existing status.
     benchmark.restore_runc_conf()
+    save_results("complete")
+    if args.json:
+        print(f"Results written to {args.json}")
     print()
