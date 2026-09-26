@@ -540,6 +540,17 @@ void criu_set_leave_running(bool leave_running)
 	criu_local_set_leave_running(global_opts, leave_running);
 }
 
+void criu_local_set_leave_stopped(criu_opts *opts, bool leave_stopped)
+{
+	opts->rpc->has_leave_stopped = true;
+	opts->rpc->leave_stopped = leave_stopped;
+}
+
+void criu_set_leave_stopped(bool leave_stopped)
+{
+	criu_local_set_leave_stopped(global_opts, leave_stopped);
+}
+
 void criu_local_set_ext_unix_sk(criu_opts *opts, bool ext_unix_sk)
 {
 	opts->rpc->has_ext_unix_sk = true;
