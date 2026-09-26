@@ -2610,6 +2610,11 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	if (ret)
 		goto core_restore_end;
 
+	/* Set personality only after all memory mappings are restored. */
+	ret = sys_personality(args->personality);
+	if (ret < 0)
+		pr_warn("Unable to restore personality: %ld\n", ret);
+
 	/* SELinux (1) process context needs to be set before creating threads. */
 	if (args->lsm_type == LSMTYPE__SELINUX) {
 		/* Only for SELinux */

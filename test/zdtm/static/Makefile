@@ -28,6 +28,7 @@ TST_NOFILE	:=				\
 		sse00				\
 		sse20				\
 		mprotect00			\
+		personality00			\
 		timers				\
 		timers01			\
 		timerfd				\
@@ -651,6 +652,7 @@ sigaltstack:		LDLIBS += -pthread
 seccomp_filter_tsync:	LDLIBS += -pthread
 seccomp_filter_threads:	LDLIBS += -pthread
 timerslack_ns:		LDLIBS += -pthread
+personality00:		LDLIBS += -pthread
 shm:			CFLAGS += -DNEW_IPC_NS
 msgque:			CFLAGS += -DNEW_IPC_NS
 sem:			CFLAGS += -DNEW_IPC_NS
