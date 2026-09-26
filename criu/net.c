@@ -1337,6 +1337,47 @@ int restore_link_parms(struct net_link *link, int nlsk)
 	return do_rtm_link_req(RTM_SETLINK, link, nlsk, NULL, NULL, NULL);
 }
 
+static int check_ext_link_address(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
+{
+	NetDeviceEntry *nde = arg;
+	struct nlattr *tb[IFLA_MAX + 1];
+
+	if (nlmsg_parse(hdr, sizeof(struct ifinfomsg), tb, IFLA_MAX, NULL) < 0) {
+		pr_err("Can't parse link address for %s\n", nde->name);
+		return -1;
+	}
+
+	if (tb[IFLA_ADDRESS] && nla_len(tb[IFLA_ADDRESS]) == nde->address.len &&
+	    (!nde->address.len || !memcmp(nla_data(tb[IFLA_ADDRESS]), nde->address.data, nde->address.len)))
+		nde->has_address = false;
+
+	return 0;
+}
+
+static int restore_ext_link(struct net_link *link, int nlsk)
+{
+	NetDeviceEntry nde = *link->nde;
+	struct net_link ext_link = *link;
+	struct newlink_req req = {};
+
+	if (nde.has_address) {
+		req.h.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
+		req.h.nlmsg_type = RTM_GETLINK;
+		req.h.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+		req.h.nlmsg_seq = CR_NLMSG_SEQ;
+		req.i.ifi_family = AF_UNSPEC;
+		addattr_l(&req.h, sizeof(req), IFLA_IFNAME, nde.name, strlen(nde.name) + 1);
+
+		/* Tunnel devices can report an address without supporting its setter. */
+		if (do_rtnl_req(nlsk, &req, req.h.nlmsg_len, check_ext_link_address, NULL, NULL, &nde) < 0)
+			return -1;
+	}
+
+	/* Omit an unchanged address from this request, retaining the saved entry. */
+	ext_link.nde = &nde;
+	return restore_link_parms(&ext_link, nlsk);
+}
+
 static int restore_one_link(struct ns_id *ns, struct net_link *link, int nlsk, link_info_t link_info,
 			    struct newlink_extras *extras)
 {
@@ -1870,9 +1911,10 @@ static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
 
 	switch (nde->type) {
-	case ND_TYPE__LOOPBACK: /* fallthrough */
-	case ND_TYPE__EXTLINK:	/* see comment in images/netdev.proto */
+	case ND_TYPE__LOOPBACK:
 		return restore_link_parms(link, nlsk);
+	case ND_TYPE__EXTLINK: /* see comment in images/netdev.proto */
+		return restore_ext_link(link, nlsk);
 	case ND_TYPE__VENET:
 		return restore_one_link(ns, link, nlsk, venet_link_info, NULL);
 	case ND_TYPE__VETH:
