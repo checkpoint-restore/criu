@@ -880,6 +880,17 @@ int criu_set_log_file(const char *log_file)
 	return criu_local_set_log_file(global_opts, log_file);
 }
 
+void criu_local_set_log_to_stderr(criu_opts *opts, bool log_to_stderr)
+{
+	opts->rpc->has_log_to_stderr = true;
+	opts->rpc->log_to_stderr = log_to_stderr;
+}
+
+void criu_set_log_to_stderr(bool log_to_stderr)
+{
+	criu_local_set_log_to_stderr(global_opts, log_to_stderr);
+}
+
 void criu_local_set_cpu_cap(criu_opts *opts, unsigned int cap)
 {
 	opts->rpc->has_cpu_cap = true;
