@@ -2331,6 +2331,19 @@ skip_ns_bouncing:
 			pr_debug("restore late stage hook for external plugin failed\n");
 	}
 
+	/*
+	 * Sentinel: all RESUME_DEVICES_LATE per-PID hooks have completed;
+	 * let plugins run any batched/parallel finalization that must
+	 * happen once, after every device PID has been iterated.
+	 *
+	 * Handle errors as leniently as the per-PID loop above: -ENOTSUP is
+	 * ignored and any other error is logged but tolerated, so we do not
+	 * regress plugins whose hook may return a real error for pid = -1.
+	 */
+	ret = run_plugins(RESUME_DEVICES_LATE, -1);
+	if (ret < 0 && ret != -ENOTSUP)
+		pr_warn("restore late stage sentinel hook failed\n");
+
 	ret = run_scripts(ACT_PRE_RESUME);
 	if (ret)
 		pr_err("Pre-resume script ret code %d\n", ret);

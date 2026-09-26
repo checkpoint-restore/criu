@@ -1143,6 +1143,14 @@ int checkpoint_devices(void)
 			goto err;
 	}
 
+	/*
+	 * Sentinel: every device PID has been iterated; let plugins run
+	 * any batched work that must happen once per checkpoint.
+	 */
+	ret = run_plugins(CHECKPOINT_DEVICES, -1);
+	if (ret < 0 && ret != -ENOTSUP)
+		goto err;
+
 	exit_code = 0;
 err:
 	return exit_code;
