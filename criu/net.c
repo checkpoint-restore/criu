@@ -238,10 +238,41 @@ static const char *unix_conf_entries[] = {
 #define MAX_CONF_UNIX_OPT_PATH 32
 #define MAX_CONF_UNIX_PATH     (sizeof(CONF_UNIX_FMT) + MAX_CONF_UNIX_OPT_PATH - 2)
 
+static int net_conf_write(struct sysctl_req *req, int nr, int mtu)
+{
+	struct sysctl_req current;
+	int ret, value;
+
+	if (mtu < 0)
+		return sysctl_op(req, nr, CTL_WRITE, CLONE_NEWNET);
+
+	/* Earlier writes, notably disable_ipv6, may change the IPv6 MTU. */
+	ret = sysctl_op(req, mtu, CTL_WRITE, CLONE_NEWNET);
+	if (ret < 0)
+		return ret;
+
+	current = req[mtu];
+	current.arg = &value;
+	ret = sysctl_op(&current, 1, CTL_READ, CLONE_NEWNET);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * Fallback tunnels can report an IPv6 MTU above the link MTU,
+	 * which the kernel rejects if we try to write it back.
+	 */
+	if ((current.flags & CTL_FLAGS_HAS) && value == *(int *)req[mtu].arg) {
+		pr_debug("Skip %s, already restored\n", current.name);
+		mtu++;
+	}
+
+	return sysctl_op(req + mtu, nr - mtu, CTL_WRITE, CLONE_NEWNET);
+}
+
 static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto, struct sysctl_req *req,
 		       char (*path)[MAX_CONF_OPT_PATH], int size, char **devconfs, SysctlEntry **def_conf)
 {
-	int i, ri, ar = -1;
+	int i, ri, ar = -1, mtu = -1;
 	int ret, flags = op == CTL_READ ? CTL_FLAGS_OPTIONAL : 0;
 	SysctlEntry **rconf;
 
@@ -291,6 +322,8 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 				continue;
 
 			req[ri].arg = &conf[i]->iarg;
+			if (op == CTL_WRITE && !strcmp(devconfs[i], "mtu"))
+				mtu = ri;
 			break;
 		case SYSCTL_TYPE__CTL_STR:
 			req[ri].type = CTL_STR(MAX_STR_CONF_LEN);
@@ -320,7 +353,10 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 		ri++;
 	}
 
-	ret = sysctl_op(req, ri, op, CLONE_NEWNET);
+	if (op == CTL_WRITE)
+		ret = net_conf_write(req, ri, mtu);
+	else
+		ret = sysctl_op(req, ri, op, CLONE_NEWNET);
 	if (ret < 0) {
 		pr_err("Failed to %s %s/<confs>\n", (op == CTL_READ) ? "read" : "write", tgt);
 		goto err_free;
@@ -646,9 +682,21 @@ static int dump_unknown_device(struct ifinfomsg *ifi, char *kind, struct nlattr 
 	if (ret == 0)
 		return dump_one_netdev(ND_TYPE__EXTLINK, ifi, tb, ns, fds, NULL);
 
-	if (ret == -ENOTSUP)
-		pr_err("Unsupported link %d (type %d kind %s)\n", ifi->ifi_index, ifi->ifi_type, kind);
-	return -1;
+	return ret;
+}
+
+static int dump_fallback_device(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, struct ns_id *ns,
+				struct cr_imgset *fds)
+{
+	int ret;
+
+	/* A plugin may need to preserve a configured fallback device. */
+	ret = dump_unknown_device(ifi, kind, tb, ns, fds);
+	if (ret != -ENOTSUP)
+		return ret;
+
+	pr_info("found %s, ignoring\n", (char *)RTA_DATA(tb[IFLA_IFNAME]));
+	return 0;
 }
 
 static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nlattr **info)
@@ -712,10 +760,8 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind, struct nlattr **
 			return -1;
 		}
 
-		if (!strcmp(name, "gretap0")) {
-			pr_info("found %s, ignoring\n", name);
-			return 0;
-		}
+		if (!strcmp(name, "gretap0"))
+			return dump_fallback_device(ifi, kind, tb, ns, fds);
 
 		pr_warn("GRE tap device %s not supported natively\n", name);
 	}
@@ -752,10 +798,8 @@ static int dump_one_gre(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, s
 			return -1;
 		}
 
-		if (!strcmp(name, "gre0")) {
-			pr_info("found %s, ignoring\n", name);
-			return 0;
-		}
+		if (!strcmp(name, "gre0"))
+			return dump_fallback_device(ifi, kind, tb, ns, fds);
 
 		pr_warn("GRE tunnel device %s not supported natively\n", name);
 	}
@@ -774,10 +818,8 @@ static int dump_one_ipip(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, 
 		}
 
 		/* tunl0 is created by the kernel in every netns once ipip is loaded */
-		if (!strcmp(name, "tunl0")) {
-			pr_info("found %s, ignoring\n", name);
-			return 0;
-		}
+		if (!strcmp(name, "tunl0"))
+			return dump_fallback_device(ifi, kind, tb, ns, fds);
 
 		pr_warn("IPIP tunnel device %s not supported natively\n", name);
 	}
@@ -900,10 +942,8 @@ static int dump_one_sit(struct ifinfomsg *ifi, char *kind, struct nlattr **tb, s
 		return -1;
 	}
 
-	if (!strcmp(name, "sit0")) {
-		pr_info("found %s, ignoring\n", name);
-		return 0;
-	}
+	if (!strcmp(name, "sit0"))
+		return dump_fallback_device(ifi, kind, tb, ns, fds);
 
 	return dump_one_netdev(ND_TYPE__SIT, ifi, tb, ns, fds, dump_sit);
 }
@@ -962,6 +1002,9 @@ static int dump_one_link(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 		ret = dump_unknown_device(ifi, kind, tb, ns, fds);
 		break;
 	}
+
+	if (ret == -ENOTSUP)
+		pr_err("Unsupported link %d (type %d kind %s)\n", ifi->ifi_index, ifi->ifi_type, kind);
 
 	return ret;
 }
@@ -1328,6 +1371,47 @@ static int do_rtm_link_req(int msg_type, struct net_link *link, int nlsk, struct
 int restore_link_parms(struct net_link *link, int nlsk)
 {
 	return do_rtm_link_req(RTM_SETLINK, link, nlsk, NULL, NULL, NULL);
+}
+
+static int check_ext_link_address(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
+{
+	NetDeviceEntry *nde = arg;
+	struct nlattr *tb[IFLA_MAX + 1];
+
+	if (nlmsg_parse(hdr, sizeof(struct ifinfomsg), tb, IFLA_MAX, NULL) < 0) {
+		pr_err("Can't parse link address for %s\n", nde->name);
+		return -1;
+	}
+
+	if (tb[IFLA_ADDRESS] && nla_len(tb[IFLA_ADDRESS]) == nde->address.len &&
+	    (!nde->address.len || !memcmp(nla_data(tb[IFLA_ADDRESS]), nde->address.data, nde->address.len)))
+		nde->has_address = false;
+
+	return 0;
+}
+
+static int restore_ext_link(struct net_link *link, int nlsk)
+{
+	NetDeviceEntry nde = *link->nde;
+	struct net_link ext_link = *link;
+	struct newlink_req req = {};
+
+	if (nde.has_address) {
+		req.h.nlmsg_len = NLMSG_LENGTH(sizeof(req.i));
+		req.h.nlmsg_type = RTM_GETLINK;
+		req.h.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+		req.h.nlmsg_seq = CR_NLMSG_SEQ;
+		req.i.ifi_family = AF_UNSPEC;
+		addattr_l(&req.h, sizeof(req), IFLA_IFNAME, nde.name, strlen(nde.name) + 1);
+
+		/* Tunnel devices can report an address without supporting its setter. */
+		if (do_rtnl_req(nlsk, &req, req.h.nlmsg_len, check_ext_link_address, NULL, NULL, &nde) < 0)
+			return -1;
+	}
+
+	/* Omit an unchanged address from this request, retaining the saved entry. */
+	ext_link.nde = &nde;
+	return restore_link_parms(&ext_link, nlsk);
 }
 
 static int restore_one_link(struct ns_id *ns, struct net_link *link, int nlsk, link_info_t link_info,
@@ -1863,9 +1947,10 @@ static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
 
 	switch (nde->type) {
-	case ND_TYPE__LOOPBACK: /* fallthrough */
-	case ND_TYPE__EXTLINK:	/* see comment in images/netdev.proto */
+	case ND_TYPE__LOOPBACK:
 		return restore_link_parms(link, nlsk);
+	case ND_TYPE__EXTLINK: /* see comment in images/netdev.proto */
+		return restore_ext_link(link, nlsk);
 	case ND_TYPE__VENET:
 		return restore_one_link(ns, link, nlsk, venet_link_info, NULL);
 	case ND_TYPE__VETH:
