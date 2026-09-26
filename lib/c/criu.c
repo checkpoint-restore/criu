@@ -540,6 +540,17 @@ void criu_set_leave_running(bool leave_running)
 	criu_local_set_leave_running(global_opts, leave_running);
 }
 
+void criu_local_set_leave_stopped(criu_opts *opts, bool leave_stopped)
+{
+	opts->rpc->has_leave_stopped = true;
+	opts->rpc->leave_stopped = leave_stopped;
+}
+
+void criu_set_leave_stopped(bool leave_stopped)
+{
+	criu_local_set_leave_stopped(global_opts, leave_stopped);
+}
+
 void criu_local_set_ext_unix_sk(criu_opts *opts, bool ext_unix_sk)
 {
 	opts->rpc->has_ext_unix_sk = true;
@@ -867,6 +878,28 @@ int criu_local_set_log_file(criu_opts *opts, const char *log_file)
 int criu_set_log_file(const char *log_file)
 {
 	return criu_local_set_log_file(global_opts, log_file);
+}
+
+void criu_local_set_log_to_stderr(criu_opts *opts, bool log_to_stderr)
+{
+	opts->rpc->has_log_to_stderr = true;
+	opts->rpc->log_to_stderr = log_to_stderr;
+}
+
+void criu_set_log_to_stderr(bool log_to_stderr)
+{
+	criu_local_set_log_to_stderr(global_opts, log_to_stderr);
+}
+
+void criu_local_set_display_stats(criu_opts *opts, bool display_stats)
+{
+	opts->rpc->has_display_stats = true;
+	opts->rpc->display_stats = display_stats;
+}
+
+void criu_set_display_stats(bool display_stats)
+{
+	criu_local_set_display_stats(global_opts, display_stats);
 }
 
 void criu_local_set_cpu_cap(criu_opts *opts, unsigned int cap)
