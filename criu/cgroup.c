@@ -1042,6 +1042,15 @@ static void free_sets(CgroupEntry *cg, unsigned nr)
 	xfree(cg->sets);
 }
 
+/*
+ * The criu's set is not needed on restore, unless the root task is in it
+ * and has a cgroup namespace of its own, which is to be restored from it.
+ */
+static bool need_criu_cgset(void)
+{
+	return root_cgset == criu_cgset && (root_ns_mask & CLONE_NEWCGROUP);
+}
+
 static int dump_sets(CgroupEntry *cg)
 {
 	struct cg_set *set;
@@ -1050,10 +1059,11 @@ static int dump_sets(CgroupEntry *cg)
 	void *m;
 	CgSetEntry *se;
 	CgMemberEntry *ce;
+	bool skip_criu = !need_criu_cgset();
 
-	pr_info("Dumping %d sets\n", n_sets - 1);
+	cg->n_sets = skip_criu ? n_sets - 1 : n_sets;
+	pr_info("Dumping %zu sets\n", cg->n_sets);
 
-	cg->n_sets = n_sets - 1;
 	m = xmalloc(cg->n_sets * (sizeof(CgSetEntry *) + sizeof(CgSetEntry)));
 	cg->sets = m;
 	se = m + cg->n_sets * sizeof(CgSetEntry *);
@@ -1062,7 +1072,7 @@ static int dump_sets(CgroupEntry *cg)
 
 	s = 0;
 	list_for_each_entry(set, &cg_sets, l) {
-		if (set == criu_cgset)
+		if (skip_criu && set == criu_cgset)
 			continue;
 
 		/*
@@ -1118,10 +1128,17 @@ int dump_cgroups(void)
 	 * we're not dumping anything here.
 	 */
 
-	if (root_cgset == criu_cgset && list_is_singular(&cg_sets)) {
+	if (root_cgset == criu_cgset && list_is_singular(&cg_sets) && !need_criu_cgset()) {
 		pr_info("All tasks in criu's cgroups. Nothing to dump.\n");
 		return 0;
 	}
+
+	/*
+	 * Unlike the other sets, the criu's one is not collected when
+	 * created, and the root task found it existing, so do it now.
+	 */
+	if (need_criu_cgset() && collect_cgroups(&criu_cgset->ctls))
+		return -1;
 
 	if (dump_sets(&cg))
 		return -1;
@@ -1270,33 +1287,92 @@ static int userns_move(void *arg, int fd, pid_t pid)
 	return 0;
 }
 
+static CgControllerEntry *find_controller(char *name)
+{
+	int i;
+
+	for (i = 0; i < n_controllers; i++) {
+		CgControllerEntry *cur = controllers[i];
+
+		if (cgroup_contains(cur->cnames, cur->n_cnames, name, NULL))
+			return cur;
+	}
+
+	pr_err("No cg_controller_entry found for %s\n", name);
+	return NULL;
+}
+
+/*
+ * Move the current task into the first @len bytes of @path
+ * of the @name controller.
+ */
+static int cgroup_move_self(char *name, const char *path, int len)
+{
+	char aux[PATH_MAX];
+	CgControllerEntry *ctrl;
+	int aux_off;
+
+	ctrl = find_controller(name);
+	if (!ctrl)
+		return -1;
+
+	aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
+	if (aux_off < 0)
+		return -1;
+
+	/* Note that unshare(CLONE_NEWCGROUP) doesn't change the view
+	 * of previously mounted cgroupfses; since we're restoring via
+	 * a dirfd pointing to the cg yard set up by when criu was in
+	 * the root cgns, we still want to use the full path here when
+	 * we move into the cgroup.
+	 */
+	snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%.*s/cgroup.procs", len, path);
+	pr_debug("  `-> %s\n", aux);
+	if (userns_call(userns_move, 0, aux, strlen(aux) + 1, -1) < 0) {
+		pr_perror("Can't move into %s", aux);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int get_new_cgroup_root(CgControllerEntry *ctrl, char **newroot)
+{
+	u64 ctrl_mask = (1ULL << ctrl->n_cnames) - 1;
+	struct cg_root_opt *o;
+
+	*newroot = NULL;
+
+	list_for_each_entry(o, &opts.new_cgroup_roots, node) {
+		unsigned old_mask = ctrl_mask;
+
+		/* coverity[check_return] */
+		cgroup_contains(ctrl->cnames, ctrl->n_cnames, o->controller, &ctrl_mask);
+		if (old_mask != ctrl_mask) {
+			if (*newroot && strcmp(*newroot, o->newroot)) {
+				pr_err("CG paths mismatch: %s %s\n", *newroot, o->newroot);
+				return -1;
+			}
+			*newroot = o->newroot;
+		}
+		if (!ctrl_mask)
+			break;
+	}
+
+	if (!*newroot)
+		*newroot = opts.new_global_cg_root;
+
+	return 0;
+}
+
 static int prepare_cgns(CgSetEntry *se)
 {
 	int i;
-	bool do_unshare = false;
 
 	for (i = 0; i < se->n_ctls; i++) {
-		char aux[PATH_MAX];
-		int j, aux_off;
 		CgMemberEntry *ce = se->ctls[i];
-		CgControllerEntry *ctrl = NULL;
-
-		for (j = 0; j < n_controllers; j++) {
-			CgControllerEntry *cur = controllers[j];
-			if (cgroup_contains(cur->cnames, cur->n_cnames, ce->name, NULL)) {
-				ctrl = cur;
-				break;
-			}
-		}
-
-		if (!ctrl) {
-			pr_err("No cg_controller_entry found for %s/%s\n", ce->name, ce->path);
-			return -1;
-		}
-
-		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
-		if (aux_off < 0)
-			return -1;
+		CgControllerEntry *ctrl;
+		char *root;
 
 		/* We need to do an unshare() here as unshare() pins the root
 		 * of the cgroup namespace to whatever the current cgroups are.
@@ -1314,22 +1390,31 @@ static int prepare_cgns(CgSetEntry *se)
 		 * the unshare, and then entering the rest of the path.
 		 */
 		if (ce->has_cgns_prefix) {
-			char tmp = ce->path[ce->cgns_prefix];
-			ce->path[ce->cgns_prefix] = '\0';
-
-			pr_info("setting cgns prefix to %s\n", ce->path);
-			snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/cgroup.procs", ce->path);
-			ce->path[ce->cgns_prefix] = tmp;
-			if (userns_call(userns_move, 0, aux, strlen(aux) + 1, -1) < 0) {
-				pr_perror("couldn't set cgns prefix %s", aux);
+			pr_info("setting cgns prefix to %.*s\n", ce->cgns_prefix, ce->path);
+			if (cgroup_move_self(ce->name, ce->path, ce->cgns_prefix) < 0)
 				return -1;
-			}
-
-			do_unshare = true;
+			continue;
 		}
+
+		/*
+		 * No prefix means the namespace was unshared while being in
+		 * the root cgroup, which is either the new cgroup root, if
+		 * set, or the real one.
+		 */
+		ctrl = find_controller(ce->name);
+		if (!ctrl)
+			return -1;
+		if (get_new_cgroup_root(ctrl, &root) < 0)
+			return -1;
+		if (!root)
+			root = "/";
+
+		pr_info("setting cgns root for %s to %s\n", ce->name, root);
+		if (cgroup_move_self(ce->name, root, strlen(root)) < 0)
+			return -1;
 	}
 
-	if (do_unshare && unshare(CLONE_NEWCGROUP) < 0) {
+	if (unshare(CLONE_NEWCGROUP) < 0) {
 		pr_perror("couldn't unshare cgns");
 		return -1;
 	}
@@ -1344,55 +1429,87 @@ static int move_in_cgroup(CgSetEntry *se)
 	pr_info("Move into %d\n", se->id);
 
 	for (i = 0; i < se->n_ctls; i++) {
-		char aux[PATH_MAX];
-		int fd = -1, err, j, aux_off;
 		CgMemberEntry *ce = se->ctls[i];
-		CgControllerEntry *ctrl = NULL;
 
-		for (j = 0; j < n_controllers; j++) {
-			CgControllerEntry *cur = controllers[j];
-			if (cgroup_contains(cur->cnames, cur->n_cnames, ce->name, NULL)) {
-				ctrl = cur;
-				break;
-			}
-		}
-
-		if (!ctrl) {
-			pr_err("No cg_controller_entry found for %s/%s\n", ce->name, ce->path);
+		if (cgroup_move_self(ce->name, ce->path, strlen(ce->path)) < 0)
 			return -1;
-		}
-
-		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
-		if (aux_off < 0)
-			return -1;
-
-		/* Note that unshare(CLONE_NEWCGROUP) doesn't change the view
-		 * of previously mounted cgroupfses; since we're restoring via
-		 * a dirfd pointing to the cg yard set up by when criu was in
-		 * the root cgns, we still want to use the full path here when
-		 * we move into the cgroup.
-		 */
-		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/cgroup.procs", ce->path);
-		pr_debug("  `-> %s\n", aux);
-		err = userns_call(userns_move, 0, aux, strlen(aux) + 1, -1);
-		if (err < 0) {
-			pr_perror("Can't move into %s (%d/%d)", aux, err, fd);
-			return -1;
-		}
 	}
 
 	return 0;
+}
+
+/*
+ * Same as prepare_cgns(), but move the current task back into the cgroups
+ * it was in once the namespace is set up.
+ */
+static int prepare_cgns_in_place(CgSetEntry *se)
+{
+	LIST_HEAD(ctls);
+	unsigned int n_ctls = 0;
+	struct cg_ctl *ctl;
+	int i, ret = -1;
+	FILE *f;
+
+	f = fopen_proc(PROC_SELF, "cgroup");
+	if (!f)
+		return -1;
+	ret = parse_cgroup_file(f, &ctls, &n_ctls);
+	fclose(f);
+	if (ret < 0)
+		return -1;
+
+	ret = prepare_cgns(se);
+	if (ret < 0)
+		goto out;
+
+	for (i = 0; i < se->n_ctls; i++) {
+		CgMemberEntry *ce = se->ctls[i];
+
+		list_for_each_entry(ctl, &ctls, l) {
+			if (strcmp(ctl->name, ce->name))
+				continue;
+
+			ret = cgroup_move_self(ctl->name, ctl->path, strlen(ctl->path));
+			if (ret < 0)
+				goto out;
+			break;
+		}
+	}
+out:
+	put_ctls(&ctls);
+	return ret;
 }
 
 static bool has_cgns_prefix(CgSetEntry *se)
 {
 	int i;
 
+	if (!se)
+		return false;
+
 	for (i = 0; i < se->n_ctls; i++)
 		if (se->ctls[i]->has_cgns_prefix)
 			return true;
 
 	return false;
+}
+
+/*
+ * Check whether the dumped tasks live in a cgroup namespace of their own.
+ *
+ * Having a cgns prefix is not the same thing: if the namespace was unshared
+ * while being in the root cgroup, the prefix is empty. So compare the root
+ * task's cgroup namespace with the one criu was in on dump, and only resort
+ * to looking at the prefix for images which lack the namespace IDs.
+ */
+static bool has_own_cgns(struct pstree_item *root_task, CgSetEntry *se)
+{
+	TaskKobjIdsEntry *ids = root_task->ids;
+
+	if (ids && ids->has_cgroup_ns_id && root_ids && root_ids->has_cgroup_ns_id)
+		return ids->cgroup_ns_id != root_ids->cgroup_ns_id;
+
+	return has_cgns_prefix(se);
 }
 
 /*
@@ -1406,10 +1523,21 @@ static bool has_cgns_prefix(CgSetEntry *se)
  * here. As the caller has already put us into the right cgroup, no moving
  * around is needed -- a plain unshare() is sufficient.
  */
-static int prepare_cgns_ignore(CgSetEntry *se)
+static int prepare_cgns_ignore(struct pstree_item *root_task)
 {
-	if (!has_cgns_prefix(se))
+	CgSetEntry *se;
+
+	/* See the comment in prepare_cgroup_namespace() about --unprivileged. */
+	if (!rsti(root_task)->cg_set) {
+		pr_info("Cgroup namespace inherited from parent\n");
 		return 0;
+	}
+
+	se = find_rst_set_by_id(rsti(root_task)->cg_set);
+	if (!has_own_cgns(root_task, se)) {
+		pr_info("Cgroup namespace inherited from parent\n");
+		return 0;
+	}
 
 	pr_info("Creating cgns rooted at the current cgroup\n");
 	if (unshare(CLONE_NEWCGROUP) < 0) {
@@ -1423,33 +1551,56 @@ static int prepare_cgns_ignore(CgSetEntry *se)
 int prepare_cgroup_namespace(struct pstree_item *root_task)
 {
 	CgSetEntry *se;
+	int ret;
 
 	if (root_task->parent) {
 		pr_err("Expecting root_task to restore cgroup namespace\n");
 		return -1;
 	}
 
+	if (opts.manage_cgroups == CG_MODE_IGNORE)
+		return prepare_cgns_ignore(root_task);
+
 	/*
-	 * If on dump all dumped tasks are in same cgset with criu we don't
-	 * dump cgsets and thus cgroup namespaces and rely that on restore
-	 * criu caller would prepare proper cgset/cgns for us. Also in case
-	 * of --unprivileged we don't even have the root cgset here.
+	 * In case of --unprivileged we don't even have the root cgset here,
+	 * so rely on the criu caller to prepare proper cgset/cgns for us.
 	 */
-	if (!rsti(root_task)->cg_set || rsti(root_task)->cg_set == root_cg_set) {
+	if (!rsti(root_task)->cg_set) {
 		pr_info("Cgroup namespace inherited from parent\n");
 		return 0;
 	}
 
 	se = find_rst_set_by_id(rsti(root_task)->cg_set);
-	if (!se) {
+	if (!se && rsti(root_task)->cg_set != root_cg_set) {
 		pr_err("No set %d found\n", rsti(root_task)->cg_set);
 		return -1;
 	}
 
-	if (opts.manage_cgroups == CG_MODE_IGNORE)
-		return prepare_cgns_ignore(se);
+	if (!has_own_cgns(root_task, se)) {
+		pr_info("Cgroup namespace inherited from parent\n");
+		return 0;
+	}
 
-	if (prepare_cgns(se) < 0) {
+	/*
+	 * Older criu does not dump cgsets if all dumped tasks are in the
+	 * same cgset with criu, even if they have a cgroup namespace of
+	 * their own, so there is no way to find out where its root was.
+	 */
+	if (!se) {
+		pr_warn("No cgroup image to restore cgroup namespace from, inheriting it\n");
+		return 0;
+	}
+
+	/*
+	 * If the root task is in the same cgset as criu, restore_task_cgroup()
+	 * is not going to move it anywhere, so we have to move it back.
+	 */
+	if (rsti(root_task)->cg_set == root_cg_set)
+		ret = prepare_cgns_in_place(se);
+	else
+		ret = prepare_cgns(se);
+
+	if (ret < 0) {
 		pr_err("failed preparing cgns\n");
 		return -1;
 	}
@@ -2406,31 +2557,13 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 static int rewrite_cgroup_roots(CgroupEntry *cge)
 {
 	int i, j;
-	struct cg_root_opt *o;
 
 	for (i = 0; i < cge->n_controllers; i++) {
 		CgControllerEntry *ctrl = cge->controllers[i];
-		u64 ctrl_mask = (1ULL << ctrl->n_cnames) - 1;
-		char *newroot = NULL;
+		char *newroot;
 
-		list_for_each_entry(o, &opts.new_cgroup_roots, node) {
-			unsigned old_mask = ctrl_mask;
-
-			/* coverity[check_return] */
-			cgroup_contains(ctrl->cnames, ctrl->n_cnames, o->controller, &ctrl_mask);
-			if (old_mask != ctrl_mask) {
-				if (newroot && strcmp(newroot, o->newroot)) {
-					pr_err("CG paths mismatch: %s %s\n", newroot, o->newroot);
-					return -1;
-				}
-				newroot = o->newroot;
-			}
-			if (!ctrl_mask)
-				break;
-		}
-
-		if (!newroot)
-			newroot = opts.new_global_cg_root;
+		if (get_new_cgroup_root(ctrl, &newroot) < 0)
+			return -1;
 
 		if (newroot) {
 			for (j = 0; j < ctrl->n_dirs; j++) {
