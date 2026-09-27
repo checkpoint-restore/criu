@@ -114,6 +114,7 @@ int criu_set_compress_block_size(unsigned int bytes);
  */
 int criu_set_decompress_threads(unsigned int threads);
 void criu_set_auto_dedup(bool auto_dedup);
+void criu_set_stream(bool stream);
 void criu_set_force_irmap(bool force_irmap);
 void criu_set_link_remap(bool link_remap);
 void criu_set_log_level(int log_level);
@@ -287,6 +288,7 @@ int criu_local_set_compress_block_size(criu_opts *opts, unsigned int bytes);
 /* Uses the same worker-concurrency values as criu_set_decompress_threads(). */
 int criu_local_set_decompress_threads(criu_opts *opts, unsigned int threads);
 void criu_local_set_auto_dedup(criu_opts *opts, bool auto_dedup);
+void criu_local_set_stream(criu_opts *opts, bool stream);
 void criu_local_set_force_irmap(criu_opts *opts, bool force_irmap);
 void criu_local_set_link_remap(criu_opts *opts, bool link_remap);
 void criu_local_set_log_level(criu_opts *opts, int log_level);
