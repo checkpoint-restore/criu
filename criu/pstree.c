@@ -25,10 +25,16 @@ static struct rb_root pid_root_rb;
 
 void core_entry_free(CoreEntry *core)
 {
-	if (core->tc && core->tc->timers)
-		xfree(core->tc->timers->posix);
-	if (core->thread_core)
+	if (core->tc) {
+		if (core->tc->timers)
+			xfree(core->tc->timers->posix);
+		xfree(core->tc->sigactions);
+	}
+	if (core->thread_core) {
 		xfree(core->thread_core->creds->groups);
+		xfree(core->thread_core->comm);
+		xfree(core->thread_core->rseq_entry);
+	}
 	arch_free_thread_info(core);
 	xfree(core);
 }
