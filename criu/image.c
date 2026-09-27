@@ -389,6 +389,7 @@ int write_img_inventory(InventoryEntry *he, const InventoryEntry *parent_ie)
 	xfree(pe.plugins);
 
 	xfree(he->root_ids);
+	xfree(he->dump_criu_run_id);
 	close_image(img);
 	if (ret < 0)
 		return -1;
