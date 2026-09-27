@@ -1042,6 +1042,48 @@ static void free_sets(CgroupEntry *cg, unsigned nr)
 	xfree(cg->sets);
 }
 
+static void free_cg_dir_props(CgroupPropEntry **props, size_t n_props)
+{
+	size_t i;
+
+	if (!props)
+		return;
+
+	for (i = 0; i < n_props; i++) {
+		xfree(props[i]->perms);
+		xfree(props[i]->name);
+		xfree(props[i]->value);
+	}
+	xfree(props);
+}
+
+static void free_cg_dirs(CgroupDirEntry **dirs, size_t n_dirs)
+{
+	size_t i;
+
+	if (!dirs)
+		return;
+
+	for (i = 0; i < n_dirs; i++) {
+		free_cg_dirs(dirs[i]->children, dirs[i]->n_children);
+		free_cg_dir_props(dirs[i]->properties, dirs[i]->n_properties);
+		xfree(dirs[i]->dir_perms);
+	}
+	xfree(dirs);
+}
+
+static void free_controllers(CgroupEntry *cg)
+{
+	size_t i;
+
+	if (!cg->controllers)
+		return;
+
+	for (i = 0; i < cg->n_controllers; i++)
+		free_cg_dirs(cg->controllers[i]->dirs, cg->controllers[i]->n_dirs);
+	xfree(cg->controllers);
+}
+
 static int dump_sets(CgroupEntry *cg)
 {
 	struct cg_set *set;
@@ -1133,7 +1175,7 @@ int dump_cgroups(void)
 	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_CGROUP), &cg, PB_CGROUP);
 err:
 	free_sets(&cg, cg.n_sets);
-	xfree(cg.controllers);
+	free_controllers(&cg);
 	return ret;
 }
 
