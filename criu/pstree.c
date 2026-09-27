@@ -183,6 +183,24 @@ void pstree_free_cores(struct pstree_item *item)
 	}
 }
 
+static void free_dmp_info(struct pstree_item *item)
+{
+	struct dmp_info *dinfo = dmpi(item);
+	int i;
+
+	if (dinfo->thread_lsms) {
+		for (i = 0; dinfo->thread_lsms[i]; i++) {
+			xfree(dinfo->thread_lsms[i]->profile);
+			xfree(dinfo->thread_lsms[i]->sockcreate);
+			xfree(dinfo->thread_lsms[i]);
+		}
+		xfree(dinfo->thread_lsms);
+	}
+
+	xfree(dinfo->thread_ctls);
+	xfree(dinfo->thread_sp);
+}
+
 void free_pstree(struct pstree_item *root_item)
 {
 	struct pstree_item *item = root_item, *parent;
@@ -196,6 +214,8 @@ void free_pstree(struct pstree_item *root_item)
 		parent = item->parent;
 		list_del(&item->sibling);
 		pstree_free_cores(item);
+		free_dmp_info(item);
+		xfree(item->ids);
 		xfree(item->threads);
 		xfree(item);
 		item = parent;
