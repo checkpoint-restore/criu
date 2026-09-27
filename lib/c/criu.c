@@ -496,6 +496,17 @@ void criu_set_auto_dedup(bool auto_dedup)
 	criu_local_set_auto_dedup(global_opts, auto_dedup);
 }
 
+void criu_local_set_stream(criu_opts *opts, bool stream)
+{
+	opts->rpc->has_stream = true;
+	opts->rpc->stream = stream;
+}
+
+void criu_set_stream(bool stream)
+{
+	criu_local_set_stream(global_opts, stream);
+}
+
 void criu_local_set_force_irmap(criu_opts *opts, bool force_irmap)
 {
 	opts->rpc->has_force_irmap = true;
