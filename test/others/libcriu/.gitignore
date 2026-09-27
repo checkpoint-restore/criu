@@ -5,8 +5,10 @@ test_self
 test_sub
 test_join_ns
 test_pre_dump
+test_check
 test_feature_check
 test_lazy_pages
 output/
+.install/
 libcriu.so.*
 test_rpc_config
