@@ -653,15 +653,15 @@ int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], un
 
 		if (WIFEXITED(status)) {
 			if (!(flags & CRS_CAN_FAIL) && WEXITSTATUS(status))
-				pr_err("exited, status=%d\n", WEXITSTATUS(status));
+				pr_err("%s exited, status=%d\n", cmd, WEXITSTATUS(status));
 			break;
 		} else if (WIFSIGNALED(status)) {
-			pr_err("killed by signal %d: %s\n", WTERMSIG(status), strsignal(WTERMSIG(status)));
+			pr_err("%s killed by signal %d: %s\n", cmd, WTERMSIG(status), strsignal(WTERMSIG(status)));
 			break;
 		} else if (WIFSTOPPED(status)) {
-			pr_err("stopped by signal %d\n", WSTOPSIG(status));
+			pr_err("%s stopped by signal %d\n", cmd, WSTOPSIG(status));
 		} else if (WIFCONTINUED(status)) {
-			pr_err("continued\n");
+			pr_err("%s continued\n", cmd);
 		}
 	}
 
