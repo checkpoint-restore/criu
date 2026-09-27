@@ -606,11 +606,14 @@ int dump_my_file(int lfd, u32 *id, int *type)
 	struct pid me = {};
 	struct fd_opts fdo = {};
 	FdinfoEntry e = FDINFO_ENTRY__INIT;
+	int ret;
 
 	me.real = getpid();
 	me.ns[0].virt = -1; /* FIXME */
 
-	if (dump_one_file(&me, lfd, lfd, &fdo, NULL, &e, NULL))
+	ret = dump_one_file(&me, lfd, lfd, &fdo, NULL, &e, NULL);
+	xfree(e.xattr_security_selinux);
+	if (ret)
 		return -1;
 
 	*id = e.id;
@@ -655,10 +658,9 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item, s
 			FdinfoEntry e = FDINFO_ENTRY__INIT;
 
 			ret = dump_one_file(item->pid, dfds->fds[i + off], lfds[i], opts + i, ctl, &e, dfds);
-			if (ret)
-				break;
-
-			ret = pb_write_one(img, &e, PB_FDINFO);
+			if (!ret)
+				ret = pb_write_one(img, &e, PB_FDINFO);
+			xfree(e.xattr_security_selinux);
 			if (ret)
 				break;
 		}
