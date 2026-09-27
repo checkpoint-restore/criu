@@ -126,8 +126,10 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, unsigned int ppb_fl
 		ppb->pipe_off = 0;
 		ppb_size = fcntl(ppb->p[0], F_GETPIPE_SZ, 0);
 		if (ppb_size < 0) {
-			xfree(ppb);
 			pr_perror("Can't get pipe size");
+			close(ppb->p[0]);
+			close(ppb->p[1]);
+			xfree(ppb);
 			return NULL;
 		}
 		ppb->pipe_size = ppb_size / PAGE_SIZE;
