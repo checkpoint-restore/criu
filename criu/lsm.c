@@ -198,7 +198,7 @@ int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
 	/* Get the size of the xattr. */
 	len = fgetxattr(fd, "security.selinux", ctx, 0);
 	if (len == -1) {
-		pr_err("Reading xattr security.selinux from FD %d failed\n", fd);
+		pr_perror("Reading xattr security.selinux from FD %d failed", fd);
 		return -1;
 	}
 
@@ -209,8 +209,14 @@ int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
 	}
 
 	ret = fgetxattr(fd, "security.selinux", ctx, len);
+	if (ret < 0) {
+		pr_perror("Reading xattr security.selinux from FD %d failed", fd);
+		xfree(ctx);
+		return -1;
+	}
 	if (len != ret) {
-		pr_err("Reading xattr %s to FD %d failed\n", ctx, fd);
+		pr_err("Reading xattr security.selinux from FD %d: size changed (%d != %d)\n", fd, ret, len);
+		xfree(ctx);
 		return -1;
 	}
 
