@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+import glob
+import os
+import sys
+
+# Support in-tree pycriu and system/nix paths
+sys.path.insert(0, os.path.abspath("lib"))
+sys.path.insert(0, os.path.abspath("../lib"))
+sys.path.insert(0, os.path.abspath("../../lib"))
+
+try:
+    import pycriu
+except ImportError:
+    for p in glob.glob("/nix/store/*python3*-protobuf*/lib/python3*/site-packages"):
+        sys.path.insert(0, p)
+    for p in glob.glob("/nix/store/*python3*-pyyaml*/lib/python3*/site-packages"):
+        sys.path.insert(0, p)
+    import pycriu
+
+if len(sys.argv) < 2 or sys.argv[1] != "--pre-restore":
+    sys.exit(0)
+
+pid = os.getenv("ZDTM_TEST_PID")
+if not pid:
+    print("personality_legacy.hook: ZDTM_TEST_PID not set", file=sys.stderr)
+    sys.exit(1)
+
+test_dump_base = os.path.join("dump", "zdtm", "static", "personality_legacy", pid)
+if not os.path.isdir(test_dump_base):
+    print(f"personality_legacy.hook: dump directory not found: {test_dump_base}", file=sys.stderr)
+    sys.exit(1)
+
+iters = [d for d in os.listdir(test_dump_base) if d.isdigit() and os.path.isdir(os.path.join(test_dump_base, d))]
+if not iters:
+    print(f"personality_legacy.hook: no iteration directory found in {test_dump_base}", file=sys.stderr)
+    sys.exit(1)
+
+active_iter = max(iters, key=int)
+img_dir = os.path.join(test_dump_base, active_iter)
+pstree_path = os.path.join(img_dir, "pstree.img")
+if not os.path.isfile(pstree_path):
+    print(f"personality_legacy.hook: pstree image not found: {pstree_path}", file=sys.stderr)
+    sys.exit(1)
+
+with open(pstree_path, "rb") as f:
+    pstree = pycriu.images.load(f)
+
+# The ns/uns flavors dump a namespace wrapper as well as the test task.
+# Image names use virtual PIDs, not ZDTM_TEST_PID (the host PID).
+entries = pstree.get("entries", [])
+if not entries:
+    print(f"personality_legacy.hook: empty pstree image: {pstree_path}", file=sys.stderr)
+    sys.exit(1)
+
+core_ids = set()
+for task in entries:
+    core_ids.add(int(task["pid"]))
+    core_ids.update(int(tid) for tid in task.get("threads", []))
+
+for core_id in sorted(core_ids):
+    fpath = os.path.join(img_dir, f"core-{core_id}.img")
+    if not os.path.isfile(fpath):
+        print(f"personality_legacy.hook: expected core image not found: {fpath}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(fpath, "rb") as f:
+        data = pycriu.images.load(f)
+
+    modified = False
+    for entry in data.get("entries", []):
+        if "tc" in entry:
+            # Mangled decimal form of 0x400000 (READ_IMPLIES_EXEC) produced by legacy atoi("00400000")
+            entry["tc"]["personality"] = 400000
+            modified = True
+        if "thread_core" in entry and "personality" in entry["thread_core"]:
+            del entry["thread_core"]["personality"]
+            modified = True
+
+    if not modified:
+        print(f"personality_legacy.hook: no personality fields modified in {fpath}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(fpath, "wb") as f:
+        pycriu.images.dump(data, f)
+    print(f"personality_legacy.hook: converted {fpath} to legacy image format")
+
+sys.exit(0)
