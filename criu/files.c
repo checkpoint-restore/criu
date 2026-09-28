@@ -1264,6 +1264,17 @@ splice:
 	list_splice(&fake, list);
 	list_splice(&completed, list);
 
+	/*
+	 * Everything this task could reference a dead process from has been
+	 * restored. The shared stand-ins outlive us -- other tasks may still be
+	 * taking references of their own, and the root task disposes of them --
+	 * but the private ones a task outside the root pid namespace had to fork
+	 * (see dead_pid_put_private()) have served their purpose, so make them
+	 * die the way the processes they stand in for did.
+	 */
+	if (dead_pid_put_private() && !ret)
+		ret = -1;
+
 	return ret;
 }
 
