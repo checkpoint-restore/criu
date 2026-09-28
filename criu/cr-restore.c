@@ -84,6 +84,7 @@
 #include "sk-queue.h"
 #include "sigframe.h"
 #include "fdstore.h"
+#include "extmem.h"
 #include "string.h"
 #include "memfd.h"
 #include "timens.h"
@@ -2200,6 +2201,13 @@ skip_ns_bouncing:
 	if (ret < 0)
 		goto out_kill;
 
+	/* ACT_PRE_RESUME runs after sealing, so verify provider readiness here. */
+	ret = extmem_wait_ready();
+	if (ret < 0 && ret != -ENOTSUP) {
+		pr_err("External memory provider is not ready\n");
+		goto out_kill;
+	}
+
 	ret = apply_memfd_seals();
 	if (ret < 0)
 		goto out_kill;
@@ -2430,6 +2438,8 @@ int prepare_dummy_task_state(struct pstree_item *pi)
 int cr_restore_tasks(void)
 {
 	int ret = -1;
+	int extmem_ret;
+	bool plugin_initialized = false;
 
 	if (init_service_fd())
 		return 1;
@@ -2454,19 +2464,32 @@ int cr_restore_tasks(void)
 	if (tty_init_restore())
 		return -1;
 
+	/*
+	 * Initialize the provider before reading restore images. Its inherited FD
+	 * must be moved to the fdstore first.
+	 */
+	if (fdstore_init())
+		return -1;
+
+	if (inherit_fd_move_to_fdstore())
+		return -1;
+
+	extmem_ret = extmem_init();
+	if (extmem_ret < 0 && extmem_ret != -ENOTSUP) {
+		ret = extmem_ret;
+		goto err;
+	}
+
 	if (opts.cpu_cap & CPU_CAP_IMAGE) {
 		if (cpu_validate_cpuinfo())
-			return -1;
+			goto err;
 	}
 
 	if (prepare_task_entries() < 0)
-		return -1;
+		goto err;
 
 	if (prepare_pstree() < 0)
-		return -1;
-
-	if (fdstore_init())
-		return -1;
+		goto err;
 
 	/*
 	 * For the AMDGPU plugin, its parallel restore feature needs to use fdstore to store
@@ -2475,10 +2498,8 @@ int cr_restore_tasks(void)
 	 * must be initialized after fdstore_init.
 	 */
 	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
-		return -1;
-
-	if (inherit_fd_move_to_fdstore())
 		goto err;
+	plugin_initialized = true;
 
 	if (crtools_prepare_shared() < 0)
 		goto err;
@@ -2496,7 +2517,16 @@ int cr_restore_tasks(void)
 clean_cgroup:
 	fini_cgroup();
 err:
-	cr_plugin_fini(CR_PLUGIN_STAGE__RESTORE, ret);
+	if (plugin_initialized)
+		cr_plugin_fini(CR_PLUGIN_STAGE__RESTORE, ret);
+	if (ret) {
+		if (extmem_abort())
+			pr_err("Failed to abort external memory provider session\n");
+	} else if (extmem_commit()) {
+		/* COMMIT runs after tasks have resumed, so a failure cannot roll back
+		 * the restore. */
+		pr_err("Failed to commit external memory provider session\n");
+	}
 	return ret;
 }
 
@@ -3510,7 +3540,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].clear_tid_addr = CORE_THREAD_ARCH_INFO(tcore)->clear_tid_addr;
 		core_get_tls(tcore, &thread_args[i].tls);
 
-		if (tcore->thread_core->has_cg_set && rsti(current)->cg_set != tcore->thread_core->cg_set) {
+		if (opts.manage_cgroups != CG_MODE_IGNORE && tcore->thread_core->has_cg_set &&
+		    rsti(current)->cg_set != tcore->thread_core->cg_set) {
 			thread_args[i].cg_set = tcore->thread_core->cg_set;
 			thread_args[i].cgroupd_sk = dup(get_service_fd(CGROUPD_SK));
 		} else {

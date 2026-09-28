@@ -84,6 +84,7 @@
 #include "dump.h"
 #include "eventpoll.h"
 #include "memfd.h"
+#include "extmem.h"
 #include "timens.h"
 #include "img-streamer.h"
 #include "pidfd-store.h"
@@ -1957,10 +1958,26 @@ static int cr_dump_finish(int ret)
 	if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
 
-	if (arch_set_thread_regs(root_item, true) < 0)
+	if (arch_set_thread_regs(root_item, true) < 0) {
+		if (extmem_abort())
+			pr_err("Failed to abort external memory provider session\n");
 		return -1;
+	}
 
 	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+	if (ret || post_dump_ret) {
+		if (extmem_abort())
+			pr_err("Failed to abort external memory provider session\n");
+	}
+
+	if (!ret && !post_dump_ret) {
+		/* Commit before releasing the dumped task. */
+		if (extmem_commit()) {
+			pr_err("Failed to commit external memory provider session\n");
+			ret = -1;
+		}
+	}
 
 	pstree_switch_state(root_item, (ret || post_dump_ret) ? TASK_ALIVE : opts.final_state);
 	timing_stop(TIME_FROZEN);
