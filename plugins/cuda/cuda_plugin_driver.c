@@ -12,8 +12,14 @@
 #include <compel/infect.h>
 
 #include <dlfcn.h>
+#include <limits.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <sys/time.h>
+
+/* Leave CRIU's freezing alarm room to fire after a lock that timed out. */
+#define CUDA_LOCK_ALARM_MARGIN_MS 100
 
 static void *cuda_handle;
 static bool cuda_driver_initialized;
@@ -498,6 +504,45 @@ static int cuda_driver_checkpoint_devices(int pid)
 	return run_cuda_operation(restore_tid, checkpoint_device, task_info);
 }
 
+/*
+ * PAUSE_DEVICES runs under the single alarm(opts.timeout) that
+ * collect_pstree() arms for the whole freeze. CRIU calls BUG() if an
+ * operation keeps running after that alarm fires, so bound each lock by
+ * the time left on the alarm rather than by a fresh opts.timeout.
+ */
+static int cuda_lock_timeout_ms(int pid, unsigned int *timeout_ms)
+{
+	uint64_t limit_ms, left_ms;
+	struct itimerval it;
+
+	if (alarm_timeouted()) {
+		pr_err("CRIU's freezing timeout expired before locking pid %d\n", pid);
+		return -ETIMEDOUT;
+	}
+
+	/* A zero timeout means that the lock does not time out. */
+	limit_ms = (uint64_t)opts.timeout * 1000;
+
+	if (getitimer(ITIMER_REAL, &it)) {
+		pr_perror("Cannot read CRIU's freezing timeout");
+		return -1;
+	}
+
+	if (it.it_value.tv_sec || it.it_value.tv_usec) {
+		left_ms = (uint64_t)it.it_value.tv_sec * 1000 + it.it_value.tv_usec / 1000;
+		if (left_ms <= CUDA_LOCK_ALARM_MARGIN_MS) {
+			pr_err("No time left to lock pid %d before CRIU's freezing timeout\n", pid);
+			return -ETIMEDOUT;
+		}
+		left_ms -= CUDA_LOCK_ALARM_MARGIN_MS;
+		if (!limit_ms || left_ms < limit_ms)
+			limit_ms = left_ms;
+	}
+
+	*timeout_ms = limit_ms > UINT_MAX ? UINT_MAX : limit_ms;
+	return 0;
+}
+
 static int cuda_driver_pause_devices(int pid)
 {
 	enum cuda_restore_tid_result tid_result;
@@ -540,8 +585,10 @@ static int cuda_driver_pause_devices(int pid)
 		return track_cuda_pid(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_CHECKPOINTED);
 	}
 
-	pr_info("pausing devices on pid %d\n", pid);
-	args.timeoutMs = opts.timeout * 1000;
+	if (cuda_lock_timeout_ms(pid, &args.timeoutMs))
+		return -1;
+
+	pr_info("pausing devices on pid %d (timeout %u ms)\n", pid, args.timeoutMs);
 
 	res = cuda_api.lock(pid, &args);
 	if (res != CUDA_SUCCESS) {
