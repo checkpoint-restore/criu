@@ -1906,7 +1906,12 @@ static int __has_binfmt_misc_sandboxing(void *arg)
 	int ret, mnt_fd;
 
 	if (unshare(CLONE_NEWNS | CLONE_NEWUSER)) {
-		pr_perror("Failed to unshare namespaces");
+		if (errno == ENOSPC)
+			pr_perror("Namespace limit reached while checking binfmt_misc sandboxing. "
+				  "Check user.max_user_namespaces, user.max_mnt_namespaces, "
+				  "and user namespace nesting depth");
+		else
+			pr_perror("Failed to unshare namespaces to check binfmt_misc sandboxing");
 		return 1;
 	}
 
