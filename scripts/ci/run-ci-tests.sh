@@ -530,6 +530,7 @@ run_non_shardable_tests() {
 		./test/cuda-checkpoint/backend-selection.sh
 		./test/cuda-checkpoint/restore-backend-selection.sh
 		./test/cuda-checkpoint/device-map-backends.sh
+		./test/cuda-checkpoint/unprivileged.sh
 	fi
 }
 
