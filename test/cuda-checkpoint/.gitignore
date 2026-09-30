@@ -4,4 +4,5 @@ cuda-device-map-test
 cuda-backend-guard-test
 untraced-clone-target
 dump_finish_failure.so
+seccomp-mode-change
 unsupported/
