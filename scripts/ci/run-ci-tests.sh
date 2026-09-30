@@ -531,6 +531,7 @@ run_non_shardable_tests() {
 		./test/cuda-checkpoint/restore-backend-selection.sh
 		./test/cuda-checkpoint/device-map-backends.sh
 		./test/cuda-checkpoint/unprivileged.sh
+		./test/cuda-checkpoint/seccomp-mode-change.sh
 	fi
 }
 
