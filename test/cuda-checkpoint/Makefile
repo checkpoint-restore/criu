@@ -1,7 +1,8 @@
 CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS) -fPIC
 
-BIN := cuda-checkpoint libcuda.so.1 unsupported/libcuda.so.1 cuda-device-map-test cuda-backend-guard-test
-SRC := cuda-checkpoint.c libcuda.c
+BIN := cuda-checkpoint libcuda.so.1 unsupported/libcuda.so.1 cuda-device-map-test cuda-backend-guard-test \
+	seccomp-mode-change
+SRC := cuda-checkpoint.c libcuda.c seccomp-mode-change.c
 DEP	:= $(SRC:%.c=%.d)
 OBJ	:= $(SRC:%.c=%.o)
 TARGETS	:= $(BIN)
@@ -22,6 +23,10 @@ all:	$(TARGETS)
 .PHONY: all
 
 cuda-checkpoint: cuda-checkpoint.o
+	$(E) " LINK     " $@
+	$(Q)$(CC) $(LDFLAGS) $^ -o $@
+
+seccomp-mode-change: seccomp-mode-change.o
 	$(E) " LINK     " $@
 	$(Q)$(CC) $(LDFLAGS) $^ -o $@
 
