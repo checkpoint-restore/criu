@@ -303,8 +303,8 @@ try_again:
 		goto try_again;
 	}
 
-	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_TRACESYSGOOD)) {
-		pr_perror("Unable to set PTRACE_O_TRACESYSGOOD for %d", pid);
+	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, COMPEL_PTRACE_OPTIONS)) {
+		pr_perror("Unable to set ptrace options for %d", pid);
 		return -1;
 	}
 
