@@ -1379,6 +1379,10 @@ class criu:
         grep_errors(os.path.join(__ddir, log))
         if ret != 0:
             if self.__fault and int(self.__fault) < 128:
+                # A late restore failure may have already written the pidfile.
+                if action == "restore" and os.path.exists(self.__test.getname() + '.pid'):
+                    self.__test.getpid()
+                    self.__test.gone()
                 try_run_hook(self.__test, ["--fault", action])
                 if action == "dump":
                     # create a clean directory for images
