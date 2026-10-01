@@ -772,6 +772,14 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 	int err, ret = -1;
 	unsigned long pfn, nrpages, next_data_pnf = 0, next_hole_pfn = 0;
 	unsigned long pages[2] = {};
+	bool track_changes;
+
+	/*
+	 * Remote coverage only records parent availability. Shared pages may be
+	 * inherited only when explicit shmem dirty tracking is enabled.
+	 */
+	track_changes = opts.track_mem && kdat.has_dirty_track && si->pstate_map &&
+			is_shmem_tracking_en();
 
 	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
 
@@ -794,7 +802,7 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 		if (fd >= 0 && pfn >= next_hole_pfn && next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
 			goto err_xfer;
 
-		if (si->pstate_map && is_shmem_tracking_en()) {
+		if (track_changes) {
 			pgstate = get_pstate(si->pstate_map, pfn);
 			use_mc = pgstate == PST_DONT_DUMP;
 		}
@@ -807,10 +815,10 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 		}
 
 		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
-	again:
+again:
 		if (pgstate == PST_ZERO)
 			ret = 0;
-		else if (xfer.parent && page_in_parent(pgstate == PST_DIRTY)) {
+		else if (track_changes && page_xfer_has_parent(&xfer) && page_in_parent(pgstate == PST_DIRTY)) {
 			ret = page_pipe_add_hole(pp, pgaddr, PP_HOLE_PARENT);
 			st = 0;
 		} else {

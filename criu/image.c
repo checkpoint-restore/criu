@@ -976,6 +976,11 @@ struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *
 			return NULL;
 		*id = h->pages_id;
 		pagemap_head__free_unpacked(h, NULL);
+		/* Zero marks source-side coverage, never a restorable pages image. */
+		if (!*id) {
+			pr_err("Source pagemap coverage has no local page payload\n");
+			return NULL;
+		}
 	} else {
 		PagemapHead h = PAGEMAP_HEAD__INIT;
 		*id = h.pages_id = page_ids++;
