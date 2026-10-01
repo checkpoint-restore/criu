@@ -19,18 +19,25 @@ set -eu
 # the CUDA plugin has locked by then.
 #
 # CRIU runs with --unprivileged as root of a new user namespace, like
-# unprivileged.sh; no GPU is required.
+# unprivileged.sh; no GPU is required. When CRIU can suspend seccomp, for
+# example as root in CI, the "window" case also runs without a user
+# namespace and without --unprivileged: CRIU must refuse the dump there as
+# well, because it would not dump the new filter. The "preinstalled" case
+# needs a tracer without CAP_SYS_ADMIN, so it runs only in the user
+# namespace.
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
 CRIU="$ROOT/criu/criu"
 PLUGIN_DIR="$ROOT/plugins/cuda"
 MOCK_DIR="$ROOT/test/cuda-checkpoint"
 
-# Runs as pid 1 of a new user, pid and mount namespace.
-if [ "${1:-}" = "--in-userns" ]; then
+# Runs as pid 1 of a new pid and mount namespace, created by run_case().
+# The remaining arguments are passed to criu dump.
+if [ "${1:-}" = "--in-ns" ]; then
 	WORK_DIR=$2
 	BACKEND=$3
 	CASE=$4
+	shift 4
 	if [ "$CASE" = preinstalled ]; then
 		# The target installs its filter as soon as the API marker records
 		# a checkpoint action.
@@ -91,8 +98,7 @@ if [ "${1:-}" = "--in-userns" ]; then
 		--log-file dump.log \
 		--verbosity=4 \
 		--libdir "$PLUGIN_DIR" \
-		--unprivileged \
-		--plugin-option=cuda_plugin.backend="$BACKEND" || STATUS=$?
+		--plugin-option=cuda_plugin.backend="$BACKEND" "$@" || STATUS=$?
 	# criu exits with 1 when it refuses to dump a task. timeout exits with
 	# 124 when criu does not finish in time, and with 128 + N when signal N
 	# kills criu.
@@ -213,22 +219,32 @@ if ! unshare -Ur true 2>/dev/null; then
 	exit 0
 fi
 
-# Runs a case with both backends.
+# Runs a case with both backends, in namespaces created with the given
+# unshare flags. The remaining arguments are passed to criu dump.
 run_case()
 {
-	CASE=$1
+	FLAGS=$1
+	CASE=$2
+	shift 2
 	for BACKEND in driver-api cuda-checkpoint; do
-		DIR="$WORK_DIR/$BACKEND-$CASE"
+		DIR="$WORK_DIR/$BACKEND-$CASE$FLAGS"
 		mkdir "$DIR"
-		if ! unshare -Urpf --mount-proc "$0" --in-userns "$DIR" "$BACKEND" "$CASE"; then
+		if ! unshare "$FLAGS" --mount-proc "$0" --in-ns "$DIR" "$BACKEND" "$CASE" "$@"; then
 			grep -h "Error" "$DIR"/*.log >&2 || true
-			echo "CUDA mock seccomp $CASE test failed with the $BACKEND backend"
+			echo "CUDA mock seccomp $CASE test (unshare $FLAGS) failed with the $BACKEND backend"
 			exit 1
 		fi
 	done
 }
 
-run_case window
-run_case preinstalled
+run_case -Urpf window --unprivileged
+run_case -Urpf preinstalled --unprivileged
+
+if "$CRIU" check --no-default-config --feature seccomp_suspend >/dev/null 2>&1; then
+	echo "CRIU can suspend seccomp: running the window case as root too"
+	run_case -pf window
+else
+	echo "CRIU cannot suspend seccomp: not running the window case as root"
+fi
 
 echo "CUDA mock seccomp mode change PASS"
