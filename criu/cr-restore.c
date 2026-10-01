@@ -2306,6 +2306,11 @@ skip_ns_bouncing:
 	if (restore_rseq_cs())
 		pr_err("Unable to restore rseq_cs state\n");
 
+	if (fault_injected(FI_RESTORE_LATE)) {
+		pr_err("fault injection: late restore failure\n");
+		goto out_kill_network_unlocked;
+	}
+
 	/*
 	 * Some external devices such as GPUs might need a very late
 	 * trigger to kick-off some events, memory notifiers and for
