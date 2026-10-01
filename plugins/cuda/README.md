@@ -199,7 +199,15 @@ checkpoint, restore, and unlock.
   state and release the process back to it's running state
 
 These actions are facilitated by a CUDA checkpoint+restore thread that the CUDA
-plugin will re-wake when needed.
+plugin will re-wake when needed. During the `CHECKPOINT_DEVICES` hook, CRIU
+temporarily resumes this thread with seccomp filters active and verifies
+afterward that no new tasks or threads were created in the target process tree.
+However, if the root of the checkpointed process tree is not PID 1 of a PID
+namespace, a resumed thread calling `clone()` or `clone3()` with
+`CLONE_UNTRACED` (for example with `CLONE_PARENT` or by double-forking) could
+bypass `PTRACE_O_TRACECLONE` and create an untraced process outside the
+checkpointed tree. When checkpointing untrusted workloads, it is therefore
+recommended to blacklist `CLONE_UNTRACED` using seccomp filters.
 
 # Testing
 
