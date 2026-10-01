@@ -275,8 +275,10 @@ static int cuda_process_checkpoint_action(int pid, const char *action, unsigned 
 	return launch_cuda_checkpoint(args, msg_buf, buf_size);
 }
 
-static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
+static int interrupt_restore_thread(int restore_tid)
 {
+	int ret = 0;
+
 	/* Since we resumed a thread that CRIU previously already froze we need to
 	 * INTERRUPT it once again, task was already SEIZE'd so we don't need to do
 	 * a compel_interrupt_task()
@@ -290,51 +292,24 @@ static int interrupt_restore_thread(int restore_tid, k_rtsigset_t *restore_sigse
 	struct proc_status_creds creds;
 	if (compel_wait_task(restore_tid, -1, parse_pid_status, NULL, &creds.s, NULL) != COMPEL_TASK_ALIVE) {
 		pr_err("compel_wait_task failed after interrupt\n");
-		return -1;
+		ret = -1;
 	}
 
-	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD)) {
-		pr_perror("Failed to set ptrace options on interrupt for restore tid %d", restore_tid);
-		return -1;
-	}
+	if (criu_restore_thread(restore_tid))
+		ret = -1;
 
-	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*restore_sigset), restore_sigset)) {
-		pr_perror("Unable to restore original sigmask to restore tid %d", restore_tid);
-		return -1;
-	}
-
-	return 0;
+	return ret;
 }
 
-static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
+static int resume_restore_thread(int restore_tid)
 {
-	k_rtsigset_t block;
+	int ret = criu_resume_thread(restore_tid);
 
-	if (ptrace(PTRACE_GETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset)) {
+	if (ret == -ESRCH) {
+		errno = -ret;
 		pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
-		return -1;
 	}
-
-	ksigfillset(&block);
-	ksigdelset(&block, SIGTRAP);
-
-	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(block), &block)) {
-		pr_perror("Failed to block signals on restore tid %d", restore_tid);
-		return -1;
-	}
-
-	// Clear out PTRACE_O_SUSPEND_SECCOMP when we resume the restore thread
-	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, 0)) {
-		pr_perror("Could not clear ptrace options on restore tid %d", restore_tid);
-		return -1;
-	}
-
-	if (ptrace(PTRACE_CONT, restore_tid, NULL, 0)) {
-		pr_perror("Could not resume cuda restore tid %d", restore_tid);
-		return -1;
-	}
-
-	return 0;
+	return ret ? -1 : 0;
 }
 
 int cuda_plugin_checkpoint_devices(int pid)
@@ -343,7 +318,6 @@ int cuda_plugin_checkpoint_devices(int pid)
 	char msg_buf[CUDA_CKPT_BUF_SIZE];
 	int int_ret;
 	int status;
-	k_rtsigset_t save_sigset;
 	struct pid_info *task_info;
 	bool pid_found = false;
 
@@ -387,7 +361,7 @@ int cuda_plugin_checkpoint_devices(int pid)
 	/* We need to resume the checkpoint thread to prepare the mappings for
 	 * checkpointing
 	 */
-	if (resume_restore_thread(restore_tid, &save_sigset)) {
+	if (resume_restore_thread(restore_tid)) {
 		return -1;
 	}
 
@@ -397,7 +371,7 @@ int cuda_plugin_checkpoint_devices(int pid)
 		pr_err("CHECKPOINT_DEVICES failed with %s\n", msg_buf);
 	}
 
-	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
+	int_ret = interrupt_restore_thread(restore_tid);
 	return status != 0 ? -1 : int_ret;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, cuda_plugin_checkpoint_devices);
@@ -477,7 +451,6 @@ int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_stat
 	int status;
 	int ret = 0;
 	int int_ret;
-	k_rtsigset_t save_sigset;
 
 	if (initial_task_state == CUDA_TASK_UNKNOWN) {
 		pr_info("skip resume for PID %d (unknown state)\n", pid);
@@ -499,7 +472,7 @@ int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_stat
 	/* wakeup the restore thread so we can handle the restore for this pid,
 	 * rseq_cs has to be restored before execution
 	 */
-	if (resume_restore_thread(restore_tid, &save_sigset)) {
+	if (resume_restore_thread(restore_tid)) {
 		return -1;
 	}
 
@@ -523,7 +496,7 @@ int resume_device(int pid, int checkpointed, cuda_task_state_t initial_task_stat
 	}
 
 interrupt:
-	int_ret = interrupt_restore_thread(restore_tid, &save_sigset);
+	int_ret = interrupt_restore_thread(restore_tid);
 
 	return ret != 0 ? ret : int_ret;
 }

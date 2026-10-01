@@ -1130,6 +1130,92 @@ err:
 	return exit_code;
 }
 
+static k_rtsigset_t resumed_sigset;
+static pid_t resumed_tid;
+
+static bool thread_has_seccomp(pid_t tid)
+{
+	struct seccomp_entry *entry;
+
+	entry = seccomp_lookup(tid, false, false);
+	return entry && entry->mode != SECCOMP_MODE_DISABLED;
+}
+
+int __attribute__((used)) criu_resume_thread(pid_t tid)
+{
+	bool sigmask_changed = false;
+	bool options_set = false;
+	k_rtsigset_t block;
+
+	resumed_tid = 0;
+
+	if (ptrace(PTRACE_GETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset)) {
+		int err = -errno;
+
+		if (err == -ESRCH)
+			return err;
+		pr_perror("Failed to get current sigmask for restore tid %d", tid);
+		return -1;
+	}
+
+	ksigfillset(&block);
+	ksigdelset(&block, SIGTRAP);
+
+	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(block), &block)) {
+		pr_perror("Failed to block signals on restore tid %d", tid);
+		return -1;
+	}
+	sigmask_changed = true;
+
+	/*
+	 * Clear PTRACE_O_SUSPEND_SECCOMP when resuming the restore thread,
+	 * and trace any new task creation.
+	 */
+	if (ptrace(PTRACE_SETOPTIONS, tid, NULL, COMPEL_PTRACE_OPTIONS)) {
+		pr_perror("Could not set ptrace options on restore tid %d", tid);
+		goto unwind;
+	}
+	options_set = true;
+
+	if (ptrace(PTRACE_CONT, tid, NULL, 0)) {
+		pr_perror("Could not resume restore tid %d", tid);
+		goto unwind;
+	}
+
+	resumed_tid = tid;
+	return 0;
+
+unwind:
+	if (options_set && thread_has_seccomp(tid) && ptrace_suspend_seccomp(tid) < 0)
+		pr_err("Unable to restore ptrace options for restore tid %d\n", tid);
+	if (sigmask_changed &&
+	    ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset))
+		pr_perror("Unable to restore signal mask for restore tid %d", tid);
+
+	return -1;
+}
+
+int __attribute__((used)) criu_restore_thread(pid_t tid)
+{
+	int ret = 0;
+
+	if (resumed_tid != tid) {
+		pr_err("Thread %d was not resumed by CRIU\n", tid);
+		return -1;
+	}
+	resumed_tid = 0;
+
+	if (thread_has_seccomp(tid) && ptrace_suspend_seccomp(tid) < 0)
+		ret = -1;
+
+	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset)) {
+		pr_perror("Unable to restore original sigmask to restore tid %d", tid);
+		ret = -1;
+	}
+
+	return ret;
+}
+
 int checkpoint_devices(void)
 {
 	struct pstree_item *iter;
