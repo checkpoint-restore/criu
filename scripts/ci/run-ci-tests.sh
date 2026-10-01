@@ -523,8 +523,28 @@ run_non_shardable_tests() {
 		make -C test/cuda-checkpoint test
 
 		# Fault 138 (FI_PLUGIN_CUDA_FORCE_ENABLE) enables the mock without a GPU.
-		./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 \
-			--mocked-cuda-checkpoint --fault 138
+		# The mocks report every task as a CUDA task whose restore thread is
+		# its main thread, so in most seccomp tests the plugin lets a thread
+		# that uses seccomp run before CRIU runs the parasite in that thread.
+		# Select each backend explicitly: with the automatic selection, the
+		# plugin disables itself without an error when it finds no backend.
+		CUDA_ZDTM_TESTS=(
+			-t zdtm/static/sigpending
+			-t zdtm/static/pthread00
+			-t zdtm/static/seccomp_strict
+			-t zdtm/static/seccomp_filter
+			-t zdtm/static/seccomp_filter_tsync
+			-t zdtm/static/seccomp_filter_threads
+			-t zdtm/static/seccomp_filter_inheritance
+			-t zdtm/static/seccomp_no_new_privs
+		)
+		CUDA_CONFIG=$(mktemp)
+		for backend in driver-api cuda-checkpoint; do
+			echo "plugin-option cuda_plugin.backend=$backend" >"$CUDA_CONFIG"
+			CRIU_CONFIG_FILE="$CUDA_CONFIG" ./test/zdtm.py run "${CUDA_ZDTM_TESTS[@]}" \
+				--mocked-cuda-checkpoint --fault 138
+		done
+		rm -f "$CUDA_CONFIG"
 		./test/cuda-checkpoint/checkpoint-error-rollback.sh
 		python3 ./test/cuda-checkpoint/backend-errors.py
 		./test/cuda-checkpoint/backend-selection.sh
