@@ -26,12 +26,14 @@
 
 #include <compel/infect.h>
 #include <compel/log.h>
+#include <compel/ptrace.h>
 
 #include "cr_options.h"
 #include "cuda_device_map.h"
 #include "cuda_plugin.h"
 #include "pid.h"
 #include "plugin.h"
+#include "seize.h"
 
 struct cr_options opts;
 unsigned int cuda_plugin_timeout;
@@ -46,6 +48,8 @@ static pid_t other_child;
 static volatile sig_atomic_t other_status = -1;
 static int target_pipe[2];
 static volatile sig_atomic_t criu_timed_out;
+static pid_t resumed_tid;
+static k_rtsigset_t resumed_sigset;
 
 static void other_sigchld(int signal, siginfo_t *info, void *context)
 {
@@ -124,6 +128,45 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 
 int cuda_plugin_add_inventory(void)
 {
+	return 0;
+}
+
+int criu_resume_thread(pid_t tid)
+{
+	bool sigmask_changed = false;
+	k_rtsigset_t block;
+
+	resumed_tid = 0;
+	if (ptrace(PTRACE_GETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset)) {
+		if (errno == ESRCH)
+			return -ESRCH;
+		return -1;
+	}
+	ksigfillset(&block);
+	ksigdelset(&block, SIGTRAP);
+	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(block), &block))
+		return -1;
+	sigmask_changed = true;
+	if (ptrace(PTRACE_SETOPTIONS, tid, NULL, COMPEL_PTRACE_OPTIONS))
+		goto unwind;
+	if (ptrace(PTRACE_CONT, tid, NULL, 0))
+		goto unwind;
+	resumed_tid = tid;
+	return 0;
+
+unwind:
+	if (sigmask_changed)
+		ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset);
+	return -1;
+}
+
+int criu_restore_thread(pid_t tid)
+{
+	if (resumed_tid != tid)
+		return -1;
+	resumed_tid = 0;
+	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset))
+		return -1;
 	return 0;
 }
 
