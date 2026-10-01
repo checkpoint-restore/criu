@@ -1754,8 +1754,8 @@ static int attach_to_tasks(bool root_seized)
 				return -1;
 			}
 
-			if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_TRACESYSGOOD)) {
-				pr_perror("Unable to set PTRACE_O_TRACESYSGOOD for %d", pid);
+			if (ptrace(PTRACE_SETOPTIONS, pid, NULL, COMPEL_PTRACE_OPTIONS)) {
+				pr_perror("Unable to set ptrace options for %d", pid);
 				return -1;
 			}
 			if (arch_ptrace_restore(pid, item))
