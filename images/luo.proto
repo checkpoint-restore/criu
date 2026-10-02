@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+/*
+ * LUO (Live Update Unified Operation) session metadata format.
+ * This is used to store the mapping between image file paths and their
+ * corresponding LUO tokens, allowing the session to persist across kexec reboots.
+ */
+
+message luo_fd_mapping {
+	required string	path	= 1;
+	required uint64	token	= 2;
+};
+
+message luo_metadata_entry {
+	required string		session_name	= 1;
+	repeated luo_fd_mapping	fd_mappings	= 2;
+};
