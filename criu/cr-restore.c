@@ -2366,14 +2366,32 @@ out_kill:
 	 * otherwise an external processes can be killed.
 	 */
 	if (vpid(root_item) == INIT_PID) {
+		pid_t init_pid = root_item->pid->real;
+		siginfo_t info;
 		int status;
+		pid_t pid;
+
+		/* The SIGCHLD handler must not collect init behind our back */
+		ignore_kids();
 
 		/* Kill init */
-		if (root_item->pid->real > 0)
-			kill(root_item->pid->real, SIGKILL);
+		if (init_pid > 0)
+			kill(init_pid, SIGKILL);
 
-		if (waitpid(root_item->pid->real, &status, 0) < 0)
-			pr_warn("Unable to wait %d: %s\n", root_item->pid->real, strerror(errno));
+		/*
+		 * Init finishes exiting only after the rest of its pid namespace
+		 * is collected, and only we can collect a zombie we trace. So
+		 * collect anything until init exits, if init is still ours.
+		 */
+		if (!waitid(P_PID, init_pid, &info, WEXITED | WNOHANG | WNOWAIT | __WALL)) {
+			do {
+				pid = waitpid(-1, &status, __WALL);
+			} while (pid > 0 && (pid != init_pid || WIFSTOPPED(status)));
+		} else {
+			pid = waitpid(init_pid, &status, 0);
+		}
+		if (pid < 0)
+			pr_warn("Unable to wait %d: %s\n", init_pid, strerror(errno));
 	} else {
 		struct pstree_item *pi;
 
