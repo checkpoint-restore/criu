@@ -252,6 +252,8 @@ void criu_local_free_opts(criu_opts *opts)
 
 	free(opts->rpc->cgroup_props_file);
 	free(opts->rpc->cgroup_props);
+	free(opts->rpc->cgroup_yard);
+	free(opts->rpc->config_file);
 	free(opts->rpc->parent_img);
 	free(opts->rpc->root);
 	free(opts->rpc->freeze_cgroup);
