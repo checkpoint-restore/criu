@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sched.h>
+#include <stdarg.h>
 #include <sys/mman.h>
 
 #include "log.h"
@@ -18,6 +19,11 @@
 #include "pagemap.h"
 #include "cr_options.h"
 #include "plugin.h"
+#include "pstree.h"
+#include "proc_parse.h"
+#include "seccomp.h"
+#include "seize.h"
+#include <compel/ptrace.h>
 
 int parse_statement(int i, char *line, char **configuration);
 
@@ -149,6 +155,185 @@ static void test_plugin_dispatch_all(void)
 	test_plugin_results[3] = 0;
 	assert(run_plugins_all(DUMP_DEVICES_LATE, 42) == 7);
 	assert_plugin_order();
+}
+
+/*
+ * checkpoint_devices() with a fake process tree, a fake CHECKPOINT_DEVICES
+ * handler and a ptrace() wrapper. Task 100 has two threads and plays a CUDA
+ * task: the handler clears the ptrace options of thread 101 and lets it run,
+ * like the CUDA plugin does with its restore thread, and sets
+ * PTRACE_O_TRACESYSGOOD when the thread is stopped again. Thread 101 uses
+ * seccomp. The handler does not claim task 200, and task 300 is dead.
+ */
+struct test_thread {
+	pid_t tid;
+	int mode;		 /* in /proc/<tid>/status now */
+	unsigned long options;	 /* ptrace options */
+	unsigned int setoptions; /* PTRACE_SETOPTIONS requests */
+	struct seccomp_entry entry;
+};
+
+#define TEST_TASKS   3
+#define TEST_THREADS 4
+
+static struct test_thread test_threads[TEST_THREADS];
+static struct pid test_pids[TEST_THREADS];
+static struct pid test_task_pids[TEST_TASKS];
+static struct pstree_item test_items[TEST_TASKS];
+static unsigned int test_handler_calls[TEST_TASKS];
+static int test_handler_result;
+static int test_handler_new_mode;
+
+struct pstree_item *root_item;
+
+static struct test_thread *test_thread(pid_t tid)
+{
+	unsigned int i;
+
+	for (i = 0; i < TEST_THREADS; i++)
+		if (test_threads[i].tid == tid)
+			return &test_threads[i];
+	assert(0);
+	return NULL;
+}
+
+struct pstree_item *pstree_item_next(struct pstree_item *item)
+{
+	if (item == &test_items[TEST_TASKS - 1])
+		return NULL;
+	return item + 1;
+}
+
+struct seccomp_entry *seccomp_lookup(pid_t tid_real, bool create, bool mandatory)
+{
+	return &test_thread(tid_real)->entry;
+}
+
+int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
+{
+	ss->seccomp_mode = test_thread(pid)->mode;
+	return 0;
+}
+
+/* The request type is a plain integer, as in test/cuda-checkpoint/backend-guard.c. */
+long __wrap_ptrace(int request, ...)
+{
+	struct test_thread *thread;
+	unsigned long data;
+	va_list args;
+	pid_t pid;
+
+	va_start(args, request);
+	pid = va_arg(args, pid_t);
+	va_arg(args, void *);
+	data = va_arg(args, unsigned long);
+	va_end(args);
+
+	assert(request == PTRACE_SETOPTIONS);
+	thread = test_thread(pid);
+	thread->options = data;
+	thread->setoptions++;
+	return 0;
+}
+
+/* As compel's ptrace_suspend_seccomp() */
+int ptrace_suspend_seccomp(pid_t pid)
+{
+	return __wrap_ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD);
+}
+
+static int test_checkpoint_devices_hook(int pid)
+{
+	struct test_thread *restore_thread = test_thread(101);
+	unsigned int i;
+
+	for (i = 0; i < TEST_TASKS; i++)
+		if (test_items[i].pid->real == pid)
+			test_handler_calls[i]++;
+	if (pid != 100)
+		return -ENOTSUP;
+
+	restore_thread->options = 0;
+	if (test_handler_new_mode >= 0)
+		test_thread(100)->mode = test_handler_new_mode;
+	restore_thread->options = PTRACE_O_TRACESYSGOOD;
+	return test_handler_result;
+}
+
+static cr_plugin_desc_t test_checkpoint_devices_desc = {
+	.name = "test-checkpoint-devices",
+	.max_hooks = CR_PLUGIN_HOOK__MAX,
+	.hooks[CR_PLUGIN_HOOK__CHECKPOINT_DEVICES] = (void *)test_checkpoint_devices_hook,
+};
+
+static plugin_desc_t test_checkpoint_devices_plugin;
+
+static void prepare_checkpoint_devices(int result, int new_mode)
+{
+	/* Tasks 100 (threads 100 and 101), 200 and 300 (dead). */
+	const pid_t tids[TEST_THREADS] = { 100, 101, 200, 300 };
+	const unsigned int modes[TEST_THREADS] = { SECCOMP_MODE_DISABLED, SECCOMP_MODE_FILTER, SECCOMP_MODE_FILTER,
+						   SECCOMP_MODE_DISABLED };
+	const unsigned int first_thread[TEST_TASKS] = { 0, 2, 3 };
+	const int nr_threads[TEST_TASKS] = { 2, 1, 1 };
+	unsigned int i;
+
+	memset(test_threads, 0, sizeof(test_threads));
+	memset(test_items, 0, sizeof(test_items));
+	memset(test_handler_calls, 0, sizeof(test_handler_calls));
+	for (i = 0; i < TEST_THREADS; i++) {
+		struct test_thread *thread = &test_threads[i];
+
+		thread->tid = tids[i];
+		thread->mode = modes[i];
+		thread->entry.tid_real = tids[i];
+		thread->entry.mode = modes[i];
+		/* As compel_wait_task() set them */
+		thread->options = PTRACE_O_TRACESYSGOOD;
+		if (modes[i] != SECCOMP_MODE_DISABLED)
+			thread->options |= PTRACE_O_SUSPEND_SECCOMP;
+		test_pids[i].real = tids[i];
+	}
+	for (i = 0; i < TEST_TASKS; i++) {
+		test_task_pids[i].real = tids[first_thread[i]];
+		test_task_pids[i].state = i == TEST_TASKS - 1 ? TASK_DEAD : TASK_ALIVE;
+		test_items[i].pid = &test_task_pids[i];
+		test_items[i].threads = &test_pids[first_thread[i]];
+		test_items[i].nr_threads = nr_threads[i];
+	}
+	root_item = &test_items[0];
+
+	test_handler_result = result;
+	test_handler_new_mode = new_mode;
+	INIT_LIST_HEAD(&cr_plugin_ctl.hook_chain[CR_PLUGIN_HOOK__CHECKPOINT_DEVICES]);
+	test_checkpoint_devices_plugin.d = &test_checkpoint_devices_desc;
+	list_add_tail(&test_checkpoint_devices_plugin.link[CR_PLUGIN_HOOK__CHECKPOINT_DEVICES],
+		      &cr_plugin_ctl.hook_chain[CR_PLUGIN_HOOK__CHECKPOINT_DEVICES]);
+}
+
+static void test_checkpoint_devices(void)
+{
+	/* The options of both threads of the handled task are set again. */
+	prepare_checkpoint_devices(0, -1);
+	assert(checkpoint_devices() == 0);
+	assert(test_handler_calls[0] == 1 && test_handler_calls[1] == 1 && test_handler_calls[2] == 0);
+	assert(test_thread(100)->options == PTRACE_O_TRACESYSGOOD);
+	assert(test_thread(101)->options == (PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD));
+	assert(test_thread(100)->setoptions >= 1 && test_thread(101)->setoptions >= 1);
+	/* No handler let a thread of task 200 run. */
+	assert(test_thread(200)->setoptions == 0);
+	assert(test_thread(200)->options == (PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD));
+
+	/* Thread 100 got a seccomp filter while the handler ran thread 101. */
+	prepare_checkpoint_devices(0, SECCOMP_MODE_FILTER);
+	assert(checkpoint_devices() == -1);
+	assert(test_handler_calls[1] == 0);
+
+	/* The handler failed. */
+	prepare_checkpoint_devices(-1, -1);
+	assert(checkpoint_devices() == -1);
+	assert(test_handler_calls[1] == 0);
+	assert(test_thread(100)->setoptions == 0 && test_thread(101)->setoptions == 0);
 }
 
 static void test_plugin_options(void)
@@ -682,6 +867,7 @@ int main(int argc, char *argv[], char *envp[])
 	test_bwrite();
 	test_pagemap_offset_alignment();
 	test_plugin_dispatch_all();
+	test_checkpoint_devices();
 	test_plugin_options();
 
 	i = parse_statement(0, "", configuration);

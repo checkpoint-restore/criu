@@ -393,6 +393,23 @@ static bool checkpoint_behavior(int pid, const char *behavior)
 	return false;
 }
 
+/* Keep the checkpoint action running until the task under test creates a file. */
+static int wait_for_file(const char *environment)
+{
+	const char *path = getenv(environment);
+	int i;
+
+	if (!path)
+		return 0;
+	for (i = 0; i < 1000; i++) {
+		if (!access(path, F_OK))
+			return 0;
+		usleep(10000);
+	}
+	fprintf(stderr, "mock libcuda: timed out waiting for %s\n", path);
+	return -1;
+}
+
 mock_cuda_result_t cuCheckpointProcessCheckpoint(int pid, void *args)
 {
 	struct mock_process *process = get_process(pid);
@@ -400,6 +417,8 @@ mock_cuda_result_t cuCheckpointProcessCheckpoint(int pid, void *args)
 	(void)args;
 	record_api("checkpoint", pid);
 	if (checkpoint_behavior(pid, getenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR")))
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
+	if (wait_for_file("CRIU_CUDA_MOCK_CHECKPOINT_WAIT"))
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_LOCKED)

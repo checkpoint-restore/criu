@@ -448,7 +448,8 @@ static int interrupt_restore_thread(int pid, int restore_tid, k_rtsigset_t *rest
 		pr_err("CUDA restore tid %d stopped unexpectedly with signal %d\n", restore_tid, WSTOPSIG(status));
 		ret = -1;
 	}
-	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD)) {
+	/* CRIU suspends seccomp again after CHECKPOINT_DEVICES if the thread uses it. */
+	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, PTRACE_O_TRACESYSGOOD)) {
 		pr_perror("Failed to set ptrace options on interrupt for restore tid %d", restore_tid);
 		ret = -1;
 	}
@@ -468,7 +469,7 @@ out:
 
 static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 {
-	const unsigned long ptrace_options = PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD;
+	const unsigned long ptrace_options = PTRACE_O_TRACESYSGOOD;
 	k_rtsigset_t block;
 	bool options_cleared = false;
 	bool sigmask_changed = false;
