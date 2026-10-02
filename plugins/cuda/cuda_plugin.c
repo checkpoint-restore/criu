@@ -1,19 +1,24 @@
 #include "criu-log.h"
 #include "cuda_device_map.h"
 #include "cuda_plugin.h"
+#include "criu-plugin.h"
 #include "image.h"
 #include "plugin.h"
 #include "fault-injection.h"
 #include "seize.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+
+#include "cuda_gpu_pages.h"
 
 #ifdef LOG_PREFIX
 #undef LOG_PREFIX
@@ -283,21 +288,165 @@ static int cuda_plugin_pause_devices(int pid)
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__PAUSE_DEVICES, cuda_plugin_pause_devices)
 
+/*
+ * Fast GPU page dump. The backend's checkpoint moved VRAM into new anonymous
+ * VMAs of the (now fully stopped) target. Find them by diffing against the
+ * pre-checkpoint VMA list, write their contents to gpu-pages-<ns_pid>.img
+ * with process_vm_readv + O_DIRECT, then free them with an injected
+ * madvise(MADV_DONTNEED) so CRIU's page walk sees empty pages and skips them.
+ *
+ * Best effort: any failure here leaves the staging pages in place and CRIU
+ * dumps them through its regular (slow) path.
+ */
+static void dump_gpu_staging_pages(int pid, struct gpu_region *vmas_before, int n_before)
+{
+	struct gpu_region *vmas_after = NULL, *new_vmas = NULL;
+	int n_after = 0, n_new = 0;
+	double t0, total_bytes = 0;
+	int img_dir_fd = criu_get_image_dir();
+	uint64_t syscall_addr;
+	int i;
+
+	if (img_dir_fd < 0) {
+		pr_warn("No image dir fd, skipping fast GPU page dump\n");
+		goto done;
+	}
+
+	syscall_addr = find_syscall_addr(pid);
+	if (!syscall_addr) {
+		pr_warn("Could not find syscall insn in vdso for pid %d, skipping fast GPU page dump\n", pid);
+		goto done;
+	}
+	pr_info("Found syscall insn at 0x%llx for pid %d\n", (unsigned long long)syscall_addr, pid);
+
+	t0 = now_ms();
+	if (scan_anon_private_vmas(pid, &vmas_after, &n_after) != 0) {
+		pr_warn("Post-scan failed for pid %d, skipping fast GPU page dump\n", pid);
+		goto done;
+	}
+	if (diff_anon_vmas(vmas_before, n_before, vmas_after, n_after, &new_vmas, &n_new) != 0) {
+		pr_warn("VMA diff failed for pid %d, skipping fast GPU page dump\n", pid);
+		goto done;
+	}
+	pr_info("[timing] post-scan+diff: %.0f ms, %d new VMAs\n", now_ms() - t0, n_new);
+	if (n_new == 0) {
+		pr_info("No new GPU VMAs found for pid %d\n", pid);
+		goto done;
+	}
+	for (i = 0; i < n_new; i++)
+		total_bytes += new_vmas[i].size;
+	pr_info("Found %d new GPU VMAs for pid %d (%.0f MB), dumping with process_vm_readv\n",
+		n_new, pid, total_bytes / (1024 * 1024));
+
+	t0 = now_ms();
+	if (dump_gpu_pages(pid, img_dir_fd, new_vmas, n_new) == 0) {
+		double dump_ms = now_ms() - t0;
+
+		pr_info("[timing] process_vm_readv dump: %.0f ms (%.1f GB/s)\n",
+			dump_ms, total_bytes / dump_ms / 1e6);
+		t0 = now_ms();
+		if (release_gpu_pages(pid, syscall_addr, new_vmas, n_new) != 0)
+			pr_warn("madvise(DONTNEED) injection failed for pid %d, CRIU will dump GPU pages slowly\n",
+				pid);
+		else
+			pr_info("[timing] injected madvise(DONTNEED): %.0f ms\n", now_ms() - t0);
+	} else {
+		pr_warn("Fast GPU page dump failed for pid %d, CRIU will dump GPU pages\n", pid);
+	}
+
+done:
+	free(vmas_after);
+	free(new_vmas);
+}
+
 static int cuda_plugin_checkpoint_devices(int pid)
 {
+	struct gpu_region *vmas_before = NULL;
+	int n_before = 0;
+	double t0;
+	int ret;
+
 	if (!active_backend)
 		return -ENOTSUP;
 
-	return active_backend->checkpoint_devices(pid);
+	/* Pre-scan: record anonymous private VMAs before the backend moves VRAM
+	 * into new staging mappings. Must run before any backend work on pid.
+	 */
+	if (scan_anon_private_vmas(pid, &vmas_before, &n_before) != 0) {
+		pr_warn("Pre-scan failed for pid %d, fast GPU page dump disabled\n", pid);
+		vmas_before = NULL;
+	}
+
+	t0 = now_ms();
+	ret = active_backend->checkpoint_devices(pid);
+	if (ret != -ENOTSUP)
+		pr_info("[timing] %s checkpoint: %.0f ms\n", active_backend->name, now_ms() - t0);
+
+	/* On success both backends have put the CUDA restore thread back into
+	 * its ptrace stop, so every thread of pid is frozen again and the
+	 * staging VMAs can be read and released from here.
+	 */
+	if (ret == 0 && vmas_before)
+		dump_gpu_staging_pages(pid, vmas_before, n_before);
+
+	free(vmas_before);
+	return ret;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, cuda_plugin_checkpoint_devices);
 
+/*
+ * Fast GPU page restore. Before the backend's restore copies the staging
+ * pages back to VRAM, refill the (still empty) staging VMAs of the stopped
+ * target from gpu-pages-<ns_pid>.img. A pid without such an image is a
+ * no-op; a failure after the image was found is fatal, since the backend
+ * would otherwise restore garbage into VRAM.
+ */
+static int restore_gpu_staging_pages(int pid)
+{
+	int img_dir_fd = criu_get_image_dir();
+	uint64_t syscall_addr;
+	double t0;
+
+	if (img_dir_fd < 0) {
+		pr_warn("No image dir fd during restore for pid %d\n", pid);
+		return 0;
+	}
+
+	syscall_addr = find_syscall_addr(pid);
+	if (!syscall_addr) {
+		pr_warn("Could not find syscall insn in vdso for pid %d\n", pid);
+		return 0;
+	}
+
+	t0 = now_ms();
+	if (restore_gpu_pages(pid, pid, syscall_addr, img_dir_fd) != 0) {
+		pr_err("GPU page restore failed for pid %d\n", pid);
+		return -1;
+	}
+	pr_info("[timing] GPU page restore: %.0f ms\n", now_ms() - t0);
+
+	return 0;
+}
+
 static int cuda_plugin_resume_devices_late(int pid)
 {
+	double t0;
+	int ret;
+
 	if (!active_backend)
 		return -ENOTSUP;
 
-	return active_backend->resume_devices_late(pid, &restore_device_map);
+	/* Follows the image too: nothing to fill when there is no gpu-pages-<pid>.img. */
+	ret = restore_gpu_staging_pages(pid);
+	if (ret)
+		return ret;
+
+	t0 = now_ms();
+	ret = active_backend->resume_devices_late(pid, &restore_device_map);
+	if (ret != -ENOTSUP)
+		pr_info("[timing] %s restore+unlock: %.0f ms\n", active_backend->name, now_ms() - t0);
+
+	return ret;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, cuda_plugin_resume_devices_late)
 

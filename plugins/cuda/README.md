@@ -128,6 +128,19 @@ general-purpose CUDA header. Reserved fields are zeroed and must not be
 repurposed without an explicit driver-version check and verification of the
 corresponding CUDA release.
 
+## Fast staging-page dump and restore
+
+At checkpoint time the driver moves the GPU memory into new anonymous
+mappings of the target process. The plugin
+detects those staging VMAs (a scan of `/proc/<pid>/maps` before and after the
+checkpoint), copies them to `gpu-pages-<pid>.img` with `process_vm_readv()`
+and O_DIRECT, and frees them in the target with an injected
+`madvise(MADV_DONTNEED)`, so they do not transit through the page images. On
+restore the plugin fills the empty mappings again with parallel O_DIRECT reads
+and `process_vm_writev()` (`CUDA_RESTORE_THREADS`, default `min(ncpu, 16)`)
+before the backend's CUDA restore moves them back into VRAM. This is
+x86_64-only (syscall injection).
+
 ## GPU device mapping
 
 During a CUDA dump, the plugin saves the ordinal and UUID of each GPU in the
