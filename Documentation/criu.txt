@@ -860,7 +860,10 @@ behavior can be changed by using the following options:
 
 *--feature* 'name'::
     Check a specific feature.  If 'name' is *list*, a list of valid
-    kernel feature names that can be checked will be printed.
+    feature names that can be checked will be printed. The *compress* and
+    *encryption* features check whether CRIU was compiled with LZ4 compression
+    and GnuTLS support, respectively. A supported feature returns exit code
+    0; an unsupported feature returns a non-zero exit code.
 
 *page-server*
 ~~~~~~~~~~~~~
