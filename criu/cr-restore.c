@@ -2271,7 +2271,8 @@ skip_ns_bouncing:
 	 * Network is unlocked. If something fails below - we lose data
 	 * or a connection.
 	 */
-	attach_to_tasks(root_seized);
+	if (attach_to_tasks(root_seized))
+		goto out_kill_network_unlocked;
 
 	if (restore_switch_stage(CR_STATE_RESTORE_CREDS))
 		goto out_kill_network_unlocked;
