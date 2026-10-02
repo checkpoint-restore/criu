@@ -1776,6 +1776,11 @@ static int attach_to_tasks(bool root_seized)
 				return -1;
 			}
 		}
+
+		if (item == root_item && fault_injected(FI_RESTORE_ATTACH)) {
+			pr_err("fault injection: attach failure after the root task\n");
+			return -1;
+		}
 	}
 	for_each_pstree_item(item) {
 		int status, i;
