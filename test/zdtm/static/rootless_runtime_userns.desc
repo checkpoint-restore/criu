@@ -1,0 +1,1 @@
+{'flavor': 'uns', 'flags': 'suid excl', 'dopts': '--network-lock skip', 'ropts': '--join-ns user:/tmp/criu-rootless-runtime-userns/userns,0,0 --skip-file-rwx-check'}

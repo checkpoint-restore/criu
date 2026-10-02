@@ -954,6 +954,9 @@ static int prepare_pstree_kobj_ids(void)
 		if (vpid(item) != INIT_PID)
 			rsti(item)->clone_flags &= ~CLONE_NEWPID;
 
+		if (userns_join_ns_requested())
+			rsti(item)->clone_flags &= ~CLONE_NEWUSER;
+
 		cflags &= CLONE_ALLNS;
 
 		if (item == root_item) {
