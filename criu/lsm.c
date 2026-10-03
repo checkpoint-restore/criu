@@ -210,7 +210,8 @@ int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
 
 	ret = fgetxattr(fd, "security.selinux", ctx, len);
 	if (len != ret) {
-		pr_err("Reading xattr %s to FD %d failed\n", ctx, fd);
+		pr_err("Reading xattr security.selinux from FD %d failed\n", fd);
+		xfree(ctx);
 		return -1;
 	}
 

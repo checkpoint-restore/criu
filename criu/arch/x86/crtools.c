@@ -294,6 +294,7 @@ void arch_free_thread_info(CoreEntry *core)
 		xfree(core->thread_info->fpregs->xsave->opmask_reg);
 		xfree(core->thread_info->fpregs->xsave->bndcsr_state);
 		xfree(core->thread_info->fpregs->xsave->bndreg_state);
+		xfree(core->thread_info->fpregs->xsave->cet);
 	}
 
 	xfree(core->thread_info->fpregs->st_space);
