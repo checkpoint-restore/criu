@@ -269,8 +269,8 @@ int sk_queue_post_actions(void)
 				 * exist after restore and there is no faithful way
 				 * to reattach its pid, so drop the packet rather
 				 * than mislabel it as stale. Without a pidfd verdict
-				 * (the receiver lacks SO_PASSPIDFD) we can't tell
-				 * the two apart, which is the pre-existing
+				 * (a kernel without SO_PASSPIDFD) we can't tell the
+				 * two apart, which is the pre-existing
 				 * SCM_CREDENTIALS behaviour.
 				 */
 				if (pkt->pidfd_probed)
@@ -732,7 +732,7 @@ int dump_sk_queue(int sock_fd, int sock_id, int flags)
 {
 	int ret, size, orig_peek_off;
 	int exit_code = -1;
-	int passcred_set = 0;
+	int passcred_set = 0, passpidfd_set = 0;
 	void *data;
 	socklen_t tmp;
 
@@ -784,6 +784,12 @@ int dump_sk_queue(int sock_fd, int sock_id, int flags)
 	 * time, so temporarily enable SO_PASSCRED to make every packet yield
 	 * a full SCM_CREDENTIALS cmsg instead.
 	 *
+	 * The other way round, a socket with SO_PASSCRED but not SO_PASSPIDFD
+	 * gets no SCM_PIDFD cmsg, which is the only thing that tells a sender
+	 * reaped before the dump from one that merely is not in the dumped
+	 * tree (see sk_queue_post_actions()). Without it the packets of dead
+	 * senders would be dropped, so enable SO_PASSPIDFD for the peek too.
+	 *
 	 * There is no family check here because dump_sk_queue() is only ever
 	 * called for unix sockets. Should that change, gate this on AF_UNIX
 	 * the way dump_socket_opts() does: since Linux 6.16 get/setsockopt of
@@ -805,6 +811,14 @@ int dump_sk_queue(int sock_fd, int sock_id, int flags)
 				goto err_set_sock;
 			passcred_set = 1;
 		}
+
+		if (passcred && !passpidfd) {
+			int one = 1;
+
+			if (restore_opt(sock_fd, SOL_SOCKET, SO_PASSPIDFD, &one))
+				goto err_set_sock;
+			passpidfd_set = 1;
+		}
 	}
 
 	while (1) {
@@ -821,6 +835,12 @@ err_set_sock:
 		int zero = 0;
 
 		if (restore_opt(sock_fd, SOL_SOCKET, SO_PASSCRED, &zero))
+			exit_code = -1;
+	}
+	if (passpidfd_set) {
+		int zero = 0;
+
+		if (restore_opt(sock_fd, SOL_SOCKET, SO_PASSPIDFD, &zero))
 			exit_code = -1;
 	}
 	/*
