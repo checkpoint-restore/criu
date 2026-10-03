@@ -630,23 +630,35 @@ err:
 
 static int get_task_personality(pid_t pid, u32 *personality)
 {
-	int fd, ret = -1;
+	char *end;
+	unsigned long val;
+	int fd, ret;
 
 	pr_info("Obtaining personality ... \n");
 
 	fd = open_proc(pid, "personality");
 	if (fd < 0)
-		goto err;
+		return -1;
 
 	ret = read(fd, loc_buf, sizeof(loc_buf) - 1);
 	close(fd);
 
-	if (ret >= 0) {
-		loc_buf[ret] = '\0';
-		*personality = atoi(loc_buf);
-	}
-err:
-	return ret;
+	if (ret <= 0)
+		return -1;
+
+	loc_buf[ret] = '\0';
+	errno = 0;
+	val = strtoul(loc_buf, &end, 16);
+	if (end == loc_buf || errno != 0 || val > UINT32_MAX)
+		return -1;
+
+	if (*end == '\n')
+		end++;
+	if (*end != '\0')
+		return -1;
+
+	*personality = (u32)val;
+	return 0;
 }
 
 static DECLARE_KCMP_TREE(vm_tree, KCMP_VM);
@@ -759,6 +771,8 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 		}
 		tc->has_timerslack_ns = true;
 		tc->timerslack_ns = ti->timerslack_ns;
+		tc->has_personality = true;
+		tc->personality = ti->personality;
 		tc->comm = xstrdup(ti->comm);
 		if (tc->comm == NULL)
 			return -1;

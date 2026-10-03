@@ -675,6 +675,20 @@ static int restore_thread_common(struct thread_restore_args *args)
 	if (restore_rseq(&args->rseq))
 		return -1;
 
+	/*
+	 * sys_personality() returns the *previous* personality, zero-extended
+	 * into the long return register. Casting that to int would turn a
+	 * successful set into a bogus failure whenever the previous value has
+	 * bit 31 set, so keep it long.
+	 */
+	if (args->has_personality) {
+		long ret = sys_personality(args->personality);
+		if (ret < 0) {
+			pr_err("Unable to set personality 0x%x: %ld\n", args->personality, ret);
+			return -1;
+		}
+	}
+
 	return 0;
 }
 

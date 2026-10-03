@@ -208,6 +208,24 @@ static int dump_thread_common(struct parasite_dump_thread *ti)
 		ti->timerslack_ns = (unsigned long)slack;
 	}
 
+	{
+		/*
+		 * 0xffffffff is the query sentinel, not a value to store. The
+		 * syscall returns the current personality, which is always a
+		 * non-negative long, so a negative result means the syscall
+		 * itself failed (e.g. blocked by a seccomp filter). Any bit
+		 * pattern is a legal personality, so the value must not be
+		 * range-checked here.
+		 */
+		long persona = sys_personality(0xffffffff);
+		if (persona < 0) {
+			pr_err("Unable to get personality: %ld\n", persona);
+			ret = (int)persona;
+			goto out;
+		}
+		ti->personality = (u32)persona;
+	}
+
 	ret = sys_prctl(PR_GET_NAME, (unsigned long)&ti->comm, 0, 0, 0);
 	if (ret) {
 		pr_err("Unable to get the thread name: %d\n", ret);
