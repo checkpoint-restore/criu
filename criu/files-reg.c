@@ -427,6 +427,22 @@ static int ghost_apply_metadata(const char *path, GhostFileEntry *gfe)
 	return 0;
 }
 
+struct ghost_mknod_args {
+	char path[PATH_MAX];
+	mode_t mode;
+	dev_t rdev;
+};
+
+static int userns_mknod(void *arg, int fd, pid_t pid)
+{
+	struct ghost_mknod_args *a = arg;
+
+	(void)fd;
+	(void)pid;
+
+	return mknod(a->path, a->mode, a->rdev);
+}
+
 static int create_ghost_dentry(char *path, GhostFileEntry *gfe, struct cr_img *img)
 {
 	int ret = -1;
@@ -437,11 +453,18 @@ again:
 		if ((ret = mknod(path, gfe->mode, 0)) < 0)
 			msg = "Can't create node for ghost file";
 	} else if (S_ISCHR(gfe->mode) || S_ISBLK(gfe->mode)) {
+		struct ghost_mknod_args args;
+
 		if (!gfe->has_rdev) {
 			pr_err("No rdev for ghost device\n");
 			goto err;
 		}
-		if ((ret = mknod(path, gfe->mode, gfe->rdev)) < 0)
+
+		__strlcpy(args.path, path, sizeof(args.path));
+		args.mode = gfe->mode;
+		args.rdev = gfe->rdev;
+
+		if ((ret = userns_call(userns_mknod, 0, &args, sizeof(args), -1)) < 0)
 			msg = "Can't create node for ghost dev";
 	} else if (S_ISDIR(gfe->mode)) {
 		if ((ret = mkdirpat(AT_FDCWD, path, gfe->mode)) < 0)
