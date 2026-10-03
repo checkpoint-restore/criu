@@ -77,6 +77,7 @@ TST_NOFILE	:=				\
 		sk-unix-dgram-pidfd-ino		\
 		sk-unix-dgram-pidfd-xtask	\
 		sk-unix-dgram-pidfd-reuse	\
+		sk-unix-dgram-cred-stale	\
 		pipe00				\
 		pipe01				\
 		pipe02				\
