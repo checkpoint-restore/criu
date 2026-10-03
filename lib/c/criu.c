@@ -36,6 +36,18 @@ static criu_opts *global_opts;
 static int saved_errno;
 static int orphan_pts_master_fd = -1;
 
+static int set_opts_string(char **dst, const char *src)
+{
+	char *copy = strdup(src);
+
+	if (!copy)
+		return -ENOMEM;
+
+	free(*dst);
+	*dst = copy;
+	return 0;
+}
+
 void criu_free_service(criu_opts *opts)
 {
 	switch (opts->service_comm) {
@@ -240,12 +252,18 @@ void criu_local_free_opts(criu_opts *opts)
 
 	free(opts->rpc->cgroup_props_file);
 	free(opts->rpc->cgroup_props);
+	free(opts->rpc->cgroup_yard);
+	free(opts->rpc->config_file);
 	free(opts->rpc->parent_img);
 	free(opts->rpc->root);
 	free(opts->rpc->freeze_cgroup);
 	free(opts->rpc->log_file);
 	free(opts->rpc->lsm_profile);
 	free(opts->rpc->lsm_mount_context);
+	free(opts->rpc->tls_cacert);
+	free(opts->rpc->tls_cacrl);
+	free(opts->rpc->tls_cert);
+	free(opts->rpc->tls_key);
 	free(opts->rpc);
 	criu_free_service(opts);
 	free(opts);
@@ -345,11 +363,7 @@ void criu_set_images_dir_fd(int fd)
 
 int criu_local_set_parent_images(criu_opts *opts, const char *path)
 {
-	opts->rpc->parent_img = strdup(path);
-	if (opts->rpc->parent_img == NULL) {
-		return -ENOMEM;
-	}
-	return 0;
+	return set_opts_string(&opts->rpc->parent_img, path);
 }
 
 int criu_set_parent_images(const char *path)
@@ -758,11 +772,7 @@ void criu_set_log_level(int log_level)
 
 int criu_local_set_root(criu_opts *opts, const char *root)
 {
-	opts->rpc->root = strdup(root);
-	if (opts->rpc->root == NULL) {
-		return -ENOMEM;
-	}
-	return 0;
+	return set_opts_string(&opts->rpc->root, root);
 }
 
 int criu_set_root(const char *root)
@@ -794,11 +804,7 @@ void criu_set_manage_cgroups_mode(enum criu_cg_mode mode)
 
 int criu_local_set_freeze_cgroup(criu_opts *opts, const char *name)
 {
-	opts->rpc->freeze_cgroup = strdup(name);
-	if (opts->rpc->freeze_cgroup == NULL) {
-		return -ENOMEM;
-	}
-	return 0;
+	return set_opts_string(&opts->rpc->freeze_cgroup, name);
 }
 
 int criu_set_freeze_cgroup(const char *name)
@@ -808,11 +814,7 @@ int criu_set_freeze_cgroup(const char *name)
 
 int criu_local_set_lsm_profile(criu_opts *opts, const char *name)
 {
-	opts->rpc->lsm_profile = strdup(name);
-	if (opts->rpc->lsm_profile == NULL) {
-		return -ENOMEM;
-	}
-	return 0;
+	return set_opts_string(&opts->rpc->lsm_profile, name);
 }
 
 int criu_set_lsm_profile(const char *name)
@@ -822,11 +824,7 @@ int criu_set_lsm_profile(const char *name)
 
 int criu_local_set_lsm_mount_context(criu_opts *opts, const char *name)
 {
-	opts->rpc->lsm_mount_context = strdup(name);
-	if (opts->rpc->lsm_mount_context == NULL) {
-		return -ENOMEM;
-	}
-	return 0;
+	return set_opts_string(&opts->rpc->lsm_mount_context, name);
 }
 
 int criu_set_lsm_mount_context(const char *name)
@@ -879,11 +877,7 @@ void criu_set_ext_masters(bool val)
 
 int criu_local_set_log_file(criu_opts *opts, const char *log_file)
 {
-	opts->rpc->log_file = strdup(log_file);
-	if (opts->rpc->log_file == NULL) {
-		return -ENOMEM;
-	}
-	return 0;
+	return set_opts_string(&opts->rpc->log_file, log_file);
 }
 
 int criu_set_log_file(const char *log_file)
@@ -1181,28 +1175,12 @@ err:
 
 int criu_local_add_cg_props(criu_opts *opts, const char *stream)
 {
-	char *new;
-
-	new = strdup(stream);
-	if (!new)
-		return -ENOMEM;
-
-	free(opts->rpc->cgroup_props);
-	opts->rpc->cgroup_props = new;
-	return 0;
+	return set_opts_string(&opts->rpc->cgroup_props, stream);
 }
 
 int criu_local_add_cg_props_file(criu_opts *opts, const char *path)
 {
-	char *new;
-
-	new = strdup(path);
-	if (!new)
-		return -ENOMEM;
-
-	free(opts->rpc->cgroup_props_file);
-	opts->rpc->cgroup_props_file = new;
-	return 0;
+	return set_opts_string(&opts->rpc->cgroup_props_file, path);
 }
 
 int criu_local_add_cg_dump_controller(criu_opts *opts, const char *name)
@@ -1231,15 +1209,7 @@ int criu_local_add_cg_dump_controller(criu_opts *opts, const char *name)
 
 int criu_local_add_cg_yard(criu_opts *opts, const char *path)
 {
-	char *new;
-
-	new = strdup(path);
-	if (!new)
-		return -ENOMEM;
-
-	free(opts->rpc->cgroup_yard);
-	opts->rpc->cgroup_yard = new;
-	return 0;
+	return set_opts_string(&opts->rpc->cgroup_yard, path);
 }
 
 int criu_add_cg_props(const char *stream)
@@ -1421,6 +1391,68 @@ int criu_local_set_page_server_address_port(criu_opts *opts, const char *address
 int criu_set_page_server_address_port(const char *address, int port)
 {
 	return criu_local_set_page_server_address_port(global_opts, address, port);
+}
+
+void criu_local_set_tls(criu_opts *opts, bool tls)
+{
+	opts->rpc->has_tls = true;
+	opts->rpc->tls = tls;
+}
+
+void criu_set_tls(bool tls)
+{
+	criu_local_set_tls(global_opts, tls);
+}
+
+void criu_local_set_tls_no_cn_verify(criu_opts *opts, bool no_cn_verify)
+{
+	opts->rpc->has_tls_no_cn_verify = true;
+	opts->rpc->tls_no_cn_verify = no_cn_verify;
+}
+
+void criu_set_tls_no_cn_verify(bool no_cn_verify)
+{
+	criu_local_set_tls_no_cn_verify(global_opts, no_cn_verify);
+}
+
+int criu_local_set_tls_cacert(criu_opts *opts, const char *cacert)
+{
+	return set_opts_string(&opts->rpc->tls_cacert, cacert);
+}
+
+int criu_set_tls_cacert(const char *cacert)
+{
+	return criu_local_set_tls_cacert(global_opts, cacert);
+}
+
+int criu_local_set_tls_cacrl(criu_opts *opts, const char *cacrl)
+{
+	return set_opts_string(&opts->rpc->tls_cacrl, cacrl);
+}
+
+int criu_set_tls_cacrl(const char *cacrl)
+{
+	return criu_local_set_tls_cacrl(global_opts, cacrl);
+}
+
+int criu_local_set_tls_cert(criu_opts *opts, const char *cert)
+{
+	return set_opts_string(&opts->rpc->tls_cert, cert);
+}
+
+int criu_set_tls_cert(const char *cert)
+{
+	return criu_local_set_tls_cert(global_opts, cert);
+}
+
+int criu_local_set_tls_key(criu_opts *opts, const char *key)
+{
+	return set_opts_string(&opts->rpc->tls_key, key);
+}
+
+int criu_set_tls_key(const char *key)
+{
+	return criu_local_set_tls_key(global_opts, key);
 }
 
 void criu_local_set_mntns_compat_mode(criu_opts *opts, bool val)
@@ -2278,16 +2310,7 @@ void criu_set_empty_ns(int namespaces)
 
 int criu_local_set_config_file(criu_opts *opts, const char *path)
 {
-	char *new;
-
-	new = strdup(path);
-	if (!new)
-		return -ENOMEM;
-
-	free(opts->rpc->config_file);
-	opts->rpc->config_file = new;
-
-	return 0;
+	return set_opts_string(&opts->rpc->config_file, path);
 }
 
 int criu_set_config_file(const char *path)
