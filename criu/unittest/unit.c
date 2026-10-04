@@ -18,8 +18,10 @@
 #include "pagemap.h"
 #include "cr_options.h"
 #include "plugin.h"
+#include "protobuf-desc.h"
 
 int parse_statement(int i, char *line, char **configuration);
+void test_remote_parent(void);
 
 cr_plugin_ctl_t cr_plugin_ctl;
 
@@ -677,12 +679,14 @@ int main(int argc, char *argv[], char *envp[])
 
 	configuration = malloc(10 * sizeof(char *));
 	log_init(NULL);
+	cr_pb_init();
 
 	test_bfd();
 	test_bwrite();
 	test_pagemap_offset_alignment();
 	test_plugin_dispatch_all();
 	test_plugin_options();
+	test_remote_parent();
 
 	i = parse_statement(0, "", configuration);
 	assert(i == 0);
