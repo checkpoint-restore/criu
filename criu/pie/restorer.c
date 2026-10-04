@@ -678,6 +678,37 @@ static int restore_thread_common(struct thread_restore_args *args)
 	return 0;
 }
 
+/*
+ * Restore the per-thread personality.
+ *
+ * This runs after every mmap() and clone() the restorer performs (the last
+ * one being alloc_compat_syscall_stack()), so a READ_IMPLIES_EXEC bit in
+ * the dumped personality cannot silently promote those mappings to RWX.
+ * It also runs before restore_seccomp(), since the restored filter may
+ * block personality(2) outright.
+ */
+static int restore_personality(struct thread_restore_args *args)
+{
+	long ret;
+
+	if (!args->has_personality)
+		return 0;
+
+	/*
+	 * Personality is a u32. On 64-bit the previous value is zero-extended
+	 * into long, but on 32-bit long is 32-bit too, so any value with bit
+	 * 31 set looks negative. Only -MAX_ERRNO..-1 (-4095..-1) are real
+	 * syscall errors.
+	 */
+	ret = sys_personality(args->personality);
+	if (ret < 0 && ret > -4096) {
+		pr_err("Unable to set personality 0x%x: %ld\n", args->personality, ret);
+		return -1;
+	}
+
+	return 0;
+}
+
 static void noinline rst_sigreturn(unsigned long new_sp, struct rt_sigframe *sigframe)
 {
 	ARCH_RT_SIGRETURN_RST(new_sp, sigframe);
@@ -840,6 +871,9 @@ __visible long __export_restore_thread(struct thread_restore_args *args)
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE);
 
 	if (restore_signals(args->siginfo, args->siginfo_n, false))
+		goto core_restore_end;
+
+	if (restore_personality(args))
 		goto core_restore_end;
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_SIGCHLD);
@@ -2779,6 +2813,9 @@ __visible long __export_restore_task(struct task_restore_args *args)
 
 	ret = restore_signals(args->t->siginfo, args->t->siginfo_n, false);
 	if (ret)
+		goto core_restore_end;
+
+	if (restore_personality(args->t))
 		goto core_restore_end;
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_SIGCHLD);

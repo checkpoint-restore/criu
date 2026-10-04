@@ -185,6 +185,7 @@ struct parasite_dump_thread {
 	stack_t sas;
 	int pdeath_sig;
 	unsigned long timerslack_ns;
+	u32 personality;
 	char comm[TASK_COMM_LEN];
 	struct parasite_dump_creds creds[0];
 };
