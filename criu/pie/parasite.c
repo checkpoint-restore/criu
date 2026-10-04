@@ -606,7 +606,17 @@ static int drain_fds(struct parasite_drain_fd *args)
 
 static int dump_thread(struct parasite_dump_thread *args)
 {
+	long personality;
+
 	args->tid = sys_gettid();
+
+	personality = sys_personality(0xffffffff);
+	if ((unsigned long)personality >= (unsigned long)-4095) {
+		pr_err("Unable to get personality: %ld\n", personality);
+		return -1;
+	}
+	args->personality = (u32)personality;
+
 	return dump_thread_common(args);
 }
 
