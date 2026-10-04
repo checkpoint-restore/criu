@@ -3238,7 +3238,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &rsti(current)->vmas;
-	int i, siginfo_n;
+	int i, siginfo_n, nr_has_personality = 0;
 
 	unsigned long creds_pos = 0;
 	unsigned long creds_pos_next;
@@ -3536,6 +3536,12 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 			thread_args[i].timerslack_ns = tcore->thread_core->timerslack_ns;
 		}
 
+		if (tcore->thread_core->has_personality) {
+			thread_args[i].has_personality = true;
+			thread_args[i].personality = tcore->thread_core->personality;
+			nr_has_personality++;
+		}
+
 		ret = prep_sched_info(&thread_args[i].sp, tcore->thread_core);
 		if (ret)
 			goto err;
@@ -3560,6 +3566,14 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].comm[TASK_COMM_LEN - 1] = 0;
 
 		pr_info("Thread %4d stack %8p rt_sigframe %8p\n", i, mz[i].stack, mz[i].rt_sigframe);
+	}
+
+	if (nr_has_personality == 0) {
+		pr_info("No per-thread personality in image, skipping personality restore (legacy image)\n");
+	} else if (nr_has_personality < current->nr_threads) {
+		pr_err("Inconsistent personality across threads in core images (%d/%d)\n",
+		       nr_has_personality, current->nr_threads);
+		goto err;
 	}
 
 	/*
