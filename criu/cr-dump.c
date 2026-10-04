@@ -105,9 +105,6 @@ int __attribute__((weak)) arch_set_thread_regs(struct pstree_item *item, bool wi
 	return 0;
 }
 
-#define PERSONALITY_LENGTH 9
-static char loc_buf[PERSONALITY_LENGTH];
-
 void free_mappings(struct vm_area_list *vma_area_list)
 {
 	struct vma_area *vma_area, *p;
@@ -628,25 +625,40 @@ err:
 	return -1;
 }
 
+/*
+ * /proc/<tid>/personality prints task->personality as %08x, so it must
+ * be parsed as hex. Unlike sys_personality(0xffffffff), reading procfs
+ * does not strip PER_LINUX32 on s390x/ppc64.
+ */
 static int get_task_personality(pid_t pid, u32 *personality)
 {
 	int fd, ret = -1;
-
-	pr_info("Obtaining personality ... \n");
+	char buf[16];
+	char *end;
+	unsigned long val;
 
 	fd = open_proc(pid, "personality");
 	if (fd < 0)
-		goto err;
+		return -1;
 
-	ret = read(fd, loc_buf, sizeof(loc_buf) - 1);
+	ret = read(fd, buf, sizeof(buf) - 1);
 	close(fd);
-
-	if (ret >= 0) {
-		loc_buf[ret] = '\0';
-		*personality = atoi(loc_buf);
+	if (ret <= 0) {
+		pr_perror("Can't read personality of %d", pid);
+		return -1;
 	}
-err:
-	return ret;
+
+	buf[ret] = '\0';
+	val = strtoul(buf, &end, 16);
+	if (end == buf) {
+		pr_err("Can't parse personality '%s' of %d\n", buf, pid);
+		return -1;
+	}
+
+	pr_info("%d has personality 0x%x\n", pid, (u32)val);
+
+	*personality = (u32)val;
+	return 0;
 }
 
 static DECLARE_KCMP_TREE(vm_tree, KCMP_VM);
@@ -759,6 +771,9 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 		}
 		tc->has_timerslack_ns = true;
 		tc->timerslack_ns = ti->timerslack_ns;
+		if (get_task_personality(pid, &tc->personality))
+			return -1;
+		tc->has_personality = true;
 		tc->comm = xstrdup(ti->comm);
 		if (tc->comm == NULL)
 			return -1;
@@ -804,9 +819,8 @@ static int dump_task_core_all(struct parasite_ctl *ctl, struct pstree_item *item
 		core->tc->has_membarrier_registration_mask = true;
 	}
 
-	ret = get_task_personality(pid, &core->tc->personality);
-	if (ret < 0)
-		goto err;
+	/* Deprecated; personality is dumped per-thread in dump_thread_core */
+	core->tc->personality = 0;
 
 	__strlcpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
