@@ -23,17 +23,32 @@
 struct pstree_item *root_item;
 static struct rb_root pid_root_rb;
 
+static void free_signal_queue(SignalQueueEntry *queue)
+{
+	size_t i;
+
+	if (!queue)
+		return;
+
+	for (i = 0; i < queue->n_signals; i++)
+		xfree(queue->signals[i]);
+	xfree(queue->signals);
+	xfree(queue);
+}
+
 void core_entry_free(CoreEntry *core)
 {
 	if (core->tc) {
 		if (core->tc->timers)
 			xfree(core->tc->timers->posix);
 		xfree(core->tc->sigactions);
+		free_signal_queue(core->tc->signals_s);
 	}
 	if (core->thread_core) {
 		xfree(core->thread_core->creds->groups);
 		xfree(core->thread_core->comm);
 		xfree(core->thread_core->rseq_entry);
+		free_signal_queue(core->thread_core->signals_p);
 	}
 	arch_free_thread_info(core);
 	xfree(core);
