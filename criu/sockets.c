@@ -567,6 +567,10 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 		pr_debug("\tset passcred for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_PASSCRED, &val);
 	}
+	if (soe->has_so_passpidfd && soe->so_passpidfd) {
+		pr_debug("\tset passpidfd for socket\n");
+		ret |= restore_opt(sk, SOL_SOCKET, SO_PASSPIDFD, &val);
+	}
 	if (soe->has_so_passsec && soe->so_passsec) {
 		pr_debug("\tset passsec for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_PASSSEC, &val);
@@ -696,6 +700,17 @@ int dump_socket_opts(int sk, int family, SkOptsEntry *soe)
 		ret |= dump_opt(sk, SOL_SOCKET, SO_PASSSEC, &val);
 		soe->has_so_passsec = true;
 		soe->so_passsec = val ? true : false;
+
+		/*
+		 * Since Linux 6.16 SO_PASSPIDFD is restricted to unix
+		 * sockets and get/setsockopt fails with EOPNOTSUPP on
+		 * netlink ones.
+		 */
+		if (family == AF_UNIX && kdat.has_so_passpidfd) {
+			ret |= dump_opt(sk, SOL_SOCKET, SO_PASSPIDFD, &val);
+			soe->has_so_passpidfd = true;
+			soe->so_passpidfd = val ? true : false;
+		}
 	}
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_DONTROUTE, &val);
