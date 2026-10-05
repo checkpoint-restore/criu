@@ -37,6 +37,7 @@ This directory contains technical documentation detailing the internal implement
 * [Mount V2](mount-v2.md): Modern mount restoration using `open_tree` and `move_mount`.
 * [Mounts V2 Virtuozzo](mounts-v2-virtuozzo.md): Extensions for Virtuozzo-specific mount features.
 * [Filesystem Peculiarities](filesystems-pecularities.md): Handling `/dev`, `/proc`, `sysfs`, etc.
+* [tmpfs Content](tmpfs-content.md): How the content of a tmpfs mount is saved and restored.
 * [IRM](irmap.md): Inode-to-path mapping (irmap).
 * [KCMP Trees](kcmp-trees.md): Using `kcmp` to deduplicate shared resources.
 * [Validate Files on Restore](validate-files-on-restore.md): Ensuring file consistency.
