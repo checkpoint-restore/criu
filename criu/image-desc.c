@@ -118,4 +118,10 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 		.magic	= IRMAP_CACHE_MAGIC,
 		.oflags = O_SERVICE | O_FORCE_LOCAL,
 	},
+
+	[CR_FD_LUO_METADATA] = {
+		.fmt	= "luo-metadata",
+		.magic	= LUO_METADATA_MAGIC,
+		.oflags = O_SERVICE | O_FORCE_LOCAL,
+	},
 };

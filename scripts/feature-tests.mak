@@ -185,3 +185,15 @@ int main(void)
 	return 0;
 }
 endef
+
+define FEATURE_TEST_LIVEUPDATE
+
+#include <linux/liveupdate.h>
+
+int main(void)
+{
+	struct liveupdate_ioctl_create_session req = {0};
+
+	return (int)req.size;
+}
+endef
