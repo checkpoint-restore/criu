@@ -73,6 +73,15 @@ message drm_bo_entry {
 	required uint32 is_import = 8;
 	required uint32 num_of_vms = 9;
 	repeated drm_vm_entry vm_entries = 10;
+	optional bool is_userptr = 11 [default = false];
+}
+
+message drm_context_entry {
+	required uint32 handle = 1;
+	required uint32 flags = 2;
+	required  int32 init_priority = 3;
+	required  int32 override_priority = 4;
+	required uint32 pstate_flags = 5;
 }
 
 message drm_vm_entry {
@@ -88,6 +97,8 @@ message criu_render_node {
 	required uint32 drm_render_minor = 3;
 	required uint64 num_of_bos = 4;
 	repeated drm_bo_entry bo_entries = 5;
+	optional uint64 num_of_contexts = 6 [default = 0];
+	repeated drm_context_entry contexts = 7;
 }
 
 message criu_dmabuf_node {

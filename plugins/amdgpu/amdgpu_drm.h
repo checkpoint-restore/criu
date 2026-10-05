@@ -58,6 +58,8 @@ extern "C" {
 #define DRM_AMDGPU_USERQ_SIGNAL		0x17
 #define DRM_AMDGPU_USERQ_WAIT		0x18
 #define DRM_AMDGPU_GEM_LIST_HANDLES	0x19
+#define DRM_AMDGPU_GEM_LIST_CONTEXTS	0x1B
+#define DRM_AMDGPU_GEM_COPY_BUFFER	0x1C
 /* not upstream */
 #define DRM_AMDGPU_GEM_DGMA		0x5c
 
@@ -84,6 +86,8 @@ extern "C" {
 #define DRM_IOCTL_AMDGPU_USERQ_SIGNAL	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_USERQ_SIGNAL, struct drm_amdgpu_userq_signal)
 #define DRM_IOCTL_AMDGPU_USERQ_WAIT	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_USERQ_WAIT, struct drm_amdgpu_userq_wait)
 #define DRM_IOCTL_AMDGPU_GEM_LIST_HANDLES DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_LIST_HANDLES, struct drm_amdgpu_gem_list_handles)
+#define DRM_IOCTL_AMDGPU_GEM_LIST_CONTEXTS DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_LIST_CONTEXTS, struct drm_amdgpu_gem_list_contexts)
+#define DRM_IOCTL_AMDGPU_GEM_COPY_BUFFER DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_COPY_BUFFER, struct drm_amdgpu_gem_copy_buffer)
 
 #define DRM_IOCTL_AMDGPU_GEM_DGMA	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_GEM_DGMA, struct drm_amdgpu_gem_dgma)
 
@@ -231,6 +235,17 @@ union drm_amdgpu_gem_create {
 	struct drm_amdgpu_gem_create_out	out;
 };
 
+struct drm_amdgpu_gem_copy_buffer {
+	__u32	src_handle;
+	__u32	dst_handle;
+	__u64	src_offset;
+	__u64	dst_offset;
+	__u64	copy_size;
+	__u32	syncobj_handle;
+	__u32   mbz;
+	__u64   timeline_point;
+};
+
 /** Opcode to create new residency list.  */
 #define AMDGPU_BO_LIST_OP_CREATE	0
 /** Opcode to destroy previously created residency list */
@@ -276,6 +291,7 @@ union drm_amdgpu_bo_list {
 #define AMDGPU_CTX_OP_QUERY_STATE2	4
 #define AMDGPU_CTX_OP_GET_STABLE_PSTATE	5
 #define AMDGPU_CTX_OP_SET_STABLE_PSTATE	6
+#define AMDGPU_CTX_OP_CHANGE_HANDLE	7
 
 /* GPU reset status */
 #define AMDGPU_CTX_NO_RESET		0
@@ -898,6 +914,7 @@ struct drm_amdgpu_gem_op {
 };
 
 #define AMDGPU_GEM_LIST_HANDLES_FLAG_IS_IMPORT	(1 << 0)
+#define AMDGPU_GEM_LIST_HANDLES_FLAG_IS_USERPTR	(1 << 1)
 
 struct drm_amdgpu_gem_list_handles {
 	/* User pointer to array of drm_amdgpu_gem_bo_info_entry */
@@ -913,7 +930,7 @@ struct drm_amdgpu_gem_list_handles_entry {
 	/* gem handle of buffer object */
 	__u32 gem_handle;
 
-	/* Currently just one flag: IS_IMPORT */
+	/* AMDGPU_GEM_LIST_HANDLES_FLAG_* */
 	__u32 flags;
 
 	/* Size of bo */
@@ -922,11 +939,45 @@ struct drm_amdgpu_gem_list_handles_entry {
 	/* Preferred domains for GEM_CREATE */
 	__u64 preferred_domains;
 
-	/* GEM_CREATE flags for re-creation of buffer */
+	/* GEM_CREATE flags for re-creation of buffer or drm_amdgpu_gem_userptr.flags */
 	__u64 alloc_flags;
 
-	/* physical start_addr alignment in bytes for some HW requirements */
-	__u64 alignment;
+	union {
+		/* physical start_addr alignment in bytes for some HW requirements */
+		__u64 alignment;
+
+		/* drm_amdgpu_gem_userptr.addr for userptr objects */
+		__u64 userptr;
+	};
+};
+
+struct drm_amdgpu_gem_list_contexts {
+	/* User pointer to array of drm_amdgpu_gem_list_contexts_entry */
+	__u64 contexts;
+
+	/* Size of the contexts buffer / Number of contexts in the client (if larger than size of buffer, must retry) */
+	__u32 num_contexts;
+
+	__u32 padding;
+};
+
+struct drm_amdgpu_gem_list_contexts_entry {
+	/* gem context handle */
+	__u32 handle;
+
+	/* AMDGPU_GEM_LIST_CONTEXTS_FLAG_* */
+	__u32 flags;
+
+	/* context initial priority */
+	__s32 init_priority;
+
+	/* context override priority */
+	__s32 override_priority;
+
+	/* pstate flags */
+	__u32 pstate_flags;
+
+	__u32 padding;
 };
 
 #define AMDGPU_VA_OP_MAP			1
