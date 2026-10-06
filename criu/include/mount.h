@@ -111,10 +111,12 @@ struct mount_info {
 	struct list_head mnt_propagate;	 /* circular list of mounts which propagate from each other */
 	struct list_head mnt_notprop;	 /* temporary list used in can_mount_now */
 	struct list_head mnt_unbindable; /* list of mounts with delayed unbindable */
+	struct list_head unmounted_mnt_list;
 
 	struct list_head postpone;
 
 	int is_overmounted;
+	bool unmounted;
 
 	struct rst_mount_info *rmi;
 
@@ -124,6 +126,8 @@ struct mount_info {
 extern struct mount_info *mntinfo;
 
 extern void mntinfo_add_list_before(struct mount_info **head, struct mount_info *new);
+extern void mntinfo_add_list(struct mount_info *new);
+extern struct mount_info *mount_info_for_unmounted_mount(int lfd);
 
 /*
  * Put a : in here since those are invalid on
@@ -221,8 +225,11 @@ extern int mount_root(void *args, int fd, pid_t pid);
 extern int restore_ext_mount(struct mount_info *mi);
 extern int cr_pivot_root(char *root);
 extern int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
+extern struct mount_info *is_unmounted_mnt(int mnt_id);
+extern int remove_unmounted_mountpoints(void);
 
 extern struct mount_info *root_yard_mp;
 extern char *mnt_roots;
+extern struct list_head unmounted_mounts;
 
 #endif /* __CR_MOUNT_H__ */
