@@ -726,9 +726,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		SET_CHAR_OPTS(tls_cert, req->tls_cert);
 	if (req->tls_key)
 		SET_CHAR_OPTS(tls_key, req->tls_key);
-	if (req->tls)
+	if (req->has_tls)
 		opts.tls = req->tls;
-	if (req->tls_no_cn_verify)
+	if (req->has_tls_no_cn_verify)
 		opts.tls_no_cn_verify = req->tls_no_cn_verify;
 
 	if (req->has_auto_ext_mnt)
