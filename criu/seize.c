@@ -1130,6 +1130,60 @@ err:
 	return exit_code;
 }
 
+/*
+ * CRIU decides from the seccomp mode that it collected when it seized a
+ * thread whether to suspend seccomp for the parasite in the thread and
+ * whether to dump the thread's seccomp filters. Refuse to dump a task if
+ * one of its threads has changed its seccomp mode since.
+ */
+static int check_seized_seccomp_mode(struct pstree_item *item)
+{
+	struct proc_status_creds cr;
+	int i;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		pid_t tid = item->threads[i].real;
+		struct seccomp_entry *entry = seccomp_find_entry(tid);
+
+		if (!entry)
+			return -1;
+		if (parse_pid_status(tid, &cr.s, NULL))
+			return -1;
+		if (cr.s.seccomp_mode != entry->mode) {
+			pr_err("Seccomp mode of thread %d changed from %u to %d during CHECKPOINT_DEVICES\n", tid,
+			       entry->mode, cr.s.seccomp_mode);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Set the ptrace options of the task's threads to the ones that
+ * compel_wait_task() set when it seized them.
+ */
+static int set_seized_ptrace_options(struct pstree_item *item)
+{
+	int i;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		pid_t tid = item->threads[i].real;
+		struct seccomp_entry *entry = seccomp_find_entry(tid);
+
+		if (!entry)
+			return -1;
+		if (ptrace(PTRACE_SETOPTIONS, tid, NULL, PTRACE_O_TRACESYSGOOD)) {
+			pr_perror("Unable to set PTRACE_O_TRACESYSGOOD for %d", tid);
+			return -1;
+		}
+		if (entry->mode != SECCOMP_MODE_DISABLED && ptrace_suspend_seccomp(tid) < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
 int checkpoint_devices(void)
 {
 	struct pstree_item *iter;
@@ -1139,7 +1193,18 @@ int checkpoint_devices(void)
 		if (!task_alive(iter))
 			continue;
 		ret = run_plugins(CHECKPOINT_DEVICES, iter->pid->real);
-		if (ret < 0 && ret != -ENOTSUP)
+		if (ret == -ENOTSUP)
+			continue;
+		if (ret < 0)
+			goto err;
+		/*
+		 * The handler may have let a thread of the task run, as the
+		 * CUDA plugin does with its restore thread, after clearing the
+		 * thread's ptrace options so that it does not run with seccomp
+		 * suspended. The parasite runs in every thread of the task
+		 * next, so check their seccomp mode and set their options back.
+		 */
+		if (check_seized_seccomp_mode(iter) || set_seized_ptrace_options(iter))
 			goto err;
 	}
 
