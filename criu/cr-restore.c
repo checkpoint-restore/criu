@@ -2529,7 +2529,26 @@ err:
 	return ret;
 }
 
-static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_head *self_vma_list, long min_addr, long vma_len)
+/*
+ * Advance *vma and return the greater of prev_vma_end and the current
+ * entry's end. Use the end sentinel when no real mappings remain.
+ */
+static long vma_hint_next(struct vma_area **vma, struct list_head *list, struct vma_area *end, long prev_vma_end)
+{
+	if (prev_vma_end < (*vma)->e->end)
+		prev_vma_end = (*vma)->e->end;
+
+	if (((*vma)->list.next == list) || vma_area_is_synthetic(vma_next(*vma))) {
+		*vma = end;
+		return prev_vma_end;
+	}
+
+	*vma = vma_next(*vma);
+	return prev_vma_end;
+}
+
+static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_head *self_vma_list, long min_addr,
+				  long vma_len)
 {
 	struct vma_area *t_vma, *s_vma;
 	long prev_vma_end = min_addr;
@@ -2549,19 +2568,7 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_he
 			if (s_vma == &end_vma)
 				break;
 
-			if (prev_vma_end < s_vma->e->end)
-				prev_vma_end = s_vma->e->end;
-			/*
-			 * VMA_AREA_GUARD entries are synthetic and they are
-			 * always after real vma entries.
-			 */
-			if ((s_vma->list.next == self_vma_list) ||
-			    vma_area_is(vma_next(s_vma), VMA_AREA_GUARD)) {
-				s_vma = &end_vma;
-				continue;
-			}
-
-			s_vma = vma_next(s_vma);
+			prev_vma_end = vma_hint_next(&s_vma, self_vma_list, &end_vma, prev_vma_end);
 			continue;
 		}
 
@@ -2569,20 +2576,7 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_he
 			if (t_vma == &end_vma)
 				break;
 
-			if (prev_vma_end < t_vma->e->end)
-				prev_vma_end = t_vma->e->end;
-
-			/*
-			 * VMA_AREA_GUARD entries are synthetic and they are
-			 * always after real vma entries.
-			 */
-			if ((t_vma->list.next == tgt_vma_list) ||
-			    vma_area_is(vma_next(t_vma), VMA_AREA_GUARD)) {
-				t_vma = &end_vma;
-				continue;
-			}
-
-			t_vma = vma_next(t_vma);
+			prev_vma_end = vma_hint_next(&t_vma, tgt_vma_list, &end_vma, prev_vma_end);
 			continue;
 		}
 
