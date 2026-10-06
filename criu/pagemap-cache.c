@@ -137,7 +137,7 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 			 nr_vmas, size_cov);
 
 		list_for_each_entry_continue(vma, pmc->vma_head, list) {
-			if (vma_area_is(vma, VMA_AREA_GUARD))
+			if (vma_area_is_synthetic(vma))
 				break;
 
 			if (vma->e->start > high || vma->e->end > high)

@@ -145,7 +145,7 @@ static void drop_rt_vdso(struct vm_area_list *vma_area_list, struct vdso_quarter
 	 * Also BTW search for rt-vvar to remove it later.
 	 */
 	list_for_each_entry(vma, &vma_area_list->h, list) {
-		if (vma_area_is(vma, VMA_AREA_GUARD))
+		if (vma_area_is_synthetic(vma))
 			continue;
 
 		if (vma->e->start == addr->orig_vdso) {
@@ -279,7 +279,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid, struct vm_area_list
 	}
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
-		if (vma_area_is(vma, VMA_AREA_GUARD))
+		if (vma_area_is_synthetic(vma))
 			continue;
 
 		/*

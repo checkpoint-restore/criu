@@ -120,6 +120,19 @@ static inline struct vma_area *vma_next(struct vma_area *vma)
 	return list_entry(vma->list.next, struct vma_area, list);
 }
 
+/*
+ * Guard entries describe MADV_GUARD_INSTALL ranges, not separate kernel
+ * VMAs. They have no page contents to dump; restore reapplies the guards
+ * with madvise().
+ *
+ * collect_madv_guards() appends them after the real VMAs, so walks over
+ * real mappings can stop at the first guard entry.
+ */
+static inline bool vma_area_is_synthetic(const struct vma_area *vma)
+{
+	return vma_area_is(vma, VMA_AREA_GUARD);
+}
+
 static inline bool vma_entry_can_be_lazy(VmaEntry *e)
 {
 	return ((e->flags & MAP_ANONYMOUS) && (e->flags & MAP_PRIVATE) && !(e->flags & MAP_LOCKED) &&
