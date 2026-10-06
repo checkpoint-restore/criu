@@ -204,6 +204,134 @@ int diff_anon_vmas(struct gpu_region *before, int n_before,
 	return 0;
 }
 
+struct gpu_chunk {
+	uint64_t target_addr;
+	uint64_t file_offset;
+	uint64_t len;
+};
+
+/*
+ * Slice the regions into a flat list of chunks of at most GPU_IO_CHUNK_SIZE, laid out back to back
+ * in the image from GPU_PAGES_DATA_OFFSET.  Slicing within regions (not just one chunk per region)
+ * is what lets a single huge VMA be copied by all threads at once.
+ */
+static int build_gpu_chunks(struct gpu_region *regions, int count, struct gpu_chunk **out, int *out_n,
+			    uint64_t *total)
+{
+	struct gpu_chunk *chunks = NULL;
+	uint64_t fbase = GPU_PAGES_DATA_OFFSET;
+	int nc = 0, cap = 0, r;
+
+	*total = 0;
+	for (r = 0; r < count; r++) {
+		uint64_t off = 0;
+
+		*total += regions[r].size;
+		while (off < regions[r].size) {
+			uint64_t len = regions[r].size - off;
+
+			if (len > GPU_IO_CHUNK_SIZE)
+				len = GPU_IO_CHUNK_SIZE;
+			if (nc >= cap) {
+				int ncap = cap ? cap * 2 : 64;
+				struct gpu_chunk *tmp = realloc(chunks, (size_t)ncap * sizeof(*chunks));
+
+				if (!tmp) {
+					pr_err("OOM building chunk list\n");
+					free(chunks);
+					return -1;
+				}
+				chunks = tmp;
+				cap = ncap;
+			}
+			chunks[nc].target_addr = regions[r].start + off;
+			chunks[nc].file_offset = fbase + off;
+			chunks[nc].len = len;
+			nc++;
+			off += len;
+		}
+		fbase += regions[r].size;
+	}
+	*out = chunks;
+	*out_n = nc;
+	return 0;
+}
+
+static int gpu_thread_count(const char *var)
+{
+	const char *env = getenv(var);
+	int n = 8;
+
+	if (env && *env) {
+		n = atoi(env);
+		if (n < 1)
+			n = 1;
+	}
+	if (n > 32)
+		n = 32;
+	return n;
+}
+
+struct gpu_dump_ctx {
+	int pid;
+	int fd;
+	struct gpu_chunk *chunks;
+	int n_chunks;
+	_Atomic int next;
+	_Atomic int err;
+};
+
+/*
+ * Parallel dump worker: each thread copies whole chunks out of the target with process_vm_readv
+ * into its own aligned buffer and writes them at their offset with pwrite.  With several threads
+ * the reads of one overlap the O_DIRECT writes of the others.
+ */
+static void *gpu_dump_worker(void *arg)
+{
+	struct gpu_dump_ctx *c = arg;
+	void *buf = NULL;
+	int i;
+
+	if (posix_memalign(&buf, 4096, GPU_IO_CHUNK_SIZE) != 0) {
+		atomic_store(&c->err, ENOMEM);
+		return NULL;
+	}
+
+	while (!atomic_load(&c->err) && (i = atomic_fetch_add(&c->next, 1)) < c->n_chunks) {
+		struct gpu_chunk *ch = &c->chunks[i];
+		uint64_t rdone = 0, wdone = 0;
+
+		while (rdone < ch->len) {
+			struct iovec liov = { .iov_base = (char *)buf + rdone, .iov_len = (size_t)(ch->len - rdone) };
+			struct iovec riov = { .iov_base = (void *)(uintptr_t)(ch->target_addr + rdone),
+					      .iov_len = (size_t)(ch->len - rdone) };
+			ssize_t n = (ssize_t)syscall(SYS_process_vm_readv, (pid_t)c->pid, &liov, 1UL, &riov, 1UL, 0UL);
+
+			if (n <= 0) {
+				pr_perror("process_vm_readv failed for pid %d at 0x%lx", c->pid,
+					  (unsigned long)(ch->target_addr + rdone));
+				atomic_store(&c->err, errno ? errno : EIO);
+				goto out;
+			}
+			rdone += (uint64_t)n;
+		}
+		while (wdone < ch->len) {
+			ssize_t w = pwrite(c->fd, (char *)buf + wdone, (size_t)(ch->len - wdone),
+					   (off_t)(ch->file_offset + wdone));
+
+			if (w <= 0) {
+				pr_perror("GPU page image write failed");
+				atomic_store(&c->err, errno ? errno : EIO);
+				goto out;
+			}
+			wdone += (uint64_t)w;
+		}
+	}
+out:
+	free(buf);
+	return NULL;
+}
+
 /*
  * Dump GPU memory regions to gpu-pages-<pid>.img in the image directory.
  * File format: gpu_pages_hdr | gpu_region[num_regions] | raw page data
@@ -215,7 +343,12 @@ int dump_gpu_pages(int pid, int img_dir_fd, struct gpu_region *regions, int coun
 	int fd, ret = -1, i;
 	struct gpu_pages_hdr hdr;
 	char *buf = NULL;
-	double t0, t_readv = 0, t_write = 0;
+	struct gpu_chunk *chunks = NULL;
+	struct gpu_dump_ctx ctx;
+	pthread_t threads[32];
+	uint64_t total_bytes;
+	int nc = 0, n_threads, started = 0, direct = 1;
+	double t0;
 
 	int ns_pid = get_ns_pid(pid);
 
@@ -236,6 +369,7 @@ int dump_gpu_pages(int pid, int img_dir_fd, struct gpu_region *regions, int coun
 		    O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT, 0600);
 	if (fd < 0 && errno == EINVAL) {
 		pr_info("O_DIRECT not supported for dump, falling back to buffered I/O\n");
+		direct = 0;
 		fd = openat(img_dir_fd, fname,
 			    O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	}
@@ -244,7 +378,7 @@ int dump_gpu_pages(int pid, int img_dir_fd, struct gpu_region *regions, int coun
 		return -1;
 	}
 
-	if (posix_memalign((void **)&buf, 4096, GPU_IO_CHUNK_SIZE) != 0) {
+	if (posix_memalign((void **)&buf, 4096, GPU_PAGES_DATA_OFFSET) != 0) {
 		pr_err("OOM: cannot allocate aligned IO buffer\n");
 		goto out;
 	}
@@ -259,49 +393,41 @@ int dump_gpu_pages(int pid, int img_dir_fd, struct gpu_region *regions, int coun
 		goto out;
 	}
 
+	if (build_gpu_chunks(regions, count, &chunks, &nc, &total_bytes))
+		goto out;
+	ctx.pid = pid;
+	ctx.fd = fd;
+	ctx.chunks = chunks;
+	ctx.n_chunks = nc;
+	atomic_init(&ctx.next, 0);
+	atomic_init(&ctx.err, 0);
+	n_threads = gpu_thread_count("CUDA_DUMP_THREADS");
+	if (n_threads > nc)
+		n_threads = nc;
+
 	t0 = now_ms();
-	for (i = 0; i < count; i++) {
-		uint64_t offset = 0;
-		uint64_t remaining = regions[i].size;
-
-		while (remaining > 0) {
-			size_t chunk = (remaining > GPU_IO_CHUNK_SIZE) ? GPU_IO_CHUNK_SIZE : (size_t)remaining;
-			struct iovec local_iov = { .iov_base = buf, .iov_len = chunk };
-			struct iovec remote_iov = { .iov_base = (void *)(uintptr_t)(regions[i].start + offset),
-						    .iov_len = chunk };
-			ssize_t n, written = 0;
-			double t1;
-
-			t1 = now_ms();
-			n = (ssize_t)syscall(SYS_process_vm_readv, (pid_t)pid, &local_iov, 1UL, &remote_iov, 1UL, 0UL);
-			t_readv += now_ms() - t1;
-			if (n < 0) {
-				pr_perror("process_vm_readv failed for pid %d at 0x%lx", pid,
-					  (unsigned long)(regions[i].start + offset));
-				goto out;
-			}
-
-			t1 = now_ms();
-			while (written < n) {
-				ssize_t w = write(fd, buf + written, (size_t)(n - written));
-
-				if (w < 0) {
-					pr_perror("write to %s failed", fname);
-					goto out;
-				}
-				written += w;
-			}
-			t_write += now_ms() - t1;
-			offset += (uint64_t)n;
-			remaining -= (uint64_t)n;
+	for (i = 0; i < n_threads; i++) {
+		if (pthread_create(&threads[i], NULL, gpu_dump_worker, &ctx) != 0) {
+			pr_perror("pthread_create failed");
+			break;
 		}
+		started++;
 	}
+	if (started == 0)
+		gpu_dump_worker(&ctx); /* fall back to inline single-threaded */
+	else
+		for (i = 0; i < started; i++)
+			pthread_join(threads[i], NULL);
+	if (atomic_load(&ctx.err) != 0)
+		goto out;
 
-	pr_info("[timing] dump: process_vm_readv=%.0f ms O_DIRECT_write=%.0f ms total=%.0f ms\n",
-		t_readv, t_write, now_ms() - t0);
+	pr_info("[timing] parallel dump: %.0f ms (%.1f GB/s) [%d threads, %d chunks, %s]\n", now_ms() - t0,
+		(double)total_bytes / (now_ms() - t0) / 1e6, started ? started : 1, nc,
+		direct ? "O_DIRECT" : "buffered");
 	ret = 0;
 	pr_info("Dumped %d GPU regions for pid %d\n", count, pid);
 out:
+	free(chunks);
 	free(buf);
 	close(fd);
 	if (ret != 0)
@@ -499,12 +625,6 @@ int release_gpu_pages(int tid, uint64_t syscall_addr, struct gpu_region *regions
  * data.  The pages are left present and warm (not locked); cuda-checkpoint
  * reads them back to VRAM.
  */
-struct gpu_chunk {
-	uint64_t target_addr;
-	uint64_t file_offset;
-	uint64_t len;
-};
-
 struct gpu_restore_ctx {
 	int pid;
 	int data_fd;
@@ -561,21 +681,6 @@ out:
 	return NULL;
 }
 
-static int gpu_restore_thread_count(void)
-{
-	const char *env = getenv("CUDA_RESTORE_THREADS");
-	int n = 8;
-
-	if (env && *env) {
-		n = atoi(env);
-		if (n < 1)
-			n = 1;
-	}
-	if (n > 32)
-		n = 32;
-	return n;
-}
-
 /*
  * Restore GPU pages into the target process.
  *
@@ -600,8 +705,8 @@ int restore_gpu_pages(int pid, int tid, uint64_t syscall_addr, int img_dir_fd)
 	struct gpu_chunk *chunks = NULL;
 	struct gpu_restore_ctx ctx;
 	pthread_t threads[32];
-	uint64_t fbase, total_bytes = 0;
-	int n_threads, started = 0, i, direct = 1, cap = 0, nc = 0;
+	uint64_t total_bytes = 0;
+	int n_threads, started = 0, i, direct = 1, nc = 0;
 	uint32_t r;
 	double t0;
 	int ns_pid = get_ns_pid(pid);
@@ -642,45 +747,13 @@ int restore_gpu_pages(int pid, int tid, uint64_t syscall_addr, int img_dir_fd)
 	close(img_fd);
 	img_fd = -1;
 
-	/*
-	 * Hint THP per region, and slice all regions into a flat chunk
-	 * work-list.  Slicing within regions (not just one chunk per region) is
-	 * what lets a single huge VMA be filled by all threads at once.
-	 */
-	fbase = GPU_PAGES_DATA_OFFSET;
-	for (r = 0; r < hdr.num_regions; r++) {
-		uint64_t off = 0;
-
-		total_bytes += regions[r].size;
+	/* Hint THP per region before the parallel fill faults the pages in. */
+	for (r = 0; r < hdr.num_regions; r++)
 		if (syscall_addr)
-			inject_syscall(tid, syscall_addr, SYS_madvise,
-				       (long)regions[r].start, (long)regions[r].size,
+			inject_syscall(tid, syscall_addr, SYS_madvise, (long)regions[r].start, (long)regions[r].size,
 				       MADV_HUGEPAGE, 0, 0, 0);
-
-		while (off < regions[r].size) {
-			uint64_t len = regions[r].size - off;
-
-			if (len > GPU_IO_CHUNK_SIZE)
-				len = GPU_IO_CHUNK_SIZE;
-			if (nc >= cap) {
-				int ncap = cap ? cap * 2 : 64;
-				struct gpu_chunk *tmp = realloc(chunks, (size_t)ncap * sizeof(*chunks));
-
-				if (!tmp) {
-					pr_err("OOM building chunk list\n");
-					goto out;
-				}
-				chunks = tmp;
-				cap = ncap;
-			}
-			chunks[nc].target_addr = regions[r].start + off;
-			chunks[nc].file_offset = fbase + off;
-			chunks[nc].len = len;
-			nc++;
-			off += len;
-		}
-		fbase += regions[r].size;
-	}
+	if (build_gpu_chunks(regions, (int)hdr.num_regions, &chunks, &nc, &total_bytes))
+		goto out;
 
 	/*
 	 * Try O_DIRECT; on EINVAL (filesystem doesn't support it) fall back to
@@ -709,7 +782,7 @@ int restore_gpu_pages(int pid, int tid, uint64_t syscall_addr, int img_dir_fd)
 	atomic_init(&ctx.next, 0);
 	atomic_init(&ctx.err, 0);
 
-	n_threads = gpu_restore_thread_count();
+	n_threads = gpu_thread_count("CUDA_RESTORE_THREADS");
 	if (n_threads > nc)
 		n_threads = nc;
 

@@ -133,8 +133,9 @@ corresponding CUDA release.
 At checkpoint time the driver moves the GPU memory into new anonymous
 mappings of the target process. The plugin
 detects those staging VMAs (a scan of `/proc/<pid>/maps` before and after the
-checkpoint), copies them to `gpu-pages-<pid>.img` with `process_vm_readv()`
-and O_DIRECT, and frees them in the target with an injected
+checkpoint), copies them to `gpu-pages-<pid>.img` with parallel
+`process_vm_readv()` reads and O_DIRECT writes (`CUDA_DUMP_THREADS`, default
+8), and frees them in the target with an injected
 `madvise(MADV_DONTNEED)`, so they do not transit through the page images. On
 restore the plugin fills the empty mappings again with parallel O_DIRECT reads
 and `process_vm_writev()` (`CUDA_RESTORE_THREADS`, default `min(ncpu, 16)`)
