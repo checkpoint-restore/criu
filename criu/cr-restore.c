@@ -2398,7 +2398,12 @@ out_kill:
 		/*
 		 * Init finishes exiting only after the rest of its pid namespace
 		 * is collected, and only we can collect a zombie we trace. So
-		 * collect anything until init exits, if init is still ours.
+		 * collect anything until init exits, while init is still ours to
+		 * wait for. The waitid() collects nothing and does not wait for
+		 * the kill. It fails once we have collected init already, or with
+		 * --restore-sibling when we do not trace it, and then the loop
+		 * would never see init exit and would block on usernsd if it is
+		 * still running.
 		 */
 		if (!waitid(P_PID, init_pid, &info, WEXITED | WNOHANG | WNOWAIT | __WALL)) {
 			do {
