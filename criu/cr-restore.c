@@ -2276,6 +2276,12 @@ skip_ns_bouncing:
 	 * Network is unlocked. If something fails below - we lose data
 	 * or a connection.
 	 */
+
+	/*
+	 * Every task must be traced by us from here on: catch_tasks() needs
+	 * it, and the threads interrupted so far stay stopped until we resume
+	 * them. So a failed attach, for example under strace -f, kills the tree.
+	 */
 	if (attach_to_tasks(root_seized))
 		goto out_kill_network_unlocked;
 
