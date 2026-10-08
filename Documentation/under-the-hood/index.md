@@ -23,6 +23,7 @@ This directory contains technical documentation detailing the internal implement
 * [Memory Images Deduplication](memory-images-deduplication.md): Saving space in image files.
 * [Optimizing Pre-dump Algorithm](optimizing-pre-dump-algorithm.md): Strategies for minimizing downtime.
 * [Userfaultfd](userfaultfd.md): Lazy migration and post-copy restoration.
+* [Image Streamer](criu-image-streamer.md): Direct streaming of images to remote storage via pipes.
 
 ## Files, Mounts & I/O
 
