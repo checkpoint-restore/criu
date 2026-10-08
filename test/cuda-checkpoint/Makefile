@@ -45,14 +45,15 @@ cuda-device-map-test: device-map.c $(CUDA_PLUGIN_DIR)/cuda_device_map.c $(CUDA_P
 		-o $@ -Wl,--wrap,fork -Wl,--wrap,write -Wl,--wrap,close -ldl -lprotobuf-c
 
 cuda-backend-guard-test: backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c \
-		$(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
+		$(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c $(CUDA_PLUGIN_DIR)/cuda_custom_storage.c $(CUDA_PLUGIN_DIR)/cuda.proto \
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h ../../compel/libcompel.a
+	$(Q)$(MAKE) --no-print-directory -C $(CUDA_PLUGIN_DIR) cuda.pb-c.c
 	$(E) " LINK     " $@
 	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) -I../../compel/include/uapi \
 		backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
-		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
+		$(CUDA_PLUGIN_DIR)/cuda_custom_storage.c $(CUDA_PLUGIN_DIR)/cuda.pb-c.c $(CUDA_PLUGIN_DIR)/cuda_wait.c \
 		../../compel/libcompel.a \
-		-Wl,--wrap,ptrace -Wl,--wrap,syscall -ldl -pthread -o $@
+		-Wl,--wrap,ptrace -Wl,--wrap,syscall -ldl -lprotobuf-c -pthread -o $@
 
 test: all
 	LD_LIBRARY_PATH="$(CURDIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-device-map-test

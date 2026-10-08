@@ -1,6 +1,9 @@
 #include "criu-log.h"
 #include "cuda_device_map.h"
 #include "cuda_plugin.h"
+#include "cuda_custom_storage.h"
+#include "cr_options.h"
+#include "criu-plugin.h"
 #include "image.h"
 #include "plugin.h"
 #include "fault-injection.h"
@@ -24,6 +27,7 @@
 #define CUDA_PLUGIN_BACKEND_OPTION    CUDA_PLUGIN_NAME ".backend"
 #define CUDA_PLUGIN_DEVICE_MAP_OPTION CUDA_PLUGIN_NAME ".device-map"
 #define CUDA_PLUGIN_TIMEOUT_OPTION    CUDA_PLUGIN_NAME ".timeout"
+#define CUDA_PLUGIN_CS_OPTION	      CUDA_PLUGIN_NAME ".custom-storage"
 
 unsigned int cuda_plugin_timeout;
 
@@ -44,6 +48,7 @@ enum {
 	CUDA_PLUGIN_OPTION_BACKEND = 1000,
 	CUDA_PLUGIN_OPTION_DEVICE_MAP,
 	CUDA_PLUGIN_OPTION_TIMEOUT,
+	CUDA_PLUGIN_OPTION_CS,
 };
 
 static bool cuda_plugin_option_matches(const char *arg, const char *name,
@@ -90,11 +95,13 @@ static int parse_cuda_plugin_options(int stage)
 		{ CUDA_PLUGIN_BACKEND_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_BACKEND },
 		{ CUDA_PLUGIN_DEVICE_MAP_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_DEVICE_MAP },
 		{ CUDA_PLUGIN_TIMEOUT_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_TIMEOUT },
+		{ CUDA_PLUGIN_CS_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_CS },
 		{},
 	};
 	const char *backend_value = NULL;
 	const char *device_map_value = NULL;
 	const char *timeout_value = NULL;
+	const char *cs_value = NULL;
 	char *saved_optarg;
 	char **argv = NULL;
 	int saved_optopt;
@@ -136,6 +143,10 @@ static int parse_cuda_plugin_options(int stage)
 			if (cuda_plugin_option_matches(argv[optind - 1], CUDA_PLUGIN_TIMEOUT_OPTION, optarg, &ret))
 				timeout_value = optarg;
 			break;
+		case CUDA_PLUGIN_OPTION_CS:
+			if (cuda_plugin_option_matches(argv[optind - 1], CUDA_PLUGIN_CS_OPTION, optarg, &ret))
+				cs_value = optarg;
+			break;
 		case '?':
 			/* Every plugin receives the same namespaced option list. */
 			break;
@@ -152,6 +163,21 @@ static int parse_cuda_plugin_options(int stage)
 
 	if (ret)
 		return ret;
+
+	/* cuda_plugin.custom-storage=auto|on|off (Driver API backend, CUDA 13.4 / driver >= R615) */
+	cuda_cs_mode = CUDA_CS_AUTO;
+	if (cs_value) {
+		if (!strcmp(cs_value, "auto"))
+			cuda_cs_mode = CUDA_CS_AUTO;
+		else if (!strcmp(cs_value, "on"))
+			cuda_cs_mode = CUDA_CS_ON;
+		else if (!strcmp(cs_value, "off"))
+			cuda_cs_mode = CUDA_CS_OFF;
+		else {
+			pr_err("Invalid cuda_plugin.custom-storage value '%s' (expected auto, on or off)\n", cs_value);
+			return -1;
+		}
+	}
 
 	if (backend_value) {
 		ret = parse_cuda_backend_option(backend_value);
@@ -288,6 +314,10 @@ static int cuda_plugin_checkpoint_devices(int pid)
 	if (!active_backend)
 		return -ENOTSUP;
 
+	/* A custom-storage image makes restore use custom storage: never leave one from an earlier dump. */
+	if (!opts.stream && cuda_cs_image_remove(pid, criu_get_image_dir()))
+		return -1;
+
 	return active_backend->checkpoint_devices(pid);
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, cuda_plugin_checkpoint_devices);
@@ -296,6 +326,19 @@ static int cuda_plugin_resume_devices_late(int pid)
 {
 	if (!active_backend)
 		return -ENOTSUP;
+
+	/* Only the Driver API backend restores GPU memory from custom storage. */
+	if (active_backend != &cuda_driver_backend && !opts.stream) {
+		int exists = cuda_cs_image_exists(pid, criu_get_image_dir());
+
+		if (exists < 0)
+			return -1;
+		if (exists) {
+			pr_err("pid %d was checkpointed to custom storage, which the %s backend cannot restore\n",
+			       pid, active_backend->name);
+			return -1;
+		}
+	}
 
 	return active_backend->resume_devices_late(pid, &restore_device_map);
 }
