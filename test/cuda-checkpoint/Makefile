@@ -1,6 +1,8 @@
 CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS) -fPIC
 
-BIN := cuda-checkpoint libcuda.so.1 unsupported/libcuda.so.1 cuda-device-map-test cuda-backend-guard-test
+BIN := cuda-checkpoint libcuda.so.1 unsupported/libcuda.so.1 custom-storage/libcuda.so.1 \
+	custom-storage/libnvidia-ml.so.1 cuda-device-map-test \
+	cuda-backend-guard-test
 SRC := cuda-checkpoint.c libcuda.c
 DEP	:= $(SRC:%.c=%.d)
 OBJ	:= $(SRC:%.c=%.o)
@@ -35,6 +37,17 @@ unsupported/libcuda.so.1: libcuda.c
 	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -shared \
 		-DMOCK_CUDA_DRIVER_VERSION=12000 $< -o $@
 
+custom-storage/libcuda.so.1: libcuda.c
+	$(E) " LINK     " $@
+	$(Q)mkdir -p $(@D)
+	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -shared \
+		-DMOCK_CUDA_DRIVER_VERSION=13040 -DMOCK_CUDA_CUSTOM_STORAGE $< -o $@ -ldl
+
+custom-storage/libnvidia-ml.so.1: libnvml.c
+	$(E) " LINK     " $@
+	$(Q)mkdir -p $(@D)
+	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -shared $< -o $@
+
 cuda-device-map-test: device-map.c $(CUDA_PLUGIN_DIR)/cuda_device_map.c $(CUDA_PLUGIN_DIR)/cuda.proto \
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h
 	$(Q)$(MAKE) --no-print-directory -C $(CUDA_PLUGIN_DIR) cuda.pb-c.c
@@ -62,6 +75,6 @@ test: all
 
 clean-more:
 	$(RM) $(TARGETS)
-	$(Q)rmdir unsupported 2>/dev/null || true
+	$(Q)rmdir unsupported custom-storage 2>/dev/null || true
 .PHONY: clean-more
 clean: clean-more

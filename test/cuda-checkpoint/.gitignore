@@ -3,3 +3,4 @@ libcuda.so.1
 cuda-device-map-test
 cuda-backend-guard-test
 unsupported/
+custom-storage/
