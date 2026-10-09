@@ -282,6 +282,8 @@ TST_NOFILE	:=				\
 		rootless_runtime_userns		\
 		rootless_netns_broker		\
 		rootless_mount_opts_id		\
+		rootless_mntns_broker		\
+		rootless_mntns_remount_flags	\
 		netns_sub			\
 		netns_sub_veth			\
 		netns_sub_sysctl	\

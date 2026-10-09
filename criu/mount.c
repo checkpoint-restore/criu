@@ -29,6 +29,7 @@
 #include "external.h"
 #include "clone-noasan.h"
 #include "fdstore.h"
+#include "fault-injection.h"
 #include "rst-malloc.h"
 #include "mntns-broker.h"
 
@@ -2212,16 +2213,25 @@ static bool mount_via_broker(unsigned long flags, const char *target)
 int criu_mount_at(const char *src, const char *target, const char *fstype,
 		  unsigned long flags, const char *data)
 {
+	bool try_broker = false;
+	int pid;
 	int err;
 
-	if (!mount(src, target, fstype, flags, data))
-		return 0;
-
-	err = errno;
-	if (opts.mode == CR_RESTORE && (err == EPERM || err == EACCES) &&
+	if (opts.mode == CR_RESTORE && fault_injected(FI_MNTNS_DIRECT_MOUNT_DENIED) &&
 	    mount_via_broker(flags, target)) {
-		int pid = restore_mount_pid();
+		pr_info("mnt: forcing direct mount denial at %s\n", target ? target : "(null)");
+		err = EPERM;
+		try_broker = true;
+	} else if (!mount(src, target, fstype, flags, data)) {
+		return 0;
+	} else {
+		err = errno;
+		try_broker = opts.mode == CR_RESTORE && (err == EPERM || err == EACCES) &&
+			     mount_via_broker(flags, target);
+	}
 
+	if (try_broker) {
+		pid = restore_mount_pid();
 		if (pid < 0)
 			return -1;
 		pr_info("mnt: using broker because direct mount at %s is not permitted\n",
@@ -2639,10 +2649,14 @@ static int remount_bind_flags(struct mount_info *mi, unsigned long mflags, bool 
 	if (!mflags)
 		return 0;
 
-	if (!criu_mount_at(NULL, service_mountpoint(mi), NULL, MS_BIND | MS_REMOUNT | mflags, NULL))
+	if (opts.mode == CR_RESTORE && fault_injected(FI_MNTNS_REMOUNT_DENIED)) {
+		pr_info("mnt: forcing remount denial at %s\n", service_mountpoint(mi));
+		err = EPERM;
+	} else if (!criu_mount_at(NULL, service_mountpoint(mi), NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
 		return 0;
-
-	err = errno;
+	} else {
+		err = errno;
+	}
 
 	if (after_bind && (opts.unprivileged || in_noninitial_userns()) && opts.mode == CR_RESTORE &&
 	    (err == EPERM || err == EACCES)) {
