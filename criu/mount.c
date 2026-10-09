@@ -9,6 +9,7 @@
 #include <sys/mount.h>
 #include <sys/wait.h>
 #include <sched.h>
+#include <stdint.h>
 
 #include "cr_options.h"
 #include "util.h"
@@ -32,6 +33,20 @@
 #include "mntns-broker.h"
 
 #include "images/mnt.pb-c.h"
+
+/* mount_setattr(2) flags are part of the kernel ABI. Keep building with
+ * older libc headers that predate the syscall wrapper. */
+#ifndef MOUNT_ATTR_RDONLY
+#define MOUNT_ATTR_RDONLY	0x00000001
+#define MOUNT_ATTR_NOSUID	0x00000002
+#define MOUNT_ATTR_NODEV	0x00000004
+#define MOUNT_ATTR_NOEXEC	0x00000008
+#define MOUNT_ATTR__ATIME	0x00000070
+#define MOUNT_ATTR_NOATIME	0x00000010
+#define MOUNT_ATTR_STRICTATIME	0x00000020
+#define MOUNT_ATTR_NODIRATIME	0x00000080
+#define MOUNT_ATTR_NOSYMFOLLOW	0x00200000
+#endif
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "mnt: "
@@ -2267,6 +2282,143 @@ static int userns_mount(char *src, void *args, int fd, pid_t pid)
 	return err;
 }
 
+struct userns_bind_mount_args {
+	unsigned long bind_flags;
+	unsigned long remount_flags;
+	size_t src_off;
+	size_t target_off;
+};
+
+static int read_mount_flags(const char *path, unsigned long *flags);
+
+static int mount_flags_to_attrs(unsigned long flags, uint64_t *attr_set, uint64_t *attr_clr)
+{
+	const unsigned long supported = MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_NOSYMFOLLOW |
+					MS_NODIRATIME | MS_NOATIME | MS_RELATIME | MS_STRICTATIME;
+
+	if (flags & ~supported) {
+		pr_err("Unsupported external bind mount flags %#lx\n", flags & ~supported);
+		return -1;
+	}
+
+	*attr_set = 0;
+	/* Restrictive attributes can be locked when a bind is imported from an
+	 * ancestor user namespace. Never try to drop inherited restrictions;
+	 * only select the mutually exclusive atime mode below. */
+	*attr_clr = MOUNT_ATTR__ATIME;
+
+	if (flags & MS_RDONLY)
+		*attr_set |= MOUNT_ATTR_RDONLY;
+	if (flags & MS_NOSUID)
+		*attr_set |= MOUNT_ATTR_NOSUID;
+	if (flags & MS_NODEV)
+		*attr_set |= MOUNT_ATTR_NODEV;
+	if (flags & MS_NOEXEC)
+		*attr_set |= MOUNT_ATTR_NOEXEC;
+	if (flags & MS_NOSYMFOLLOW)
+		*attr_set |= MOUNT_ATTR_NOSYMFOLLOW;
+	if (flags & MS_NODIRATIME)
+		*attr_set |= MOUNT_ATTR_NODIRATIME;
+
+	if (flags & MS_NOATIME)
+		*attr_set |= MOUNT_ATTR_NOATIME;
+	else if (flags & MS_STRICTATIME)
+		*attr_set |= MOUNT_ATTR_STRICTATIME;
+	/* No explicit atime flag, or MS_RELATIME, selects relatime. */
+
+	return 0;
+}
+
+static bool external_bind_restrictions_satisfied(unsigned long flags, unsigned long current_flags)
+{
+	const unsigned long restrictive = MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC |
+					  MS_NOSYMFOLLOW;
+	const unsigned long external_atime = MS_NODIRATIME | MS_NOATIME | MS_RELATIME |
+					     MS_STRICTATIME;
+	unsigned long required = flags & restrictive;
+
+	/* The external provider owns locked atime policy, but CRIU must never
+	 * accept a bind which lost a requested security restriction or contains
+	 * another flag that this fallback cannot verify. */
+	if (flags & ~(restrictive | external_atime))
+		return false;
+
+	return (current_flags & required) == required;
+}
+
+static int userns_bind_mount(void *args, int fd, pid_t pid)
+{
+	struct userns_bind_mount_args *a = args;
+	int rst = -1, err = 0;
+	unsigned long current_flags;
+	uint64_t attr_set, attr_clr;
+	bool target_userns = (root_ns_mask & CLONE_NEWUSER) && pid != getpid();
+	char target[PSFDS];
+	char *base = args;
+	char *src = base + a->src_off;
+	char *target_path = base + a->target_off;
+
+	snprintf(target, sizeof(target), "/proc/self/fd/%d", fd);
+
+	if (pid != getpid() && switch_ns(pid, &mnt_ns_desc, &rst))
+		return -errno;
+
+	if (mount(src, target, NULL, a->bind_flags, NULL) < 0) {
+		err = -errno;
+		pr_perror("Unable to bind external mount %s", target);
+		goto out;
+	}
+
+	if (a->remount_flags) {
+		if (!target_userns) {
+			if (!mount(NULL, target_path, NULL,
+				   MS_BIND | MS_REMOUNT | a->remount_flags, NULL))
+				goto out;
+
+			err = errno;
+			if ((err == EPERM || err == EACCES) &&
+			    !read_mount_flags(target_path, &current_flags) &&
+			    external_bind_restrictions_satisfied(a->remount_flags, current_flags)) {
+				pr_warn("Skipping denied external bind remount at %s; requested restrictions are already "
+					"inherited (requested %#lx, current %#lx)\n",
+					target_path, a->remount_flags, current_flags);
+				err = 0;
+				goto out;
+			}
+
+			err = -err;
+			errno = -err;
+			pr_perror("Unable to remount external bind %s", target_path);
+			goto out;
+		}
+
+		if (mount_flags_to_attrs(a->remount_flags, &attr_set, &attr_clr)) {
+			err = -EINVAL;
+			goto out;
+		}
+
+		/* The staged source belongs to the caller's user namespace, so
+		 * bind it with the caller's credentials first. If restore created a
+		 * target user namespace, leave its mount namespace before asking the
+		 * broker to enter both target namespaces. */
+		if (rst >= 0) {
+			if (restore_ns(rst, &mnt_ns_desc))
+				return -errno;
+			rst = -1;
+		}
+		if (mntns_broker_mount_setattr(pid, target_path, attr_set, attr_clr))
+			err = -errno;
+	}
+
+out:
+	if (rst >= 0 && restore_ns(rst, &mnt_ns_desc)) {
+		if (!err)
+			err = -errno;
+	}
+
+	return err;
+}
+
 int apply_sb_flags(void *args, int fd, pid_t pid)
 {
 	return userns_mount(NULL, args, fd, pid);
@@ -2275,6 +2427,76 @@ int apply_sb_flags(void *args, int fd, pid_t pid)
 int mount_root(void *args, int fd, pid_t pid)
 {
 	return userns_mount(opts.root, args, fd, pid);
+}
+
+static int mount_external_bind(struct mount_info *mi, const char *src,
+			       unsigned long bind_flags, unsigned long remount_flags)
+{
+	struct userns_bind_mount_args *args;
+	const char *target = service_mountpoint(mi);
+	size_t src_len = strlen(src) + 1;
+	size_t target_len = strlen(target) + 1;
+	size_t arg_size = sizeof(*args) + src_len + target_len;
+	char *payload;
+	struct stat st;
+	int ret;
+	int fd;
+
+	if (arg_size > MAX_UNSFD_MSG_SIZE) {
+		pr_err("External bind mount request too large: %s -> %s\n", src, target);
+		return -1;
+	}
+
+	args = alloca(arg_size);
+	args->bind_flags = bind_flags;
+	args->remount_flags = remount_flags;
+	args->src_off = sizeof(*args);
+	args->target_off = args->src_off + src_len;
+	payload = (char *)args;
+	memcpy(payload + args->src_off, src, src_len);
+	memcpy(payload + args->target_off, target, target_len);
+
+	if (stat(target, &st)) {
+		int target_err = errno;
+
+		if (target_err != ENOENT) {
+			errno = target_err;
+			pr_perror("Can't stat external bind target %s", target);
+			return -1;
+		}
+
+		if (mi->is_dir == 1 && mkdir(target, 0700)) {
+			pr_perror("Can't create external bind target directory %s", target);
+			return -1;
+		} else if (mi->is_dir != 1) {
+			int target_fd;
+
+			target_fd = open(target, O_CREAT | O_EXCL | O_RDWR, 0600);
+			if (target_fd < 0) {
+				pr_perror("Can't create external bind target file %s", target);
+				return -1;
+			}
+			close(target_fd);
+		}
+	}
+
+	fd = open(target, O_PATH);
+	if (fd < 0) {
+		pr_perror("Can't open external bind target %s", target);
+		return -1;
+	}
+
+	ret = userns_call(userns_bind_mount, 0, args, arg_size, fd);
+	if (ret < 0) {
+		if (ret < -1)
+			errno = -ret;
+		pr_perror("Can't bind external mount %s at %s", src, target);
+		close(fd);
+		return -1;
+	}
+	close(fd);
+
+	return 0;
 }
 
 static void cure_mountinfo_path(char *path)
@@ -2320,6 +2542,16 @@ static unsigned long mountinfo_opt_flags(char *opts)
 			flags |= MS_NODEV;
 		else if (!strcmp(opt, "noexec"))
 			flags |= MS_NOEXEC;
+		else if (!strcmp(opt, "nosymfollow"))
+			flags |= MS_NOSYMFOLLOW;
+		else if (!strcmp(opt, "nodiratime"))
+			flags |= MS_NODIRATIME;
+		else if (!strcmp(opt, "noatime"))
+			flags |= MS_NOATIME;
+		else if (!strcmp(opt, "relatime"))
+			flags |= MS_RELATIME;
+		else if (!strcmp(opt, "strictatime"))
+			flags |= MS_STRICTATIME;
 	}
 
 	return flags;
@@ -2578,6 +2810,7 @@ static int do_bind_mount(struct mount_info *mi)
 	char *mnt_path = NULL;
 	struct stat st;
 	bool umount_mnt_path = false;
+	bool external_root = false;
 	struct mount_info *c;
 
 	if (mi->need_plugin) {
@@ -2594,6 +2827,7 @@ static int do_bind_mount(struct mount_info *mi)
 		 * to proper location in the namespace we restore.
 		 */
 		root = mi->external;
+		external_root = true;
 		priv = !mi->master_id && (mi->internal_sharing || !mi->shared_id);
 		goto do_bind;
 	}
@@ -2654,6 +2888,7 @@ skip_overmount_check:
 	root = rpath;
 do_bind:
 	pr_info("\tBind %s to %s\n", root, service_mountpoint(mi));
+	mflags = mi->flags & (~MS_PROPAGATE);
 
 	if (unlikely(mi->deleted)) {
 		if (stat(service_mountpoint(mi), &st)) {
@@ -2679,13 +2914,15 @@ do_bind:
 		}
 	}
 
-	if (criu_mount_at(root, service_mountpoint(mi), NULL, MS_BIND | (mi->flags & MS_REC), NULL) < 0) {
+	if (external_root && mount_external_bind(mi, root, MS_BIND | (mi->flags & MS_REC), mflags)) {
+		goto err;
+	} else if (!external_root &&
+		   criu_mount_at(root, service_mountpoint(mi), NULL, MS_BIND | (mi->flags & MS_REC), NULL) < 0) {
 		pr_perror("Can't bind-mount at %s", service_mountpoint(mi));
 		goto err;
 	}
 
-	mflags = mi->flags & (~MS_PROPAGATE);
-	if (remount_bind_flags(mi, mflags, true))
+	if (!external_root && remount_bind_flags(mi, mflags, true))
 		goto err;
 
 	if (unlikely(mi->deleted)) {
@@ -2879,6 +3116,27 @@ static int do_mount_root(struct mount_info *mi)
 static int do_close_one(struct mount_info *mi)
 {
 	close_safe(&mi->fd);
+	return 0;
+}
+
+static int prepare_external_mount_sources(void)
+{
+	struct mount_info *mi;
+
+	for (mi = mntinfo; mi; mi = mi->next) {
+		struct stat st;
+
+		if (!mnt_is_nodev_external(mi))
+			continue;
+
+		if (stat(mi->external, &st)) {
+			pr_perror("Unable to stat external mount source %s", mi->external);
+			return -1;
+		}
+
+		mi->is_dir = S_ISDIR(st.st_mode);
+	}
+
 	return 0;
 }
 
@@ -3587,6 +3845,9 @@ int read_mnt_ns_img(void)
 		return -1;
 
 	if (merge_mount_trees())
+		return -1;
+
+	if (prepare_external_mount_sources())
 		return -1;
 
 	return 0;

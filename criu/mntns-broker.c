@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <sys/mount.h>
+#include <sys/syscall.h>
 
 #include "broker.h"
 #include "log.h"
@@ -21,6 +22,7 @@
 
 enum {
 	MNT_BROKER_OP_MOUNT = 1,
+	MNT_BROKER_OP_MOUNT_SETATTR,
 };
 
 struct mount_broker_msg {
@@ -35,6 +37,8 @@ struct mount_broker_args {
 	char target[MNT_BROKER_PATH_MAX];
 	char fstype[64];
 	char data[MNT_BROKER_PATH_MAX];
+	uint64_t attr_set;
+	uint64_t attr_clr;
 };
 
 static int copy_mount_string(char *dst, size_t dst_len, const char *src)
@@ -111,6 +115,23 @@ static int mntns_broker_run(int pid, struct mount_broker_args *args,
 			ret = mount(args->src[0] ? args->src : NULL, args->target,
 				    args->fstype[0] ? args->fstype : NULL, args->mount_flags,
 				    args->data[0] ? args->data : NULL);
+		} else if (args->op == MNT_BROKER_OP_MOUNT_SETATTR) {
+#ifdef __NR_mount_setattr
+			struct criu_mount_attr {
+				uint64_t attr_set;
+				uint64_t attr_clr;
+				uint64_t propagation;
+				uint64_t userns_fd;
+			} attr = {
+				.attr_set = args->attr_set,
+				.attr_clr = args->attr_clr,
+			};
+			ret = syscall(__NR_mount_setattr, AT_FDCWD, args->target, 0,
+				      &attr, sizeof(attr));
+#else
+			errno = ENOSYS;
+			ret = -1;
+#endif
 		} else {
 			errno = EINVAL;
 			ret = -1;
@@ -182,6 +203,31 @@ int mntns_broker_mount(int pid, const char *src, const char *target,
 	if (mntns_broker_run(pid, &args, "mount")) {
 		pr_perror("mntns broker: mount %s -> %s failed",
 			  src ? src : "(null)", target);
+		return -1;
+	}
+
+	return 0;
+}
+
+int mntns_broker_mount_setattr(int pid, const char *target,
+			       uint64_t attr_set, uint64_t attr_clr)
+{
+	struct mount_broker_args args = {
+		.op = MNT_BROKER_OP_MOUNT_SETATTR,
+		.attr_set = attr_set,
+		.attr_clr = attr_clr,
+	};
+
+	if (!target) {
+		pr_err("mntns broker: missing mount_setattr target\n");
+		return -1;
+	}
+
+	if (copy_mount_string(args.target, sizeof(args.target), target))
+		return -1;
+
+	if (mntns_broker_run(pid, &args, "mount_setattr")) {
+		pr_perror("mntns broker: mount_setattr %s failed", target);
 		return -1;
 	}
 
