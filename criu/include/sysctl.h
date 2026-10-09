@@ -6,6 +6,7 @@ struct sysctl_req {
 	void *arg;
 	int type;
 	int flags;
+	int (*userns_skip_equal)(struct sysctl_req *req, void *cur_arg);
 };
 
 extern int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns);

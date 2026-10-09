@@ -214,7 +214,9 @@ static bool sysctl_current_value_matches(struct sysctl_req *req)
 	if (ret < 0)
 		goto out;
 
-	if (CTL_TYPE(req->type) == __CTL_STR)
+	if (req->userns_skip_equal)
+		match = req->userns_skip_equal(req, cur.arg);
+	else if (CTL_TYPE(req->type) == __CTL_STR)
 		match = !strcmp(cur.arg, req->arg);
 	else
 		match = !memcmp(cur.arg, req->arg, arg_size);
@@ -531,6 +533,7 @@ int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns)
 		/* copy over the non-pointer fields */
 		cur->type = req[i].type;
 		cur->flags = req[i].flags;
+		cur->userns_skip_equal = NULL;
 
 		cur->name = (char *)&cur[1];
 		strcpy(cur->name, req[i].name);

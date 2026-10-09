@@ -2267,6 +2267,57 @@ static const char *ipv4_sysctl_entries[] = {
 #define MAX_IPV4_SYSCTL_PATH (sizeof(IPV4_SYSCTL_FMT) + MAX_IPV4_SYSCTL_OPT - 2)
 #define MAX_STR_IPV4_SYSCTL_LEN 200
 
+static bool ping_group_range_gid_equal(int saved, int current, int overflowgid)
+{
+	if (saved == -1)
+		return current == overflowgid;
+	return saved == current;
+}
+
+static int read_kernel_overflowgid(int *overflowgid)
+{
+	char buf[32];
+	int fd, ret;
+
+	fd = do_open_proc(PROC_GEN, O_RDONLY, "sys/kernel/overflowgid");
+	if (fd < 0) {
+		pr_perror("Can't open kernel/overflowgid");
+		return -1;
+	}
+
+	ret = read(fd, buf, sizeof(buf) - 1);
+	close(fd);
+	if (ret < 0) {
+		pr_perror("Can't read kernel/overflowgid");
+		return -1;
+	}
+	buf[ret] = '\0';
+
+	if (sscanf(buf, "%d", overflowgid) != 1) {
+		pr_err("Can't parse kernel/overflowgid: %s\n", buf);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int ping_group_range_userns_skip_equal(struct sysctl_req *req, void *cur_arg)
+{
+	int saved_start, saved_end, current_start, current_end, overflowgid;
+
+	if (sscanf(req->arg, "%d %d", &saved_start, &saved_end) != 2 ||
+	    sscanf(cur_arg, "%d %d", &current_start, &current_end) != 2) {
+		pr_err("Failed to parse ping_group_range for userns skip comparison\n");
+		return 0;
+	}
+
+	if (read_kernel_overflowgid(&overflowgid))
+		return 0;
+
+	return ping_group_range_gid_equal(saved_start, current_start, overflowgid) &&
+	       ping_group_range_gid_equal(saved_end, current_end, overflowgid);
+}
+
 static int ipv4_sysctls_op(SysctlEntry ***rsysctl, size_t *pn, int op)
 {
 	int i, ret = -1, flags = 0;
@@ -2299,6 +2350,8 @@ static int ipv4_sysctls_op(SysctlEntry ***rsysctl, size_t *pn, int op)
 				continue;
 
 			req[ri].arg = sysctl[i]->sarg;
+			if (op == CTL_WRITE && !strcmp(ipv4_sysctl_entries[i], "ping_group_range"))
+				req[ri].userns_skip_equal = ping_group_range_userns_skip_equal;
 			break;
 		default:
 			pr_err("ipv4: Unknown sysctl type %d\n", sysctl[i]->type);
