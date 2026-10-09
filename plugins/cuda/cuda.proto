@@ -14,3 +14,23 @@ message cuda_gpu_inventory {
 	optional uint32 version = 1 [default = 1];
 	repeated cuda_gpu gpus = 2;
 }
+
+// Header of gpu-cs-<pid>.img, the GPU memory of one task checkpointed to
+// custom storage. The file starts with the "CUCS" magic (four ASCII bytes)
+// and the little-endian uint32 byte count of this payload, within its first
+// 4096 bytes; the GPU memory of each device follows at its offset.
+message cuda_cs_region {
+	// Bytes of GPU memory of this device.
+	optional uint64 size = 1;
+	// Offset in the file, a multiple of 4096.
+	optional uint64 offset = 2;
+	// Raw 16-byte UUID of the GPU it was on: restore puts it on the GPU
+	// that the device map gives for this one, whatever the driver's order.
+	optional bytes uuid = 3;
+}
+
+message cuda_cs_image {
+	// Payload schema version. Unknown versions must be rejected.
+	optional uint32 version = 1 [default = 1];
+	repeated cuda_cs_region regions = 2;
+}

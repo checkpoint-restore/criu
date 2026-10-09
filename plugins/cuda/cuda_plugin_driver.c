@@ -1,5 +1,7 @@
 #include "criu-log.h"
 #include "cuda_checkpoint.h"
+#include "cuda_custom_storage.h"
+#include "criu-plugin.h"
 #include "cuda_device_map.h"
 #include "cuda_plugin.h"
 #include "plugin.h"
@@ -77,6 +79,10 @@ struct pid_info {
 	bool lock_pending;
 	/* The task was killed or its CUDA state is unknown after a failure. */
 	bool failed;
+	/* Its GPU memory was checkpointed to custom storage, not to its host memory. */
+	bool cs_used;
+	/* Its GPU memory is gone, e.g. the image could not be written: the rollback must kill it. */
+	bool cs_lost;
 	struct list_head list;
 };
 
@@ -108,6 +114,8 @@ static int track_cuda_pid(int pid, cuda_task_state_t initial_state, cuda_task_st
 	info->initial_task_state = initial_state;
 	info->lock_pending = false;
 	info->failed = false;
+	info->cs_used = false;
+	info->cs_lost = false;
 	list_add_tail(&info->list, &cuda_pids);
 
 	return 0;
@@ -253,6 +261,21 @@ static int cuda_driver_probe(bool device_map_requested)
 		return -ENOTSUP;
 	}
 
+	/* CUDA 13.4 custom-storage mode (driver >= R615): optional unless requested */
+	if (cuda_cs_init(cuda_handle)) {
+		if (cuda_cs_mode == CUDA_CS_ON) {
+			pr_err("cuda_plugin.custom-storage=on but libcuda has no custom-storage checkpoint API\n");
+			return -1;
+		}
+	} else if (opts.stream) {
+		/* gpu-cs-<pid>.img is written next to the images, not through the image streamer. */
+		if (cuda_cs_mode == CUDA_CS_ON) {
+			pr_err("cuda_plugin.custom-storage=on is not supported with --stream\n");
+			return -1;
+		}
+		cuda_cs_mode = CUDA_CS_OFF;
+	}
+
 	driver_version = 0;
 	res = cuda_api.driver_get_version(&driver_version);
 	if (res != CUDA_SUCCESS) {
@@ -341,6 +364,12 @@ static cuda_task_state_t get_cuda_state(pid_t pid)
 	case CU_PROCESS_STATE_CHECKPOINTED:
 		return CUDA_TASK_CHECKPOINTED;
 	case CU_PROCESS_STATE_FAILED:
+		return CUDA_TASK_FAILED;
+	case CU_PROCESS_STATE_CHECKPOINTING:
+	case CU_PROCESS_STATE_RESTORING:
+		/* A custom-storage operation that was not completed: the task cannot resume. */
+		pr_err("pid %d is still %s to custom storage\n", pid,
+		       state == CU_PROCESS_STATE_CHECKPOINTING ? "checkpointing" : "restoring");
 		return CUDA_TASK_FAILED;
 	default:
 		pr_err("Unknown CUDA process state for pid %d: %d\n", pid, state);
@@ -605,27 +634,174 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 	return work.exit_code;
 }
 
+/*
+ * Whether to checkpoint pid to custom storage: 1 with the primary contexts of
+ * its GPUs retained, 0 to use the regular path, -1 on error.
+ */
+static int cuda_cs_checkpoint_prepare(int pid)
+{
+	unsigned char gpus[CUDA_CS_MAXDEV][16];
+	unsigned int n;
+
+	if (!cuda_cs_active())
+		return 0;
+	if (cuda_cs_task_gpus(pid, gpus, &n)) {
+		/* Never guess: a context on a GPU the task does not use can be another tenant's. */
+		if (cuda_cs_mode == CUDA_CS_ON) {
+			pr_err("Unable to find the GPUs of pid %d for custom storage\n", pid);
+			return -1;
+		}
+		pr_warn("Unable to find the GPUs of pid %d: checkpointing it without custom storage\n", pid);
+		return 0;
+	}
+	if (!n) {
+		pr_info("NVML lists pid %d on no GPU: checkpointing it without custom storage\n", pid);
+		return 0;
+	}
+	if (cuda_driver_init() || cuda_cs_retain(gpus, n)) {
+		pr_err("Unable to checkpoint the GPU memory of pid %d to custom storage\n", pid);
+		return -1;
+	}
+	return 1;
+}
+
+/* What checkpoint_gpu_memory() did, sent back by the process that ran it. */
+struct cuda_checkpoint_result {
+	int ret;
+	/* cuCheckpointProcessCheckpoint() was called, and returned res. */
+	bool called;
+	CUresult res;
+	bool cs_used;
+	bool cs_lost;
+};
+
+static void checkpoint_gpu_memory(int pid, struct cuda_checkpoint_result *result)
+{
+	CUcheckpointCheckpointArgs args = { 0 };
+	CUcheckpointCustomStorageInfo *cs_info = NULL;
+	int use_cs;
+
+	memset(result, 0, sizeof(*result));
+	use_cs = cuda_cs_checkpoint_prepare(pid);
+	if (use_cs < 0) {
+		result->ret = -1;
+		return;
+	}
+	if (use_cs)
+		args.customStorageInfo_out = &cs_info;
+	result->called = true;
+	result->res = cuda_api.checkpoint(pid, &args);
+	if (atomic_load(&operation_aborted)) {
+		result->ret = -1;
+		return;
+	}
+	if (result->res != CUDA_SUCCESS) {
+		cuda_log_error("cuCheckpointProcessCheckpoint", pid, result->res);
+		result->ret = -1;
+		return;
+	}
+	if (!use_cs)
+		return;
+
+	/* the target is CHECKPOINTING: its VRAM is mapped into this process until we complete the operation */
+	result->cs_used = true;
+	if (!cs_info) {
+		/* Nothing to complete the operation with: the task cannot get its GPU memory back. */
+		pr_err("Driver returned no custom storage info for pid %d\n", pid);
+		result->cs_lost = true;
+		result->ret = -1;
+		return;
+	}
+	if (cuda_cs_transfer(pid, cs_info, criu_get_image_dir(), false, NULL, 0)) {
+		/*
+		 * The driver cannot cancel the operation, and completing it
+		 * drops the GPU memory. Keeping a copy in CRIU's memory would
+		 * need as much host memory as the GPU memory, which custom
+		 * storage avoids: the task cannot be rolled back.
+		 */
+		result->ret = -1;
+		result->cs_lost = true;
+		cuda_cs_image_remove(pid, criu_get_image_dir());
+	}
+	if (cuda_cs_complete(cs_info->handle))
+		result->ret = -1;
+}
+
+/*
+ * libcuda and NVML leave threads in the process that loads them, and the
+ * kernel refuses setns(CLONE_NEWNS) to a multithreaded process: CRIU could
+ * no longer dump mounts. Custom storage needs both, so run it in a child,
+ * whose GPU contexts go away when it exits.
+ */
+static int checkpoint_gpu_memory_in_child(int pid, struct cuda_checkpoint_result *result)
+{
+	int pipefd[2], status = 0;
+	pid_t child;
+	ssize_t len;
+
+	if (pipe(pipefd)) {
+		pr_perror("Unable to create the custom-storage checkpoint pipe");
+		return -1;
+	}
+	child = fork();
+	if (child < 0) {
+		pr_perror("Unable to fork the custom-storage checkpoint process");
+		close(pipefd[0]);
+		close(pipefd[1]);
+		return -1;
+	}
+	if (child == 0) {
+		close(pipefd[0]);
+		checkpoint_gpu_memory(pid, result);
+		len = write(pipefd[1], result, sizeof(*result));
+		_exit(len == sizeof(*result) ? EXIT_SUCCESS : EXIT_FAILURE);
+	}
+
+	close(pipefd[1]);
+	do {
+		len = read(pipefd[0], result, sizeof(*result));
+	} while (len < 0 && errno == EINTR);
+	close(pipefd[0]);
+	while (waitpid(child, &status, 0) < 0) {
+		if (errno != EINTR) {
+			pr_perror("Unable to wait for the custom-storage checkpoint process %d", child);
+			break;
+		}
+	}
+	if (len != sizeof(*result)) {
+		pr_err("The custom-storage checkpoint process of pid %d did not report (wait status %#x)\n", pid,
+		       status);
+		return -1;
+	}
+	return 0;
+}
+
 static int checkpoint_device(void *arg)
 {
 	struct pid_info *task_info = arg;
 	int pid = task_info->pid;
-	CUcheckpointCheckpointArgs args = { 0 };
+	struct cuda_checkpoint_result result;
 	cuda_task_state_t observed_task_state;
-	CUresult res;
-	int ret = 0;
+	bool reported = true;
+	int ret;
+
+	if (!cuda_cs_active())
+		checkpoint_gpu_memory(pid, &result);
+	else if (checkpoint_gpu_memory_in_child(pid, &result))
+		reported = false;
+	if (reported && !result.called)
+		return result.ret;
 
 	/* If the API fails before reporting its final state, CHECKPOINTED is the
 	 * conservative rollback assumption. Replace it below whenever the driver
 	 * can report the actual state while its restore thread is running.
 	 */
 	task_info->current_task_state = CUDA_TASK_CHECKPOINTED;
-	res = cuda_api.checkpoint(pid, &args);
 	if (atomic_load(&operation_aborted))
 		return -1;
-	if (res != CUDA_SUCCESS) {
-		cuda_log_error("cuCheckpointProcessCheckpoint", pid, res);
-		ret = -1;
-	}
+	ret = reported ? result.ret : -1;
+	task_info->cs_used = reported && result.cs_used;
+	task_info->cs_lost = reported && result.cs_lost;
 
 	observed_task_state = get_cuda_state(pid);
 	if (observed_task_state != CUDA_TASK_UNKNOWN)
@@ -635,7 +811,14 @@ static int checkpoint_device(void *arg)
 		ret = -1;
 	}
 
-	if (res == CUDA_SUCCESS && task_info->current_task_state != CUDA_TASK_CHECKPOINTED) {
+	if (!reported && task_info->current_task_state != CUDA_TASK_LOCKED) {
+		/* The child may have died with the GPU memory mapped, or the image half written. */
+		pr_err("Unable to tell whether pid %d still has its GPU memory\n", pid);
+		task_info->cs_used = true;
+		task_info->cs_lost = true;
+	}
+
+	if (reported && result.res == CUDA_SUCCESS && task_info->current_task_state != CUDA_TASK_CHECKPOINTED) {
 		pr_err("CUDA checkpoint succeeded for pid %d but process state is %d\n", pid,
 		       task_info->current_task_state);
 		ret = -1;
@@ -817,11 +1000,26 @@ static int cuda_driver_pause_devices(int pid)
 	return 0;
 }
 
+/* Retain the primary contexts of the GPUs a restore from custom storage puts pid on. */
+static int cuda_cs_restore_prepare(int pid, const CUcheckpointRestoreArgs *args)
+{
+	unsigned char gpus[CUDA_CS_MAXDEV][16];
+	unsigned int n;
+
+	if (cuda_cs_restore_gpus(pid, criu_get_image_dir(), args->gpuPairs, args->gpuPairsCount, gpus, &n))
+		return -1;
+	return cuda_cs_retain(gpus, n);
+}
+
 struct cuda_resume_operation {
 	int pid;
 	cuda_task_state_t current;
 	cuda_task_state_t initial;
 	const struct cuda_device_map *map;
+	/* The GPU memory comes back from custom storage. */
+	bool custom_storage;
+	/* Set when the task cannot get its GPU memory back and must not run. */
+	bool kill;
 };
 
 static int restore_device(void *arg)
@@ -865,13 +1063,17 @@ static int restore_device(void *arg)
 	if (current_task_state == CUDA_TASK_CHECKPOINTED) {
 		/* If the process was "locked" or "running" before checkpointing it, we need to restore it */
 		CUcheckpointRestoreArgs args = { 0 };
+		CUcheckpointCustomStorageInfo *cs_info = NULL;
 
 		if (op->map) {
 			args.gpuPairs = op->map->pairs;
 			args.gpuPairsCount = op->map->count;
 		}
+		if (op->custom_storage)
+			args.customStorageInfo_out = &cs_info;
 
-		if (cuda_driver_init()) {
+		/* A dump rollback too: the checkpoint retained its contexts in a child. */
+		if (cuda_driver_init() || (op->custom_storage && cuda_cs_restore_prepare(pid, &args))) {
 			if (atomic_load(&operation_aborted))
 				return -1;
 			ret = -1;
@@ -885,8 +1087,30 @@ static int restore_device(void *arg)
 				 * LOCKED or RUNNING successfully.
 				 */
 				ret = -1;
-			} else
+			} else {
+				if (op->custom_storage) {
+					/* the target is RESTORING: fill its VRAM from gpu-cs-<nspid>.img, then complete */
+					if (!cs_info) {
+						pr_err("Driver returned no custom storage info for pid %d\n", pid);
+						ret = -1;
+					} else {
+						int err;
+
+						err = cuda_cs_transfer(pid, cs_info, criu_get_image_dir(), true,
+								       args.gpuPairs, args.gpuPairsCount);
+						if (cuda_cs_complete(cs_info->handle))
+							err = -1;
+						if (err) {
+							/* Do not unlock a task whose GPU memory is incomplete. */
+							pr_err("GPU memory of pid %d was not restored\n", pid);
+							op->kill = true;
+							ret = -1;
+							goto out;
+						}
+					}
+				}
 				current_task_state = CUDA_TASK_LOCKED;
+			}
 
 			observed_task_state = get_cuda_state(pid);
 			if (observed_task_state != CUDA_TASK_UNKNOWN)
@@ -945,9 +1169,23 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	};
 	enum cuda_restore_tid_result tid_result;
 	int restore_tid;
+	int ret;
 
 	if (!cuda_pid_usable(pid))
 		return -1;
+
+	/* Before the state checks: such a task is usually in a failed state. */
+	if (dump_rollback) {
+		struct pid_info *info = find_cuda_pid(pid);
+
+		if (info && info->cs_lost) {
+			pr_err("GPU memory of pid %d was lost with its custom-storage image; killing it\n", pid);
+			mark_cuda_pid_failed(pid);
+			if (kill(pid, SIGKILL) < 0 && errno != ESRCH)
+				pr_perror("Unable to kill target pid %d", pid);
+			return -1;
+		}
+	}
 
 	if (initial_task_state == CUDA_TASK_UNKNOWN || initial_task_state == CUDA_TASK_FAILED) {
 		pr_err("Cannot restore pid %d to invalid CUDA state %d\n", pid, initial_task_state);
@@ -983,6 +1221,23 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 		return -1;
 	}
 
+	/* Follow what the checkpoint did, not what this driver supports: a dump
+	 * rolls back the way it checkpointed, a restore follows the image.
+	 */
+	if (dump_rollback) {
+		struct pid_info *info = find_cuda_pid(pid);
+
+		op.custom_storage = info && info->cs_used;
+	} else if (!opts.stream) {
+		int exists = cuda_cs_image_exists(pid, criu_get_image_dir());
+
+		if (exists < 0)
+			return -1;
+		op.custom_storage = exists;
+		if (op.custom_storage && cuda_cs_check_restore(pid))
+			return -1;
+	}
+
 	pr_info("resuming devices on pid %d\n", pid);
 	/* The resuming process has to stay frozen during this time otherwise
 	 * attempting to access a UVM pointer will crash if we haven't restored the
@@ -992,7 +1247,13 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	/* wakeup the restore thread so we can handle the restore for this pid,
 	 * rseq_cs has to be restored before execution
 	 */
-	return run_cuda_operation(pid, restore_tid, restore_device, &op);
+	ret = run_cuda_operation(pid, restore_tid, restore_device, &op);
+	if (op.kill) {
+		mark_cuda_pid_failed(pid);
+		if (kill(pid, SIGKILL) < 0 && errno != ESRCH)
+			pr_perror("Unable to kill target pid %d", pid);
+	}
+	return ret;
 }
 
 static int cuda_driver_resume_devices_late(int pid, const struct cuda_device_map *map)
@@ -1072,6 +1333,8 @@ static void cuda_driver_backend_fini(int stage, int ret)
 	if (stage == CR_PLUGIN_STAGE__DUMP) {
 		free_cuda_pid_list();
 	}
+
+	cuda_cs_fini();
 
 	cuda_api_fini();
 }
