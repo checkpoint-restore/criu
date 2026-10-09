@@ -8,6 +8,7 @@
 #include "namespaces.h"
 #include "sysctl.h"
 #include "uts_ns.h"
+#include "utsns-broker.h"
 
 #include "protobuf.h"
 #include "images/utsns.pb-c.h"
@@ -38,7 +39,7 @@ err:
 	return ret < 0 ? -1 : 0;
 }
 
-int prepare_utsns(int pid)
+int prepare_utsns(int ns_img_id, int real_pid)
 {
 	int ret;
 	struct cr_img *img;
@@ -48,7 +49,7 @@ int prepare_utsns(int pid)
 		{ "kernel/domainname" },
 	};
 
-	img = open_image(CR_FD_UTSNS, O_RSTR, pid);
+	img = open_image(CR_FD_UTSNS, O_RSTR, ns_img_id);
 	if (!img)
 		return -1;
 
@@ -61,7 +62,11 @@ int prepare_utsns(int pid)
 	req[1].arg = ue->domainname;
 	req[1].type = CTL_STR(strlen(ue->domainname));
 
-	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE, CLONE_NEWUTS);
+	if (in_noninitial_userns()) {
+		pr_info("uts: using broker to restore UTS sysctls in non-initial userns\n");
+		ret = utsns_broker_set_hostname(real_pid, ue->nodename, ue->domainname);
+	} else
+		ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE, CLONE_NEWUTS);
 	utsns_entry__free_unpacked(ue, NULL);
 out:
 	close_image(img);

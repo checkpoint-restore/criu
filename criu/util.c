@@ -1566,7 +1566,7 @@ void rlimit_unlimit_nofile(void)
 {
 	struct rlimit new;
 
-	if (opts.unprivileged && !has_cap_sys_resource(opts.cap_eff))
+	if (in_noninitial_userns() || (opts.unprivileged && !has_cap_sys_resource(opts.cap_eff)))
 		return;
 
 	new.rlim_cur = kdat.sysctl_nr_open;

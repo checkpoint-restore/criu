@@ -2185,7 +2185,7 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 	 */
 
 	id = ns_per_id ? item->ids->uts_ns_id : pid;
-	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(id))
+	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(id, getpid()))
 		goto out;
 	id = ns_per_id ? item->ids->ipc_ns_id : pid;
 	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(id))
