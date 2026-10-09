@@ -210,14 +210,40 @@ int main(int argc, char *argv[])
 				}
 				nanosleep(&delay, NULL);
 			}
-			if (!strcmp(behavior, "fault")) {
+			if (!strcmp(behavior, "untraced-clone")) {
+				const char *trigger = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
+				const char *done = getenv("CRIU_CUDA_MOCK_CLONE_PID");
+				const struct timespec poll = { .tv_nsec = 1000000 };
+				FILE *file = trigger ? fopen(trigger, "w") : NULL;
+				int i;
+
+				if (!file || fclose(file) || !done)
+					return 1;
+				for (i = 0; i < 5000; i++) {
+					FILE *pid_file = fopen(done, "r");
+					int cloned = 0;
+
+					if (pid_file) {
+						int matched = fscanf(pid_file, "%d", &cloned);
+
+						fclose(pid_file);
+						if (matched == 1 && cloned > 0)
+							break;
+					}
+					nanosleep(&poll, NULL);
+				}
+				if (i == 5000)
+					return 1;
+			}
+			if (!strcmp(behavior, "fault") || !strcmp(behavior, "fork")) {
 				const char *path = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
 				FILE *file = path ? fopen(path, "w") : NULL;
 
 				if (!file || fclose(file))
 					return 1;
 			}
-			if (!strcmp(behavior, "hang") || !strcmp(behavior, "fault")) {
+			if (!strcmp(behavior, "hang") || !strcmp(behavior, "fault") ||
+			    !strcmp(behavior, "fork")) {
 				for (;;)
 					pause();
 			}
