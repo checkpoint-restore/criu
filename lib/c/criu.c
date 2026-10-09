@@ -1995,15 +1995,44 @@ int criu_local_restore_child(criu_opts *opts)
 
 	req.opts->has_rst_sibling = true;
 	req.opts->rst_sibling = true;
+	req.opts->has_rst_sibling_userns = true;
+	req.opts->rst_sibling_userns = true;
 
 	ret = send_req_and_recv_resp_sk(sk, opts, &req, &resp);
 
 	swrk_wait(opts);
 
+	if (!ret && resp->restore && resp->restore->has_userns_helper_pid) {
+		int status;
+		pid_t pid;
+
+		if (resp->restore->userns_helper_pid <= 0 ||
+		    resp->restore->userns_helper_pid == resp->restore->pid) {
+			saved_errno = EBADMSG;
+			ret = -EBADMSG;
+		} else {
+			do {
+				pid = waitpid(resp->restore->userns_helper_pid, &status, 0);
+			} while (pid < 0 && errno == EINTR);
+			if (pid < 0 && errno != ECHILD) {
+				saved_errno = errno;
+				ret = -errno;
+			} else if (pid > 0 && resp->success && (!WIFEXITED(status) || WEXITSTATUS(status))) {
+				saved_errno = ECHILD;
+				ret = -EBADE;
+			}
+		}
+		if (ret && resp->success && resp->restore->pid > 0) {
+			kill(resp->restore->pid, SIGKILL);
+			while (waitpid(resp->restore->pid, NULL, 0) < 0 && errno == EINTR)
+				;
+		}
+	}
 	if (!ret) {
 		ret = resp->success ? resp->restore->pid : -EBADE;
-		criu_resp__free_unpacked(resp, NULL);
 	}
+	if (resp)
+		criu_resp__free_unpacked(resp, NULL);
 
 	close(sk);
 	errno = saved_errno;
