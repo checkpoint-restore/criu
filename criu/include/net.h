@@ -30,8 +30,12 @@ struct veth_pair {
 extern int collect_net_namespaces(bool for_dump);
 
 extern int network_lock(void);
-extern void network_unlock(void);
+extern int network_unlock(void);
 extern int network_lock_internal(bool restore);
+extern int nftables_lock_network_internal(bool restore);
+extern int iptables_network_lock_internal(void);
+extern int nftables_network_unlock(void);
+extern int iptables_network_unlock_internal(void);
 
 extern struct ns_desc net_ns_desc;
 

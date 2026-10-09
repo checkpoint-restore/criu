@@ -755,6 +755,9 @@ static int collect_children(struct pstree_item *item)
 		if (ret < 0)
 			goto free;
 
+		if (creds.s.seccomp_suspend_failed)
+			opts.seccomp_suspend_failed = true;
+
 		/* Here is a recursive call (Depth-first search) */
 		ret = collect_task(c);
 		if (ret < 0)
@@ -943,6 +946,9 @@ static int collect_threads(struct pstree_item *item)
 		if (seccomp_collect_entry(pid, t_creds.s.seccomp_mode))
 			goto err;
 
+		if (t_creds.s.seccomp_suspend_failed)
+			opts.seccomp_suspend_failed = true;
+
 		if (ret == TASK_STOPPED) {
 			nr_stopped++;
 		}
@@ -1110,6 +1116,9 @@ int collect_pstree(void)
 	ret = seccomp_collect_entry(pid, creds.s.seccomp_mode);
 	if (ret < 0)
 		goto err;
+
+	if (creds.s.seccomp_suspend_failed)
+		opts.seccomp_suspend_failed = true;
 
 	ret = collect_task(root_item);
 	if (ret < 0)

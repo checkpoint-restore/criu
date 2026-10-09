@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ "$(id -u)" = 0 ] && [ -n "${SUDO_UID:-}" ] && [ -n "${SUDO_GID:-}" ]; then
+	command -v setpriv >/dev/null
+	setpriv --reuid "${SUDO_UID}" --regid "${SUDO_GID}" --clear-groups \
+		unshare --user --map-root-user true
+else
+	unshare --user --map-root-user true
+fi

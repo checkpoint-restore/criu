@@ -49,6 +49,7 @@
 #include "pstree.h"
 #include "sched.h"
 #include "mount-v2.h"
+#include "mount.h"
 
 #include "cr-errno.h"
 #include "action-scripts.h"
@@ -950,6 +951,48 @@ bool is_path_prefix(const char *path, const char *prefix)
 	return false;
 }
 
+bool in_noninitial_userns(void)
+{
+	unsigned long ns_id, parent_id, count;
+	char buf[128], *end;
+	int fd, len;
+
+	fd = open_proc(PROC_SELF, "uid_map");
+	if (fd < 0) {
+		pr_debug("Can't open self uid_map to check user namespace\n");
+		return false;
+	}
+
+	len = read(fd, buf, sizeof(buf) - 1);
+	close(fd);
+	if (len <= 0) {
+		pr_debug("Can't read self uid_map to check user namespace\n");
+		return false;
+	}
+	buf[len] = '\0';
+
+	errno = 0;
+	ns_id = strtoul(buf, &end, 10);
+	if (errno || end == buf) {
+		pr_debug("Can't parse namespace id from self uid_map: %s\n", buf);
+		return false;
+	}
+
+	parent_id = strtoul(end, &end, 10);
+	if (errno) {
+		pr_debug("Can't parse parent id from self uid_map: %s\n", buf);
+		return false;
+	}
+
+	count = strtoul(end, &end, 10);
+	if (errno) {
+		pr_debug("Can't parse id count from self uid_map: %s\n", buf);
+		return false;
+	}
+
+	return !(ns_id == 0 && parent_id == 0 && count == UINT_MAX);
+}
+
 FILE *fopenat(int dirfd, char *path, char *cflags)
 {
 	int tmp, flags = 0;
@@ -1147,12 +1190,12 @@ void fd_set_nonblocking(int fd, bool on)
 
 int make_yard(char *path)
 {
-	if (mount("none", path, "tmpfs", 0, NULL)) {
+	if (criu_mount_at("none", path, "tmpfs", 0, NULL)) {
 		pr_perror("Unable to mount tmpfs in %s", path);
 		return -1;
 	}
 
-	if (mount("none", path, NULL, MS_PRIVATE, NULL)) {
+	if (criu_mount_at("none", path, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Unable to mark yard as private");
 		return -1;
 	}
@@ -1523,7 +1566,7 @@ void rlimit_unlimit_nofile(void)
 {
 	struct rlimit new;
 
-	if (opts.unprivileged && !has_cap_sys_resource(opts.cap_eff))
+	if (in_noninitial_userns() || (opts.unprivileged && !has_cap_sys_resource(opts.cap_eff)))
 		return;
 
 	new.rlim_cur = kdat.sysctl_nr_open;

@@ -9,6 +9,7 @@
 #include "pid.h"
 #include "shmem.h"
 #include "image.h"
+#include "fault-injection.h"
 #include "cr_options.h"
 #include "kerndat.h"
 #include "stats.h"
@@ -791,6 +792,12 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 		unsigned long pgaddr;
 		int st = -1;
 
+		/*
+		 * When fd < 0, shmem is dumped from the mapped address because
+		 * map_files is not accessible. There is no file descriptor for
+		 * SEEK_DATA/SEEK_HOLE in that path, so sparse segments are dumped
+		 * as data instead of preserving hole metadata.
+		 */
 		if (fd >= 0 && pfn >= next_hole_pfn && next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
 			goto err_xfer;
 
@@ -861,7 +868,7 @@ static int dump_one_shmem(struct shmem_info *si)
 			goto errc;
 		}
 	} else {
-		if (errno != EPERM || !opts.unprivileged) {
+		if (errno != EPERM || !(opts.unprivileged || in_noninitial_userns())) {
 			goto err;
 		}
 
@@ -939,6 +946,7 @@ int dump_one_sysv_shmem(void *addr, unsigned long size, unsigned long shmid)
 {
 	int fd, ret;
 	struct shmem_info *si, det;
+	bool force_map_files_denied;
 
 	si = shmem_find(shmid);
 	if (!si) {
@@ -950,9 +958,23 @@ int dump_one_sysv_shmem(void *addr, unsigned long size, unsigned long shmid)
 		si = &det;
 	}
 
-	fd = open_proc(PROC_SELF, "map_files/%lx-%lx", (unsigned long)addr, (unsigned long)addr + si->size);
-	if (fd < 0)
+	force_map_files_denied = fault_injected(FI_SYSV_SHMEM_MAP_FILES_DENIED);
+	if (force_map_files_denied) {
+		pr_info("Forcing map_files denial for sysv shmem\n");
+		errno = EPERM;
+		fd = -1;
+	} else {
+		fd = open_proc(PROC_SELF, "map_files/%lx-%lx",
+			       (unsigned long)addr, (unsigned long)addr + si->size);
+	}
+	if (fd < 0) {
+		if (errno == EPERM &&
+		    (force_map_files_denied || opts.unprivileged || in_noninitial_userns())) {
+			pr_debug("Can't open map_files for sysv shmem, dumping from shmat address\n");
+			return do_dump_one_shmem(-1, addr, si);
+		}
 		return -1;
+	}
 
 	ret = do_dump_one_shmem(fd, addr, si);
 	close(fd);

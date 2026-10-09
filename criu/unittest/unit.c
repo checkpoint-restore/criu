@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sched.h>
+#include <sys/socket.h>
 #include <sys/mman.h>
 
 #include "log.h"
@@ -16,6 +17,7 @@
 #include "compression.h"
 #include "page.h"
 #include "pagemap.h"
+#include "broker.h"
 #include "cr_options.h"
 #include "plugin.h"
 
@@ -241,6 +243,26 @@ static void test_plugin_options(void)
 	assert(plugin_argv[1] == NULL);
 
 	cr_plugin_options_clear();
+}
+
+static void test_userns_broker_messages(void)
+{
+	struct {
+		int ret;
+		int err;
+	} sent = { -1, EPERM }, received = {};
+	int sk[2];
+
+	assert(socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sk) == 0);
+	assert(send_broker_msg(sk[0], &sent, sizeof(sent)) == 0);
+	assert(recv_broker_msg(sk[1], &received, sizeof(received)) == 0);
+	assert(memcmp(&sent, &received, sizeof(sent)) == 0);
+
+	close(sk[0]);
+	errno = 0;
+	assert(recv_broker_msg(sk[1], &received, sizeof(received)) == -1);
+	assert(errno == ECONNRESET);
+	close(sk[1]);
 }
 
 static void test_pagemap_offset_alignment(void)
@@ -681,6 +703,7 @@ int main(int argc, char *argv[], char *envp[])
 	test_bfd();
 	test_bwrite();
 	test_pagemap_offset_alignment();
+	test_userns_broker_messages();
 	test_plugin_dispatch_all();
 	test_plugin_options();
 

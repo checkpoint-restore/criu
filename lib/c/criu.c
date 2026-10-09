@@ -11,10 +11,13 @@
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
 
 #include "criu.h"
 #include "rpc.pb-c.h"
 #include "cr-service-const.h"
+#include "seccomp-flags.h"
 
 #define CR_DEFAULT_SERVICE_BIN "criu"
 
@@ -246,6 +249,7 @@ void criu_local_free_opts(criu_opts *opts)
 	free(opts->rpc->log_file);
 	free(opts->rpc->lsm_profile);
 	free(opts->rpc->lsm_mount_context);
+	free(opts->rpc->seccomp_bpf.data);
 	free(opts->rpc);
 	criu_free_service(opts);
 	free(opts);
@@ -1995,15 +1999,44 @@ int criu_local_restore_child(criu_opts *opts)
 
 	req.opts->has_rst_sibling = true;
 	req.opts->rst_sibling = true;
+	req.opts->has_rst_sibling_userns = true;
+	req.opts->rst_sibling_userns = true;
 
 	ret = send_req_and_recv_resp_sk(sk, opts, &req, &resp);
 
 	swrk_wait(opts);
 
+	if (!ret && resp->restore && resp->restore->has_userns_helper_pid) {
+		int status;
+		pid_t pid;
+
+		if (resp->restore->userns_helper_pid <= 0 ||
+		    resp->restore->userns_helper_pid == resp->restore->pid) {
+			saved_errno = EBADMSG;
+			ret = -EBADMSG;
+		} else {
+			do {
+				pid = waitpid(resp->restore->userns_helper_pid, &status, 0);
+			} while (pid < 0 && errno == EINTR);
+			if (pid < 0 && errno != ECHILD) {
+				saved_errno = errno;
+				ret = -errno;
+			} else if (pid > 0 && resp->success && (!WIFEXITED(status) || WEXITSTATUS(status))) {
+				saved_errno = ECHILD;
+				ret = -EBADE;
+			}
+		}
+		if (ret && resp->success && resp->restore->pid > 0) {
+			kill(resp->restore->pid, SIGKILL);
+			while (waitpid(resp->restore->pid, NULL, 0) < 0 && errno == EINTR)
+				;
+		}
+	}
 	if (!ret) {
 		ret = resp->success ? resp->restore->pid : -EBADE;
-		criu_resp__free_unpacked(resp, NULL);
 	}
+	if (resp)
+		criu_resp__free_unpacked(resp, NULL);
 
 	close(sk);
 	errno = saved_errno;
@@ -2293,4 +2326,51 @@ int criu_local_set_config_file(criu_opts *opts, const char *path)
 int criu_set_config_file(const char *path)
 {
 	return criu_local_set_config_file(global_opts, path);
+}
+
+int criu_local_set_seccomp_bpf(criu_opts *opts, void *bpf_data, size_t bpf_len)
+{
+	uint8_t *new;
+
+	if (!bpf_data || !bpf_len)
+		return -EINVAL;
+
+	if (bpf_len % sizeof(struct sock_filter))
+		return -EINVAL;
+
+	new = malloc(bpf_len);
+	if (!new)
+		return -ENOMEM;
+
+	memcpy(new, bpf_data, bpf_len);
+	free(opts->rpc->seccomp_bpf.data);
+	opts->rpc->seccomp_bpf.data = new;
+	opts->rpc->seccomp_bpf.len = bpf_len;
+	opts->rpc->has_seccomp_bpf = true;
+
+	return 0;
+}
+
+int criu_set_seccomp_bpf(void *bpf_data, size_t bpf_len)
+{
+	return criu_local_set_seccomp_bpf(global_opts, bpf_data, bpf_len);
+}
+
+int criu_local_set_seccomp_bpf_flags(criu_opts *opts, unsigned int flags)
+{
+	if (!opts->rpc->has_seccomp_bpf)
+		return -EINVAL;
+
+	if (flags & ~SUPPORTED_SECCOMP_FLAGS)
+		return -EINVAL;
+
+	opts->rpc->seccomp_bpf_flags = flags;
+	opts->rpc->has_seccomp_bpf_flags = true;
+
+	return 0;
+}
+
+int criu_set_seccomp_bpf_flags(unsigned int flags)
+{
+	return criu_local_set_seccomp_bpf_flags(global_opts, flags);
 }
