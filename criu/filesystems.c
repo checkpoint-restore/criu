@@ -19,6 +19,7 @@
 #include "util.h"
 #include "fs-magic.h"
 #include "tty.h"
+#include "external.h"
 
 #include "images/mnt.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
@@ -268,7 +269,12 @@ int binfmt_misc_dump_sandboxed(pid_t pid, BinfmtMiscEntry ***pb_bmes)
 		return 0;
 
 	if (!(root_ns_mask & CLONE_NEWUSER)) {
-		pr_err("PID %i is not in a sandbox\n", pid);
+		if (external_lookup_id("binfmt_misc")) {
+			pr_info("binfmt_misc is external, skipping dump for PID %i\n", pid);
+			return 0;
+		}
+		pr_err("PID %i is not in a binfmt_misc sandbox; use --external binfmt_misc if the caller owns this state\n",
+		       pid);
 		return -1;
 	}
 

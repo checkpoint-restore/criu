@@ -423,6 +423,7 @@ usage:
 	       "                            unix[ino]\n"
 	       "                            mnt[MOUNTPOINT]:COOKIE\n"
 	       "                            mnt[]{:AUTO_OPTIONS}\n"
+	       "                            binfmt_misc\n"
 	       "                        Formats of RES on restore:\n"
 	       "                            dev[NAME]:DEVPATH\n"
 	       "                            veth[IFNAME]:OUTNAME{@BRIDGE}\n"
