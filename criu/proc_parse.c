@@ -1429,6 +1429,10 @@ static int parse_mnt_flags(char *opt, unsigned *flags)
 			"relatime",
 			MS_RELATIME,
 		},
+		{
+			"nosymfollow",
+			MS_NOSYMFOLLOW,
+		},
 		{},
 	};
 

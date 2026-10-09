@@ -3159,7 +3159,8 @@ static int collect_mnt_from_image(struct mount_info **head, struct mount_info **
 		pm->sb_flags = me->sb_flags;
 		if (!me->has_sb_flags) {
 			const unsigned int mflags = MS_SHARED | MS_PRIVATE | MS_SLAVE | MS_UNBINDABLE | MS_NOSUID |
-						    MS_NODEV | MS_NOEXEC | MS_NOATIME | MS_NODIRATIME | MS_RELATIME;
+						    MS_NODEV | MS_NOEXEC | MS_NOATIME | MS_NODIRATIME | MS_RELATIME |
+						    MS_NOSYMFOLLOW;
 
 			/*
 			 * In old images mnt and sb flags are saved together.
