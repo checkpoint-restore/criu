@@ -44,6 +44,7 @@
 #include "kerndat.h"
 #include "util.h"
 #include "external.h"
+#include "fault-injection.h"
 #include "fdstore.h"
 #include "netfilter.h"
 #include "netns-broker.h"
@@ -3732,6 +3733,11 @@ static bool netns_fd_direct_roundtrip_works(int netns_fd)
 {
 	int old_netns_fd;
 	bool ret = false;
+
+	if (fault_injected(FI_NETNS_DIRECT_ROUNDTRIP_FAIL)) {
+		pr_info("Forcing direct netns roundtrip failure\n");
+		return false;
+	}
 
 	old_netns_fd = open_proc(PROC_SELF, "ns/net");
 	if (old_netns_fd < 0)
