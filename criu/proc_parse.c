@@ -1317,26 +1317,32 @@ struct opt2flag {
 	unsigned flag;
 };
 
-static bool sb_opt_cb(char *opt, char *unknown, size_t *uoff)
+static int sb_opt_cb(char *opt, char *unknown, size_t *uoff)
 {
 	unsigned int id;
+	uid_t uid;
+	gid_t gid;
 
 	if (sscanf(opt, "gid=%u", &id) == 1) {
-		*uoff += sprintf(unknown + *uoff, "gid=%u", userns_gid(id));
+		if (userns_mnt_opt_fixup_gid(id, &gid))
+			return -1;
+		*uoff += sprintf(unknown + *uoff, "gid=%u", gid);
 		unknown[*uoff] = ',';
 		(*uoff)++;
-		return true;
+		return 1;
 	} else if (sscanf(opt, "uid=%u", &id) == 1) {
-		*uoff += sprintf(unknown + *uoff, "uid=%u", userns_uid(id));
+		if (userns_mnt_opt_fixup_uid(id, &uid))
+			return -1;
+		*uoff += sprintf(unknown + *uoff, "uid=%u", uid);
 		unknown[*uoff] = ',';
 		(*uoff)++;
-		return true;
+		return 1;
 	}
-	return false;
+	return 0;
 }
 
 static int do_opt2flag(char *opt, unsigned *flags, const struct opt2flag *opts, char *unknown,
-		       bool (*cb)(char *opt, char *unknown, size_t *uoff))
+		       int (*cb)(char *opt, char *unknown, size_t *uoff))
 {
 	int i;
 	char *end;
@@ -1353,7 +1359,16 @@ static int do_opt2flag(char *opt, unsigned *flags, const struct opt2flag *opts, 
 				break;
 			}
 
-		if (opts[i].opt == NULL && cb && !cb(opt, unknown, &uoff)) {
+		if (opts[i].opt == NULL && cb) {
+			int ret = cb(opt, unknown, &uoff);
+
+			if (ret < 0)
+				return -1;
+			if (ret > 0)
+				goto next;
+		}
+
+		if (opts[i].opt == NULL) {
 			if (!unknown) {
 				pr_err("Unknown option [%s]\n", opt);
 				return -1;
@@ -1365,6 +1380,7 @@ static int do_opt2flag(char *opt, unsigned *flags, const struct opt2flag *opts, 
 			uoff++;
 		}
 
+next:
 		if (!end) {
 			if (uoff)
 				uoff--;
