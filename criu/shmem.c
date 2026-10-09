@@ -9,6 +9,7 @@
 #include "pid.h"
 #include "shmem.h"
 #include "image.h"
+#include "fault-injection.h"
 #include "cr_options.h"
 #include "kerndat.h"
 #include "stats.h"
@@ -945,6 +946,7 @@ int dump_one_sysv_shmem(void *addr, unsigned long size, unsigned long shmid)
 {
 	int fd, ret;
 	struct shmem_info *si, det;
+	bool force_map_files_denied;
 
 	si = shmem_find(shmid);
 	if (!si) {
@@ -956,10 +958,18 @@ int dump_one_sysv_shmem(void *addr, unsigned long size, unsigned long shmid)
 		si = &det;
 	}
 
-	fd = open_proc(PROC_SELF, "map_files/%lx-%lx", (unsigned long)addr, (unsigned long)addr + si->size);
+	force_map_files_denied = fault_injected(FI_SYSV_SHMEM_MAP_FILES_DENIED);
+	if (force_map_files_denied) {
+		pr_info("Forcing map_files denial for sysv shmem\n");
+		errno = EPERM;
+		fd = -1;
+	} else {
+		fd = open_proc(PROC_SELF, "map_files/%lx-%lx",
+			       (unsigned long)addr, (unsigned long)addr + si->size);
+	}
 	if (fd < 0) {
 		if (errno == EPERM &&
-		    (opts.unprivileged || in_noninitial_userns())) {
+		    (force_map_files_denied || opts.unprivileged || in_noninitial_userns())) {
 			pr_debug("Can't open map_files for sysv shmem, dumping from shmat address\n");
 			return do_dump_one_shmem(-1, addr, si);
 		}

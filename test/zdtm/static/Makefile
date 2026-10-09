@@ -285,6 +285,8 @@ TST_NOFILE	:=				\
 		rootless_mntns_broker		\
 		rootless_mntns_remount_flags	\
 		rootless_uts_rlimit		\
+		rootless_sysv_shmem		\
+		rootless_sysv_shmem_map_files_denied	\
 		netns_sub			\
 		netns_sub_veth			\
 		netns_sub_sysctl	\
