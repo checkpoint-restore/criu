@@ -791,6 +791,12 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 		unsigned long pgaddr;
 		int st = -1;
 
+		/*
+		 * When fd < 0, shmem is dumped from the mapped address because
+		 * map_files is not accessible. There is no file descriptor for
+		 * SEEK_DATA/SEEK_HOLE in that path, so sparse segments are dumped
+		 * as data instead of preserving hole metadata.
+		 */
 		if (fd >= 0 && pfn >= next_hole_pfn && next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
 			goto err_xfer;
 
@@ -861,7 +867,7 @@ static int dump_one_shmem(struct shmem_info *si)
 			goto errc;
 		}
 	} else {
-		if (errno != EPERM || !opts.unprivileged) {
+		if (errno != EPERM || !(opts.unprivileged || in_noninitial_userns())) {
 			goto err;
 		}
 
@@ -951,8 +957,14 @@ int dump_one_sysv_shmem(void *addr, unsigned long size, unsigned long shmid)
 	}
 
 	fd = open_proc(PROC_SELF, "map_files/%lx-%lx", (unsigned long)addr, (unsigned long)addr + si->size);
-	if (fd < 0)
+	if (fd < 0) {
+		if (errno == EPERM &&
+		    (opts.unprivileged || in_noninitial_userns())) {
+			pr_debug("Can't open map_files for sysv shmem, dumping from shmat address\n");
+			return do_dump_one_shmem(-1, addr, si);
+		}
 		return -1;
+	}
 
 	ret = do_dump_one_shmem(fd, addr, si);
 	close(fd);
