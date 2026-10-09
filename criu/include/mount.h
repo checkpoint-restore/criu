@@ -168,6 +168,9 @@ extern int open_mountpoint(struct mount_info *pm);
 
 extern struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump);
 extern int prepare_mnt_ns(void);
+extern int criu_mount_at(const char *src, const char *target, const char *fstype,
+			 unsigned long flags, const char *data);
+extern int criu_umount2_in_process(const char *target, int flags);
 
 extern int pivot_root(const char *new_root, const char *put_old);
 

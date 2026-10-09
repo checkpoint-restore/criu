@@ -49,6 +49,7 @@
 #include "pstree.h"
 #include "sched.h"
 #include "mount-v2.h"
+#include "mount.h"
 
 #include "cr-errno.h"
 #include "action-scripts.h"
@@ -1189,12 +1190,12 @@ void fd_set_nonblocking(int fd, bool on)
 
 int make_yard(char *path)
 {
-	if (mount("none", path, "tmpfs", 0, NULL)) {
+	if (criu_mount_at("none", path, "tmpfs", 0, NULL)) {
 		pr_perror("Unable to mount tmpfs in %s", path);
 		return -1;
 	}
 
-	if (mount("none", path, NULL, MS_PRIVATE, NULL)) {
+	if (criu_mount_at("none", path, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Unable to mark yard as private");
 		return -1;
 	}
