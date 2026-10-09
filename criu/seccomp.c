@@ -7,6 +7,7 @@
 #include "common/config.h"
 #include "cr_options.h"
 #include "external.h"
+#include "fault-injection.h"
 #include "imgset.h"
 #include "kcmp.h"
 #include "pstree.h"
@@ -384,6 +385,11 @@ int seccomp_read_image(void)
 {
 	struct cr_img *img;
 	int ret;
+
+	if (fault_injected(FI_SECCOMP_NO_IMAGE_FILTERS)) {
+		pr_info("Forcing restore without seccomp image filters\n");
+		return 0;
+	}
 
 	img = open_image(CR_FD_SECCOMP, O_RSTR);
 	if (!img)
