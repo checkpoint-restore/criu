@@ -1,6 +1,6 @@
 CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS) -fPIC
 
-BIN := cuda-checkpoint libcuda.so.1 unsupported/libcuda.so.1 cuda-device-map-test cuda-backend-guard-test
+BIN := cuda-checkpoint libcuda.so.1 unsupported/libcuda.so.1 cuda-device-map-test cuda-backend-guard-test untraced-clone-target dump_finish_failure.so
 SRC := cuda-checkpoint.c libcuda.c
 DEP	:= $(SRC:%.c=%.d)
 OBJ	:= $(SRC:%.c=%.o)
@@ -53,6 +53,14 @@ cuda-backend-guard-test: backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
 		../../compel/libcompel.a \
 		-Wl,--wrap,ptrace -ldl -pthread -o $@
+
+untraced-clone-target: untraced-clone-target.c
+	$(E) " LINK     " $@
+	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+
+dump_finish_failure.so: dump-finish-failure.c ../../criu/include/criu-plugin.h
+	$(E) " LINK     " $@
+	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) $(LDFLAGS) -shared -nostartfiles $< -o $@
 
 test: all
 	LD_LIBRARY_PATH="$(CURDIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-device-map-test
