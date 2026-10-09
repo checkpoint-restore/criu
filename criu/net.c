@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
@@ -55,6 +56,8 @@
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "net: "
+
+static bool netns_pid_direct_roundtrip_works(int target_pid);
 
 #ifndef IFLA_NEW_IFINDEX
 #define IFLA_NEW_IFINDEX 49
@@ -3438,7 +3441,7 @@ static inline FILE *redirect_nftables_output(struct nft_ctx *nft)
 }
 #endif
 
-static inline int nftables_lock_network_internal(bool restore)
+int nftables_lock_network_internal(bool restore)
 {
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 	cleanup_file FILE *fp = NULL;
@@ -3499,7 +3502,7 @@ err2:
 #endif
 }
 
-static int iptables_network_lock_internal(void)
+int iptables_network_lock_internal(void)
 {
 	char conf[] = "*filter\n"
 		      ":CRIU - [0:0]\n"
@@ -3531,6 +3534,9 @@ int network_lock_internal(bool restore)
 	if (opts.network_lock_method == NETWORK_LOCK_SKIP)
 		return 0;
 
+	if (!netns_pid_direct_roundtrip_works(root_item->pid->real))
+		return netns_broker_lock_network(root_item->pid->real, restore);
+
 	if (switch_ns(root_item->pid->real, &net_ns_desc, &nsret))
 		return -1;
 
@@ -3545,10 +3551,48 @@ int network_lock_internal(bool restore)
 	return ret;
 }
 
-static inline int nftables_network_unlock(void)
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+static int nftables_table_exists(const char *table)
+{
+	const char *tables;
+	struct nft_ctx *nft;
+	char needle[64];
+	int ret;
+
+	nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	if (!nft)
+		return -1;
+
+	if (nft_ctx_buffer_output(nft) || nft_ctx_buffer_error(nft)) {
+		pr_err("Failed to enable nftables output buffering\n");
+		nft_ctx_free(nft);
+		return -1;
+	}
+
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
+	ret = nft_run_cmd_from_buffer(nft, "list tables", strlen("list tables"));
+#else
+	ret = nft_run_cmd_from_buffer(nft, "list tables");
+#endif
+	if (ret) {
+		pr_err("Unable to list nftables tables\n");
+		nft_ctx_free(nft);
+		return -1;
+	}
+
+	tables = nft_ctx_get_output_buffer(nft);
+	snprintf(needle, sizeof(needle), "table %s\n", table);
+	ret = tables && strstr(tables, needle) ? 1 : 0;
+
+	nft_ctx_free(nft);
+	return ret;
+}
+#endif
+
+int nftables_network_unlock(void)
 {
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
-	int ret = 0;
+	int ret = 0, exists;
 	cleanup_file FILE *fp = NULL;
 	struct nft_ctx *nft;
 	char table[NFTABLES_TABLE_NAME_LEN];
@@ -3556,6 +3600,10 @@ static inline int nftables_network_unlock(void)
 
 	if (nftables_get_table(table, sizeof(table)))
 		return -1;
+
+	exists = nftables_table_exists(table);
+	if (exists <= 0)
+		return exists < 0 ? -1 : -ENOENT;
 
 	nft = nft_ctx_new(NFT_CTX_DEFAULT);
 	if (!nft)
@@ -3593,7 +3641,7 @@ static bool iptables_has_criu_jump_target(void)
 	return !ret;
 }
 
-static int iptables_network_unlock_internal(void)
+int iptables_network_unlock_internal(void)
 {
 	char delete_jump_targets[] = "*filter\n"
 				     ":CRIU - [0:0]\n"
@@ -3635,6 +3683,15 @@ static int network_unlock_internal(void)
 	if (opts.network_lock_method == NETWORK_LOCK_SKIP)
 		return 0;
 
+	if (!netns_pid_direct_roundtrip_works(root_item->pid->real)) {
+		ret = netns_broker_unlock_network(root_item->pid->real);
+		if (ret == -ENOENT) {
+			pr_info("net: network lock already absent during unlock\n");
+			return 0;
+		}
+		return ret;
+	}
+
 	if (switch_ns(root_item->pid->real, &net_ns_desc, &nsret))
 		return -1;
 
@@ -3666,20 +3723,29 @@ int network_lock(void)
 	return network_lock_internal(false);
 }
 
-void network_unlock(void)
+int network_unlock(void)
 {
+	int ret = 0;
+
 	pr_info("Unlock network\n");
 
 	cpt_unlock_tcp_connections();
 	rst_unlock_tcp_connections();
 
 	if (root_ns_mask & CLONE_NEWNET) {
-		/* coverity[check_return] */
-		run_scripts(ACT_NET_UNLOCK);
-		network_unlock_internal();
+		ret = run_scripts(ACT_NET_UNLOCK);
+		if (network_unlock_internal())
+			ret = -1;
 	} else if (opts.network_lock_method == NETWORK_LOCK_NFTABLES) {
-		nftables_network_unlock();
+		ret = nftables_network_unlock();
 	}
+
+	if (ret == -ENOENT) {
+		pr_info("net: network lock already absent during unlock\n");
+		return 0;
+	}
+
+	return ret;
 }
 
 int veth_pair_add(char *in, char *out)
@@ -3727,6 +3793,11 @@ static int open_netns_fd(struct ns_id *ns)
 	}
 
 	return do_open_proc(ns->ns_pid, O_RDONLY, "ns/net");
+}
+
+static int open_netns_pid_fd(int pid)
+{
+	return do_open_proc(pid, O_RDONLY, "ns/net");
 }
 
 static bool netns_fd_direct_roundtrip_works(int netns_fd)
@@ -3783,6 +3854,37 @@ static bool netns_direct_roundtrip_works(struct ns_id *ns)
 
 	if (waitpid(pid, &status, 0) < 0) {
 		pr_perror("net: can't wait netns roundtrip probe");
+		return false;
+	}
+
+	return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static bool netns_pid_direct_roundtrip_works(int target_pid)
+{
+	int pid, status;
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("net: can't fork pid netns roundtrip probe");
+		return false;
+	}
+
+	if (pid == 0) {
+		int netns_fd = -1;
+
+		netns_fd = open_netns_pid_fd(target_pid);
+		if (netns_fd < 0)
+			_exit(1);
+
+		if (!netns_fd_direct_roundtrip_works(netns_fd))
+			_exit(1);
+
+		_exit(0);
+	}
+
+	if (waitpid(pid, &status, 0) < 0) {
+		pr_perror("net: can't wait pid netns roundtrip probe");
 		return false;
 	}
 

@@ -23,5 +23,7 @@ struct netns_broker_resp {
 
 extern int netns_broker_prep(const struct ns_id *ns, bool for_dump,
 			     struct netns_broker_resp *resp);
+extern int netns_broker_lock_network(int pid, bool restore);
+extern int netns_broker_unlock_network(int pid);
 
 #endif /* __CR_NETNS_BROKER_H__ */
