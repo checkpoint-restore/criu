@@ -48,6 +48,7 @@ obj-y			+= namespaces.o
 obj-y			+= asyncd.o
 obj-y			+= netfilter.o
 obj-y			+= net.o
+obj-y			+= netns-broker.o
 obj-y			+= userns-broker.o
 obj-y			+= pagemap-cache.o
 obj-y			+= page-pipe.o
