@@ -2282,6 +2282,8 @@ static int ipv4_sysctls_op(SysctlEntry ***rsysctl, size_t *pn, int op)
 
 	if (opts.weak_sysctls || op == CTL_READ)
 		flags = CTL_FLAGS_OPTIONAL;
+	if (op == CTL_WRITE && userns_join_ns_requested() && in_noninitial_userns())
+		flags |= CTL_FLAGS_WRITE_USERNS_SKIP;
 
 	for (i = 0, ri = 0; i < n; i++) {
 		snprintf(path[ri], MAX_IPV4_SYSCTL_PATH, IPV4_SYSCTL_FMT, ipv4_sysctl_entries[i]);
