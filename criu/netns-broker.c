@@ -17,6 +17,7 @@
 #include "cr_options.h"
 #include "external.h"
 #include "fdstore.h"
+#include "fault-injection.h"
 #include "kerndat.h"
 #include "log.h"
 #include "lsm.h"
@@ -373,7 +374,15 @@ int netns_broker_unlock_network(int pid)
 		if (broker_enter_userns_netns(pid, "unlock"))
 			goto child_err;
 
-		if (opts.network_lock_method == NETWORK_LOCK_NFTABLES) {
+		if (fault_injected(FI_NETNS_BROKER_UNLOCK_ABSENT)) {
+			if (opts.network_lock_method == NETWORK_LOCK_NFTABLES && nftables_network_unlock())
+				pr_warn("netns broker unlock: failed to remove lock before absent fault\n");
+			pr_info("netns broker unlock: forcing already-absent lock state\n");
+			msg.ret = -ENOENT;
+		} else if (fault_injected(FI_NETNS_BROKER_UNLOCK_FAIL)) {
+			pr_info("netns broker unlock: forcing unlock failure\n");
+			msg.ret = -EIO;
+		} else if (opts.network_lock_method == NETWORK_LOCK_NFTABLES) {
 			msg.ret = nftables_network_unlock();
 		} else if (opts.network_lock_method == NETWORK_LOCK_IPTABLES) {
 			msg.ret = iptables_network_unlock_internal();

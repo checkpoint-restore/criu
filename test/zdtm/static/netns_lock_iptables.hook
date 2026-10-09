@@ -153,4 +153,7 @@ if sys.argv[1] == "--clean":
     # Delete test netns
     subprocess.Popen(["ip", "netns", "delete", NETNS]).wait()
     # Delete sync file
-    os.remove(SYNCFILE)
+    try:
+        os.remove(SYNCFILE)
+    except FileNotFoundError:
+        pass

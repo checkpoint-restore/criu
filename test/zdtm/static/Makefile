@@ -271,6 +271,9 @@ TST_NOFILE	:=				\
 		pipe03				\
 		netns_lock_iptables			\
 		netns_lock_nftables			\
+		netns_lock_broker_nftables		\
+		netns_lock_broker_unlock_absent_nftables	\
+		netns_lock_broker_unlock_fail_nftables	\
 		net_lock_socket_iptables		\
 		net_lock_socket_iptables6		\
 		net_lock_socket_nftables		\

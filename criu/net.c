@@ -3805,7 +3805,9 @@ static bool netns_fd_direct_roundtrip_works(int netns_fd)
 	int old_netns_fd;
 	bool ret = false;
 
-	if (fault_injected(FI_NETNS_DIRECT_ROUNDTRIP_FAIL)) {
+	if (fault_injected(FI_NETNS_DIRECT_ROUNDTRIP_FAIL) ||
+	    fault_injected(FI_NETNS_BROKER_UNLOCK_ABSENT) ||
+	    fault_injected(FI_NETNS_BROKER_UNLOCK_FAIL)) {
 		pr_info("Forcing direct netns roundtrip failure\n");
 		return false;
 	}

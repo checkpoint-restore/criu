@@ -8,6 +8,8 @@ enum faults fi_strategy;
 
 static const char *fault_names[FI_MAX] = {
 	[FI_NETNS_DIRECT_ROUNDTRIP_FAIL] = "FI_NETNS_DIRECT_ROUNDTRIP_FAIL",
+	[FI_NETNS_BROKER_UNLOCK_ABSENT] = "FI_NETNS_BROKER_UNLOCK_ABSENT",
+	[FI_NETNS_BROKER_UNLOCK_FAIL] = "FI_NETNS_BROKER_UNLOCK_FAIL",
 };
 
 static enum faults fault_by_name(const char *name)
