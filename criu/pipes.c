@@ -21,6 +21,7 @@
 #include "images/pipe-data.pb-c.h"
 #include "fcntl.h"
 #include "namespaces.h"
+#include "fault-injection.h"
 
 static LIST_HEAD(pipes);
 
@@ -157,6 +158,10 @@ static bool pipe_resize_denied_in_userns(void)
 
 static int set_pipe_size(int fd, int size)
 {
+	if (fault_injected(FI_PIPE_RESIZE_DENIED)) {
+		errno = EPERM;
+		return -1;
+	}
 
 	return fcntl(fd, F_SETPIPE_SZ, size);
 }

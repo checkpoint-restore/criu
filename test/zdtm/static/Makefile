@@ -270,6 +270,7 @@ TST_NOFILE	:=				\
 		uffd-events			\
 		thread_different_uid_gid	\
 		pipe03				\
+		rootless_pipe_resize_denied	\
 		netns_lock_iptables			\
 		netns_lock_nftables			\
 		netns_lock_broker_nftables		\
