@@ -5,6 +5,7 @@ TESTS += test_self
 TESTS += test_notify
 TESTS += test_rpc_config
 TESTS += test_rpc_join_ns_errors
+TESTS += test_rpc_seccomp_bpf
 TESTS += test_iters
 TESTS += test_errno
 TESTS += test_join_ns

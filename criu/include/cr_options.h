@@ -208,6 +208,9 @@ struct cr_options {
 	bool lazy_pages;
 	char *work_dir;
 	int network_lock_method;
+	void *seccomp_bpf;
+	size_t seccomp_bpf_len;
+	unsigned int seccomp_bpf_flags;
 	int skip_file_rwx_check;
 	int allow_uprobes;
 

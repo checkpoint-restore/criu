@@ -172,6 +172,8 @@ message criu_opts {
 	optional bool			stream			= 78;
 	/* The caller reaps userns_helper_pid returned by sibling restore. */
 	optional bool			rst_sibling_userns	= 79;
+	optional bytes			seccomp_bpf		= 80;
+	optional uint32			seccomp_bpf_flags	= 81;
 /*	optional bool			check_mounts		= 128;	*/
 }
 

@@ -5,6 +5,8 @@
 #include <ptrace.h>
 
 #include "common/config.h"
+#include "cr_options.h"
+#include "external.h"
 #include "imgset.h"
 #include "kcmp.h"
 #include "pstree.h"
@@ -120,7 +122,8 @@ int seccomp_dump_thread(pid_t tid_real, ThreadCoreEntry *thread_core)
 		thread_core->has_seccomp_mode = true;
 		thread_core->seccomp_mode = entry->mode;
 
-		if (entry->mode == SECCOMP_MODE_FILTER) {
+		if (entry->mode == SECCOMP_MODE_FILTER &&
+		    (entry->nr_chains > 0 || (!opts.unprivileged && !in_noninitial_userns()))) {
 			thread_core->has_seccomp_filter = true;
 			thread_core->seccomp_filter = entry->img_filter_pos;
 		}
@@ -145,10 +148,21 @@ static int collect_filter(struct seccomp_entry *entry)
 		if (len < 0) {
 			if (errno == ENOENT) {
 				break;
-			} else {
-				pr_perror("Can't fetch filter on tid_real %d i %zu", entry->tid_real, i);
-				return -1;
 			}
+			if ((errno == EPERM || errno == EACCES) && i == 0 && !entry->nr_chains &&
+			    external_lookup_id("seccomp")) {
+				/*
+				 * The caller explicitly owns the filter replacement.
+				 * No original BPF chain has been collected, so restore
+				 * needs an externally supplied program for filter mode.
+				 */
+				pr_warn("Can't fetch seccomp filter on tid_real %d: "
+					"skipping BPF dump because seccomp is external\n",
+					entry->tid_real);
+				return 0;
+			}
+			pr_perror("Can't fetch filter on tid_real %d i %zu", entry->tid_real, i);
+			return -1;
 		}
 
 		if (meta) {
@@ -157,6 +171,9 @@ static int collect_filter(struct seccomp_entry *entry)
 			if (ptrace(PTRACE_SECCOMP_GET_METADATA, entry->tid_real, sizeof(*meta), meta) < 0) {
 				if (errno == EIO) {
 					/* Old kernel, no METADATA support */
+					meta = NULL;
+				} else if ((opts.unprivileged || in_noninitial_userns()) &&
+					   (errno == EPERM || errno == EACCES)) {
 					meta = NULL;
 				} else {
 					pr_perror("Can't fetch seccomp metadata on tid_real %d pos %zu",
@@ -431,6 +448,61 @@ int seccomp_prepare_threads(struct pstree_item *item, struct task_restore_args *
 
 		if (args->seccomp_mode != SECCOMP_MODE_FILTER)
 			continue;
+
+		if (!seccomp_img_entry || !seccomp_img_entry->n_seccomp_filters ||
+		    !thread_core->has_seccomp_filter) {
+			if (opts.seccomp_bpf && opts.seccomp_bpf_len) {
+				/*
+				 * External BPF is supplied as a single blob
+				 * (one sock_fprog) by the runtime. If dump
+				 * could not read the original filter bytes,
+				 * multi-filter stacks are collapsed to this
+				 * single externally-provided filter.
+				 */
+				static bool warned_extern_bpf_collapse;
+
+				filters_size = opts.seccomp_bpf_len;
+				nr_filters = 1;
+
+				if (!warned_extern_bpf_collapse) {
+					pr_warn("External seccomp BPF: original filter count unknown "
+						"(ptrace blocked), multi-filter stacks collapsed to 1\n");
+					warned_extern_bpf_collapse = true;
+				}
+
+				args->seccomp_filters_n = nr_filters;
+
+				rst_size = filters_size +
+					   nr_filters * sizeof(struct thread_seccomp_filter);
+				args->seccomp_filters_pos = rst_mem_align_cpos(RM_PRIVATE);
+				args->seccomp_filters = rst_mem_alloc(rst_size, RM_PRIVATE);
+				if (!args->seccomp_filters) {
+					pr_err("Can't allocate %zu bytes for external seccomp BPF on tid %d\n",
+					       rst_size, item->threads[i].ns[0].virt);
+					return -ENOMEM;
+				}
+				args->seccomp_filters_data = (void *)args->seccomp_filters +
+							    nr_filters * sizeof(struct thread_seccomp_filter);
+
+				args->seccomp_filters[0].sock_fprog.len =
+					opts.seccomp_bpf_len / sizeof(struct sock_filter);
+				args->seccomp_filters[0].sock_fprog.filter =
+					args->seccomp_filters_data;
+				args->seccomp_filters[0].flags = opts.seccomp_bpf_flags;
+
+				memcpy(args->seccomp_filters_data, opts.seccomp_bpf,
+				       opts.seccomp_bpf_len);
+
+				pr_info("Using externally-provided seccomp BPF (%u insns, flags 0x%x) for tid %d\n",
+					args->seccomp_filters[0].sock_fprog.len,
+					opts.seccomp_bpf_flags,
+					item->threads[i].ns[0].virt);
+				continue;
+			}
+			pr_err("Filter mode on tid %d but no BPF in image or RPC request\n",
+			       item->threads[i].ns[0].virt);
+			return -1;
+		}
 
 		if (thread_core->seccomp_filter >= seccomp_img_entry->n_seccomp_filters) {
 			pr_err("Corrupted filter index on tid %d (%u > %zu)\n", item->threads[i].ns[0].virt,

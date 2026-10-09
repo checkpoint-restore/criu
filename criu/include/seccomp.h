@@ -4,6 +4,7 @@
 #include <linux/seccomp.h>
 #include <linux/filter.h>
 
+#include "seccomp-flags.h"
 #include "images/seccomp.pb-c.h"
 #include "images/core.pb-c.h"
 
@@ -21,10 +22,6 @@
 
 #ifndef SECCOMP_SET_MODE_FILTER
 #define SECCOMP_SET_MODE_FILTER 1
-#endif
-
-#ifndef SECCOMP_FILTER_FLAG_TSYNC
-#define SECCOMP_FILTER_FLAG_TSYNC 1
 #endif
 
 struct thread_restore_args;
