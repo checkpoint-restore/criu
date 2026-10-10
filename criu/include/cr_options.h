@@ -273,6 +273,12 @@ struct cr_options {
 	 * number of concurrent page-read threads.
 	 */
 	unsigned int premap_threads;
+	/*
+	 * Place premapped private VMAs of at least 2 MiB on a 2 MiB boundary
+	 * and madvise(MADV_HUGEPAGE) them so the restore task populates them
+	 * with transparent huge pages (physically contiguous backing).
+	 */
+	int premap_hugepage;
 
 	/* This stores which method to use for file validation. */
 	int file_validation_method;

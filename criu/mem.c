@@ -943,11 +943,14 @@ void prepare_cow_vmas(void)
 }
 
 /* Map a private vma, if it is not mapped by a parent yet */
+#define PREMAP_HPAGE_SIZE (2UL << 20)
+
 static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void **tgt_addr)
 {
 	int ret;
 	void *addr;
 	unsigned long nr_pages, size;
+	bool want_thp = false;
 
 	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 	vma->page_bitmap = xzalloc(BITS_TO_LONGS(nr_pages) * sizeof(long));
@@ -969,6 +972,19 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		 * The respective memory area was NOT found in the parent.
 		 * Map a new one.
 		 */
+
+		/*
+		 * Large anonymous private VMAs: start them on a 2 MiB boundary
+		 * inside the reserved area so the kernel can back them with
+		 * transparent huge pages while the restore task populates them.
+		 */
+		if (opts.premap_hugepage && size >= PREMAP_HPAGE_SIZE &&
+		    !(vma->e->flags & MAP_HUGETLB) && !vma_area_is(vma, VMA_FILE_PRIVATE) &&
+		    !(vma->e->prot == PROT_NONE && vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE))) {
+			*tgt_addr = (void *)(((unsigned long)*tgt_addr + PREMAP_HPAGE_SIZE - 1) &
+					     ~(PREMAP_HPAGE_SIZE - 1));
+			want_thp = true;
+		}
 
 		/*
 		 * Restore AIO ring buffer content to temporary anonymous area.
@@ -1008,6 +1024,8 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 			pr_perror("Unable to map ANON_VMA");
 			return -1;
 		}
+		if (want_thp && madvise(addr, size, MADV_HUGEPAGE))
+			pr_warn("Can't advise MADV_HUGEPAGE on %p(%lx): %s\n", addr, size, strerror(errno));
 	} else {
 		void *paddr;
 
@@ -1523,23 +1541,33 @@ int prepare_mappings(struct pstree_item *t)
 
 	void *old_premmapped_addr = NULL;
 	unsigned long old_premmapped_len;
+	unsigned long rsv_size;
 
 	vmas = &rsti(t)->vmas;
 	if (vmas->nr == 0) /* Zombie */
 		goto out;
 
-	/* Reserve a place for mapping private vma-s one by one */
-	addr = mmap(NULL, vmas->rst_priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	/*
+	 * Reserve a place for mapping private vma-s one by one. With
+	 * --premap-hugepage every VMA may be bumped forward to a 2 MiB
+	 * boundary, so reserve up to one huge page of slack per VMA; the
+	 * unused tail is unmapped below and the PIE restorer unmaps the
+	 * whole area (gaps included) after moving the VMAs into place.
+	 */
+	rsv_size = vmas->rst_priv_size;
+	if (opts.premap_hugepage)
+		rsv_size += (unsigned long)vmas->nr * PREMAP_HPAGE_SIZE;
+	addr = mmap(NULL, rsv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (addr == MAP_FAILED) {
 		ret = -1;
-		pr_perror("Unable to reserve memory (%lu bytes)", vmas->rst_priv_size);
+		pr_perror("Unable to reserve memory (%lu bytes)", rsv_size);
 		goto out;
 	}
 
 	old_premmapped_addr = rsti(t)->premmapped_addr;
 	old_premmapped_len = rsti(t)->premmapped_len;
 	rsti(t)->premmapped_addr = addr;
-	rsti(t)->premmapped_len = vmas->rst_priv_size;
+	rsti(t)->premmapped_len = rsv_size;
 
 	ret = open_page_read(vpid(t), &pr, PR_TASK);
 	if (ret <= 0)

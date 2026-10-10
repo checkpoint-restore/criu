@@ -772,6 +772,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "decompress-threads", required_argument, 0, 1104 },
 		{ "plugin-option", required_argument, 0, 1105 },
 		{ "premap-threads", required_argument, 0, 1106 },
+		BOOL_OPT("premap-hugepage", &opts.premap_hugepage),
 		{},
 	};
 
