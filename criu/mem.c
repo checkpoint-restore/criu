@@ -981,8 +981,22 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		if (opts.premap_hugepage && size >= PREMAP_HPAGE_SIZE &&
 		    !(vma->e->flags & MAP_HUGETLB) && !vma_area_is(vma, VMA_FILE_PRIVATE) &&
 		    !(vma->e->prot == PROT_NONE && vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE))) {
-			*tgt_addr = (void *)(((unsigned long)*tgt_addr + PREMAP_HPAGE_SIZE - 1) &
-					     ~(PREMAP_HPAGE_SIZE - 1));
+			/*
+			 * Keep the target's 2 MiB phase, not a bare 2 MiB
+			 * alignment: the PIE restorer mremap()s the premapped
+			 * VMA to vma->e->start, and the kernel only moves a
+			 * huge PMD intact when the old and new addresses are
+			 * both PMD-aligned at that point. With equal phase the
+			 * whole aligned interior survives the move; with a
+			 * mismatch every PMD is split back to base pages.
+			 */
+			unsigned long phase = vma->e->start & (PREMAP_HPAGE_SIZE - 1);
+			unsigned long cur = (unsigned long)*tgt_addr;
+			unsigned long cand = (cur & ~(PREMAP_HPAGE_SIZE - 1)) + phase;
+
+			if (cand < cur)
+				cand += PREMAP_HPAGE_SIZE;
+			*tgt_addr = (void *)cand;
 			want_thp = true;
 		}
 
