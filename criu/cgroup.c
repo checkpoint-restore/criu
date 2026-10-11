@@ -50,6 +50,8 @@ struct cg_set {
 static LIST_HEAD(cg_sets);
 static unsigned int n_sets;
 static CgSetEntry **rst_sets;
+/* The set criu was in on dump, if made up on restore, see add_criu_rst_set(). */
+static CgSetEntry *criu_rst_set;
 static unsigned int n_controllers;
 static CgControllerEntry **controllers;
 static char *cg_yard;
@@ -1597,22 +1599,20 @@ static bool has_own_cgns(struct pstree_item *root_task, CgSetEntry *se)
 	return has_cgns_prefix(se);
 }
 
-/*
- * In the CG_MODE_IGNORE mode we do not deal with cgroups at all, relying
- * on the caller (e.g. a container runtime) to have placed us into the
- * proper cgroup, which the restored tasks inherit.
- *
- * A cgroup namespace, though, can not be set up by the caller: unshare()
- * pins the namespace root to the cgroup of the calling task, so it has to
- * be done by the very process the restored tasks are forked from, i.e.
- * here. As the caller has already put us into the right cgroup, no moving
- * around is needed -- a plain unshare() is sufficient.
- */
-static int prepare_cgns_ignore(struct pstree_item *root_task)
+int prepare_cgroup_namespace(struct pstree_item *root_task)
 {
 	CgSetEntry *se;
+	int ret;
 
-	/* See the comment in prepare_cgroup_namespace() about --unprivileged. */
+	if (root_task->parent) {
+		pr_err("Expecting root_task to restore cgroup namespace\n");
+		return -1;
+	}
+
+	/*
+	 * In case of --unprivileged we don't even have the root cgset here,
+	 * so rely on the criu caller to prepare proper cgset/cgns for us.
+	 */
 	if (!rsti(root_task)->cg_set) {
 		pr_info("Cgroup namespace inherited from parent\n");
 		return 0;
@@ -1624,50 +1624,56 @@ static int prepare_cgns_ignore(struct pstree_item *root_task)
 		return 0;
 	}
 
-	pr_info("Creating cgns rooted at the current cgroup\n");
-	if (unshare(CLONE_NEWCGROUP) < 0) {
-		pr_perror("couldn't unshare cgns");
-		return -1;
-	}
-
-	return 0;
-}
-
-int prepare_cgroup_namespace(struct pstree_item *root_task)
-{
-	CgSetEntry *se;
-
-	if (root_task->parent) {
-		pr_err("Expecting root_task to restore cgroup namespace\n");
-		return -1;
-	}
-
-	if (opts.manage_cgroups == CG_MODE_IGNORE)
-		return prepare_cgns_ignore(root_task);
-
 	/*
-	 * If on dump all dumped tasks are in same cgset with criu we don't
-	 * dump cgsets and thus cgroup namespaces and rely that on restore
-	 * criu caller would prepare proper cgset/cgns for us. Also in case
-	 * of --unprivileged we don't even have the root cgset here.
+	 * In the CG_MODE_IGNORE mode we do not deal with cgroups at all,
+	 * relying on the caller (e.g. a container runtime) to have placed us
+	 * into the proper cgroup, which the restored tasks inherit.
+	 *
+	 * A cgroup namespace, though, can not be set up by the caller:
+	 * unshare() pins the namespace root to the cgroup of the calling
+	 * task, so it has to be done by the very process the restored tasks
+	 * are forked from, i.e. here. As the caller has already put us into
+	 * the right cgroup, no moving around is needed -- a plain unshare()
+	 * is sufficient.
 	 */
-	if (!rsti(root_task)->cg_set || rsti(root_task)->cg_set == root_cg_set) {
-		pr_info("Cgroup namespace inherited from parent\n");
+	if (opts.manage_cgroups == CG_MODE_IGNORE) {
+		pr_info("Creating cgns rooted at the current cgroup\n");
+		if (unshare(CLONE_NEWCGROUP) < 0) {
+			pr_perror("couldn't unshare cgns");
+			return -1;
+		}
 		return 0;
 	}
 
-	se = find_rst_set_by_id(rsti(root_task)->cg_set);
-	if (!se) {
+	if (!se && rsti(root_task)->cg_set != root_cg_set) {
 		pr_err("No set %d found\n", rsti(root_task)->cg_set);
 		return -1;
 	}
 
-	if (!has_own_cgns(root_task, se)) {
-		pr_info("Cgroup namespace inherited from parent\n");
+	/*
+	 * Older criu does not dump the cgset it is in, even if the root task
+	 * is in it and has a cgroup namespace of its own, so there is no way
+	 * to find out where the namespace root was. Such a set is either
+	 * missing, or made up from the cgroups criu is in now.
+	 */
+	if (!se || se == criu_rst_set) {
+		pr_warn("The cgroup set criu was in on dump is not in the image, "
+			"inheriting the cgroup namespace\n");
 		return 0;
 	}
 
-	if (prepare_cgns(se) < 0) {
+	ret = prepare_cgns(se);
+	/*
+	 * If the root task is in the same cgset as criu was on dump,
+	 * restore_task_cgroup() is not going to move it anywhere, so move
+	 * it into the set here. Staying in the cgroups criu is in now is
+	 * not an option, as they are not necessarily inside the namespace
+	 * root, which is set by the image (and --cgroup-root), not by them.
+	 */
+	if (!ret && rsti(root_task)->cg_set == root_cg_set)
+		ret = move_in_cgroup(se);
+
+	if (ret < 0) {
 		pr_err("failed preparing cgns\n");
 		return -1;
 	}
@@ -2723,6 +2729,7 @@ static int add_criu_rst_set(void)
 		goto err;
 	rst_sets = sets;
 	rst_sets[n_sets++] = se;
+	criu_rst_set = se;
 	pr_info("Made up set %d criu was in on dump from its current cgroups\n", se->id);
 	ret = 0;
 out:
