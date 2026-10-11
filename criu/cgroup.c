@@ -832,6 +832,15 @@ static int collect_cgroups(struct list_head *ctls)
 	return 0;
 }
 
+/*
+ * CRIU's set is not needed on restore, unless the root task is in it
+ * and has a cgroup namespace of its own, which is to be restored from it.
+ */
+static bool need_criu_cgset(void)
+{
+	return root_cgset == criu_cgset && (root_ns_mask & CLONE_NEWCGROUP);
+}
+
 int dump_thread_cgroup(const struct pstree_item *item, u32 *cg_id, struct parasite_dump_cgroup_args *args, int id)
 {
 	int pid, tid;
@@ -869,6 +878,16 @@ int dump_thread_cgroup(const struct pstree_item *item, u32 *cg_id, struct parasi
 			if (!root_cgset) {
 				root_cgset = cs;
 				pr_info("Set %d is root one\n", cs->id);
+				/*
+				 * Unlike the other sets, CRIU's one is created
+				 * with the collection disabled, and the root
+				 * task has just found it existing. Collect it
+				 * here, before any of the descendant sets, so
+				 * that its cgroups become their parents rather
+				 * than another set of controller roots.
+				 */
+				if (need_criu_cgset() && collect_cgroups(&cs->ctls))
+					return -1;
 			}
 		} else {
 			struct cg_ctl *root, *stray;
@@ -1092,10 +1111,11 @@ static int dump_sets(CgroupEntry *cg)
 	void *m;
 	CgSetEntry *se;
 	CgMemberEntry *ce;
+	bool skip_criu = !need_criu_cgset();
 
-	pr_info("Dumping %d sets\n", n_sets - 1);
+	cg->n_sets = skip_criu ? n_sets - 1 : n_sets;
+	pr_info("Dumping %zu sets\n", cg->n_sets);
 
-	cg->n_sets = n_sets - 1;
 	m = xmalloc(cg->n_sets * (sizeof(CgSetEntry *) + sizeof(CgSetEntry)));
 	cg->sets = m;
 	se = m + cg->n_sets * sizeof(CgSetEntry *);
@@ -1104,7 +1124,7 @@ static int dump_sets(CgroupEntry *cg)
 
 	s = 0;
 	list_for_each_entry(set, &cg_sets, l) {
-		if (set == criu_cgset)
+		if (skip_criu && set == criu_cgset)
 			continue;
 
 		/*
@@ -1160,7 +1180,7 @@ int dump_cgroups(void)
 	 * we're not dumping anything here.
 	 */
 
-	if (root_cgset == criu_cgset && list_is_singular(&cg_sets)) {
+	if (root_cgset == criu_cgset && list_is_singular(&cg_sets) && !need_criu_cgset()) {
 		pr_info("All tasks in criu's cgroups. Nothing to dump.\n");
 		return 0;
 	}
