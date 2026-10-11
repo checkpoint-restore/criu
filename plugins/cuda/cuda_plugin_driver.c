@@ -8,19 +8,20 @@
 #include "pid.h"
 #include "proc_parse.h"
 #include "seize.h"
+#include "cuda_wait.h"
 
 #include <common/list.h>
 #include <compel/infect.h>
 
 #include <dlfcn.h>
 #include <limits.h>
-#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/ptrace.h>
+#include <sys/eventfd.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -462,16 +463,17 @@ struct cuda_operation_work {
 	int pid;
 	int restore_tid;
 	int exit_code;
+	int notify_fd;
 	atomic_bool done;
 	/* The worker could not send SIGSTOP; the tracer must stop the thread. */
 	atomic_bool notify_failed;
 };
 
-#define CUDA_OPERATION_POLL_MS 10
-
 static void *cuda_operation_worker(void *data)
 {
 	struct cuda_operation_work *work = data;
+	uint64_t ready = 1;
+	ssize_t n;
 
 	work->exit_code = work->run(work->arg);
 	atomic_store(&work->done, true);
@@ -485,6 +487,12 @@ static void *cuda_operation_worker(void *data)
 		pr_perror("Unable to stop CUDA restore tid %d", work->restore_tid);
 		atomic_store(&work->notify_failed, true);
 	}
+
+	/* Wake the tracer even if the SIGSTOP notification failed. */
+	do {
+		n = write(work->notify_fd, &ready, sizeof(ready));
+	} while (n < 0 && errno == EINTR);
+
 	return NULL;
 }
 
@@ -509,7 +517,8 @@ static int stop_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
 	return restore_thread_settings(restore_tid, restore_sigset);
 }
 
-static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), void *arg)
+static int run_cuda_operation_wait(int pid, int restore_tid, int (*run)(void *arg), void *arg,
+				   struct cuda_event_wait *events, int notify_fd)
 {
 	struct cuda_operation_work work = {
 		.run = run,
@@ -517,6 +526,7 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 		.pid = pid,
 		.restore_tid = restore_tid,
 		.exit_code = -1,
+		.notify_fd = notify_fd,
 		.done = false,
 		.notify_failed = false,
 	};
@@ -560,8 +570,9 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 	 * Wait for restore_tid. When the worker finishes the Driver API call,
 	 * it sets work.done and sends SIGSTOP to restore_tid, stopping it in
 	 * ptrace signal-delivery-stop. If restore_tid crashes or exits before
-	 * that, waitpid() reports the fault. Poll rather than block: if the
-	 * worker cannot send SIGSTOP, interrupt the thread from here.
+	 * that, waitpid() reports the fault. SIGCHLD wakes the tracer for
+	 * ptrace stops; eventfd wakes it when the worker finishes, even when
+	 * the SIGSTOP notification fails.
 	 */
 	for (;;) {
 		w = waitpid(restore_tid, &status, __WALL | WNOHANG);
@@ -577,8 +588,24 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 			}
 			interrupted = true;
 		}
-		poll(NULL, 0, CUDA_OPERATION_POLL_MS);
+
+		ret = cuda_event_wait(events, notify_fd, -1);
+		if (ret < 0) {
+			w = -1;
+			break;
+		}
+		if (ret > 0) {
+			uint64_t ready;
+			ssize_t n;
+
+			n = read(notify_fd, &ready, sizeof(ready));
+			if (n < 0 && errno != EAGAIN && errno != EINTR) {
+				w = -1;
+				break;
+			}
+		}
 	}
+
 	stopped = w == restore_tid && WIFSTOPPED(status) &&
 		  (WSTOPSIG(status) == SIGSTOP ||
 		   (interrupted && (unsigned int)status >> 16 == PTRACE_EVENT_STOP));
@@ -603,6 +630,32 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 	}
 
 	return work.exit_code;
+}
+
+static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), void *arg)
+{
+	struct cuda_event_wait events;
+	int notify_fd, exit_code;
+
+	notify_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	if (notify_fd < 0) {
+		pr_perror("Cannot create CUDA operation eventfd");
+		return -1;
+	}
+
+	exit_code = cuda_event_wait_init(&events);
+	if (exit_code) {
+		close(notify_fd);
+		return exit_code;
+	}
+
+	exit_code = run_cuda_operation_wait(pid, restore_tid, run, arg, &events, notify_fd);
+
+	close(notify_fd);
+	if (cuda_event_wait_close(&events) && !exit_code)
+		exit_code = -1;
+
+	return exit_code;
 }
 
 static int checkpoint_device(void *arg)

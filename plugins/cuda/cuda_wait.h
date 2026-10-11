@@ -3,11 +3,25 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <signal.h>
 #include <sys/types.h>
 
 /* Cleanup waits remain bounded when helper requests have no deadline. */
 #define CUDA_HELPER_CLEANUP_TIMEOUT 1
 #define CUDA_RESTORE_THREAD_STOP_TIMEOUT 10
+
+/* One active event wait per tracer process; do not nest these scopes. */
+struct cuda_event_wait {
+	int fd;
+	sigset_t saved_mask;
+	struct sigaction saved_action;
+	bool consumed;
+};
+
+int cuda_event_wait_init(struct cuda_event_wait *events);
+int cuda_event_wait_close(struct cuda_event_wait *events);
+/* 1: fd ready, 0: SIGCHLD/timeout/interruption, negative: error. */
+int cuda_event_wait(struct cuda_event_wait *events, int fd, int timeout_ms);
 
 struct cuda_wait {
 	const char *operation;
@@ -21,8 +35,8 @@ struct cuda_wait {
 };
 
 /*
- * A zero timeout disables the deadline. Block SIGCHLD in the caller while
- * waiting. A monitored ptrace event is consumed and saved in thread_status
+ * A zero timeout disables the deadline. Waits save and restore SIGCHLD state.
+ * A monitored ptrace event is consumed and saved in thread_status
  * so cleanup does not wait for it again.
  */
 int cuda_wait_init(struct cuda_wait *wait, const char *operation, int pid, int tid,
