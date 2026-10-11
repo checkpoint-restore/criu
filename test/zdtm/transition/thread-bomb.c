@@ -11,6 +11,7 @@
 #define exit_group(code) syscall(__NR_exit_group, code)
 
 static pthread_attr_t attr;
+static pthread_barrier_t start_barrier;
 /* Having in mind setup with 64 Kb large pages */
 static const size_t stack_size = 64 * 1024;
 
@@ -50,6 +51,9 @@ static void *thread_fn(void *arg)
 			pr_err("pthread_join(): %d\n", err);
 			return NULL;
 		}
+	} else {
+		/* Keep the first thread of each chain idle until setup finishes. */
+		pthread_barrier_wait(&start_barrier);
 	}
 
 	self = malloc(sizeof(*self));
@@ -92,6 +96,12 @@ int main(int argc, char **argv)
 	if (val)
 		max_nr = atoi(val);
 
+	err = pthread_barrier_init(&start_barrier, NULL, max_nr + 1);
+	if (err) {
+		pr_err("pthread_barrier_init(): %d\n", err);
+		exit(1);
+	}
+
 	test_msg("%d\n", max_nr);
 
 	for (i = 0; i < max_nr; i++) {
@@ -102,6 +112,8 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	}
+
+	pthread_barrier_wait(&start_barrier);
 
 	test_daemon();
 	test_waitsig();
