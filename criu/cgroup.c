@@ -1483,6 +1483,48 @@ static int move_in_cgroup(CgSetEntry *se)
 	return 0;
 }
 
+/*
+ * Same as prepare_cgns(), but move the current task back into the cgroups
+ * it was in once the namespace is set up.
+ */
+static int prepare_cgns_in_place(CgSetEntry *se)
+{
+	LIST_HEAD(ctls);
+	unsigned int n_ctls = 0;
+	struct cg_ctl *ctl;
+	int i, ret;
+	FILE *f;
+
+	f = fopen_proc(PROC_SELF, "cgroup");
+	if (!f)
+		return -1;
+	ret = parse_cgroup_file(f, &ctls, &n_ctls);
+	fclose(f);
+	if (ret < 0)
+		return -1;
+
+	ret = prepare_cgns(se);
+	if (ret < 0)
+		goto out;
+
+	for (i = 0; i < se->n_ctls; i++) {
+		CgMemberEntry *ce = se->ctls[i];
+
+		list_for_each_entry(ctl, &ctls, l) {
+			if (strcmp(ctl->name, ce->name))
+				continue;
+
+			ret = cgroup_move_self(ctl->name, ctl->path, strlen(ctl->path));
+			if (ret < 0)
+				goto out;
+			break;
+		}
+	}
+out:
+	put_ctls(&ctls);
+	return ret;
+}
+
 static bool has_cgns_prefix(CgSetEntry *se)
 {
 	int i;
@@ -1554,6 +1596,7 @@ static int prepare_cgns_ignore(struct pstree_item *root_task)
 int prepare_cgroup_namespace(struct pstree_item *root_task)
 {
 	CgSetEntry *se;
+	int ret;
 
 	if (root_task->parent) {
 		pr_err("Expecting root_task to restore cgroup namespace\n");
@@ -1564,18 +1607,16 @@ int prepare_cgroup_namespace(struct pstree_item *root_task)
 		return prepare_cgns_ignore(root_task);
 
 	/*
-	 * If on dump all dumped tasks are in same cgset with criu we don't
-	 * dump cgsets and thus cgroup namespaces and rely that on restore
-	 * criu caller would prepare proper cgset/cgns for us. Also in case
-	 * of --unprivileged we don't even have the root cgset here.
+	 * In case of --unprivileged we don't even have the root cgset here,
+	 * so rely on the criu caller to prepare proper cgset/cgns for us.
 	 */
-	if (!rsti(root_task)->cg_set || rsti(root_task)->cg_set == root_cg_set) {
+	if (!rsti(root_task)->cg_set) {
 		pr_info("Cgroup namespace inherited from parent\n");
 		return 0;
 	}
 
 	se = find_rst_set_by_id(rsti(root_task)->cg_set);
-	if (!se) {
+	if (!se && rsti(root_task)->cg_set != root_cg_set) {
 		pr_err("No set %d found\n", rsti(root_task)->cg_set);
 		return -1;
 	}
@@ -1585,7 +1626,26 @@ int prepare_cgroup_namespace(struct pstree_item *root_task)
 		return 0;
 	}
 
-	if (prepare_cgns(se) < 0) {
+	/*
+	 * Older criu does not dump cgsets if all dumped tasks are in the
+	 * same cgset with criu, even if they have a cgroup namespace of
+	 * their own, so there is no way to find out where its root was.
+	 */
+	if (!se) {
+		pr_warn("No cgroup image to restore cgroup namespace from, inheriting it\n");
+		return 0;
+	}
+
+	/*
+	 * If the root task is in the same cgset as criu, restore_task_cgroup()
+	 * is not going to move it anywhere, so we have to move it back.
+	 */
+	if (rsti(root_task)->cg_set == root_cg_set)
+		ret = prepare_cgns_in_place(se);
+	else
+		ret = prepare_cgns(se);
+
+	if (ret < 0) {
 		pr_err("failed preparing cgns\n");
 		return -1;
 	}
