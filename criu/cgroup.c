@@ -1361,6 +1361,35 @@ static int cgroup_move_self(char *name, const char *path, int len)
 	return 0;
 }
 
+static int get_new_cgroup_root(CgControllerEntry *ctrl, char **newroot)
+{
+	u64 ctrl_mask = (1ULL << ctrl->n_cnames) - 1;
+	struct cg_root_opt *o;
+
+	*newroot = NULL;
+
+	list_for_each_entry(o, &opts.new_cgroup_roots, node) {
+		unsigned old_mask = ctrl_mask;
+
+		/* coverity[check_return] */
+		cgroup_contains(ctrl->cnames, ctrl->n_cnames, o->controller, &ctrl_mask);
+		if (old_mask != ctrl_mask) {
+			if (*newroot && strcmp(*newroot, o->newroot)) {
+				pr_err("CG paths mismatch: %s %s\n", *newroot, o->newroot);
+				return -1;
+			}
+			*newroot = o->newroot;
+		}
+		if (!ctrl_mask)
+			break;
+	}
+
+	if (!*newroot)
+		*newroot = opts.new_global_cg_root;
+
+	return 0;
+}
+
 static int prepare_cgns(CgSetEntry *se)
 {
 	int i;
@@ -2480,31 +2509,13 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 static int rewrite_cgroup_roots(CgroupEntry *cge)
 {
 	int i, j;
-	struct cg_root_opt *o;
 
 	for (i = 0; i < cge->n_controllers; i++) {
 		CgControllerEntry *ctrl = cge->controllers[i];
-		u64 ctrl_mask = (1ULL << ctrl->n_cnames) - 1;
-		char *newroot = NULL;
+		char *newroot;
 
-		list_for_each_entry(o, &opts.new_cgroup_roots, node) {
-			unsigned old_mask = ctrl_mask;
-
-			/* coverity[check_return] */
-			cgroup_contains(ctrl->cnames, ctrl->n_cnames, o->controller, &ctrl_mask);
-			if (old_mask != ctrl_mask) {
-				if (newroot && strcmp(newroot, o->newroot)) {
-					pr_err("CG paths mismatch: %s %s\n", newroot, o->newroot);
-					return -1;
-				}
-				newroot = o->newroot;
-			}
-			if (!ctrl_mask)
-				break;
-		}
-
-		if (!newroot)
-			newroot = opts.new_global_cg_root;
+		if (get_new_cgroup_root(ctrl, &newroot) < 0)
+			return -1;
 
 		if (newroot) {
 			for (j = 0; j < ctrl->n_dirs; j++) {
