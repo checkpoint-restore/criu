@@ -1413,10 +1413,11 @@ static int get_new_cgroup_root(CgControllerEntry *ctrl, char **newroot)
 static int prepare_cgns(CgSetEntry *se)
 {
 	int i;
-	bool do_unshare = false;
 
 	for (i = 0; i < se->n_ctls; i++) {
 		CgMemberEntry *ce = se->ctls[i];
+		CgControllerEntry *ctrl;
+		char *root;
 
 		/* We need to do an unshare() here as unshare() pins the root
 		 * of the cgroup namespace to whatever the current cgroups are.
@@ -1437,12 +1438,28 @@ static int prepare_cgns(CgSetEntry *se)
 			pr_info("setting cgns prefix to %.*s\n", ce->cgns_prefix, ce->path);
 			if (cgroup_move_self(ce->name, ce->path, ce->cgns_prefix) < 0)
 				return -1;
-
-			do_unshare = true;
+			continue;
 		}
+
+		/*
+		 * No prefix means the namespace was unshared while being in
+		 * the root cgroup, which is either the new cgroup root, if
+		 * set, or the real one.
+		 */
+		ctrl = find_controller(ce->name);
+		if (!ctrl)
+			return -1;
+		if (get_new_cgroup_root(ctrl, &root) < 0)
+			return -1;
+		if (!root)
+			root = "/";
+
+		pr_info("setting cgns root for %s to %s\n", ce->name, root);
+		if (cgroup_move_self(ce->name, root, strlen(root)) < 0)
+			return -1;
 	}
 
-	if (do_unshare && unshare(CLONE_NEWCGROUP) < 0) {
+	if (unshare(CLONE_NEWCGROUP) < 0) {
 		pr_perror("couldn't unshare cgns");
 		return -1;
 	}
@@ -1561,6 +1578,11 @@ int prepare_cgroup_namespace(struct pstree_item *root_task)
 	if (!se) {
 		pr_err("No set %d found\n", rsti(root_task)->cg_set);
 		return -1;
+	}
+
+	if (!has_own_cgns(root_task, se)) {
+		pr_info("Cgroup namespace inherited from parent\n");
+		return 0;
 	}
 
 	if (prepare_cgns(se) < 0) {
