@@ -1312,33 +1312,62 @@ static int userns_move(void *arg, int fd, pid_t pid)
 	return 0;
 }
 
+static CgControllerEntry *find_controller(char *name)
+{
+	int i;
+
+	for (i = 0; i < n_controllers; i++) {
+		CgControllerEntry *cur = controllers[i];
+
+		if (cgroup_contains(cur->cnames, cur->n_cnames, name, NULL))
+			return cur;
+	}
+
+	pr_err("No cg_controller_entry found for %s\n", name);
+	return NULL;
+}
+
+/*
+ * Move the current task into the first @len bytes of @path
+ * of the @name controller.
+ */
+static int cgroup_move_self(char *name, const char *path, int len)
+{
+	char aux[PATH_MAX];
+	CgControllerEntry *ctrl;
+	int aux_off;
+
+	ctrl = find_controller(name);
+	if (!ctrl)
+		return -1;
+
+	aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
+	if (aux_off < 0)
+		return -1;
+
+	/* Note that unshare(CLONE_NEWCGROUP) doesn't change the view
+	 * of previously mounted cgroupfses; since we're restoring via
+	 * a dirfd pointing to the cg yard set up by when criu was in
+	 * the root cgns, we still want to use the full path here when
+	 * we move into the cgroup.
+	 */
+	snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%.*s/cgroup.procs", len, path);
+	pr_debug("  `-> %s\n", aux);
+	if (userns_call(userns_move, 0, aux, strlen(aux) + 1, -1) < 0) {
+		pr_perror("Can't move into %s", aux);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int prepare_cgns(CgSetEntry *se)
 {
 	int i;
 	bool do_unshare = false;
 
 	for (i = 0; i < se->n_ctls; i++) {
-		char aux[PATH_MAX];
-		int j, aux_off;
 		CgMemberEntry *ce = se->ctls[i];
-		CgControllerEntry *ctrl = NULL;
-
-		for (j = 0; j < n_controllers; j++) {
-			CgControllerEntry *cur = controllers[j];
-			if (cgroup_contains(cur->cnames, cur->n_cnames, ce->name, NULL)) {
-				ctrl = cur;
-				break;
-			}
-		}
-
-		if (!ctrl) {
-			pr_err("No cg_controller_entry found for %s/%s\n", ce->name, ce->path);
-			return -1;
-		}
-
-		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
-		if (aux_off < 0)
-			return -1;
 
 		/* We need to do an unshare() here as unshare() pins the root
 		 * of the cgroup namespace to whatever the current cgroups are.
@@ -1356,16 +1385,9 @@ static int prepare_cgns(CgSetEntry *se)
 		 * the unshare, and then entering the rest of the path.
 		 */
 		if (ce->has_cgns_prefix) {
-			char tmp = ce->path[ce->cgns_prefix];
-			ce->path[ce->cgns_prefix] = '\0';
-
-			pr_info("setting cgns prefix to %s\n", ce->path);
-			snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/cgroup.procs", ce->path);
-			ce->path[ce->cgns_prefix] = tmp;
-			if (userns_call(userns_move, 0, aux, strlen(aux) + 1, -1) < 0) {
-				pr_perror("couldn't set cgns prefix %s", aux);
+			pr_info("setting cgns prefix to %.*s\n", ce->cgns_prefix, ce->path);
+			if (cgroup_move_self(ce->name, ce->path, ce->cgns_prefix) < 0)
 				return -1;
-			}
 
 			do_unshare = true;
 		}
@@ -1386,41 +1408,10 @@ static int move_in_cgroup(CgSetEntry *se)
 	pr_info("Move into %d\n", se->id);
 
 	for (i = 0; i < se->n_ctls; i++) {
-		char aux[PATH_MAX];
-		int fd = -1, err, j, aux_off;
 		CgMemberEntry *ce = se->ctls[i];
-		CgControllerEntry *ctrl = NULL;
 
-		for (j = 0; j < n_controllers; j++) {
-			CgControllerEntry *cur = controllers[j];
-			if (cgroup_contains(cur->cnames, cur->n_cnames, ce->name, NULL)) {
-				ctrl = cur;
-				break;
-			}
-		}
-
-		if (!ctrl) {
-			pr_err("No cg_controller_entry found for %s/%s\n", ce->name, ce->path);
+		if (cgroup_move_self(ce->name, ce->path, strlen(ce->path)) < 0)
 			return -1;
-		}
-
-		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
-		if (aux_off < 0)
-			return -1;
-
-		/* Note that unshare(CLONE_NEWCGROUP) doesn't change the view
-		 * of previously mounted cgroupfses; since we're restoring via
-		 * a dirfd pointing to the cg yard set up by when criu was in
-		 * the root cgns, we still want to use the full path here when
-		 * we move into the cgroup.
-		 */
-		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/cgroup.procs", ce->path);
-		pr_debug("  `-> %s\n", aux);
-		err = userns_call(userns_move, 0, aux, strlen(aux) + 1, -1);
-		if (err < 0) {
-			pr_perror("Can't move into %s (%d/%d)", aux, err, fd);
-			return -1;
-		}
 	}
 
 	return 0;
