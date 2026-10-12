@@ -197,26 +197,6 @@ long __wrap_ptrace(int request, ...)
 	return syscall(SYS_ptrace, request, pid, addr, data);
 }
 
-long __real_syscall(long number, ...);
-
-/* Let a test make the worker's SIGSTOP notification fail. */
-long __wrap_syscall(long number, ...)
-{
-	long args[6];
-	va_list list;
-	int i;
-
-	va_start(list, number);
-	for (i = 0; i < 6; i++)
-		args[i] = va_arg(list, long);
-	va_end(list);
-	if (number == SYS_tgkill && args[2] == SIGSTOP && getenv("CRIU_CUDA_TEST_TGKILL_EPERM")) {
-		errno = EPERM;
-		return -1;
-	}
-	return __real_syscall(number, args[0], args[1], args[2], args[3], args[4], args[5]);
-}
-
 struct target_args {
 	const char *trigger;
 	int ready;
@@ -351,7 +331,6 @@ static void run_case(const char *directory, const char *behavior,
 {
 	char marker[512], trigger[512], mapping[512], log_path[512], state_path[512];
 	bool success = !strcmp(behavior, "success") || !strcmp(behavior, "unrelated") ||
-		       !strcmp(behavior, "notify-eperm") ||
 		       !strncmp(behavior, "delayed-success", strlen("delayed-success"));
 	bool helper_error = !strcmp(behavior, "exit");
 	bool completed = success || !strcmp(behavior, "api-error") || helper_error;
@@ -395,9 +374,6 @@ static void run_case(const char *directory, const char *behavior,
 	assert(unsetenv("CRIU_CUDA_MOCK_RESTORE_BEHAVIOR") == 0);
 	assert(unsetenv("CRIU_CUDA_MOCK_INIT_FAULT") == 0);
 	assert(unsetenv("CRIU_CUDA_MOCK_RESTORE_TID") == 0);
-	assert(unsetenv("CRIU_CUDA_TEST_TGKILL_EPERM") == 0);
-	if (!strcmp(behavior, "notify-eperm"))
-		assert(setenv("CRIU_CUDA_TEST_TGKILL_EPERM", "1", 1) == 0);
 	if (restore_fault || init_fault)
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "success", 1) == 0);
 	if (restore_fault)
@@ -545,8 +521,6 @@ static void run_case(const char *directory, const char *behavior,
 				     "GPU-02000000-0000-0000-0000-000000000000\n"));
 		assert(fgetc(file) == EOF);
 		fclose(file);
-		if (!strcmp(behavior, "notify-eperm"))
-			check_log("Unable to stop CUDA restore tid");
 	} else if (!completed) {
 		if (stop_timeout) {
 			check_log("stop CUDA restore thread");
@@ -770,7 +744,7 @@ int main(int argc, char **argv)
 	char directory[PATH_MAX];
 	const char *driver_cases[] = { "success", "api-error", "fault", "trap", "blocked-fault",
 				       "target-exit", "target-kill", "restore-fault", "init-fault",
-				       "unrelated", "notify-eperm", NULL };
+				       "unrelated", NULL };
 	const char *cli_cases[] = { "success", "api-error", "fault", "late-fault", "late-group-stop",
 				    "hang", "criu-timeout", "criu-timeout-finite", "signal", "exit",
 				    "delayed-success", "delayed-timeout", "delayed-success-closed-output",

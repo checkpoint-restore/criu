@@ -14,7 +14,6 @@
 
 #include <dlfcn.h>
 #include <limits.h>
-#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdatomic.h>
@@ -463,11 +462,7 @@ struct cuda_operation_work {
 	int restore_tid;
 	int exit_code;
 	atomic_bool done;
-	/* The worker could not send SIGSTOP; the tracer must stop the thread. */
-	atomic_bool notify_failed;
 };
-
-#define CUDA_OPERATION_POLL_MS 10
 
 static void *cuda_operation_worker(void *data)
 {
@@ -481,10 +476,9 @@ static void *cuda_operation_worker(void *data)
 	 * wake up the main thread's waitpid(). If the target already crashed
 	 * and exited, tgkill is a harmless no-op (ESRCH).
 	 */
-	if (syscall(SYS_tgkill, work->pid, work->restore_tid, SIGSTOP) < 0 && errno != ESRCH) {
+	if (syscall(SYS_tgkill, work->pid, work->restore_tid, SIGSTOP) < 0 && errno != ESRCH)
 		pr_perror("Unable to stop CUDA restore tid %d", work->restore_tid);
-		atomic_store(&work->notify_failed, true);
-	}
+
 	return NULL;
 }
 
@@ -518,10 +512,8 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 		.restore_tid = restore_tid,
 		.exit_code = -1,
 		.done = false,
-		.notify_failed = false,
 	};
 	k_rtsigset_t restore_sigset;
-	bool interrupted = false;
 	bool stopped;
 	pthread_t worker;
 	int status = -1;
@@ -560,28 +552,13 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 	 * Wait for restore_tid. When the worker finishes the Driver API call,
 	 * it sets work.done and sends SIGSTOP to restore_tid, stopping it in
 	 * ptrace signal-delivery-stop. If restore_tid crashes or exits before
-	 * that, waitpid() reports the fault. Poll rather than block: if the
-	 * worker cannot send SIGSTOP, interrupt the thread from here.
+	 * that, waitpid() reports the fault.
 	 */
-	for (;;) {
-		w = waitpid(restore_tid, &status, __WALL | WNOHANG);
-		if (w < 0 && errno == EINTR)
-			continue;
-		if (w)
-			break;
-		if (!interrupted && atomic_load(&work.notify_failed)) {
-			if (ptrace(PTRACE_INTERRUPT, restore_tid, NULL, 0)) {
-				pr_perror("Could not interrupt CUDA restore tid %d", restore_tid);
-				w = -1;
-				break;
-			}
-			interrupted = true;
-		}
-		poll(NULL, 0, CUDA_OPERATION_POLL_MS);
-	}
-	stopped = w == restore_tid && WIFSTOPPED(status) &&
-		  (WSTOPSIG(status) == SIGSTOP ||
-		   (interrupted && (unsigned int)status >> 16 == PTRACE_EVENT_STOP));
+	do {
+		w = waitpid(restore_tid, &status, __WALL);
+	} while (w < 0 && errno == EINTR);
+
+	stopped = w == restore_tid && WIFSTOPPED(status) && WSTOPSIG(status) == SIGSTOP;
 	if (!stopped || !atomic_load(&work.done)) {
 		atomic_store(&operation_aborted, true);
 		mark_cuda_pid_failed(pid);
