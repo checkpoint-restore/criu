@@ -28,7 +28,7 @@ const char *test_author = "समीर सिंह Sameer Singh <lumarzeli30@g
 static int echo_id = 1234;
 
 #if defined(ZDTM_IPV6)
-#define TEST_ICMP_ECHOREPLY ICMP6_ECHOREPLY
+#define TEST_ICMP_ECHOREPLY ICMP6_ECHO_REPLY
 #else
 #define TEST_ICMP_ECHOREPLY ICMP_ECHOREPLY
 #endif
@@ -40,10 +40,11 @@ int main(int argc, char **argv)
 	struct timeval tv;
 #if defined(ZDTM_IPV6)
 	struct sockaddr_in6 addr, recv_addr;
+	struct icmp6_hdr icmp_header, *icmp_reply;
 #else
+	struct sockaddr_in addr, recv_addr;
 	struct icmphdr icmp_header, *icmp_reply;
 #endif
-	struct sockaddr_in addr, recv_addr;
 	socklen_t addr_len;
 
 	// Allow GIDs 0-58468 to open an unprivileged ICMP socket
@@ -114,9 +115,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	icmp_reply = (struct icmphdr *)recv_packet;
+	icmp_reply = (void *)recv_packet;
 
-	if (icmp_reply->type != ICMP_ECHOREPLY) {
+#if defined(ZDTM_IPV6)
+	if (icmp_reply->icmp6_type != TEST_ICMP_ECHOREPLY) {
+#else
+	if (icmp_reply->type != TEST_ICMP_ECHOREPLY) {
+#endif
 		fail("Got no ICMP_ECHO_REPLY");
 		return 1;
 	}
