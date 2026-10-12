@@ -6,6 +6,7 @@ struct sysctl_req {
 	void *arg;
 	int type;
 	int flags;
+	int (*userns_skip_equal)(struct sysctl_req *req, void *cur_arg);
 };
 
 extern int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns);
@@ -38,5 +39,6 @@ enum {
 #define CTL_FLAGS_HAS		  2
 #define CTL_FLAGS_READ_EIO_SKIP	  4
 #define CTL_FLAGS_IPC_EACCES_SKIP 8
+#define CTL_FLAGS_WRITE_USERNS_SKIP 16
 
 #endif /* __CR_SYSCTL_H__ */

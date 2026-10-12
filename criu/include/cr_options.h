@@ -151,6 +151,7 @@ struct cr_options {
 		bool daemon_mode;
 	};
 	int restore_sibling;
+	bool restore_sibling_userns;
 	bool ext_unix_sk;
 	int shell_job;
 	int handle_file_locks;
@@ -207,6 +208,9 @@ struct cr_options {
 	bool lazy_pages;
 	char *work_dir;
 	int network_lock_method;
+	void *seccomp_bpf;
+	size_t seccomp_bpf_len;
+	unsigned int seccomp_bpf_flags;
 	int skip_file_rwx_check;
 	int allow_uprobes;
 
@@ -297,6 +301,12 @@ struct cr_options {
 	 * explicitly request it as it comes with many limitations.
 	 */
 	int unprivileged;
+	/*
+	 * Set when PTRACE_O_SUSPEND_SECCOMP failed during seize (e.g. rootless
+	 * containers). Page memory is dumped with process_vm_readv instead of
+	 * the parasite vmsplice path.
+	 */
+	bool seccomp_suspend_failed;
 };
 
 extern struct cr_options opts;

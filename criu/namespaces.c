@@ -53,6 +53,10 @@ int check_namespace_opts(void)
 		pr_err("Conflicting flags: --join-ns and --empty-ns\n");
 		return -1;
 	}
+	if ((join_ns_flags & CLONE_NEWUSER) && opts.restore_sibling && !opts.restore_sibling_userns) {
+		pr_err("--join-ns user with --restore-sibling requires libcriu userns helper reaping support\n");
+		return -1;
+	}
 	if (join_ns_flags & CLONE_NEWUSER)
 		pr_warn("join-ns with user-namespace is not fully tested and dangerous\n");
 
@@ -60,7 +64,7 @@ int check_namespace_opts(void)
 	return 0;
 }
 
-static int check_int_str(char *str)
+static int parse_int_str(char *str, unsigned int *value)
 {
 	char *endptr;
 	long val;
@@ -69,7 +73,8 @@ static int check_int_str(char *str)
 		return 0;
 
 	if (*str == '\0') {
-		str = NULL;
+		if (value)
+			*value = 0;
 		return 0;
 	}
 
@@ -80,6 +85,8 @@ static int check_int_str(char *str)
 		return -1;
 	}
 
+	if (value)
+		*value = val;
 	errno = 0;
 	return 0;
 }
@@ -88,7 +95,7 @@ static int check_ns_file(char *ns_file)
 {
 	int pid, ret, proc_dir;
 
-	if (!check_int_str(ns_file)) {
+	if (!parse_int_str(ns_file, NULL)) {
 		pid = atoi(ns_file);
 		if (pid <= 0) {
 			pr_err("Invalid join_ns pid %s\n", ns_file);
@@ -113,12 +120,13 @@ static int check_ns_file(char *ns_file)
 static int set_user_extra_opts(struct join_ns *jn, char *extra_opts)
 {
 	char *uid, *gid, *aux;
+	unsigned int id;
 
-	if (extra_opts == NULL) {
-		jn->extra_opts.user_extra.uid = NULL;
-		jn->extra_opts.user_extra.gid = NULL;
+	jn->extra_opts.user_extra.has_uid = false;
+	jn->extra_opts.user_extra.has_gid = false;
+
+	if (extra_opts == NULL)
 		return 0;
-	}
 
 	uid = extra_opts;
 	aux = strchr(extra_opts, ',');
@@ -129,11 +137,17 @@ static int set_user_extra_opts(struct join_ns *jn, char *extra_opts)
 		gid = aux + 1;
 	}
 
-	if (check_int_str(uid) || check_int_str(gid))
+	if (parse_int_str(uid, &id))
 		return -1;
+	jn->extra_opts.user_extra.uid = id;
+	jn->extra_opts.user_extra.has_uid = true;
 
-	jn->extra_opts.user_extra.uid = uid;
-	jn->extra_opts.user_extra.gid = gid;
+	if (gid != NULL) {
+		if (parse_int_str(gid, &id))
+			return -1;
+		jn->extra_opts.user_extra.gid = id;
+		jn->extra_opts.user_extra.has_gid = true;
+	}
 
 	return 0;
 }
@@ -148,6 +162,7 @@ int join_ns_add(const char *type, char *ns_file, char *extra_opts)
 	jn = xmalloc(sizeof(*jn));
 	if (!jn)
 		return -1;
+	jn->ns_fd = -1;
 
 	jn->ns_file = xstrdup(ns_file);
 	if (!jn->ns_file) {
@@ -769,11 +784,21 @@ int dump_task_ns_ids(struct pstree_item *item)
 static UsernsEntry userns_entry = USERNS_ENTRY__INIT;
 #define INVALID_ID (~0U)
 
+static int parse_id_map(pid_t pid, char *name, UidGidExtent ***pb_exts);
+
+/*
+ * Generic IDs are already local when CRIU shares the target user namespace
+ * or has no collected map. Mount options need a separate conversion from
+ * their initial-userns representation in subordinate_host_to_userns_id().
+ */
 static unsigned int userns_id(unsigned int id, UidGidExtent **map, int n)
 {
 	int i;
 
 	if (!(root_ns_mask & CLONE_NEWUSER))
+		return id;
+
+	if (!n)
 		return id;
 
 	for (i = 0; i < n; i++) {
@@ -821,6 +846,173 @@ gid_t userns_gid(gid_t gid)
 {
 	UsernsEntry *e = &userns_entry;
 	return userns_id(gid, e->gid_map, e->n_gid_map);
+}
+
+static bool userns_id_from_extents(unsigned int id, UidGidExtent **map, int n, unsigned int *fixed)
+{
+	int i;
+
+	for (i = 0; i < n; i++) {
+		UidGidExtent *m = map[i];
+		uint64_t lower_first = m->lower_first;
+		uint64_t count = m->count;
+
+		if (lower_first <= id && lower_first + count > id)
+			break;
+	}
+
+	if (i == n)
+		return false;
+
+	*fixed = map[i]->first + (id - map[i]->lower_first);
+	return true;
+}
+
+static bool current_userns_host_to_userns_id(unsigned int id, bool is_gid, unsigned int *fixed)
+{
+	static UidGidExtent **self_uid_map, **self_gid_map;
+	static int n_self_uid_map = -1, n_self_gid_map = -1;
+	/*
+	 * parse_id_map() fills a UidGidExtent ** and returns the number of
+	 * entries. Pick the cached uid or gid map slot once, then pass its
+	 * address below so the parser can allocate/update that slot.
+	 */
+	UidGidExtent ***map = is_gid ? &self_gid_map : &self_uid_map;
+	int *n = is_gid ? &n_self_gid_map : &n_self_uid_map;
+
+	if (*n < 0) {
+		*n = parse_id_map(PROC_SELF, is_gid ? "gid_map" : "uid_map", map);
+		if (*n < 0) {
+			pr_warn("Unable to parse current %s_map for mount option id fixup\n",
+				is_gid ? "gid" : "uid");
+			*n = 0;
+		}
+	}
+
+	return userns_id_from_extents(id, *map, *n, fixed);
+}
+
+static int subordinate_host_to_userns_id(unsigned int id, bool is_gid, unsigned int *out)
+{
+	UsernsEntry *e = &userns_entry;
+	UidGidExtent **map = is_gid ? e->gid_map : e->uid_map;
+	int n = is_gid ? e->n_gid_map : e->n_uid_map;
+	unsigned int fixed;
+
+	/*
+	 * Filesystems such as tmpfs render uid=/gid= mount options in the
+	 * initial user namespace.  Translate that value into CRIU's current
+	 * user namespace before interpreting the image map, whose lower IDs
+	 * are relative to the parent of the dumped user namespace.
+	 */
+	if (!current_userns_host_to_userns_id(id, is_gid, &fixed)) {
+		*out = id;
+		return 0;
+	}
+
+	/*
+	 * If CRIU shares the dumped user namespace, the first translation is
+	 * already the namespace-visible value.  Otherwise translate once more
+	 * from the parent user namespace into the dumped child user namespace.
+	 */
+	if (!(root_ns_mask & CLONE_NEWUSER)) {
+		*out = fixed;
+		return 0;
+	}
+
+	if (!userns_id_from_extents(fixed, map, n, out))
+		*out = fixed;
+
+	return 0;
+}
+
+static void free_id_map(UidGidExtent **map, int n)
+{
+	if (n > 0 && map) {
+		xfree(map[0]);
+		xfree(map);
+	}
+}
+
+static int copy_id_map(UidGidExtent **src, int n, UidGidExtent ***dst)
+{
+	UidGidExtent *extents;
+	UidGidExtent **map;
+	int i;
+
+	*dst = NULL;
+	if (n <= 0)
+		return 0;
+	if (!src)
+		return -1;
+
+	extents = xmalloc(sizeof(*extents) * n);
+	if (!extents)
+		return -1;
+
+	map = xmalloc(sizeof(*map) * n);
+	if (!map) {
+		xfree(extents);
+		return -1;
+	}
+
+	for (i = 0; i < n; i++) {
+		uid_gid_extent__init(&extents[i]);
+		extents[i] = *src[i];
+		map[i] = &extents[i];
+	}
+
+	*dst = map;
+	return 0;
+}
+
+static int sync_userns_entry(UsernsEntry *e)
+{
+	UidGidExtent **uid_map = NULL, **gid_map = NULL;
+
+	if (copy_id_map(e->uid_map, e->n_uid_map, &uid_map))
+		return -1;
+
+	if (copy_id_map(e->gid_map, e->n_gid_map, &gid_map)) {
+		free_id_map(uid_map, e->n_uid_map);
+		return -1;
+	}
+
+	free_id_map(userns_entry.uid_map, userns_entry.n_uid_map);
+	free_id_map(userns_entry.gid_map, userns_entry.n_gid_map);
+
+	userns_entry.n_uid_map = e->n_uid_map;
+	userns_entry.uid_map = uid_map;
+	userns_entry.n_gid_map = e->n_gid_map;
+	userns_entry.gid_map = gid_map;
+
+	return 0;
+}
+
+int userns_mnt_opt_fixup_gid(gid_t gid, gid_t *fixed)
+{
+	unsigned int id;
+	int ret;
+
+	ret = subordinate_host_to_userns_id(gid, true, &id);
+	if (ret)
+		return ret;
+
+	*fixed = id;
+	return 0;
+}
+
+int userns_mnt_opt_fixup_uid(uid_t uid, uid_t *fixed)
+{
+	unsigned int id;
+	int ret;
+
+	ret = subordinate_host_to_userns_id(uid, false, &id);
+	if (ret)
+		return ret;
+
+	*fixed = id;
+	return 0;
 }
 
 static int parse_id_map(pid_t pid, char *name, UidGidExtent ***pb_exts)
@@ -904,8 +1096,11 @@ int collect_user_namespaces(bool for_dump)
 	if (!for_dump)
 		return 0;
 
-	if (!(root_ns_mask & CLONE_NEWUSER))
+	if (in_noninitial_userns()) {
+		pr_info("Dumping userns maps from target in non-initial userns\n");
+	} else if (!(root_ns_mask & CLONE_NEWUSER)) {
 		return 0;
+	}
 
 	return walk_namespaces(&user_ns_desc, collect_user_ns, NULL);
 }
@@ -1025,7 +1220,7 @@ int dump_user_ns(pid_t pid, int ns_id)
 		return -1;
 	e->n_gid_map = ret;
 
-	if (check_user_ns(pid))
+	if (!in_noninitial_userns() && check_user_ns(pid))
 		return -1;
 
 	ret = binfmt_misc_dump_sandboxed(pid, &e->binfmt_misc);
@@ -1046,14 +1241,14 @@ int dump_user_ns(pid_t pid, int ns_id)
 
 void free_userns_data(void)
 {
-	if (userns_entry.n_uid_map > 0) {
-		xfree(userns_entry.uid_map[0]);
-		xfree(userns_entry.uid_map);
-	}
-	if (userns_entry.n_gid_map > 0) {
-		xfree(userns_entry.gid_map[0]);
-		xfree(userns_entry.gid_map);
-	}
+	free_id_map(userns_entry.uid_map, userns_entry.n_uid_map);
+	userns_entry.n_uid_map = 0;
+	userns_entry.uid_map = NULL;
+
+	free_id_map(userns_entry.gid_map, userns_entry.n_gid_map);
+	userns_entry.n_gid_map = 0;
+	userns_entry.gid_map = NULL;
+
 	if (userns_entry.n_binfmt_misc > 0)
 		free_pb_binfmt_misc_entries(userns_entry.binfmt_misc, userns_entry.n_binfmt_misc);
 }
@@ -1378,7 +1573,8 @@ static int usernsd(int sk)
 		else
 			fd = -1;
 
-		unsc_msg_init(&um, &call, &ret, NULL, 0, fd, NULL);
+		/* SO_PASSCRED supplies credentials in the receiver's PID namespace. */
+		unsc_msg_init_nocreds(&um, &call, &ret, NULL, 0, fd);
 		if (sendmsg(sk, &um.h, 0) <= 0) {
 			pr_perror("uns: send resp error");
 			return -1;
@@ -1429,7 +1625,8 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 
 	/* Send the request */
 
-	unsc_msg_init(&um, &call, &flags, arg, arg_size, fd, NULL);
+	/* SO_PASSCRED avoids attaching a PID from a different PID namespace. */
+	unsc_msg_init_nocreds(&um, &call, &flags, arg, arg_size, fd);
 	ret = sendmsg(sk, &um.h, 0);
 	if (ret <= 0) {
 		pr_perror("uns: send req error");
@@ -1454,9 +1651,11 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 
 	/* Decode the result and return */
 
-	if (flags & UNS_FDOUT)
+	if (flags & UNS_FDOUT) {
 		unsc_msg_pid_fd(&um, NULL, &ret);
-	else
+		if (ret < 0 && res < 0)
+			ret = res;
+	} else
 		ret = res;
 out:
 	if (!async)
@@ -1611,8 +1810,16 @@ static int read_user_ns_img(void)
 	struct cr_img *img;
 	int ret;
 
-	if (!(root_ns_mask & CLONE_NEWUSER))
-		return 0;
+	if (!(root_ns_mask & CLONE_NEWUSER)) {
+		/*
+		 * CRIU shares the user namespace with the target
+		 * (common in rootless podman). The userns image still
+		 * holds the ID maps needed for mount option fixup.
+		 */
+		if (!in_noninitial_userns())
+			return 0;
+		pr_info("read_user_ns_img: userns shared in non-initial userns, loading image for map fixup\n");
+	}
 
 	ns = lookup_ns_by_id(root_item->ids->user_ns_id, &user_ns_desc);
 	if (!ns) {
@@ -1623,12 +1830,15 @@ static int read_user_ns_img(void)
 	img = open_image(CR_FD_USERNS, O_RSTR, root_item->ids->user_ns_id);
 	if (!img)
 		return -1;
-	ret = pb_read_one(img, &ns->user.e, PB_USERNS);
+	ret = pb_read_one_eof(img, &ns->user.e, PB_USERNS);
 	close_image(img);
 	if (ret < 0) {
 		pr_err("Can not read userns object\n");
 		return -1;
 	}
+
+	if (ns->user.e && sync_userns_entry(ns->user.e))
+		return -1;
 
 	return 0;
 }
@@ -1788,8 +1998,15 @@ static int switch_join_ns(struct join_ns *jn)
 
 static int switch_user_join_ns(struct join_ns *jn)
 {
+	struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3];
+	struct __user_cap_header_struct cap_header = {
+		.version = _LINUX_CAPABILITY_VERSION_3,
+		.pid = 0,
+	};
+	bool keep_caps = false;
 	uid_t uid;
 	gid_t gid;
+	int i;
 
 	if (jn == NULL)
 		return 0;
@@ -1797,30 +2014,122 @@ static int switch_user_join_ns(struct join_ns *jn)
 	if (switch_join_ns(jn))
 		return -1;
 
-	if (jn->extra_opts.user_extra.uid == NULL)
+	if (!jn->extra_opts.user_extra.has_uid)
 		uid = getuid();
 	else
-		uid = atoi(jn->extra_opts.user_extra.uid);
+		uid = jn->extra_opts.user_extra.uid;
 
-	if (jn->extra_opts.user_extra.gid == NULL)
+	if (!jn->extra_opts.user_extra.has_gid)
 		gid = getgid();
 	else
-		gid = atoi(jn->extra_opts.user_extra.gid);
+		gid = jn->extra_opts.user_extra.gid;
 
-	/* FIXME:
-	 * if err occurs in setuid/setgid, should we just alert or
-	 * return an error
-	 */
-	if (setuid(uid)) {
-		pr_perror("setuid failed while joining userns");
-		return -1;
+	if (uid != geteuid()) {
+		if (prctl(PR_SET_KEEPCAPS, 1)) {
+			pr_perror("Unable to retain capabilities while joining userns");
+			return -1;
+		}
+		keep_caps = true;
 	}
+
 	if (setgid(gid)) {
 		pr_perror("setgid failed while joining userns");
-		return -1;
+		goto err;
+	}
+	if (setuid(uid)) {
+		pr_perror("setuid failed while joining userns");
+		goto err;
+	}
+
+	if (keep_caps) {
+		if (capget(&cap_header, cap_data)) {
+			pr_perror("Unable to read capabilities after joining userns");
+			goto err;
+		}
+		for (i = 0; i < _LINUX_CAPABILITY_U32S_3; i++)
+			cap_data[i].effective = cap_data[i].permitted;
+		if (capset(&cap_header, cap_data)) {
+			pr_perror("Unable to restore capabilities after joining userns");
+			goto err;
+		}
+		if (prctl(PR_SET_KEEPCAPS, 0)) {
+			pr_perror("Unable to clear PR_SET_KEEPCAPS after joining userns");
+			return -1;
+		}
 	}
 
 	return 0;
+err:
+	if (keep_caps)
+		prctl(PR_SET_KEEPCAPS, 0);
+	return -1;
+}
+
+static int drop_join_userns_groups(void)
+{
+	gid_t *groups = NULL;
+	int i, nr_groups;
+
+	if (!setgroups(0, NULL))
+		return 0;
+	if (errno != EPERM)
+		goto err;
+
+	nr_groups = getgroups(0, NULL);
+	if (nr_groups < 0)
+		goto err;
+	if (!nr_groups)
+		return 0;
+
+	groups = xmalloc(sizeof(*groups) * nr_groups);
+	if (!groups)
+		return -1;
+	nr_groups = getgroups(nr_groups, groups);
+	if (nr_groups < 0)
+		goto err;
+
+	for (i = 0; i < nr_groups; i++)
+		if (groups[i] != 0)
+			goto err;
+
+	xfree(groups);
+	return 0;
+err:
+	xfree(groups);
+	pr_perror("Unable to drop supplementary groups before joining userns");
+	return -1;
+}
+
+int join_user_namespace(void)
+{
+	struct join_ns *jn;
+
+	list_for_each_entry(jn, &opts.join_ns, list) {
+		if (jn->nd != &user_ns_desc)
+			continue;
+
+		if (get_join_ns_fd(jn))
+			return -1;
+
+		if (drop_join_userns_groups() || switch_join_ns(jn)) {
+			close_safe(&jn->ns_fd);
+			return -1;
+		}
+
+		/* Keep this descriptor open so the restored root inherits it. */
+		return 0;
+	}
+
+	return 0;
+}
+
+void close_join_user_namespace(void)
+{
+	struct join_ns *jn;
+
+	list_for_each_entry(jn, &opts.join_ns, list)
+		if (jn->nd == &user_ns_desc)
+			close_safe(&jn->ns_fd);
 }
 
 int join_namespaces(void)
@@ -1829,7 +2138,7 @@ int join_namespaces(void)
 	int ret = -1;
 
 	list_for_each_entry(jn, &opts.join_ns, list)
-		if (get_join_ns_fd(jn))
+		if (jn->ns_fd < 0 && get_join_ns_fd(jn))
 			goto err_out;
 
 	list_for_each_entry(jn, &opts.join_ns, list)
@@ -1848,6 +2157,11 @@ err_out:
 	list_for_each_entry(jn, &opts.join_ns, list)
 		close_safe(&jn->ns_fd);
 	return ret;
+}
+
+int userns_join_ns_requested(void)
+{
+	return !!(join_ns_flags & CLONE_NEWUSER);
 }
 
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
@@ -1871,7 +2185,7 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 	 */
 
 	id = ns_per_id ? item->ids->uts_ns_id : pid;
-	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(id))
+	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(id, getpid()))
 		goto out;
 	id = ns_per_id ? item->ids->ipc_ns_id : pid;
 	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(id))

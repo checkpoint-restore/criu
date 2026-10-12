@@ -1,0 +1,1 @@
+{'flavor': 'uns', 'flags': 'suid crfail', 'ropts': '--mntns-compat-mode', 'fault': 'FI_MNTNS_REMOUNT_DENIED'}

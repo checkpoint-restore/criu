@@ -15,6 +15,8 @@
 #include <arpa/inet.h>
 #include <sched.h>
 #include <sys/prctl.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
 
 #include "version.h"
 #include "crtools.h"
@@ -35,6 +37,7 @@
 #include "cgroup.h"
 #include "cgroup-props.h"
 #include "action-scripts.h"
+#include "seccomp-flags.h"
 #include "sockets.h"
 #include "irmap.h"
 #include "kerndat.h"
@@ -194,6 +197,10 @@ int send_criu_restore_resp(int socket_fd, bool success, int pid)
 	msg.restore = &resp;
 
 	resp.pid = pid;
+	if (userns_restore_helper_pid > 0) {
+		resp.has_userns_helper_pid = true;
+		resp.userns_helper_pid = userns_restore_helper_pid;
+	}
 
 	return send_criu_msg(socket_fd, &msg);
 }
@@ -483,6 +490,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 		opts.restore_sibling = req->rst_sibling;
 	}
+	if (req->has_rst_sibling_userns)
+		opts.restore_sibling_userns = req->rst_sibling_userns;
 
 	if (req->has_tcp_established)
 		opts.tcp_established_ok = req->tcp_established;
@@ -764,6 +773,24 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	if (req->has_display_stats)
 		opts.display_stats = req->display_stats;
+
+	if (req->has_seccomp_bpf) {
+		if (!req->seccomp_bpf.len || req->seccomp_bpf.len % sizeof(struct sock_filter)) {
+			pr_err("Invalid seccomp BPF length %zu\n", req->seccomp_bpf.len);
+			goto err;
+		}
+		if (req->has_seccomp_bpf_flags && (req->seccomp_bpf_flags & ~SUPPORTED_SECCOMP_FLAGS)) {
+			pr_err("Unsupported seccomp BPF flags 0x%x\n", req->seccomp_bpf_flags);
+			goto err;
+		}
+
+		opts.seccomp_bpf = xmalloc(req->seccomp_bpf.len);
+		if (!opts.seccomp_bpf)
+			goto err;
+		memcpy(opts.seccomp_bpf, req->seccomp_bpf.data, req->seccomp_bpf.len);
+		opts.seccomp_bpf_len = req->seccomp_bpf.len;
+		opts.seccomp_bpf_flags = req->has_seccomp_bpf_flags ? req->seccomp_bpf_flags : 0;
+	}
 
 	/* Evaluate additional configuration file (e.g., runc.conf) to overwrite all RPC settings. */
 	if (req->config_file) {
@@ -1455,6 +1482,14 @@ out:
 	return send_criu_msg(sk, &resp);
 }
 
+static void cleanup_rpc_opts(void)
+{
+	xfree(opts.seccomp_bpf);
+	opts.seccomp_bpf = NULL;
+	opts.seccomp_bpf_len = 0;
+	opts.seccomp_bpf_flags = 0;
+}
+
 int cr_service_work(int sk)
 {
 	int ret = -1;
@@ -1521,12 +1556,14 @@ more:
 	}
 
 	if (!ret && msg->keep_open) {
+		cleanup_rpc_opts();
 		criu_req__free_unpacked(msg, NULL);
 		ret = -1;
 		goto more;
 	}
 
 err:
+	cleanup_rpc_opts();
 	return ret;
 }
 

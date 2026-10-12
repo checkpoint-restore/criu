@@ -160,8 +160,10 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 	init_parasite_rseq_arg(&args->rseq);
 
 	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_THREAD, ctl);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("Parasite failed to dump thread leader\n");
 		return ret;
+	}
 
 	ret = alloc_groups_copy_creds(tc->creds, pc);
 	if (ret) {
@@ -236,8 +238,10 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 
 	ma = compel_parasite_args(ctl, struct parasite_dump_misc);
 	ma->has_membarrier_get_registrations = kdat.has_membarrier_get_registrations;
-	if (compel_rpc_call_sync(PARASITE_CMD_DUMP_MISC, ctl) < 0)
+	if (compel_rpc_call_sync(PARASITE_CMD_DUMP_MISC, ctl) < 0) {
+		pr_err("Parasite failed to dump misc\n");
 		return -1;
+	}
 
 	*misc = *ma;
 	return 0;
@@ -251,8 +255,10 @@ struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, in
 	p->fd = fd;
 	p->type = type;
 
-	if (compel_rpc_call_sync(PARASITE_CMD_DUMP_TTY, ctl) < 0)
+	if (compel_rpc_call_sync(PARASITE_CMD_DUMP_TTY, ctl) < 0) {
+		pr_err("Parasite failed to dump tty\n");
 		return NULL;
+	}
 
 	return p;
 }
