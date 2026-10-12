@@ -181,6 +181,19 @@ fedora-non-root-test() {
 		-t zdtm/static/pthread00 \
 		-f h --rootless
 
+	# The same with the mocked CUDA plugin (fault 138 enables it without a
+	# GPU), which must not need PTRACE_O_SUSPEND_SECCOMP. criu runs as uid
+	# 65534 with file capabilities, so the dynamic loader ignores
+	# LD_LIBRARY_PATH and cannot load the mocked Driver API library: select
+	# the cuda-checkpoint backend, whose mock is found through PATH.
+	cuda_config=$(mktemp)
+	chmod a+r "$cuda_config"
+	echo "plugin-option cuda_plugin.backend=cuda-checkpoint" >"$cuda_config"
+	CRIU_CONFIG_FILE=$cuda_config ./test/zdtm.py run \
+		-t zdtm/static/pthread00 \
+		-f h --rootless --mocked-cuda-checkpoint --fault 138
+	rm -f "$cuda_config"
+
 	# Run it as root with '--rootless'
 	sudo ./test/zdtm.py run \
 		-t zdtm/static/env00 \

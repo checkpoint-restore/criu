@@ -93,6 +93,7 @@ UNIT-BUILTINS		+= $(obj)/config.o
 UNIT-BUILTINS		+= $(obj)/plugin-options.o
 UNIT-BUILTINS		+= $(obj)/log.o
 UNIT-BUILTINS		+= $(obj)/string.o
+UNIT-BUILTINS		+= $(obj)/seize.o
 ifeq ($(CONFIG_LZ4),y)
 UNIT-BUILTINS		+= $(obj)/compression.o
 endif
@@ -107,7 +108,7 @@ $(obj)/unittest/built-in.o: .FORCE
 
 $(obj)/unittest/unittest: $(UNIT-BUILTINS)
 	$(call msg-link, $@)
-	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) $(LIBS) $(WRAPFLAGS) -rdynamic -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) $(LIBS) $(WRAPFLAGS) -Wl,--wrap=ptrace -rdynamic -o $@
 
 unittest: $(obj)/unittest/unittest
 	$(Q) $(obj)/unittest/$@

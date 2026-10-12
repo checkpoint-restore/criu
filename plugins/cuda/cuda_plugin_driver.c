@@ -364,7 +364,8 @@ static int unlock_cuda_process(int pid)
 
 static int restore_thread_settings(int restore_tid, k_rtsigset_t *restore_sigset)
 {
-	const unsigned long ptrace_options = PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD;
+	/* CRIU suspends seccomp again after CHECKPOINT_DEVICES if the thread uses it. */
+	const unsigned long ptrace_options = PTRACE_O_TRACESYSGOOD;
 	int ret = 0;
 
 	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, ptrace_options)) {
@@ -408,7 +409,7 @@ static void log_restore_thread_status(int pid, int restore_tid, int status)
 
 static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
 {
-	const unsigned long ptrace_options = PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD;
+	const unsigned long ptrace_options = PTRACE_O_TRACESYSGOOD;
 	k_rtsigset_t block;
 	bool options_cleared = false;
 	bool sigmask_changed = false;

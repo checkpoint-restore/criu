@@ -150,3 +150,67 @@ int pread_full(int fd, void *buf, size_t count, off_t offset)
 {
 	return -1;
 }
+
+/* Used by seize.o, whose checkpoint_devices() unit.c tests */
+bool alarm_timeouted(void)
+{
+	return false;
+}
+
+void *__alloc_pstree_item(bool rst)
+{
+	return NULL;
+}
+
+bool has_children(void *item)
+{
+	return false;
+}
+
+int pstree_alloc_cores(void *item)
+{
+	return -1;
+}
+
+int parse_children(pid_t pid, pid_t **_c, int *_n)
+{
+	return -1;
+}
+
+int parse_threads(int pid, void **_t, int *_n)
+{
+	return -1;
+}
+
+int seccomp_collect_entry(pid_t tid_real, unsigned int mode)
+{
+	return -1;
+}
+
+void timing_start(int t)
+{
+}
+
+void timing_stop(int t)
+{
+}
+
+int compel_interrupt_task(int pid)
+{
+	return -1;
+}
+
+int compel_parse_stop_signo(int pid)
+{
+	return -1;
+}
+
+int compel_resume_task_sig(pid_t pid, int orig_state, int state, int stop_signo)
+{
+	return -1;
+}
+
+int compel_wait_task(int pid, int ppid, void *get_status, void *free_status, void *ss, void *data)
+{
+	return -1;
+}

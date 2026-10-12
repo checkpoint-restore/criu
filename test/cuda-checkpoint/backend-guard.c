@@ -10,12 +10,15 @@
 #include <pthread.h>
 #include <errno.h>
 #include <limits.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/ptrace.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -41,6 +44,8 @@ static unsigned int interrupts;
 static bool fault_before_interrupt;
 static bool group_stop_before_interrupt;
 static bool skip_interrupt;
+static bool target_seccomp;
+static unsigned int seccomp_thread_options;
 static pid_t target_pid;
 static pid_t other_child;
 static volatile sig_atomic_t other_status = -1;
@@ -117,6 +122,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 		sscanf(line, "SigPnd:\t%llx", &ss->sigpnd);
 		sscanf(line, "ShdPnd:\t%llx", &ss->shdpnd);
 		sscanf(line, "SigBlk:\t%llx", &ss->sigblk);
+		sscanf(line, "Seccomp:\t%d", &ss->seccomp_mode);
 	}
 	fclose(file);
 	return 0;
@@ -141,8 +147,30 @@ static void freezing_timeout(int signal)
 	alarm(5);
 }
 
-/* SUSPEND_SECCOMP requires CAP_SYS_ADMIN. Keep every other ptrace operation
- * real, but omit this unrelated option so the test can run as an ordinary user.
+static int thread_seccomp_mode(pid_t tid)
+{
+	char path[64], line[256];
+	int mode = -1;
+	FILE *file;
+
+	snprintf(path, sizeof(path), "/proc/%d/status", tid);
+	file = fopen(path, "r");
+	if (!file)
+		return -1;
+	while (fgets(line, sizeof(line), file)) {
+		if (sscanf(line, "Seccomp:\t%d", &mode) == 1)
+			break;
+	}
+	fclose(file);
+	return mode;
+}
+
+/* SUSPEND_SECCOMP requires CAP_SYS_ADMIN in the initial user namespace, and
+ * the backends leave it to CRIU, which suspends seccomp again after
+ * CHECKPOINT_DEVICES. Fail every request like the kernel does for `criu
+ * --unprivileged`, even when the test runs as root, and count the options
+ * that the backends set on threads that use seccomp. Keep every other ptrace
+ * operation real.
  *
  * The request type is deliberately a plain integer, not glibc's
  * "enum __ptrace_request": that enum is a glibc-specific typedef of the
@@ -161,8 +189,14 @@ long __wrap_ptrace(int request, ...)
 	addr = va_arg(args, void *);
 	data = va_arg(args, unsigned long);
 	va_end(args);
-	if (request == PTRACE_SETOPTIONS)
-		data &= ~PTRACE_O_SUSPEND_SECCOMP;
+	if (request == PTRACE_SETOPTIONS) {
+		if (data & PTRACE_O_SUSPEND_SECCOMP) {
+			errno = EPERM;
+			return -1;
+		}
+		if (data && thread_seccomp_mode(pid) > SECCOMP_MODE_DISABLED)
+			seccomp_thread_options++;
+	}
 	if (request == PTRACE_CONT)
 		assert(!data); /* The backend must never forward a signal. */
 	if (request == PTRACE_INTERRUPT) {
@@ -243,6 +277,16 @@ static void *target_thread(void *data)
 	return NULL;
 }
 
+/* Give the target a seccomp filter that allows every system call. */
+static void install_seccomp_filter(void)
+{
+	struct sock_filter filter[] = { BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW) };
+	struct sock_fprog program = { .len = 1, .filter = filter };
+
+	assert(prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) == 0);
+	assert(prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &program) == 0);
+}
+
 static pid_t start_target(const char *trigger, bool threaded, bool exit_thread, pid_t *tid)
 {
 	int ready[2];
@@ -259,6 +303,8 @@ static pid_t start_target(const char *trigger, bool threaded, bool exit_thread, 
 		close(ready[0]);
 		close(target_pipe[0]);
 		assert(setrlimit(RLIMIT_CORE, &no_core) == 0);
+		if (target_seccomp)
+			install_seccomp_filter();
 		if (!threaded)
 			target_thread(&args);
 		assert(pthread_create(&thread, NULL, target_thread, &args) == 0);
@@ -351,7 +397,7 @@ static void run_case(const char *directory, const char *behavior,
 {
 	char marker[512], trigger[512], mapping[512], log_path[512], state_path[512];
 	bool success = !strcmp(behavior, "success") || !strcmp(behavior, "unrelated") ||
-		       !strcmp(behavior, "notify-eperm") ||
+		       !strcmp(behavior, "notify-eperm") || !strcmp(behavior, "seccomp") ||
 		       !strncmp(behavior, "delayed-success", strlen("delayed-success"));
 	bool helper_error = !strcmp(behavior, "exit");
 	bool completed = success || !strcmp(behavior, "api-error") || helper_error;
@@ -429,6 +475,7 @@ static void run_case(const char *directory, const char *behavior,
 	assert(pipe(target_pipe) == 0);
 	snprintf(value, sizeof(value), "%d", target_pipe[0]);
 	assert(setenv("CRIU_CUDA_MOCK_TARGET_PIPE", value, 1) == 0);
+	target_seccomp = !strcmp(behavior, "seccomp");
 	pid = start_target(trigger, driver, !strcmp(behavior, "target-exit"), &tid);
 	target_pid = pid;
 	if (driver) {
@@ -445,6 +492,7 @@ static void run_case(const char *directory, const char *behavior,
 	if (tid != pid)
 		stop_target(tid);
 	interrupts = 0;
+	seccomp_thread_options = 0;
 	fault_before_interrupt = !strcmp(behavior, "late-fault");
 	group_stop_before_interrupt = !strcmp(behavior, "late-group-stop");
 	skip_interrupt = stop_timeout;
@@ -547,6 +595,11 @@ static void run_case(const char *directory, const char *behavior,
 		fclose(file);
 		if (!strcmp(behavior, "notify-eperm"))
 			check_log("Unable to stop CUDA restore tid");
+		/* The options of the seccomp thread were set again after
+		 * checkpoint and after restore, without SUSPEND_SECCOMP.
+		 */
+		if (target_seccomp)
+			assert(seccomp_thread_options >= 2);
 	} else if (!completed) {
 		if (stop_timeout) {
 			check_log("stop CUDA restore thread");
@@ -770,11 +823,12 @@ int main(int argc, char **argv)
 	char directory[PATH_MAX];
 	const char *driver_cases[] = { "success", "api-error", "fault", "trap", "blocked-fault",
 				       "target-exit", "target-kill", "restore-fault", "init-fault",
-				       "unrelated", "notify-eperm", NULL };
+				       "unrelated", "notify-eperm", "seccomp", NULL };
 	const char *cli_cases[] = { "success", "api-error", "fault", "late-fault", "late-group-stop",
 				    "hang", "criu-timeout", "criu-timeout-finite", "signal", "exit",
 				    "delayed-success", "delayed-timeout", "delayed-success-closed-output",
-				    "delayed-timeout-closed-output", "stop-timeout", "stop-timeout-finite", NULL };
+				    "delayed-timeout-closed-output", "stop-timeout", "stop-timeout-finite", "seccomp",
+				    NULL };
 	const struct cuda_plugin_backend *backends[] = { &cuda_driver_backend, &cuda_cli_backend };
 	unsigned int i, j;
 

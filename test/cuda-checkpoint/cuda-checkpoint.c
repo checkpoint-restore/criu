@@ -77,6 +77,23 @@ static int write_state(int pid, const char *state)
 	return 0;
 }
 
+/* Keep the checkpoint action running until the task under test creates a file. */
+static int wait_for_file(const char *environment)
+{
+	const char *path = getenv(environment);
+	int i;
+
+	if (!path)
+		return 0;
+	for (i = 0; i < 1000; i++) {
+		if (!access(path, F_OK))
+			return 0;
+		usleep(10000);
+	}
+	fprintf(stderr, "Timed out waiting for %s\n", path);
+	return -1;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *marker;
@@ -231,6 +248,8 @@ int main(int argc, char *argv[])
 			if (write_state(pid, "locked"))
 				return 1;
 		} else if (!strcmp(action, "checkpoint")) {
+			if (wait_for_file("CRIU_CUDA_MOCK_CHECKPOINT_WAIT"))
+				return 1;
 			if (write_state(pid, "checkpointed"))
 				return 1;
 			if (getenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION"))
