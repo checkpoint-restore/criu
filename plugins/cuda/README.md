@@ -79,8 +79,7 @@ During checkpoint and restore, the Driver API backend calls libcuda in a
 worker thread while CRIU's tracing thread waits for the CUDA restore thread.
 After the API call returns, the worker sends SIGSTOP to the restore thread.
 CRIU consumes this ptrace stop and restores the thread's signal mask and
-ptrace options without forwarding SIGSTOP. If the worker cannot send SIGSTOP,
-CRIU interrupts the restore thread itself instead of waiting indefinitely.
+ptrace options without forwarding SIGSTOP.
 
 If the restore thread stops unexpectedly or exits before the operation
 completes, CRIU kills the target process with SIGKILL. Closing the target's IPC

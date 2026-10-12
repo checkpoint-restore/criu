@@ -52,7 +52,7 @@ cuda-backend-guard-test: backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c
 		backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
 		../../compel/libcompel.a \
-		-Wl,--wrap,ptrace -Wl,--wrap,syscall -ldl -pthread -o $@
+		-Wl,--wrap,ptrace -ldl -pthread -o $@
 
 test: all
 	LD_LIBRARY_PATH="$(CURDIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-device-map-test
