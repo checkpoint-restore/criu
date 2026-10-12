@@ -129,6 +129,79 @@ general-purpose CUDA header. Reserved fields are zeroed and must not be
 repurposed without an explicit driver-version check and verification of the
 corresponding CUDA release.
 
+## Custom-storage GPU memory (CUDA 13.4, driver >= R615)
+
+Both backends (`cuda-checkpoint` and Driver API) normally let the driver stage
+GPU memory in the target process's host memory, where CRIU dumps it with the
+regular page images and restores it before the driver copies it back. With a
+libcuda that exposes `cuCheckpointOperationComplete()` the Driver API backend
+can instead use the custom-storage mode: `cuCheckpointProcessCheckpoint()` maps
+the target's GPU memory into CRIU, the plugin writes it to `gpu-cs-<pid>.img` in
+the image directory with parallel pinned-buffer transfers, and the operation is
+completed. `cuCheckpointProcessRestore()` mirrors this before the unlock. The
+target never holds a host copy of its VRAM, the GPU memory does not transit
+through the page images, and the disk I/O overlaps the PCIe transfers.
+
+```
+--plugin-option=cuda_plugin.custom-storage=auto   # default: use it when the driver has the API
+--plugin-option=cuda_plugin.custom-storage=on     # fail if the API is unavailable
+--plugin-option=cuda_plugin.custom-storage=off
+```
+
+Requirements: the Driver API backend and driver R615 or newer (API 13040).
+The driver maps the target's GPU memory into the calling process, so the
+caller must be allowed to ptrace the target. CRIU already needs that
+permission to dump the process, so a regular CRIU run meets it, and the
+checkpointed process itself needs no privilege. The number of
+transfer threads can be set with the `CUDA_CS_THREADS` environment variable
+(default 4; host-to-device copies into the mapping degrade with many
+concurrent streams). On NVSwitch systems CUDA also needs NVIDIA Fabric
+Manager at exactly the driver's version. As `cuda.h` documents, the caller must
+have retained the primary context of every GPU the task uses, or the driver
+returns `CUDA_ERROR_INVALID_CONTEXT`; each context takes some memory on its GPU
+while it is held. CRIU creates none on the other GPUs, which can be other
+tenants': at checkpoint, it finds the GPUs holding the task's memory with NVML
+(`libnvidia-ml.so.1`), which lists processes by their pid in the init pid
+namespace: CRIU must run in it to match the task. A task that NVML lists on no
+GPU has no GPU memory and is checkpointed without custom storage. When NVML
+cannot tell (not installed, or CRIU in another pid namespace), `auto`
+checkpoints the task without custom storage and `on` fails the dump. At
+restore, they are the GPUs the image restores onto, see below. MIG is not
+handled.
+
+libcuda and NVML start threads in the process that loads them, and the kernel
+refuses `setns()` into a mount namespace to a multithreaded process, which CRIU
+needs later to dump mounts. So at dump, CRIU checkpoints each task to custom
+storage from a short-lived child process, whose GPU contexts go away with it.
+
+The driver cannot cancel a custom-storage checkpoint, and completing it frees
+the GPU memory. If `gpu-cs-<pid>.img` cannot be written (full disk, I/O
+error), the GPU memory is lost: the failed dump kills the task instead of
+resuming it without its GPU memory. No copy is kept in CRIU's memory, which
+would need as much host memory as the GPU memory.
+
+`gpu-cs-<pid>.img` starts with the `CUCS` magic, the length of a
+`cuda_cs_image` header (`cuda.proto`) that gives the size, the offset and the
+GPU UUID of the memory of each device, and then that memory, raw. `crit` does
+not decode it. It is written next to the other images even with
+`--page-server`, and custom storage is not used with `--stream`. Restore
+follows the image: with a `gpu-cs-<pid>.img`, it needs the Driver API backend
+and a driver with the custom-storage API; without one, it restores the GPU
+memory the regular way.
+
+Which GPU gets the memory of each device, whatever order the driver maps them
+in:
+
+* With `cuda_plugin.device-map`: followed as is, the memory of each device
+  goes to the GPU the map names, nothing is guessed.
+* Without a map, when CRIU sees the GPUs of the image: the same GPUs. CRIU
+  cannot tell that the task was given another GPU meanwhile when the old one
+  is still visible, as when a container's device cgroup changes under a CRIU
+  that runs on the host: that case needs the map.
+* Without a map, when one GPU of the image is gone and CRIU sees exactly one
+  GPU that is not in the image: that one takes its memory. Any other change
+  needs the map.
+
 ## GPU device mapping
 
 During a CUDA dump, the plugin saves the ordinal and UUID of each GPU in the
