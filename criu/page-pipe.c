@@ -237,6 +237,8 @@ void destroy_page_pipe(struct page_pipe *pp)
 
 	if (pp->flags & PP_OWN_IOVS)
 		xfree(pp->iovs);
+	xfree(pp->holes);
+	xfree(pp->hole_flags);
 	xfree(pp);
 }
 
