@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sched.h>
 #include <sys/mount.h>
 
 #include "common/config.h"
@@ -230,6 +231,24 @@ static int binfmt_misc_dump_from_child(void *arg)
 	}
 
 	mnt_fd = mount_detached_fs("binfmt_misc");
+	if (mnt_fd < 0 && errno == EPERM) {
+		/*
+		 * Mounting binfmt_misc requires CAP_SYS_ADMIN in the
+		 * user namespace owning the current mount namespace.
+		 * The dumped task may share the mount namespace with
+		 * criu (e.g. when only the user namespace is new) and
+		 * then it belongs to another user namespace, so the
+		 * mount is not permitted. binfmt_misc instances belong
+		 * to user namespaces though, thus mount from a private
+		 * mount namespace and read the instance of the dumped
+		 * task from there.
+		 */
+		if (unshare(CLONE_NEWNS)) {
+			pr_perror("Unable to unshare the mount namespace");
+			return 1;
+		}
+		mnt_fd = mount_detached_fs("binfmt_misc");
+	}
 	if (mnt_fd < 0)
 		return 1;
 
