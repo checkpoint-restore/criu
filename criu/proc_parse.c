@@ -1383,7 +1383,7 @@ static int parse_mnt_flags(char *opt, unsigned *flags)
 	return 0;
 }
 
-static int parse_sb_opt(char *opt, unsigned *flags, char *uopt)
+int parse_sb_opt(char *opt, unsigned *flags, char *uopt)
 {
 	static const struct opt2flag sb_opt2flag[] = {
 		{
@@ -1452,7 +1452,7 @@ static int parse_mnt_opt(char *str, struct mount_info *mi, int *off)
  * mountinfo contains mangled paths. space, tab and back slash were replaced
  * with usual octal escape. This function replaces these symbols back.
  */
-static void cure_path(char *path)
+void cure_path(char *path)
 {
 	int i, len, off = 0;
 
@@ -1488,6 +1488,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	char *sub, *opt = NULL;
 	char link_path[PATH_MAX];
 
+	new->unmounted = false;
 	new->mountpoint = xmalloc(PATH_MAX);
 	if (new->mountpoint == NULL)
 		goto err;
