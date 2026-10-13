@@ -22,6 +22,7 @@
 #include "types.h"
 #include <compel/ptrace.h>
 #include "common/compiler.h"
+#include "common/scm.h"
 
 #include "linux/rseq.h"
 
@@ -1461,18 +1462,159 @@ static int __legacy_mount_proc(void)
 	return fd;
 }
 
+/*
+ * Create a procfs instance detached from any mount namespace. This is
+ * needed to keep looking into /proc/<pid> of the tasks being restored
+ * while their mount and pid namespaces are being restored, because
+ *
+ *   - the system /proc mount goes away with the restored mount tree, and
+ *   - a procfs instance is bound to the pid namespace in which it has
+ *     been mounted: via the system /proc (bound to the initial pid
+ *     namespace) /proc/self and /proc/<pid> would resolve to wrong tasks.
+ */
+static int do_mount_proc(void)
+{
+	if (kdat.has_fsopen)
+		return mount_detached_fs("proc");
+
+	return __legacy_mount_proc();
+}
+
+/*
+ * usernsd callback mounting procfs on behalf of the root task. It runs
+ * in criu's (initial) namespaces with full capabilities, so it has
+ * CAP_SYS_ADMIN in the user namespace owning the current mount
+ * namespace and is allowed to mount procfs even when the restored task
+ * is not (see the comment near mount_proc()).
+ *
+ * If the tree is being restored into a new pid namespace, the procfs
+ * instance has to be created from within that namespace, and switching
+ * to a pid namespace affects only children. Thus fork a helper which is
+ * born inside the target pid namespace, have it do the mount and pass
+ * the descriptor back through the socket pair.
+ */
+static int userns_mount_proc(void *arg, int fd, pid_t pid)
+{
+	int pidns_fd = -1, sk[2] = { -1, -1 }, status, ret = -1;
+	pid_t child;
+
+	if (!(root_ns_mask & CLONE_NEWPID))
+		/* The target pid namespace is ours, mount right here. */
+		return do_mount_proc();
+
+	pidns_fd = open_proc(pid, "ns/pid");
+	if (pidns_fd < 0)
+		return -1;
+
+	if (socketpair(PF_UNIX, SOCK_SEQPACKET, 0, sk)) {
+		pr_perror("Unable to create a socket pair for procfs");
+		goto out;
+	}
+
+	child = fork();
+	if (child < 0) {
+		pr_perror("Unable to fork a procfs helper");
+		goto out;
+	}
+
+	if (child == 0) {
+		pid_t helper;
+
+		close(sk[0]);
+		if (setns(pidns_fd, CLONE_NEWPID)) {
+			pr_perror("Unable to enter the pid namespace");
+			exit(1);
+		}
+
+		helper = fork();
+		if (helper < 0) {
+			pr_perror("Unable to fork a procfs helper");
+			exit(1);
+		}
+
+		if (helper == 0) {
+			int pfd;
+
+			pfd = do_mount_proc();
+			if (pfd < 0)
+				exit(1);
+			exit(send_fd(sk[1], NULL, 0, pfd) ? 1 : 0);
+		}
+
+		/* Let usernsd see EOF if the helper dies without sending. */
+		close(sk[1]);
+
+		if (waitpid(helper, &status, 0) != helper)
+			exit(1);
+		exit(WIFEXITED(status) ? WEXITSTATUS(status) : 1);
+	}
+
+	close(sk[1]);
+	sk[1] = -1;
+
+	ret = recv_fd(sk[0]);
+	if (ret < 0) {
+		pr_err("Unable to receive the procfs descriptor\n");
+		goto reap;
+	}
+
+	if (waitpid(child, &status, 0) != child) {
+		pr_perror("Unable to wait for the procfs helper");
+		close(ret);
+		ret = -1;
+		goto out;
+	}
+
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+		close(ret);
+		ret = -1;
+	}
+	goto out;
+
+reap:
+	waitpid(child, &status, 0);
+out:
+	if (sk[0] >= 0)
+		close(sk[0]);
+	if (sk[1] >= 0)
+		close(sk[1]);
+	if (pidns_fd >= 0)
+		close(pidns_fd);
+	return ret;
+}
+
 static int mount_proc(void)
 {
 	int fd, ret;
 
-	if (root_ns_mask == 0)
+	/*
+	 * The tasks being restored access their proc entries through the
+	 * procfs instance set up here (see populate_pid_proc() et al.).
+	 * A fresh procfs instance is needed only if the mount or the pid
+	 * namespace is being restored: it is detached from the mount tree
+	 * which is about to be replaced and/or bound to the pid namespace
+	 * the tasks are being restored into (see do_mount_proc()).
+	 *
+	 * If the restored tree shares the mount and the pid namespaces
+	 * with criu -- e.g. when only the user namespace is new (issue
+	 * #2597) -- the system /proc mount is the very instance needed
+	 * and no mount is required. Note that mounting procfs from the
+	 * restored task would fail with EPERM in this case anyway:
+	 * mounting requires CAP_SYS_ADMIN in the user namespace owning
+	 * the current mount namespace (the initial one), while the task
+	 * is privileged only in its own new user namespace.
+	 *
+	 * The same restriction applies when the tree is restored into a
+	 * new user and pid namespaces but shares the mount one. The mount
+	 * cannot be skipped (see above), so ask usernsd to do it from the
+	 * initial namespaces (userns_mount_proc()).
+	 */
+	if (!(root_ns_mask & (CLONE_NEWNS | CLONE_NEWPID)))
 		fd = ret = open("/proc", O_DIRECTORY);
-	else {
-		if (kdat.has_fsopen)
-			fd = ret = mount_detached_fs("proc");
-		else
-			fd = ret = __legacy_mount_proc();
-	}
+	else if ((root_ns_mask & CLONE_NEWUSER) && !(root_ns_mask & CLONE_NEWNS))
+		fd = ret = userns_call(userns_mount_proc, UNS_FDOUT, NULL, 0, -1);
+	else
+		fd = ret = do_mount_proc();
 
 	if (fd >= 0) {
 		ret = set_proc_fd(fd);
