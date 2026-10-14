@@ -251,8 +251,17 @@ try_again:
 	}
 
 	ret2 = get_status(pid, ss, data);
-	if (ret2)
+	if (ret2) {
+		/*
+		 * The task has exited, and wait4() above has just reaped
+		 * it, so there is no status to read. Tell the caller the
+		 * task is gone, as it may need to know that the exit has
+		 * been consumed here.
+		 */
+		if (ret == pid && (WIFEXITED(status) || WIFSIGNALED(status)))
+			return -ESRCH;
 		goto err;
+	}
 
 	if (ret < 0 || WIFEXITED(status) || WIFSIGNALED(status)) {
 		if (ss->state != 'Z') {
