@@ -34,6 +34,10 @@ struct seize_task_status {
 	int seccomp_mode;
 };
 
+/*
+ * Returns a COMPEL_TASK_* state on success, or a negative value on error.
+ * -ESRCH means the task has exited, and its exit has been reaped.
+ */
 extern int __must_check compel_wait_task(int pid, int ppid,
 					 int (*get_status)(int pid, struct seize_task_status *, void *data),
 					 void (*free_status)(int pid, struct seize_task_status *, void *data),
