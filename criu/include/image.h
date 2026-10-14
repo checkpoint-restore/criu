@@ -109,6 +109,35 @@
 #define VMA_PREMMAPED	  (1 << 30)
 #define VMA_UNSUPP	  (1 << 31)
 
+/*
+ * The VMA areas that pr_vma() prints a short name for, one X(_o, _s)
+ * pair per area. This is the only list of them, so a new VMA area
+ * needs a name added here as well.
+ *
+ * The state bits above it are deliberately not listed: none of them
+ * names an area, and pr_vma() reports them as part of the status
+ * value it prints next to the names.
+ */
+#define VMA_AREA_NAMES(X)              \
+	X(VMA_AREA_REGULAR, "reg")     \
+	X(VMA_AREA_STACK, "stk")       \
+	X(VMA_AREA_VSYSCALL, "vsys")   \
+	X(VMA_AREA_VDSO, "vdso")       \
+	X(VMA_AREA_VVAR, "vvar")       \
+	X(VMA_AREA_HEAP, "heap")       \
+	X(VMA_FILE_PRIVATE, "fp")      \
+	X(VMA_FILE_SHARED, "fs")       \
+	X(VMA_ANON_SHARED, "as")       \
+	X(VMA_ANON_PRIVATE, "ap")      \
+	X(VMA_AREA_SYSVIPC, "sysv")    \
+	X(VMA_AREA_SOCKET, "sk")       \
+	X(VMA_AREA_AIORING, "aio")     \
+	X(VMA_AREA_MEMFD, "memfd")     \
+	X(VMA_AREA_SHSTK, "shstk")     \
+	X(VMA_AREA_GUARD, "guard")     \
+	X(VMA_AREA_UPROBES, "uprobes") \
+	X(VMA_AREA_NOT_ACCOUNTABLE, "noacct")
+
 #define CR_CAP_SIZE 2
 
 #define TASK_COMM_LEN 16
