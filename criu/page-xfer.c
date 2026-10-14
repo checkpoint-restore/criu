@@ -1177,8 +1177,9 @@ unsigned long handle_faulty_iov(int pid, struct iovec *riov, unsigned long fault
 			continue;
 		}
 
-		/* If aux-iov can merge and expand or new entry required */
-		if (aux_iov[(*aux_len) - 1].iov_base + aux_iov[(*aux_len) - 1].iov_len == dummy.iov_base)
+		/* A fault in the first iov can leave aux_iov empty. */
+		if (*aux_len &&
+		    aux_iov[*aux_len - 1].iov_base + aux_iov[*aux_len - 1].iov_len == dummy.iov_base)
 			aux_iov[(*aux_len) - 1].iov_len += bytes_read;
 		else {
 			aux_iov[*aux_len].iov_base = dummy.iov_base;
