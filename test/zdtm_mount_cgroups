@@ -6,11 +6,21 @@
 
 uuid=$1
 
-cat /proc/self/cgroup | grep -q zdtmtst.defaultroot && exit
+# A hierarchy being destroyed, e.g. by zdtm_umount_cgroups of a previous
+# run, can not be mounted (EBUSY) until it is gone, so retry for a while.
+mount_cg() {
+	for _ in $(seq 50); do
+		mount -t cgroup -o none,name=$1 zdtm $tdir 2>/dev/null && return 0
+		sleep 0.1
+	done
+	mount -t cgroup -o none,name=$1 zdtm $tdir
+}
 
+# Each zdtm.py needs a holder of its own, even if the hierarchy exists:
+# it may be held by another zdtm.py, or be on its way to destruction.
 tdir=`mktemp -d zdtm.XXXXXX`
 for i in "zdtmtst" "zdtmtst.defaultroot"; do
-	mount -t cgroup -o none,name=$i zdtm $tdir &&
+	mount_cg $i &&
 	# a fake group prevents destroying of a controller
 	mkdir -p $tdir/holder.$uuid &&
 	umount -l $tdir || exit 1
