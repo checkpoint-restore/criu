@@ -725,12 +725,17 @@ static int collect_children(struct pstree_item *item)
 		ret = compel_wait_task(pid, item->pid->real, parse_pid_status, NULL, &creds.s, NULL);
 		if (ret < 0) {
 			/*
-			 * Here is a race window between parse_children() and seize(),
-			 * so the task could die for these time.
-			 * Don't worry, will try again on the next attempt. The number
-			 * of attempts is restricted, so it will exit if something
-			 * really wrong.
+			 * The task may have exited since parse_children() listed it,
+			 * which is fine, as the next attempt will either not see it,
+			 * or see it as a zombie.
+			 * Other failures are retried as well, and as the number
+			 * of attempts is limited, we give up if one persists.
+			 *
+			 * With -ESRCH, compel_wait_task() has reaped the task,
+			 * so freezer_wait_processes() must not wait for it.
 			 */
+			if (ret == -ESRCH)
+				processes_to_wait--;
 			ret = 0;
 			xfree(c);
 			continue;
@@ -915,12 +920,16 @@ static int collect_threads(struct pstree_item *item)
 		ret = compel_wait_task(pid, item_ppid(item), parse_pid_status, NULL, &t_creds.s, NULL);
 		if (ret < 0) {
 			/*
-			 * Here is a race window between parse_threads() and seize(),
-			 * so the task could die for these time.
-			 * Don't worry, will try again on the next attempt. The number
-			 * of attempts is restricted, so it will exit if something
-			 * really wrong.
+			 * The task may have exited since parse_threads() listed it,
+			 * which is fine, as the next attempt will not see it.
+			 * Other failures are retried as well, and as the number
+			 * of attempts is limited, we give up if one persists.
+			 *
+			 * With -ESRCH, compel_wait_task() has reaped the task,
+			 * so freezer_wait_processes() must not wait for it.
 			 */
+			if (ret == -ESRCH)
+				processes_to_wait--;
 			continue;
 		}
 
