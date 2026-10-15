@@ -2511,7 +2511,7 @@ int probe_pages_o_direct(int fd)
 
 	ret = fcntl(fd, F_SETFL, fl | O_DIRECT);
 	if (ret < 0) {
-		pr_warn("Failed to set O_DIRECT on pages fd %d: %s\n", fd, strerror(errno));
+		pr_pwarn("Failed to set O_DIRECT on pages fd %d", fd);
 		return 0;
 	}
 

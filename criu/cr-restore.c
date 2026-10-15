@@ -2407,7 +2407,7 @@ out_kill:
 			pid = waitpid(init_pid, &status, 0);
 		}
 		if (pid < 0)
-			pr_warn("Unable to wait %d: %s\n", init_pid, strerror(errno));
+			pr_pwarn("Unable to wait %d", init_pid);
 	} else {
 		struct pstree_item *pi;
 

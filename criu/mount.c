@@ -1154,12 +1154,12 @@ int mnt_is_dir(struct mount_info *pm)
 
 	mntns_root = mntns_get_root_fd(pm->nsid);
 	if (mntns_root < 0) {
-		pr_warn("Can't get root fd of mntns for %d: %s\n", pm->mnt_id, strerror(errno));
+		pr_pwarn("Can't get root fd of mntns for %d", pm->mnt_id);
 		return 0;
 	}
 
 	if (fstatat(mntns_root, pm->ns_mountpoint, &st, 0)) {
-		pr_warn("Can't fstatat on %s: %s\n", pm->ns_mountpoint, strerror(errno));
+		pr_pwarn("Can't fstatat on %s", pm->ns_mountpoint);
 		return 0;
 	}
 
@@ -1264,7 +1264,7 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
 	if (mnt_path == NULL && errno == ENOENT)
 		mnt_path = mkdtemp(mnt_path_root);
 	if (mnt_path == NULL) {
-		pr_warn("Can't create a temporary directory: %s\n", strerror(errno));
+		pr_pwarn("Can't create a temporary directory");
 		return NULL;
 	}
 
