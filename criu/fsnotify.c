@@ -368,7 +368,7 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 				return path;
 			}
 		} else
-			pr_debug("\t\t\tnot openable as %s (%s)\n", __path, strerror(errno));
+			pr_debug("\t\t\tnot openable as %s: %s\n", __path, strerror(errno));
 	}
 
 err:
