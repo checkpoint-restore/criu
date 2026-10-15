@@ -1156,12 +1156,12 @@ static inline u32 ppb_xfer_flags(struct page_xfer *xfer, struct page_pipe_buf *p
  *	aux_iov: {A,1}{B,1}{C,2}*{C+3,1}*
  */
 
-unsigned long handle_faulty_iov(int pid, struct iovec *riov, unsigned long faulty_index, struct iovec *bufvec,
-				struct iovec *aux_iov, unsigned long *aux_len)
+long handle_faulty_iov(int pid, struct iovec *riov, unsigned long faulty_index, struct iovec *bufvec,
+		       struct iovec *aux_iov, unsigned long *aux_len)
 {
 	struct iovec dummy;
 	ssize_t bytes_read;
-	unsigned long final_read_cnt = 0;
+	long final_read_cnt = 0;
 
 	/* Handling Case 3-Part 3.2*/
 	dummy.iov_base = riov[faulty_index].iov_base;
@@ -1170,6 +1170,12 @@ unsigned long handle_faulty_iov(int pid, struct iovec *riov, unsigned long fault
 	while (dummy.iov_len) {
 		bytes_read = process_vm_readv(pid, bufvec, 1, &dummy, 1, 0);
 		if (bytes_read == -1) {
+			if (errno == ESRCH)
+				return -errno;
+			if (errno != EFAULT) {
+				pr_perror("process_vm_readv failed while recovering faulty iov");
+				return -errno;
+			}
 			/* Handling faulty page read in faulty iov */
 			cnt_sub(CNT_PAGES_WRITTEN, 1);
 			dummy.iov_base += PAGE_SIZE;
@@ -1263,7 +1269,7 @@ static long fill_userbuf(int pid, struct page_pipe_buf *ppb, struct iovec *bufve
 			}
 			if (errno != EFAULT) {
 				pr_perror("process_vm_readv failed");
-				return -1;
+				return -errno;
 			}
 			/* Handling Case 1*/
 			if (riov[start].iov_len == PAGE_SIZE) {
@@ -1271,7 +1277,10 @@ static long fill_userbuf(int pid, struct page_pipe_buf *ppb, struct iovec *bufve
 				start += 1;
 				continue;
 			}
-			total_read += handle_faulty_iov(pid, riov, start, bufvec, aux_iov, aux_len);
+			bytes_read = handle_faulty_iov(pid, riov, start, bufvec, aux_iov, aux_len);
+			if (bytes_read < 0)
+				return bytes_read;
+			total_read += bytes_read;
 			start += 1;
 			continue;
 		}
@@ -1302,7 +1311,7 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 {
 	struct page_pipe_buf *ppb;
 	unsigned int cur_hole = 0, i;
-	unsigned long ret, bytes_read;
+	long ret, bytes_read;
 	unsigned long userbuf_len;
 	struct iovec bufvec;
 
