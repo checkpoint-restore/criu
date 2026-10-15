@@ -1320,7 +1320,7 @@ static int kerndat_newifindex_err_cb(int err, struct ns_id *ns, void *arg)
 		kdat.has_newifindex = true;
 		break;
 	default:
-		pr_err("Unexpected error: %d(%s)\n", err, strerror(-err));
+		pr_err("Unexpected error: %s\n", strerror(-err));
 		break;
 	}
 	return 0;
