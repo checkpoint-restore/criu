@@ -56,11 +56,11 @@ char *task_comm_info(pid_t pid, char *comm, size_t size)
 				/* Replace '\n' printed by kernel with '\0' */
 				comm[n - 1] = '\0';
 			} else {
-				pr_warn("Failed to read %s: %s\n", path, strerror(errno));
+				pr_pwarn("Failed to read %s", path);
 			}
 			close(fd);
 		} else {
-			pr_warn("Failed to open %s: %s\n", path, strerror(errno));
+			pr_pwarn("Failed to open %s", path);
 		}
 		errno = saved_errno;
 	}
