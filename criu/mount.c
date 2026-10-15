@@ -1616,9 +1616,12 @@ int open_mountpoint(struct mount_info *pm)
 			goto err;
 		}
 
-		errno = 0;
-		if (waitpid(pid, &status, __WALL) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
-			pr_err("Can't wait or bad status: errno=%d, status=%d\n", errno, status);
+		if (waitpid(pid, &status, __WALL) != pid) {
+			pr_perror("Can't wait for helper process %d", pid);
+			goto err;
+		}
+		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+			pr_err("Helper process %d exited with bad status 0x%x\n", pid, status);
 			goto err;
 		}
 	}

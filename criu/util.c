@@ -1503,9 +1503,12 @@ int call_in_child_process(int (*fn)(void *), void *arg)
 		pr_perror("Can't clone");
 		return -1;
 	}
-	errno = 0;
-	if (waitpid(pid, &status, __WALL) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
-		pr_err("Can't wait or bad status: errno=%d, status=%d\n", errno, status);
+	if (waitpid(pid, &status, __WALL) != pid) {
+		pr_perror("Can't wait for %d", pid);
+		goto out;
+	}
+	if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+		pr_err("Child %d exited with bad status 0x%x\n", pid, status);
 		goto out;
 	}
 	ret = 0;
