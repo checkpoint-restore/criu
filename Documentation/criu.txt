@@ -388,8 +388,10 @@ mount -t cgroup -o devices,freezer none devices,freezer
 
 *-c, --compress*::
     Enable LZ4 compression of memory pages during *dump*.
-    Each page is compressed as an independent LZ4 block.
-    Zero-filled pages are detected and stored with no data; pages with
+    Consecutive pages are compressed in 256K blocks by default. With
+    *--page-server* or *--stream*, the default block size is one page.
+    Use *--compress-block* to select an explicit block size.
+    Zero-filled blocks are detected and stored with no data; blocks with
     low compression ratio (compressed size exceeds 7/8 of the original size)
     are stored raw to avoid decompression overhead on *restore*. The
     compression config is recorded in the inventory image and applied
@@ -405,7 +407,8 @@ mount -t cgroup -o devices,freezer none devices,freezer
     slightly slower restore on partial reads. 'size' accepts K/M/G
     suffixes (e.g. *256K*, *1M*); it must be a multiple of the system
     page size and at most 4M. When both this option and *--compress* are
-    specified, the last option takes precedence.
+    specified, the last option takes precedence; *--compress* resets the
+    block size to the default.
     Page-sized blocks are compatible with *--page-server* and *--stream*;
     multi-page blocks currently support only the local image path.
     Hole-punching deduplication is skipped for compressed images since

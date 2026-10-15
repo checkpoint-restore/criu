@@ -882,7 +882,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			break;
 		case 'c':
 			opts.compress_mode = COMPRESS_BLOCK;
-			opts.compress_block_size = PAGE_SIZE;
+			opts.compress_block_size = 0;
 			break;
 		case 1102: {
 			char *endptr;
@@ -1218,10 +1218,8 @@ int check_options(void)
 	 * before --compress-block is not mistaken for a conflict with an
 	 * implicit --compress.
 	 */
-	if (opts.compress_acceleration && opts.compress_mode == COMPRESS_OFF) {
+	if (opts.compress_acceleration && opts.compress_mode == COMPRESS_OFF)
 		opts.compress_mode = COMPRESS_BLOCK;
-		opts.compress_block_size = PAGE_SIZE;
-	}
 
 	/*
 	 * Compression is selected by the dump client and encoded in each page
@@ -1238,8 +1236,22 @@ int check_options(void)
 		pr_err("Memory page compression requires CRIU built with LZ4 support (CONFIG_LZ4)\n");
 		return 1;
 #else
-		if (opts.compress_block_size == 0)
-			opts.compress_block_size = DEFAULT_BLOCK_SIZE;
+		/*
+		 * The page-server protocol sends a stored byte count followed by
+		 * that many bytes of data for each page. Zero pages have a count
+		 * of zero and no data. There is no field describing multi-page
+		 * blocks (see: page_server_add_compressed()).
+		 * The streaming restore reader also assumes one block_sizes entry
+		 * per page and does not support decoding multi-page blocks
+		 * (see: maybe_read_page_img_streamer_compressed()).
+		 * Keep these paths page-sized.
+		 */
+		if (opts.compress_block_size == 0) {
+			if (opts.use_page_server || opts.addr || opts.stream)
+				opts.compress_block_size = PAGE_SIZE;
+			else
+				opts.compress_block_size = DEFAULT_BLOCK_SIZE;
+		}
 		if (opts.compress_block_size % PAGE_SIZE != 0 ||
 		    opts.compress_block_size > MAX_BLOCK_SIZE) {
 			pr_err("Invalid compress block size %u\n",
