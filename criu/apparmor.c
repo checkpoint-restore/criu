@@ -677,9 +677,7 @@ static int suspend_one_policy(AaPolicy *p, const char *namespace, const char *re
 
 	n = write(fd, data, len);
 	if (n < 0) {
-		int err1 = errno;
-		pr_err("attempt 1 (without -n, written to %s) failed: n=%d len=%ld errno=%d (%s)\n",
-		       replace_path, n, (long)len, err1, strerror(err1));
+		pr_perror("attempt 1 (without -n, written to %s) failed: len=%ld", replace_path, (long)len);
 		close(fd);
 		if (munmap(data, len) < 0)
 			pr_perror("failed to munmap attempt 1");
@@ -698,11 +696,9 @@ static int suspend_one_policy(AaPolicy *p, const char *namespace, const char *re
 			return -1;
 		}
 		n = write(fd, data, len);
-		if (n < 0) {
-			int err2 = errno;
-			pr_err("attempt 2 (with -n %s, written to root interface) failed: n=%d len=%ld errno=%d (%s)\n",
-			       namespace, n, (long)len, err2, strerror(err2));
-		}
+		if (n < 0)
+			pr_perror("attempt 2 (with -n %s, written to root interface) failed: len=%ld", namespace,
+				  (long)len);
 	}
 
 	close(fd);
