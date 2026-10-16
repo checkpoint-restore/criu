@@ -63,6 +63,7 @@
 #include "cgroup-props.h"
 #include "file-lock.h"
 #include "page-xfer.h"
+#include "remote-parent.h"
 #include "compression.h"
 #include "kerndat.h"
 #include "stats.h"
@@ -1778,6 +1779,12 @@ err:
 	if (write_img_inventory(&he, parent_ie))
 		ret = -1;
 
+	/* Inventory close can also record a buffered-image write failure. */
+	if (bfd_flush_images())
+		ret = -1;
+	if (remote_parent_finish(ret == 0))
+		ret = -1;
+
 	if (ret)
 		pr_err("Pre-dumping FAILED.\n");
 	else {
@@ -1860,8 +1867,10 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (ret)
 		goto err;
 
-	if (irmap_predump_prep())
+	if (irmap_predump_prep()) {
+		ret = -1;
 		goto err;
+	}
 
 	ret = 0;
 err:
