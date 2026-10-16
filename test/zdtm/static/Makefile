@@ -31,6 +31,7 @@ TST_NOFILE	:=				\
 		timers				\
 		timers01			\
 		timerfd				\
+		timerfd_abs_disarmed		\
 		timerslack_ns			\
 		unbound_sock			\
 		sched_prio00			\
@@ -81,6 +82,7 @@ TST_NOFILE	:=				\
 		pthread_timers			\
 		pthread_timers_h		\
 		leader_posix_timer		\
+		dead_thread_posix_timer		\
 		rseq00				\
 		membarrier			\
 		vdso00				\
@@ -150,6 +152,7 @@ TST_NOFILE	:=				\
 		sock_ip_opts01			\
 		sock_tcp_opts00			\
 		sock_tcp_opts01			\
+		sock_uid				\
 		sk-unix-unconn			\
 		sk-unix-unconn-seqpacket	\
 		ipc_namespace			\
@@ -254,6 +257,7 @@ TST_NOFILE	:=				\
 		oom_score_adj			\
 		loginuid			\
 		cgroupns			\
+		cgroupns_ignore			\
 		helper_zombie_child		\
 		clone_fs			\
 		macvlan			\
@@ -366,6 +370,7 @@ TST_FILE	=				\
 		fifo				\
 		fifo-ghost			\
 		fifo_ro				\
+		fifo_ro_nonblock		\
 		fifo_wronly			\
 		console				\
 		vt				\
@@ -571,6 +576,18 @@ env00.pid:	env00
 umask00.pid:	umask00
 	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --mask=0345
 
+CUDA_TST	=				\
+		cuda00				\
+		cuda_streams00			\
+		cuda_zerocopy00			\
+		cuda_mempool00			\
+		cuda_graph00			\
+		cuda_cublas00			\
+		cuda_multigpu00
+
+$(CUDA_TST:%=%.pid):	%.pid:	%
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out
+
 fifo-rowo-pair.pid: fifo-rowo-pair
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --name_master=$<.master.test --name_slave=$<.slave.test
 
@@ -639,6 +656,7 @@ pthread02:		LDLIBS += -pthread
 pthread_timers:		LDLIBS += -lrt -pthread
 pthread_timers_h:	LDLIBS += -lrt -pthread
 leader_posix_timer:	LDLIBS += -lrt -pthread
+dead_thread_posix_timer:	LDLIBS += -lrt -pthread
 different_creds:	LDLIBS += -pthread
 sigpending:		LDLIBS += -pthread
 sigaltstack:		LDLIBS += -pthread
@@ -667,7 +685,7 @@ socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV6
 socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV4V6
 socket-tcp-closed-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK
 socket-tcp-skip-in-flight:	CFLAGS += -D ZDTM_IPV4V6
-socket6-icmp:		CFLAGS += -DZDTM_IPV6
+socket6_icmp:		CFLAGS += -DZDTM_IPV6
 sock_ip_opts01:		CFLAGS += -DZDTM_VAL_ZERO
 sock_tcp_opts01:	CFLAGS += -DZDTM_VAL_ZERO
 tun_ns:			CFLAGS += -DTUN_NS
@@ -763,6 +781,23 @@ sk-unix-listen04: CFLAGS += -DSK_UNIX_LISTEN02 -DSK_UNIX_LISTEN03
 
 cgroupv2_01:		LDLIBS += -pthread
 
+NVCC ?= nvcc
+NVCC_PATH := $(shell command -v $(NVCC) 2>/dev/null || echo $(NVCC))
+CUDA_HOME ?= $(patsubst %/bin/nvcc,%,$(NVCC_PATH))
+CUDA_LIBDIR ?= $(firstword $(wildcard $(CUDA_HOME)/lib64 $(CUDA_HOME)/lib) $(CUDA_HOME)/lib64)
+CUDA_RPATH_LDFLAGS := -L$(CUDA_LIBDIR) -Xlinker -rpath -Xlinker $(CUDA_LIBDIR)
+CUDA_LDFLAGS := $(if $(wildcard $(CUDA_LIBDIR)/libcudart.so*),$(CUDA_RPATH_LDFLAGS))
+NVCCFLAGS ?= -allow-unsupported-compiler
+cuda_cublas00: CUDA_NVCC_LDLIBS += -lcublas
+cuda_streams00: NVCCFLAGS += -Xcompiler=-pthread
+
+$(CUDA_TST):	%: %.cu $(LIB) cuda_zdtm.h
+	@echo $@ >> .gitignore
+	$(E) " NVCC     " $@
+	$(Q)command -v $(NVCC) >/dev/null 2>&1 || test -x $(NVCC) || { echo "nvcc not found"; exit 1; }
+	$(Q)$(NVCC) $(NVCCFLAGS) -std=c++17 -g -O2 -lineinfo -I$(LIBDIR) \
+		$< $(LIB) $(CUDA_LDFLAGS) $(CUDA_NVCC_LDLIBS) -o $@
+
 uprobes:		CFLAGS += $(call pkg-cflags, libtracefs libtraceevent)
 uprobes:		LDLIBS += $(call pkg-libs, libtracefs libelf)
 
@@ -770,7 +805,7 @@ $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
 clean-more:
-	$(RM) criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h
+	$(RM) criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h $(CUDA_TST)
 .PHONY: clean-more
 clean: clean-more
 

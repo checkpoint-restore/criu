@@ -7,13 +7,18 @@ Podman, removes it, restores it with Podman, and validates inference again.
 
 GPU runs enable SGLang's memory saver by default. Before checkpoint the driver
 pauses generation and releases SGLang-managed GPU allocations; after restore it
-resumes those allocations and generation. This avoids checkpointing CUDA IPC /
-registered VRAM. Pass --disable-memory-saver only for diagnostic comparisons.
+resumes those allocations and generation. CUDA backend comparisons also launch
+the server in a CUDA checkpoint job, which establishes the shared job identity
+required for CUDA IPC checkpointing on r610 and later drivers. Memory release
+does not replace that identity. Pass --disable-memory-saver only for diagnostic
+comparisons.
 
 This benchmarks Podman's container checkpoint/restore path while varying CRIU
 memory-page compression through /etc/criu/runc.conf. Podman's own checkpoint
 archive compression is kept at "none" by default so the reported archive size
 reflects CRIU image size rather than tar-level gzip/zstd compression.
+
+Use --cuda-migrate-gpus SOURCE TARGET with TP=1 to test physical GPU migration.
 
 Example:
   sudo HF_TOKEN=... python3 contrib/compression-benchmark/podman-sglang.py \\
@@ -26,6 +31,7 @@ CPU-only example (requires an SGLang CPU image):
 """
 
 import os
+import shutil
 import sys
 
 _BENCHMARK_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +39,7 @@ if _BENCHMARK_DIR not in sys.path:
     sys.path.insert(0, _BENCHMARK_DIR)
 
 import podman_common as common  # noqa: E402
+import cuda_migration  # noqa: E402
 
 
 class SglangAdapter:
@@ -52,6 +59,7 @@ class SglangAdapter:
 
     @staticmethod
     def add_model_arguments(parser):
+        parser.add_argument("--model-revision", help="Immutable Hugging Face model commit")
         parser.add_argument(
             "--sglang-model-arg",
             choices=["model", "model-path"],
@@ -82,6 +90,16 @@ class SglangAdapter:
     @staticmethod
     def add_server_arguments(parser):
         parser.add_argument(
+            "--cuda-backends", nargs="+",
+            choices=["driver-api", "cuda-checkpoint"],
+            help="Compare explicit CUDA backends in alternating trial order",
+        )
+        parser.add_argument(
+            "--cuda-migrate-gpus", nargs=2, metavar=("SOURCE", "TARGET"),
+            help="Test TP=1 GPU migration using nvidia-smi indices or full UUIDs; "
+                 "sets CUDA visibility to both GPUs and swaps them during restore",
+        )
+        parser.add_argument(
             "--disable-memory-saver",
             dest="memory_saver",
             action="store_false",
@@ -89,16 +107,27 @@ class SglangAdapter:
             help="Checkpoint live CUDA allocations instead of releasing "
                  "SGLang GPU memory first (not recommended)",
         )
-        parser.add_argument(
+        launch_job = parser.add_mutually_exclusive_group()
+        launch_job.add_argument(
             "--cuda-checkpoint-launch-job",
             action="store_true",
+            default=None,
             help="Launch SGLang through cuda-checkpoint --launch-job so all "
-                 "CUDA workers inherit one checkpoint job file",
+                 "CUDA workers inherit one checkpoint job file "
+                 "(default with --cuda-backends; requires r610 or later)",
+        )
+        launch_job.add_argument(
+            "--no-cuda-checkpoint-launch-job",
+            dest="cuda_checkpoint_launch_job",
+            action="store_false",
+            help="Do not create a CUDA checkpoint job; only for workloads "
+                 "that do not require CUDA IPC checkpointing",
         )
         parser.add_argument(
             "--cuda-checkpoint-binary",
-            default="/usr/local/bin/cuda-checkpoint",
-            help="Host cuda-checkpoint binary mounted into the container",
+            default="cuda-checkpoint",
+            help="Host cuda-checkpoint binary mounted into the container "
+                 "(default: resolve cuda-checkpoint from PATH)",
         )
         parser.add_argument(
             "--sglang-arg",
@@ -109,6 +138,8 @@ class SglangAdapter:
 
     @staticmethod
     def normalize_args(parser, args):
+        if args.image == "":
+            parser.error("--image must not be empty; check BENCH_IMAGE")
         if args.image is not None:
             return
         if args.accelerator == "cpu":
@@ -120,6 +151,15 @@ class SglangAdapter:
 
     @staticmethod
     def prepare_args(args):
+        if args.cuda_backends:
+            if args.accelerator != "gpu" or not args.criu_libdir:
+                raise RuntimeError("--cuda-backends requires GPU and --criu-libdir")
+            if len(set(args.cuda_backends)) != len(args.cuda_backends):
+                raise RuntimeError("--cuda-backends must not contain duplicates")
+            if args.json and os.path.exists(args.json):
+                raise RuntimeError(f"Results already exist: {args.json}")
+        if args.cuda_checkpoint_launch_job is None:
+            args.cuda_checkpoint_launch_job = bool(args.cuda_backends)
         if not args.enable_thinking:
             extra = dict(args.chat_extra_json or {})
             extra.setdefault(
@@ -131,11 +171,15 @@ class SglangAdapter:
                 raise RuntimeError(
                     "--cuda-checkpoint-launch-job requires --accelerator gpu"
                 )
-            if not os.path.isfile(args.cuda_checkpoint_binary):
+            binary = shutil.which(args.cuda_checkpoint_binary)
+            if not binary:
                 raise RuntimeError(
-                    "cuda-checkpoint binary not found: "
-                    f"{args.cuda_checkpoint_binary}"
+                    f"Host cuda-checkpoint executable not found: {args.cuda_checkpoint_binary}"
                 )
+            args.cuda_checkpoint_binary = os.path.abspath(binary)
+        args.cuda_migration = None
+        if getattr(args, "cuda_migrate_gpus", None):
+            cuda_migration.prepare(args)
 
     @staticmethod
     def extra_podman_args(args):
@@ -160,7 +204,7 @@ class SglangAdapter:
             args.image,
         ]
         if getattr(args, "cuda_checkpoint_launch_job", False):
-            command += ["cuda-checkpoint", "--launch-job"]
+            command += ["/usr/local/bin/cuda-checkpoint", "--launch-job"]
         command += [
             "python3", "-m", "sglang.launch_server",
             f"--{args.sglang_model_arg}", args.model,
@@ -176,6 +220,8 @@ class SglangAdapter:
                 command.append("--enable-memory-saver")
         else:
             command += ["--device", "cpu", "--disable-overlap-schedule"]
+        if getattr(args, "model_revision", None):
+            command += ["--revision", args.model_revision]
         command += args.sglang_arg
         return command
 
@@ -216,8 +262,12 @@ class SglangAdapter:
     def server_summary(args):
         memory_saver = "on" if args.memory_saver else "off"
         launch_job = "on" if args.cuda_checkpoint_launch_job else "off"
-        return (f"model-arg={args.sglang_model_arg}, "
-                f"memory-saver={memory_saver}, launch-job={launch_job}")
+        summary = (f"model-arg={args.sglang_model_arg}, "
+                   f"memory-saver={memory_saver}, launch-job={launch_job}")
+        if getattr(args, "cuda_migration", None):
+            migration = args.cuda_migration
+            summary += f", GPU migration={migration['source']['uuid']} -> {migration['target']['uuid']}"
+        return summary
 
 
 _benchmark = common.ServingBenchmark(SglangAdapter(), __doc__)
@@ -235,7 +285,6 @@ format_cmd = common.format_cmd
 run_arg_sets_environment = common.run_arg_sets_environment
 write_file = common.write_file
 os = common.os
-shutil = common.shutil
 signal = common.signal
 subprocess = common.subprocess
 tempfile = common.tempfile

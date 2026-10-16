@@ -27,7 +27,7 @@
 
 #define CRIU_PLUGIN_GEN_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
 #define CRIU_PLUGIN_VERSION_MAJOR	 0
-#define CRIU_PLUGIN_VERSION_MINOR	 2
+#define CRIU_PLUGIN_VERSION_MINOR	 3
 #define CRIU_PLUGIN_VERSION_SUBLEVEL	 0
 
 #define CRIU_PLUGIN_VERSION_OLD CRIU_PLUGIN_GEN_VERSION(0, 1, 0)
@@ -67,6 +67,7 @@ enum {
 	CR_PLUGIN_HOOK__DUMP_DEVICES_LATE = 14,
 
 	CR_PLUGIN_HOOK__UPDATE_INETSK = 15,
+	CR_PLUGIN_HOOK__DUMP_FINISH = 16,
 
 	CR_PLUGIN_HOOK__MAX
 };
@@ -90,6 +91,14 @@ DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__POST_FORKING, void);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESTORE_INIT, void);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_DEVICES_LATE, int id);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__UPDATE_INETSK, uint32_t family, uint32_t state, uint32_t *src_ip, uint32_t *dst_ip);
+/*
+ * DUMP_FINISH runs before the dumped tasks are released; ret is non-zero
+ * when they will be resumed because the dump failed. If a handler fails
+ * after a successful dump that would have killed or stopped the tasks,
+ * CRIU resumes them and calls DUMP_FINISH once more with that error, so
+ * handlers must accept a second call and roll back on it.
+ */
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_FINISH, int ret);
 
 enum {
 	CR_PLUGIN_STAGE__DUMP,
@@ -147,6 +156,14 @@ static inline void cr_plugin_dummy_exit(int stage, int ret)
 
 /* Public API */
 extern int criu_get_image_dir(void);
+
+/*
+ * Return plugin options as an argv array suitable for getopt_long().
+ * argv[0] is a synthetic program name, every option starts with "--", and
+ * argv[argc] is NULL. Returns zero on success or a negative errno value on
+ * failure. An empty option list is returned as argc == 1.
+ */
+extern int criu_plugin_get_options(int *argc, char ***argv);
 
 /*
  * Deprecated, will be removed in next version.

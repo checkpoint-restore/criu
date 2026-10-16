@@ -725,12 +725,17 @@ static int collect_children(struct pstree_item *item)
 		ret = compel_wait_task(pid, item->pid->real, parse_pid_status, NULL, &creds.s, NULL);
 		if (ret < 0) {
 			/*
-			 * Here is a race window between parse_children() and seize(),
-			 * so the task could die for these time.
-			 * Don't worry, will try again on the next attempt. The number
-			 * of attempts is restricted, so it will exit if something
-			 * really wrong.
+			 * The task may have exited since parse_children() listed it,
+			 * which is fine, as the next attempt will either not see it,
+			 * or see it as a zombie.
+			 * Other failures are retried as well, and as the number
+			 * of attempts is limited, we give up if one persists.
+			 *
+			 * With -ESRCH, compel_wait_task() has reaped the task,
+			 * so freezer_wait_processes() must not wait for it.
 			 */
+			if (ret == -ESRCH)
+				processes_to_wait--;
 			ret = 0;
 			xfree(c);
 			continue;
@@ -915,12 +920,16 @@ static int collect_threads(struct pstree_item *item)
 		ret = compel_wait_task(pid, item_ppid(item), parse_pid_status, NULL, &t_creds.s, NULL);
 		if (ret < 0) {
 			/*
-			 * Here is a race window between parse_threads() and seize(),
-			 * so the task could die for these time.
-			 * Don't worry, will try again on the next attempt. The number
-			 * of attempts is restricted, so it will exit if something
-			 * really wrong.
+			 * The task may have exited since parse_threads() listed it,
+			 * which is fine, as the next attempt will not see it.
+			 * Other failures are retried as well, and as the number
+			 * of attempts is limited, we give up if one persists.
+			 *
+			 * With -ESRCH, compel_wait_task() has reaped the task,
+			 * so freezer_wait_processes() must not wait for it.
 			 */
+			if (ret == -ESRCH)
+				processes_to_wait--;
 			continue;
 		}
 
@@ -1130,6 +1139,182 @@ err:
 	return exit_code;
 }
 
+static struct pstree_item *checkpoint_item;
+static k_rtsigset_t resumed_sigset;
+static bool thread_resumed;
+static pid_t resumed_tid;
+
+static int verify_task_threads_and_children(struct pstree_item *item)
+{
+	int nr_threads = 0, nr_children = 0, i, exit_code = -1;
+	struct pid *threads = NULL;
+	bool uncollected = false;
+	pid_t *ch = NULL;
+
+	if (parse_threads(item->pid->real, &threads, &nr_threads) < 0)
+		goto out;
+
+	for (i = 0; i < nr_threads; i++) {
+		if (!thread_collected(item, threads[i].real)) {
+			pr_err("Uncollected thread %d found in task %d\n",
+			       threads[i].real, item->pid->real);
+			uncollected = true;
+		}
+	}
+
+	if (parse_children(item->pid->real, &ch, &nr_children) < 0)
+		goto out;
+
+	for (i = 0; i < nr_children; i++) {
+		if (!child_collected(item, ch[i])) {
+			pr_err("Uncollected child %d found in task %d\n",
+			       ch[i], item->pid->real);
+			uncollected = true;
+		}
+	}
+
+	if (uncollected)
+		goto out;
+
+	exit_code = 0;
+out:
+	xfree(threads);
+	xfree(ch);
+	close_pid_proc();
+	return exit_code;
+}
+
+static int verify_pstree(struct pstree_item *item)
+{
+	struct pstree_item *child;
+
+	list_for_each_entry(child, &item->children, sibling) {
+		if (verify_pstree(child))
+			return -1;
+	}
+
+	if (!task_alive(item))
+		return 0;
+
+	return verify_task_threads_and_children(item);
+}
+
+static bool pstree_thread_collected(pid_t tid)
+{
+	struct pstree_item *item;
+
+	if (!root_item)
+		return false;
+
+	for_each_pstree_item(item) {
+		if (item->pid->state == TASK_UNDEF)
+			continue;
+		if (thread_collected(item, tid))
+			return true;
+	}
+
+	return false;
+}
+
+static bool thread_has_seccomp(pid_t tid)
+{
+	struct seccomp_entry *entry;
+
+	entry = seccomp_lookup(tid, false, false);
+	return entry && entry->mode != SECCOMP_MODE_DISABLED;
+}
+
+int __attribute__((used)) criu_resume_thread(pid_t tid)
+{
+	unsigned long options = checkpoint_item ? COMPEL_PTRACE_OPTIONS : 0;
+	bool sigmask_changed = false;
+	bool options_set = false;
+	k_rtsigset_t block;
+
+	if (checkpoint_item) {
+		if (resumed_tid) {
+			pr_err("Thread %d is already resumed\n", resumed_tid);
+			return -1;
+		}
+		if (!thread_collected(checkpoint_item, tid)) {
+			pr_err("Thread %d is not in collected task %d\n",
+			       tid, checkpoint_item->pid->real);
+			return -1;
+		}
+	}
+	resumed_tid = 0;
+
+	if (ptrace(PTRACE_GETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset)) {
+		int err = -errno;
+
+		if (err == -ESRCH && !pstree_thread_collected(tid))
+			return err;
+		pr_perror("Failed to get current sigmask for restore tid %d", tid);
+		return -1;
+	}
+
+	ksigfillset(&block);
+	ksigdelset(&block, SIGTRAP);
+
+	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(block), &block)) {
+		pr_perror("Failed to block signals on restore tid %d", tid);
+		return -1;
+	}
+	sigmask_changed = true;
+
+	/*
+	 * Clear PTRACE_O_SUSPEND_SECCOMP when resuming the restore thread,
+	 * and trace new task creation during CHECKPOINT_DEVICES. Plugins can
+	 * legitimately create threads during restore and dump rollback,
+	 * after the restorer or parasite has been removed.
+	 */
+	if (ptrace(PTRACE_SETOPTIONS, tid, NULL, options)) {
+		pr_perror("Could not set ptrace options on restore tid %d", tid);
+		goto unwind;
+	}
+	options_set = true;
+
+	if (ptrace(PTRACE_CONT, tid, NULL, 0)) {
+		pr_perror("Could not resume restore tid %d", tid);
+		goto unwind;
+	}
+
+	resumed_tid = tid;
+	if (checkpoint_item)
+		thread_resumed = true;
+	return 0;
+
+unwind:
+	if (options_set && thread_has_seccomp(tid) && ptrace_suspend_seccomp(tid) < 0)
+		pr_err("Unable to restore ptrace options for restore tid %d\n", tid);
+	if (sigmask_changed &&
+	    ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset))
+		pr_perror("Unable to restore signal mask for restore tid %d", tid);
+
+	return -1;
+}
+
+int __attribute__((used)) criu_restore_thread(pid_t tid)
+{
+	int ret = 0;
+
+	if (resumed_tid != tid) {
+		pr_err("Thread %d was not resumed by CRIU\n", tid);
+		return -1;
+	}
+	resumed_tid = 0;
+
+	if (thread_has_seccomp(tid) && ptrace_suspend_seccomp(tid) < 0)
+		ret = -1;
+
+	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset)) {
+		pr_perror("Unable to restore original sigmask to restore tid %d", tid);
+		ret = -1;
+	}
+
+	return ret;
+}
+
 int checkpoint_devices(void)
 {
 	struct pstree_item *iter;
@@ -1138,12 +1323,39 @@ int checkpoint_devices(void)
 	for_each_pstree_item(iter) {
 		if (!task_alive(iter))
 			continue;
+		checkpoint_item = iter;
+		thread_resumed = false;
 		ret = run_plugins(CHECKPOINT_DEVICES, iter->pid->real);
+		checkpoint_item = NULL;
 		if (ret < 0 && ret != -ENOTSUP)
+			goto err;
+		if (resumed_tid) {
+			pr_err("Plugin left thread %d running on task %d\n",
+			       resumed_tid, iter->pid->real);
+			goto err;
+		}
+		if (thread_resumed && verify_pstree(root_item))
 			goto err;
 	}
 
 	exit_code = 0;
 err:
+	checkpoint_item = NULL;
+	if (resumed_tid) {
+		int status;
+
+		if (ptrace(PTRACE_INTERRUPT, resumed_tid, NULL, 0) == 0 &&
+		    wait4(resumed_tid, &status, __WALL, NULL) == resumed_tid &&
+		    WIFSTOPPED(status))
+			criu_restore_thread(resumed_tid);
+		resumed_tid = 0;
+	}
+	if (exit_code && iter) {
+		siginfo_t si;
+
+		if (ptrace(PTRACE_GETSIGINFO, iter->pid->real, NULL, &si) < 0 &&
+		    errno == ESRCH)
+			iter->pid->state = TASK_DEAD;
+	}
 	return exit_code;
 }

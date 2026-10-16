@@ -251,8 +251,17 @@ try_again:
 	}
 
 	ret2 = get_status(pid, ss, data);
-	if (ret2)
+	if (ret2) {
+		/*
+		 * The task has exited, and wait4() above has just reaped
+		 * it, so there is no status to read. Tell the caller the
+		 * task is gone, as it may need to know that the exit has
+		 * been consumed here.
+		 */
+		if (ret == pid && (WIFEXITED(status) || WIFSIGNALED(status)))
+			return -ESRCH;
 		goto err;
+	}
 
 	if (ret < 0 || WIFEXITED(status) || WIFSIGNALED(status)) {
 		if (ss->state != 'Z') {
@@ -303,8 +312,8 @@ try_again:
 		goto try_again;
 	}
 
-	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_TRACESYSGOOD)) {
-		pr_perror("Unable to set PTRACE_O_TRACESYSGOOD for %d", pid);
+	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, COMPEL_PTRACE_OPTIONS)) {
+		pr_perror("Unable to set ptrace options for %d", pid);
 		return -1;
 	}
 

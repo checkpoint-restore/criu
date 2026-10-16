@@ -10,6 +10,7 @@
 #include <signal.h>
 #include "common/bug.h"
 #include "rst-malloc.h"
+#include "rst_info.h"
 
 #include "compel/plugins/std/syscall-codes.h"
 
@@ -196,7 +197,7 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 		pidfd = pidfd_open(info->pidfe->nspid, info->pidfe->flags);
 		if (pidfd < 0) {
 			pr_perror("Could not open pidfd for %d", info->pidfe->nspid);
-			goto err_close;
+			goto err;
 		}
 		goto out;
 	}
@@ -214,9 +215,17 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 		goto out;
 	}
 
+	/*
+	 * The temporary process lives in the pid namespace being restored
+	 * while other tasks may be creating threads via ns_last_pid: the
+	 * pid it takes may be one they need. Keep it under the last_pid
+	 * lock from fork to reaping, as call_helper_process() does.
+	 */
+	lock_last_pid();
+
 	pid = create_tmp_process();
 	if (pid < 0)
-		goto err_close;
+		goto err_unlock;
 
 	for (child = dead->list; child; child = child->next) {
 		if (child == info)
@@ -224,13 +233,13 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 		pidfd = pidfd_open(pid, child->pidfe->flags);
 		if (pidfd < 0) {
 			pr_perror("Could not open pidfd for %d", child->pidfe->nspid);
-			goto err_close;
+			goto err_kill;
 		}
 
 		if (send_desc_to_peer(pidfd, &child->d)) {
 			pr_perror("Can't send file descriptor");
 			close(pidfd);
-			return -1;
+			goto err_kill;
 		}
 		close(pidfd);
 	}
@@ -238,18 +247,27 @@ static int open_one_pidfd(struct file_desc *d, int *new_fd)
 	pidfd = pidfd_open(pid, info->pidfe->flags);
 	if (pidfd < 0) {
 		pr_perror("Could not open pidfd for %d", info->pidfe->nspid);
-		goto err_close;
+		goto err_kill;
 	}
-	if (kill_helper(pid))
-		goto err_close;
+	if (kill_helper(pid)) {
+		close(pidfd);
+		goto err_unlock;
+	}
+
+	unlock_last_pid();
 out:
 	if (rst_file_params(pidfd, info->pidfe->fown, info->pidfe->flags)) {
-		goto err_close;
+		close(pidfd);
+		goto err;
 	}
 
 	*new_fd = pidfd;
 	return 0;
-err_close:
+err_kill:
+	kill_helper(pid);
+err_unlock:
+	unlock_last_pid();
+err:
 	pr_err("Can't create pidfd %#08x NSpid: %d flags: %u\n",
 	   info->pidfe->id, info->pidfe->nspid, info->pidfe->flags);
 	return -1;

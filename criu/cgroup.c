@@ -26,8 +26,12 @@
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
+#include <sys/syscall.h>
 #include "kerndat.h"
+#include "fs-magic.h"
+#include "mount-v2.h"
 #include "linux/mount.h"
+#include "fault-injection.h"
 
 /*
  * This structure describes set of controller groups
@@ -624,12 +628,87 @@ err:
 	return -1;
 }
 
+static int has_root_cgroupv2 = -1;
+
+static bool has_root_cgroupv2_mount(void)
+{
+	union {
+		struct cr_statmount sm;
+		char buf[sizeof(struct cr_statmount) + 64];
+	} smbuf = {};
+	struct cr_statx stx = {};
+	struct cr_mnt_id_req req = {
+		.size = MNT_ID_REQ_SIZE_VER1,
+		.param = STATMOUNT_SB_BASIC | STATMOUNT_MNT_ROOT,
+	};
+	int ret;
+
+	if (has_root_cgroupv2 >= 0)
+		return has_root_cgroupv2;
+
+	has_root_cgroupv2 = 0;
+	if (!kdat.has_statmount)
+		return false;
+
+	if (fault_injected(FI_CGROUP2_NO_ROOT_MOUNT))
+		return false;
+
+	if (!(kdat.statmount_supported_mask & STATMOUNT_MNT_ROOT) ||
+	    !(kdat.statmount_supported_mask & STATMOUNT_SB_BASIC))
+		return false;
+
+	ret = syscall(SYS_statx, AT_FDCWD, SYS_FS_CGROUP_PATH, 0, STATX_MNT_ID_UNIQUE, &stx);
+	if (ret < 0) {
+		pr_debug("statx(%s) failed: %s\n", SYS_FS_CGROUP_PATH, strerror(errno));
+		return false;
+	}
+
+	if (!(stx.stx_mask & STATX_MNT_ID_UNIQUE) ||
+	    !(stx.stx_attributes_mask & STATX_ATTR_MOUNT_ROOT))
+		return false;
+
+	if (!(stx.stx_attributes & STATX_ATTR_MOUNT_ROOT))
+		goto out;
+
+	req.mnt_id = stx.stx_mnt_id;
+
+	if (sys_statmount(&req, &smbuf.sm, sizeof(smbuf), 0)) {
+		if (errno == EOVERFLOW)
+			goto out;
+		pr_debug("statmount(%s) failed: %s\n", SYS_FS_CGROUP_PATH, strerror(errno));
+		return false;
+	}
+
+	if ((smbuf.sm.mask & (STATMOUNT_SB_BASIC | STATMOUNT_MNT_ROOT)) ==
+	    (STATMOUNT_SB_BASIC | STATMOUNT_MNT_ROOT)) {
+		const char *mnt_root = smbuf.sm.str + smbuf.sm.mnt_root;
+
+		if (smbuf.sm.sb_magic == CGROUP2_SUPER_MAGIC && !strcmp(mnt_root, "/"))
+			has_root_cgroupv2 = 1;
+	}
+
+out:
+	pr_info("%s %s the root cgroupv2 mount\n",
+		SYS_FS_CGROUP_PATH,
+		has_root_cgroupv2 ? "is" : "is not");
+
+	return has_root_cgroupv2;
+}
+
 static int open_cgroupfs(struct cg_ctl *cc)
 {
 	const char *fstype = cc->name[0] == 0 ? "cgroup2" : "cgroup";
 	char prefix[] = ".criu.cgmounts.XXXXXX";
 	char mopts[1024];
 	int fd;
+
+	if (cc->name[0] == 0 && has_root_cgroupv2_mount()) {
+		fd = sys_open_tree(AT_FDCWD, SYS_FS_CGROUP_PATH, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+		if (fd >= 0)
+			return fd;
+		pr_perror("Unable to open tree %s, falling back to mounting cgroup2", SYS_FS_CGROUP_PATH);
+		has_root_cgroupv2 = 0;
+	}
 
 	if (kdat.has_fsopen)
 		return __new_open_cgroupfs(cc);
@@ -963,6 +1042,48 @@ static void free_sets(CgroupEntry *cg, unsigned nr)
 	xfree(cg->sets);
 }
 
+static void free_cg_dir_props(CgroupPropEntry **props, size_t n_props)
+{
+	size_t i;
+
+	if (!props)
+		return;
+
+	for (i = 0; i < n_props; i++) {
+		xfree(props[i]->perms);
+		xfree(props[i]->name);
+		xfree(props[i]->value);
+	}
+	xfree(props);
+}
+
+static void free_cg_dirs(CgroupDirEntry **dirs, size_t n_dirs)
+{
+	size_t i;
+
+	if (!dirs)
+		return;
+
+	for (i = 0; i < n_dirs; i++) {
+		free_cg_dirs(dirs[i]->children, dirs[i]->n_children);
+		free_cg_dir_props(dirs[i]->properties, dirs[i]->n_properties);
+		xfree(dirs[i]->dir_perms);
+	}
+	xfree(dirs);
+}
+
+static void free_controllers(CgroupEntry *cg)
+{
+	size_t i;
+
+	if (!cg->controllers)
+		return;
+
+	for (i = 0; i < cg->n_controllers; i++)
+		free_cg_dirs(cg->controllers[i]->dirs, cg->controllers[i]->n_dirs);
+	xfree(cg->controllers);
+}
+
 static int dump_sets(CgroupEntry *cg)
 {
 	struct cg_set *set;
@@ -1054,7 +1175,7 @@ int dump_cgroups(void)
 	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_CGROUP), &cg, PB_CGROUP);
 err:
 	free_sets(&cg, cg.n_sets);
-	xfree(cg.controllers);
+	free_controllers(&cg);
 	return ret;
 }
 
@@ -1305,12 +1426,45 @@ static int move_in_cgroup(CgSetEntry *se)
 	return 0;
 }
 
+static bool has_cgns_prefix(CgSetEntry *se)
+{
+	int i;
+
+	for (i = 0; i < se->n_ctls; i++)
+		if (se->ctls[i]->has_cgns_prefix)
+			return true;
+
+	return false;
+}
+
+/*
+ * In the CG_MODE_IGNORE mode we do not deal with cgroups at all, relying
+ * on the caller (e.g. a container runtime) to have placed us into the
+ * proper cgroup, which the restored tasks inherit.
+ *
+ * A cgroup namespace, though, can not be set up by the caller: unshare()
+ * pins the namespace root to the cgroup of the calling task, so it has to
+ * be done by the very process the restored tasks are forked from, i.e.
+ * here. As the caller has already put us into the right cgroup, no moving
+ * around is needed -- a plain unshare() is sufficient.
+ */
+static int prepare_cgns_ignore(CgSetEntry *se)
+{
+	if (!has_cgns_prefix(se))
+		return 0;
+
+	pr_info("Creating cgns rooted at the current cgroup\n");
+	if (unshare(CLONE_NEWCGROUP) < 0) {
+		pr_perror("couldn't unshare cgns");
+		return -1;
+	}
+
+	return 0;
+}
+
 int prepare_cgroup_namespace(struct pstree_item *root_task)
 {
 	CgSetEntry *se;
-
-	if (opts.manage_cgroups == CG_MODE_IGNORE)
-		return 0;
 
 	if (root_task->parent) {
 		pr_err("Expecting root_task to restore cgroup namespace\n");
@@ -1333,6 +1487,9 @@ int prepare_cgroup_namespace(struct pstree_item *root_task)
 		pr_err("No set %d found\n", rsti(root_task)->cg_set);
 		return -1;
 	}
+
+	if (opts.manage_cgroups == CG_MODE_IGNORE)
+		return prepare_cgns_ignore(se);
 
 	if (prepare_cgns(se) < 0) {
 		pr_err("failed preparing cgns\n");

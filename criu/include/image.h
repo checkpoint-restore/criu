@@ -109,6 +109,35 @@
 #define VMA_PREMMAPED	  (1 << 30)
 #define VMA_UNSUPP	  (1 << 31)
 
+/*
+ * The VMA areas that pr_vma() prints a short name for, one X(_o, _s)
+ * pair per area. This is the only list of them, so a new VMA area
+ * needs a name added here as well.
+ *
+ * The state bits above it are deliberately not listed: none of them
+ * names an area, and pr_vma() reports them as part of the status
+ * value it prints next to the names.
+ */
+#define VMA_AREA_NAMES(X)              \
+	X(VMA_AREA_REGULAR, "reg")     \
+	X(VMA_AREA_STACK, "stk")       \
+	X(VMA_AREA_VSYSCALL, "vsys")   \
+	X(VMA_AREA_VDSO, "vdso")       \
+	X(VMA_AREA_VVAR, "vvar")       \
+	X(VMA_AREA_HEAP, "heap")       \
+	X(VMA_FILE_PRIVATE, "fp")      \
+	X(VMA_FILE_SHARED, "fs")       \
+	X(VMA_ANON_SHARED, "as")       \
+	X(VMA_ANON_PRIVATE, "ap")      \
+	X(VMA_AREA_SYSVIPC, "sysv")    \
+	X(VMA_AREA_SOCKET, "sk")       \
+	X(VMA_AREA_AIORING, "aio")     \
+	X(VMA_AREA_MEMFD, "memfd")     \
+	X(VMA_AREA_SHSTK, "shstk")     \
+	X(VMA_AREA_GUARD, "guard")     \
+	X(VMA_AREA_UPROBES, "uprobes") \
+	X(VMA_AREA_NOT_ACCOUNTABLE, "noacct")
+
 #define CR_CAP_SIZE 2
 
 #define TASK_COMM_LEN 16
@@ -166,6 +195,7 @@ static inline int img_raw_fd(struct cr_img *img)
 
 extern off_t img_raw_size(struct cr_img *img);
 
+extern int image_dir_mode(void);
 extern int open_image_dir(const char *dir, int mode);
 extern void close_image_dir(void);
 /*
@@ -196,6 +226,7 @@ extern void close_image(struct cr_img *);
 
 extern int add_inventory_plugin(const char *name);
 extern int check_inventory_plugins(void);
-extern bool check_and_remove_inventory_plugin(const char *name, size_t n);
+extern bool has_inventory_plugin(const char *name);
+extern bool check_and_remove_inventory_plugin(const char *name);
 
 #endif /* __CR_IMAGE_H__ */

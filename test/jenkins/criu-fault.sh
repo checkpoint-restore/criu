@@ -29,6 +29,15 @@ fi
 ./test/zdtm.py run -t zdtm/static/mntns_link_remap --fault 6 --report report || fail
 ./test/zdtm.py run -t zdtm/static/unlink_fstat03 --fault 6 --report report || fail
 
+# Check PID namespace cleanup before and after attaching to a threaded tree.
+./test/zdtm.py run -t zdtm/static/pthread00 -f ns --fault 6 --report report || fail
+./test/zdtm.py run -t zdtm/static/pthread00 -f ns --fault 7 --report report || fail
+./test/zdtm.py run -t zdtm/static/pthread00 -f ns --fault 7 --sibling --report report || fail
+
+# Check PID namespace cleanup when attaching fails with only the root traced.
+./test/zdtm.py run -t zdtm/static/pthread00 -f ns --fault 8 --report report || fail
+./test/zdtm.py run -t zdtm/static/pthread00 -f ns --fault 8 --sibling --report report || fail
+
 ./test/zdtm.py run -t zdtm/static/env00 --fault 5 --report report || fail
 ./test/zdtm.py run -t zdtm/static/maps04 --fault 131 --report report --pre 2:1 || fail
 ./test/zdtm.py run -t zdtm/transition/maps008 --fault 131 --report report --pre 2:1 || fail
@@ -48,3 +57,6 @@ fi
 if ./test/zdtm.py run -t zdtm/static/vfork00 --fault 136 --report report -f h ; then
 	fail
 fi
+
+# Check the case when /sys/fs/cgroup isn't the root cgroupv2 mount.
+./test/zdtm.py run -t zdtm/static/cgroupns -t zdtm/static/cgroupv2_00 --fault 139 || fail

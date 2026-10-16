@@ -70,6 +70,8 @@ This directory contains technical documentation detailing the internal implement
 * [Image Security & State Restoration](security/image-security.md): Security
   boundaries, privilege risks, and operational recommendations for handling
   CRIU images.
+* [Workload Security Considerations](security/workload-security.md): Advice on
+  how to run workloads safely to prevent security vulnerabilities during C/R.
 * [AppArmor](apparmor.md): Handling AppArmor profiles during dump and restore.
 
 ## Kernel Features

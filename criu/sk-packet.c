@@ -209,8 +209,10 @@ out:
 	release_skopts(&skopts);
 	xfree(psk.rx_ring);
 	xfree(psk.tx_ring);
-	for (i = 0; i < psk.n_mclist; i++)
+	for (i = 0; i < psk.n_mclist; i++) {
 		xfree(psk.mclist[i]->addr.data);
+		xfree(psk.mclist[i]);
+	}
 	xfree(psk.mclist);
 	return ret;
 }

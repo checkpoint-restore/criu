@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -41,6 +42,30 @@ static struct pipe_data_dump pd_fifo = {
 	.img_type = CR_FD_FIFO_DATA,
 };
 
+/*
+ * fifo_open() latches pipe->w_counter into filp->f_version for a
+ * non-blocking read-only end opened with no writer around, and
+ * pipe_poll() suppresses POLLHUP while the two still match. An end
+ * that has not seen a writer and one whose writer is gone for good
+ * differ nowhere else, so ask poll().
+ */
+static int fifo_wait_writer(int lfd)
+{
+	struct pollfd pfd = {
+		.fd = lfd,
+		.events = POLLIN,
+	};
+	int ret;
+
+	ret = poll(&pfd, 1, 0);
+	if (ret < 0) {
+		pr_perror("Can't poll fifo");
+		return -1;
+	}
+
+	return !(ret > 0 && (pfd.revents & POLLHUP));
+}
+
 static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct cr_img *img = img_from_set(glob_imgset, CR_FD_FILES);
@@ -65,6 +90,16 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 	e.has_regf_id = true;
 	e.regf_id = rf_id;
 
+	if ((p->flags & O_ACCMODE) == O_RDONLY) {
+		int wait_writer = fifo_wait_writer(lfd);
+
+		if (wait_writer < 0)
+			return -1;
+
+		e.has_wait_writer = true;
+		e.wait_writer = wait_writer;
+	}
+
 	fe.type = FD_TYPES__FIFO;
 	fe.id = e.id;
 	fe.fifo = &e;
@@ -82,37 +117,78 @@ const struct fdtype_ops fifo_dump_ops = {
 
 static struct pipe_data_rst *pd_hash_fifo[PIPE_DATA_HASH_SIZE];
 
+static bool fifo_has_data(u32 id)
+{
+	struct pipe_data_rst *pd;
+
+	for (pd = pd_hash_fifo[id & PIPE_DATA_HASH_MASK]; pd != NULL; pd = pd->next)
+		if (pd->pde->pipe_id == id)
+			return pd->pde->bytes > 0;
+
+	return false;
+}
+
 static int do_open_fifo(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 {
 	struct fifo_info *info = arg;
-	int new_fifo, fake_fifo = -1;
+	int new_fifo = -1, fake_fifo = -1;
+	int flags = rfi->rfe->flags;
+
+	bool read_only = (flags & O_ACCMODE) == O_RDONLY;
+	bool nonblocking = flags & O_NONBLOCK;
+	bool pipe_empty = !fifo_has_data(info->fe->pipe_id);
+	bool wait_writer = info->fe->has_wait_writer && info->fe->wait_writer;
 
 	/*
-	 * The fifos (except read-write fifos) do wait until
-	 * another pipe-end get connected, so to be able to
-	 * proceed the restoration procedure we open a fake
-	 * fifo here.
+	 * An end which had not seen a writer has to be opened with no
+	 * writer around too, or it comes back as a closed pipe and the
+	 * application polling it spins. Such an end never blocks on open,
+	 * so it needs no fake writer at all, and opening one would bump
+	 * w_counter and hang up the ends restored before it. A fifo with
+	 * buffered data is left alone, as the fake writer is the one
+	 * holding the data.
 	 */
-	fake_fifo = openat(ns_root_fd, rfi->path, O_RDWR);
-	if (fake_fifo < 0) {
-		pr_perror("Can't open fake fifo %#x [%s]", info->fe->id, rfi->path);
-		return -1;
+	bool skip_fake_writer = read_only && nonblocking && pipe_empty && wait_writer;
+
+	/*
+	 * FIFOs (except read-write FIFOs) block until the other end is
+	 * opened. Open a temporary read-write descriptor so the restore
+	 * process can proceed.
+	 */
+	if (!skip_fake_writer) {
+		fake_fifo = openat(ns_root_fd, rfi->path, O_RDWR);
+		if (fake_fifo < 0) {
+			pr_perror("Can't open fake fifo %#x [%s]", info->fe->id, rfi->path);
+			return -1;
+		}
+
+		if (info->restore_data) {
+			if (restore_pipe_data(CR_FD_FIFO_DATA, fake_fifo, info->fe->pipe_id, pd_hash_fifo))
+				goto out;
+		}
 	}
 
-	new_fifo = openat(ns_root_fd, rfi->path, rfi->rfe->flags);
+	new_fifo = openat(ns_root_fd, rfi->path, flags);
 	if (new_fifo < 0) {
 		pr_perror("Can't open fifo %#x [%s]", info->fe->id, rfi->path);
 		goto out;
 	}
 
-	if (info->restore_data)
-		if (restore_pipe_data(CR_FD_FIFO_DATA, fake_fifo, info->fe->pipe_id, pd_hash_fifo)) {
+	/*
+	 * With no fake writer around there is nothing else holding the pipe,
+	 * so its parameters are restored on the final descriptor instead.
+	 * The fifo carries no data in this case, so this only restores the
+	 * pipe size, which works on a read-only descriptor too.
+	 */
+	if (info->restore_data && skip_fake_writer) {
+		if (restore_pipe_data(CR_FD_FIFO_DATA, new_fifo, info->fe->pipe_id, pd_hash_fifo)) {
 			close(new_fifo);
 			new_fifo = -1;
 		}
+	}
 
 out:
-	close(fake_fifo);
+	close_safe(&fake_fifo);
 	return new_fifo;
 }
 

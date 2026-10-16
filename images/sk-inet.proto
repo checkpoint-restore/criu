@@ -58,4 +58,5 @@ message inet_sk_entry {
 	optional uint32			ns_id		= 18;
 	optional sk_shutdown		shutdown	= 19;
 	optional tcp_opts_entry		tcp_opts	= 20;
+	optional uint32			uid		= 21;
 }

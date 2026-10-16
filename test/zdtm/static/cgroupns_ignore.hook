@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -e
+
+[ "$1" == "--clean" ] || exit 0
+
+# On a failure the test may not get to its own cleanup. A leftover cgroup keeps
+# the named hierarchy alive, so remove it here, once the test is gone.
+
+tname=$(mktemp -d cgclean.XXXXXX)
+trap 'rmdir "${tname}"' EXIT
+
+mount -t cgroup none $tname -o "none,name=zdtmtst_ignore"
+trap 'umount "${tname}"; rmdir "${tname}"' EXIT
+
+echo "Cleaning $tname"
+
+rmdir "$tname/test" || true
+
+echo "Left there is:"
+ls "$tname"

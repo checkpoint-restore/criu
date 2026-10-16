@@ -100,6 +100,20 @@ test_stream() {
 	else
 		echo "Skipping streamed compression tests"
 	fi
+
+	# Streaming on top of a parent snapshot. The pre-dump iterations are
+	# left on disk, only the final dump is streamed.
+	./test/zdtm.py run --stream --pre 2 -p 2 --keep-going -a "${STREAM_TEST_EXCLUDE[@]}" "${ZDTM_OPTS[@]}"
+
+	./test/zdtm.py run -t zdtm/transition/maps007 --stream --pre 5 "${ZDTM_OPTS[@]}"
+	./test/zdtm.py run -t zdtm/transition/maps007 --stream --pre 2 --snaps "${ZDTM_OPTS[@]}"
+	./test/zdtm.py run -t zdtm/transition/maps007 --stream --pre 2 --pre-dump-mode read "${ZDTM_OPTS[@]}"
+
+	./test/zdtm.py run -t zdtm/transition/maps007 --stream --dedup "${ZDTM_OPTS[@]}"
+
+	# For the streamed dump and restore over RPC. The suite skips that case
+	# when criu-image-streamer is missing, which is every job but this one.
+	make -C test/others/rpc/ run
 }
 
 print_header() {
@@ -141,6 +155,9 @@ print_env() {
 
 # FIXME: workaround for the issue https://github.com/checkpoint-restore/criu/issues/1866
 modprobe -v sit || :
+
+# Load ipip up front so that every test netns gets the tunl0 fallback device.
+modprobe -v ipip || :
 
 print_env
 
@@ -499,8 +516,28 @@ run_non_shardable_tests() {
 	./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu
 	./test/zdtm.py run -t zdtm/static/maps00 -t zdtm/static/maps02 --criu-plugin amdgpu cuda
 	./test/zdtm.py run -t zdtm/static/busyloop00 --criu-plugin inventory_test_enabled inventory_test_disabled
+	./test/plugins/plugins-inventory-exact-match.sh
 
-	./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 --mocked-cuda-checkpoint --fault 138
+	# CUDA checkpointing is supported only for native x86-64 workloads.
+	if [ "$(uname -m)" = "x86_64" ] && [ "${COMPAT_TEST:-}" != "y" ]; then
+		make -C test/cuda-checkpoint test
+
+		# Fault 138 (FI_PLUGIN_CUDA_FORCE_ENABLE) enables the mock without a GPU.
+		./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 \
+			--mocked-cuda-checkpoint --fault 138
+		./test/cuda-checkpoint/checkpoint-error-rollback.sh
+		python3 ./test/cuda-checkpoint/backend-errors.py
+		./test/cuda-checkpoint/backend-selection.sh
+		./test/cuda-checkpoint/restore-backend-selection.sh
+		./test/cuda-checkpoint/device-map-backends.sh
+	fi
+}
+
+test_fallback_links() {
+	# Loading ip_gre also creates erspan0, which needs an external-link
+	# plugin. Run this last so it does not affect the other tests.
+	modprobe -v ip_gre || :
+	make -C test/others/ext-links test-fallback
 }
 
 # When sharding is enabled, shards 0..count-1 run sharded zdtm tests and
@@ -514,10 +551,12 @@ if [ -z "$ZDTM_SHARD_COUNT" ] || [ "$ZDTM_SHARD_COUNT" -eq 0 ]; then
 	fi
 	./test/zdtm.py run -a -p 2 --keep-going --criu-config "${ZDTM_OPTS[@]}"
 	run_non_shardable_tests
+	test_fallback_links
 elif [ "$ZDTM_SHARD_INDEX" -eq "$ZDTM_SHARD_COUNT" ]; then
 	# This is the extra non-shardable shard (index == count, e.g. shard 4
 	# when count is 4). Only run non-shardable tests, skip zdtm shards.
 	run_non_shardable_tests
+	test_fallback_links
 else
 	# Shards 0..count-1: run only the sharded zdtm tests
 	./test/zdtm.py run -a -p 2 --keep-going "${SHARD_OPTS[@]}" "${ZDTM_OPTS[@]}"

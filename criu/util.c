@@ -56,8 +56,6 @@
 #include "compel/infect-util.h"
 #include <compel/plugins/std/syscall-codes.h>
 
-#define VMA_OPT_LEN 128
-
 static int xatol_base(const char *string, long *number, int base)
 {
 	char *endptr;
@@ -172,30 +170,31 @@ char *xsprintf(const char *fmt, ...)
 	return str;
 }
 
-static void vma_opt_str(const struct vma_area *v, char *opt)
+void vma_opt_str(const struct vma_area *v, char *opt)
 {
 	int p = 0;
 
+	if (!opt)
+		return;
+
+	opt[0] = '\0';
+
+	if (!v || !v->e)
+		return;
+
+	/*
+	 * VMA_OPT_LEN is sized for all the names listed in
+	 * VMA_AREA_NAMES(), but check the room left on every append
+	 * anyway, so that adding a name can not turn into an overflow.
+	 */
 #define opt2s(_o, _s)                                  \
 	do {                                           \
-		if (v->e->status & _o)                 \
+		if ((v->e->status & (_o)) &&           \
+		    p + sizeof(_s " ") <= VMA_OPT_LEN) \
 			p += sprintf(opt + p, _s " "); \
-	} while (0)
+	} while (0);
 
-	opt[p] = '\0';
-	opt2s(VMA_AREA_REGULAR, "reg");
-	opt2s(VMA_AREA_STACK, "stk");
-	opt2s(VMA_AREA_VSYSCALL, "vsys");
-	opt2s(VMA_AREA_VDSO, "vdso");
-	opt2s(VMA_AREA_VVAR, "vvar");
-	opt2s(VMA_AREA_HEAP, "heap");
-	opt2s(VMA_FILE_PRIVATE, "fp");
-	opt2s(VMA_FILE_SHARED, "fs");
-	opt2s(VMA_ANON_SHARED, "as");
-	opt2s(VMA_ANON_PRIVATE, "ap");
-	opt2s(VMA_AREA_SYSVIPC, "sysv");
-	opt2s(VMA_AREA_SOCKET, "sk");
-	opt2s(VMA_AREA_UPROBES, "uprobes");
+	VMA_AREA_NAMES(opt2s)
 
 #undef opt2s
 }
@@ -653,15 +652,15 @@ int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], un
 
 		if (WIFEXITED(status)) {
 			if (!(flags & CRS_CAN_FAIL) && WEXITSTATUS(status))
-				pr_err("exited, status=%d\n", WEXITSTATUS(status));
+				pr_err("%s exited, status=%d\n", cmd, WEXITSTATUS(status));
 			break;
 		} else if (WIFSIGNALED(status)) {
-			pr_err("killed by signal %d: %s\n", WTERMSIG(status), strsignal(WTERMSIG(status)));
+			pr_err("%s killed by signal %d: %s\n", cmd, WTERMSIG(status), strsignal(WTERMSIG(status)));
 			break;
 		} else if (WIFSTOPPED(status)) {
-			pr_err("stopped by signal %d\n", WSTOPSIG(status));
+			pr_err("%s stopped by signal %d\n", cmd, WSTOPSIG(status));
 		} else if (WIFCONTINUED(status)) {
-			pr_err("continued\n");
+			pr_err("%s continued\n", cmd);
 		}
 	}
 

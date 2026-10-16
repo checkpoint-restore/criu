@@ -1,4 +1,4 @@
-all: test-c test-ps-addr rpc_pb2.py criu
+all: test-c test-ps-addr test-plugin.so rpc_pb2.py criu
 .PHONY: all
 
 CFLAGS += -g -Werror -Wall -I.
@@ -27,7 +27,9 @@ run: all
 	@# The script read.py is used to wait until 'criu service'
 	@# is ready. As 'read -n 1' in some releases has a bug and does
 	@# not read correctly a \0, using python is a workaround.
-	sudo -g '#1000' -u '#1000' -- bash -c "exec 200<>build/status; \
+	sudo -g '#1000' -u '#1000' -- env CRIU_LIBS_DIR="$(CURDIR)" \
+		CRIU_PLUGIN_OPTION_MARKER="$(CURDIR)/build/_marker_plugin_option" \
+		bash -c "exec 200<>build/status; \
 		./criu service -v4 -W build --address criu_service.socket \
 		-d --pidfile pidfile -o service.log --status-fd 200; \
 		$(PYTHON) read.py build/status"
@@ -52,6 +54,9 @@ test-ps-addr: rpc.pb-c.o test-ps-addr.o
 
 test-ps-addr.o: test-ps-addr.c rpc.pb-c.c
 
+test-plugin.so: test-plugin.c ../../../criu/include/criu-plugin.h
+	$(CC) $(CFLAGS) -iquote../../../criu/include -shared -fPIC $< -o $@
+
 rpc_pb2.py: rpc.proto
 	protoc --proto_path=. --python_out=. rpc.proto
 
@@ -59,5 +64,5 @@ rpc.pb-c.c: rpc.proto
 	protoc --proto_path=. --c_out=. rpc.proto
 
 clean:
-	rm -rf build rpc.pb-c.o test-c.o test-c test-ps-addr.o test-ps-addr rpc.pb-c.c rpc.pb-c.h rpc_pb2.py rpc_pb2.pyc criu
+	rm -rf build rpc.pb-c.o test-c.o test-c test-ps-addr.o test-ps-addr test-plugin.so rpc.pb-c.c rpc.pb-c.h rpc_pb2.py rpc_pb2.pyc criu
 .PHONY: clean

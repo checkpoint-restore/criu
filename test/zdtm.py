@@ -32,6 +32,9 @@ from zdtm.criu_config import criu_config
 # File to store content of streamed images
 STREAMED_IMG_FILE_NAME = "img.criu"
 
+# PE_PARENT, from criu/include/pagemap.h
+PE_PARENT = 1 << 0
+
 # A library used to preload C functions to simulate
 # cases such as partial read with pread().
 LIBFAULT_PATH = os.path.join(
@@ -703,6 +706,8 @@ class zdtm_test:
             for name in opts['criu_plugin']:
                 subprocess.check_call(["make", '--no-print-directory', "-C", "plugins/", f"{name}_plugin.so"])
 
+        if opts.get('mocked_cuda_checkpoint') or opts.get('cuda_checkpoint'):
+            subprocess.check_call(["make", "-C", "..", "cuda_plugin"])
         if 'mocked_cuda_checkpoint' in opts and opts['mocked_cuda_checkpoint']:
             subprocess.check_call(["make", "-C", "cuda-checkpoint/"])
         if 'rootless' in opts and opts['rootless']:
@@ -1224,7 +1229,7 @@ class criu:
         self.__compress = bool(opts['compress'])
         self.__compress_acceleration = opts.get('compress_acceleration', 0)
         self.__compress_block = opts.get('compress_block', None)
-        self.__cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'])
+        self.__cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'] or opts['cuda_checkpoint'])
 
         if opts['rpc']:
             self.__criu = criu_rpc
@@ -1374,6 +1379,10 @@ class criu:
         grep_errors(os.path.join(__ddir, log))
         if ret != 0:
             if self.__fault and int(self.__fault) < 128:
+                # A late restore failure may have already written the pidfile.
+                if action == "restore" and os.path.exists(self.__test.getname() + '.pid'):
+                    self.__test.getpid()
+                    self.__test.gone()
                 try_run_hook(self.__test, ["--fault", action])
                 if action == "dump":
                     # create a clean directory for images
@@ -1491,7 +1500,50 @@ class criu:
 
         return total_pages, total_bytes
 
-    def check_pages_counts(self):
+    # A snapshot taken on top of a parent must carry PE_PARENT entries,
+    # otherwise its pages were shipped again instead of being left in the
+    # parent snapshot.
+    def check_parent_pages(self):
+        parent_pages = 0
+
+        for f in os.listdir(self.__ddir()):
+            if not f.startswith("pagemap-"):
+                continue
+            with open(os.path.join(self.__ddir(), f), "rb") as pmi:
+                img = crpc.images.load(pmi)
+            for e in img["entries"]:
+                if "vaddr" not in e:
+                    continue
+                if int(e.get("flags", 0)) & PE_PARENT:
+                    parent_pages += int(e["nr_pages"])
+
+        if not parent_pages:
+            raise test_fail_exc("no pages taken from the parent snapshot")
+
+        print("Pages taken from the parent snapshot: %d" % parent_pages)
+
+    def check_pages_counts(self, stream, had_parent):
+        # A lazy dump writes no dump statistics, so the counts below cannot be
+        # compared. The parent entries can, and that is the assertion which
+        # tells streaming apart from re-sending every page, so extract and
+        # check them before giving up on the rest.
+        if stream:
+            self.spawn_criu_image_streamer("extract")
+            ret = self.wait_for_criu_image_streamer()
+            if ret:
+                raise test_fail_exc("criu-image-streamer (extract) exited with %s" % ret)
+            if had_parent:
+                self.check_parent_pages()
+
+        real_written = 0
+        for f in os.listdir(self.__ddir()):
+            if re.fullmatch(r"pages-[0-9]+\.img", f):
+                real_written += os.path.getsize(os.path.join(self.__ddir(), f))
+
+        if stream:
+            # make sure the extracted image is not usable.
+            os.unlink(os.path.join(self.__ddir(), "inventory.img"))
+
         if not os.access(self.__stats_file("dump"), os.R_OK):
             return
 
@@ -1500,21 +1552,6 @@ class criu:
             stent = stats['entries'][0]['dump']
             stats_written = int(stent['shpages_written']) + int(
                 stent['pages_written'])
-
-        if self.__stream:
-            self.spawn_criu_image_streamer("extract")
-            ret = self.wait_for_criu_image_streamer()
-            if ret:
-                raise test_fail_exc("criu-image-streamer (extract) exited with %s" % ret)
-
-        real_written = 0
-        for f in os.listdir(self.__ddir()):
-            if re.fullmatch(r"pages-[0-9]+\.img", f):
-                real_written += os.path.getsize(os.path.join(self.__ddir(), f))
-
-        if self.__stream:
-            # make sure the extracted image is not usable.
-            os.unlink(os.path.join(self.__ddir(), "inventory.img"))
 
         r_pages = real_written / mmap.PAGESIZE
         r_off = real_written % mmap.PAGESIZE
@@ -1607,7 +1644,7 @@ class criu:
         self.__img_streamer_process = None
         return ret
 
-    def dump(self, action, opts=[]):
+    def dump(self, action, opts=[], intermediate=False):
         page_server_server = None
         page_server_client = None
 
@@ -1616,12 +1653,17 @@ class criu:
         os.chmod(self.__ddir(), 0o777)
 
         a_opts = ["--tree", self.__test.getpid()]
+        had_parent = bool(self.__prev_dump_iter)
         if self.__prev_dump_iter:
             a_opts += [
                 "--prev-images-dir",
                 "../%d" % self.__prev_dump_iter, "--track-mem"
             ]
         self.__prev_dump_iter = self.__iter
+
+        # A parent snapshot is read from its directory on disk, so the
+        # intermediate iterations are never streamed.
+        stream = self.__stream and not intermediate
 
         if self.__page_server:
             print("Adding page server")
@@ -1667,7 +1709,7 @@ class criu:
 
         a_opts += self.__test.getdopts()
 
-        if self.__stream:
+        if stream:
             self.spawn_criu_image_streamer("capture")
             a_opts += ["--stream"]
 
@@ -1708,16 +1750,18 @@ class criu:
         finally:
             if page_server_client is not None:
                 page_server_client.close()
-        if self.__stream:
+        if stream:
             ret = self.wait_for_criu_image_streamer()
             if ret:
                 raise test_fail_exc("criu-image-streamer (capture) exited with %d" % ret)
 
-        if self.__mdedup and self.__iter > 1:
+        # criu dedup walks the pagemap images of the snapshot it is given,
+        # and a streamed one has none on disk.
+        if self.__mdedup and self.__iter > 1 and not stream:
             self.__criu_act("dedup", opts=[])
 
         self.show_stats("dump")
-        self.check_pages_counts()
+        self.check_pages_counts(stream, had_parent)
 
         if self.__leave_stopped:
             pstree_check_stopped(self.__test.getpid())
@@ -1892,10 +1936,12 @@ def cr(cr_api, test, opts):
         for p in pre[0]:
             if opts['snaps']:
                 sbs('before snap %d' % p)
-                cr_api.dump("dump", opts=["--leave-running", "--track-mem"])
+                cr_api.dump("dump",
+                            opts=["--leave-running", "--track-mem"],
+                            intermediate=True)
             else:
                 sbs('before pre-dump %d' % p)
-                cr_api.dump("pre-dump")
+                cr_api.dump("pre-dump", intermediate=True)
                 try_run_hook(test, ["--post-pre-dump"])
                 test.pre_dump_notify()
             time.sleep(pre[1])
@@ -2391,7 +2437,7 @@ class Launcher:
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'image_io_mode', 'mntns_compat_mode',
-              'rootless', 'preload_libfault', 'mocked_cuda_checkpoint',
+              'rootless', 'preload_libfault', 'mocked_cuda_checkpoint', 'cuda_checkpoint',
               'compress', 'compress_acceleration', 'compress_block',
               'pycriu_search_path')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
@@ -2408,7 +2454,12 @@ class Launcher:
             os.setuid(NON_ROOT_UID)
         env = dict(os.environ, CR_CT_TEST_INFO=arg)
         if opts['mocked_cuda_checkpoint']:
-            env['PATH'] = os.path.join(os.getcwd(), "cuda-checkpoint") + ":" + env["PATH"]
+            cuda_mock_dir = os.path.join(os.getcwd(), "cuda-checkpoint")
+            env["PATH"] = cuda_mock_dir + ":" + env["PATH"]
+            if "LD_LIBRARY_PATH" in env:
+                env["LD_LIBRARY_PATH"] = cuda_mock_dir + ":" + env["LD_LIBRARY_PATH"]
+            else:
+                env["LD_LIBRARY_PATH"] = cuda_mock_dir
         sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"],
                                env=env,
                                stdout=log,
@@ -2753,6 +2804,12 @@ def run_tests(opts):
                     feat_list = None
                     break
             if feat_list is None:
+                continue
+
+            # The mocked CUDA Driver API cannot checkpoint real GPU state,
+            # so tests with a real CUDA workload require --cuda-checkpoint.
+            if test_flag(tdesc, 'cuda') and not opts['cuda_checkpoint']:
+                launcher.skip(t, "CUDA checkpoint plugin not enabled")
                 continue
 
             if self_checkskip(t):
@@ -3126,9 +3183,13 @@ def get_cli_args():
     rp.add_argument("--compress-acceleration",
                     help="LZ4 acceleration (1=default, higher=faster)",
                     type=int, default=0)
-    rp.add_argument("--mocked-cuda-checkpoint",
-                    action="store_true",
-                    help="Run criu with the cuda plugin and the mocked cuda-checkpoint tool")
+    cuda_group = rp.add_mutually_exclusive_group()
+    cuda_group.add_argument("--mocked-cuda-checkpoint",
+                            action="store_true",
+                            help="Run criu with the cuda plugin and the mocked CUDA Driver API")
+    cuda_group.add_argument("--cuda-checkpoint",
+                            action="store_true",
+                            help="Run criu with the cuda plugin and host CUDA checkpoint support")
 
     lp = sp.add_parser("list", help="List tests")
     lp.set_defaults(action=list_tests)
@@ -3199,9 +3260,14 @@ if __name__ == '__main__':
         for tst in test_classes.values():
             tst.available()
 
-    orig_hugepages = set_nr_hugepages(20)
-    opts['action'](opts)
-    set_nr_hugepages(orig_hugepages)
-
-    for tst in test_classes.values():
-        tst.cleanup()
+    # A failed run ends with sys.exit(), and the cleanup still has to be
+    # done, otherwise e.g. the cgroup holders are left behind.
+    try:
+        orig_hugepages = set_nr_hugepages(20)
+        try:
+            opts['action'](opts)
+        finally:
+            set_nr_hugepages(orig_hugepages)
+    finally:
+        for tst in test_classes.values():
+            tst.cleanup()

@@ -1776,6 +1776,11 @@ static int attach_to_tasks(bool root_seized)
 				return -1;
 			}
 		}
+
+		if (item == root_item && fault_injected(FI_RESTORE_ATTACH)) {
+			pr_err("fault injection: attach failure after the root task\n");
+			return -1;
+		}
 	}
 	for_each_pstree_item(item) {
 		int status, i;
@@ -1791,8 +1796,8 @@ static int attach_to_tasks(bool root_seized)
 				return -1;
 			}
 
-			if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_TRACESYSGOOD)) {
-				pr_perror("Unable to set PTRACE_O_TRACESYSGOOD for %d", pid);
+			if (ptrace(PTRACE_SETOPTIONS, pid, NULL, COMPEL_PTRACE_OPTIONS)) {
+				pr_perror("Unable to set ptrace options for %d", pid);
 				return -1;
 			}
 			if (arch_ptrace_restore(pid, item))
@@ -2192,8 +2197,8 @@ static int restore_root_task(struct pstree_item *init)
 	__restore_switch_stage(CR_STATE_FORKING);
 
 skip_ns_bouncing:
-	ret = run_plugins(POST_FORKING);
-	if (ret < 0 && ret != -ENOTSUP)
+	ret = run_plugins_all(POST_FORKING);
+	if (ret && ret != -ENOTSUP)
 		goto out_kill;
 
 	ret = restore_wait_inprogress_tasks();
@@ -2271,7 +2276,8 @@ skip_ns_bouncing:
 	 * Network is unlocked. If something fails below - we lose data
 	 * or a connection.
 	 */
-	attach_to_tasks(root_seized);
+	if (attach_to_tasks(root_seized))
+		goto out_kill_network_unlocked;
 
 	if (restore_switch_stage(CR_STATE_RESTORE_CREDS))
 		goto out_kill_network_unlocked;
@@ -2305,6 +2311,11 @@ skip_ns_bouncing:
 	if (restore_rseq_cs())
 		pr_err("Unable to restore rseq_cs state\n");
 
+	if (fault_injected(FI_RESTORE_LATE)) {
+		pr_err("fault injection: late restore failure\n");
+		goto out_kill_network_unlocked;
+	}
+
 	/*
 	 * Some external devices such as GPUs might need a very late
 	 * trigger to kick-off some events, memory notifiers and for
@@ -2320,15 +2331,15 @@ skip_ns_bouncing:
 			continue;
 		ret = run_plugins(RESUME_DEVICES_LATE, item->pid->real);
 		/*
-		 * This may not really be an error. Only certain plugin hooks
-		 * (if available) will return success such as amdgpu_plugin that
-		 * validates the pid of the resuming tasks in the kernel mode.
-		 * Most of the times, it'll be -ENOTSUP and in few cases, it
-		 * might actually be a true error code but that would be also
-		 * captured in the plugin so no need to print the error here.
+		 * -ENOTSUP means that no plugin claimed this task and is expected
+		 * for tasks without external device state. Any other value is a
+		 * restore failure. The plugin should report details and CRIU must
+		 * not resume a partially restored task.
 		 */
-		if (ret < 0 && ret != -ENOTSUP)
-			pr_debug("restore late stage hook for external plugin failed\n");
+		if (ret && ret != -ENOTSUP) {
+			pr_err("Device hook failed for pid %d, ret %d\n", item->pid->real, ret);
+			goto out_kill_network_unlocked;
+		}
 	}
 
 	ret = run_scripts(ACT_PRE_RESUME);
@@ -2366,14 +2377,37 @@ out_kill:
 	 * otherwise an external processes can be killed.
 	 */
 	if (vpid(root_item) == INIT_PID) {
+		pid_t init_pid = root_item->pid->real;
+		siginfo_t info;
 		int status;
+		pid_t pid;
+
+		/* The SIGCHLD handler must not collect init behind our back */
+		ignore_kids();
 
 		/* Kill init */
-		if (root_item->pid->real > 0)
-			kill(root_item->pid->real, SIGKILL);
+		if (init_pid > 0)
+			kill(init_pid, SIGKILL);
 
-		if (waitpid(root_item->pid->real, &status, 0) < 0)
-			pr_warn("Unable to wait %d: %s\n", root_item->pid->real, strerror(errno));
+		/*
+		 * Init finishes exiting only after the rest of its pid namespace
+		 * is collected, and only we can collect a zombie we trace. So
+		 * collect anything until init exits, while init is still ours to
+		 * wait for. The waitid() collects nothing and does not wait for
+		 * the kill. It fails once we have collected init already, or with
+		 * --restore-sibling when we do not trace it, and then the loop
+		 * would never see init exit and would block on usernsd if it is
+		 * still running.
+		 */
+		if (!waitid(P_PID, init_pid, &info, WEXITED | WNOHANG | WNOWAIT | __WALL)) {
+			do {
+				pid = waitpid(-1, &status, __WALL);
+			} while (pid > 0 && (pid != init_pid || WIFSTOPPED(status)));
+		} else {
+			pid = waitpid(init_pid, &status, 0);
+		}
+		if (pid < 0)
+			pr_warn("Unable to wait %d: %s\n", init_pid, strerror(errno));
 	} else {
 		struct pstree_item *pi;
 

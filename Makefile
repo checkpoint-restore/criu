@@ -479,6 +479,8 @@ shellcheck:
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh
 	shellcheck contrib/apt-install contrib/dependencies/*.sh
+	shellcheck -x test/cuda-checkpoint/*.sh
+	shellcheck -x test/plugins/*.sh
 	shellcheck -x test/others/crit/*.sh
 	shellcheck -x test/others/libcriu/*.sh
 	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh

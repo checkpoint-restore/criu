@@ -1,6 +1,16 @@
 #ifndef __CR_NETFILTER_H__
 #define __CR_NETFILTER_H__
 
+#include "compel/infect-util.h"
+
+/*
+ * The nftables table name is "inet CRIU-" followed by the CRIU run id,
+ * which is a UUID string. RUN_ID_HASH_LENGTH already accounts for the
+ * terminating NUL.
+ */
+#define NFTABLES_TABLE_PREFIX	"inet CRIU-"
+#define NFTABLES_TABLE_NAME_LEN (sizeof(NFTABLES_TABLE_PREFIX) - 1 + RUN_ID_HASH_LENGTH)
+
 struct inet_sk_desc;
 extern int iptables_lock_connection(struct inet_sk_desc *);
 extern int iptables_unlock_connection(struct inet_sk_desc *);

@@ -238,31 +238,52 @@ out_close:
 	return ret;
 }
 
+static struct inventory_plugin *find_inventory_plugin(const char *name)
+{
+	struct inventory_plugin *p;
+
+	list_for_each_entry(p, &inventory_plugins_list, node) {
+		if (!strcmp(name, p->name))
+			return p;
+	}
+
+	return NULL;
+}
+
 /**
- * Check if the 'plugins' field in the inventory image contains
- * the specified plugin name. If found, the plugin is removed
- * from the linked list.
+ * Check whether the 'plugins' field in the inventory image contains an exact
+ * match for the specified logical plugin name. This entry is left in the list
+ * (not removed and n_inventory_plugins is not decremented), so it can still be
+ * matched again later.
  */
-bool check_and_remove_inventory_plugin(const char *name, size_t n)
+bool has_inventory_plugin(const char *name)
 {
 	if (n_inventory_plugins == -1)
 		return true; /* backwards compatibility */
 
-	if (n_inventory_plugins > 0) {
-		struct inventory_plugin *p, *tmp;
+	return n_inventory_plugins > 0 && find_inventory_plugin(name);
+}
 
-		list_for_each_entry_safe(p, tmp, &inventory_plugins_list, node) {
-			if (!strncmp(name, p->name, n)) {
-				xfree(p->name);
-				list_del(&p->node);
-				xfree(p);
-				n_inventory_plugins--;
-				return true;
-			}
-		}
-	}
+/**
+ * Similar to the above function, check if the 'plugins' field contains
+ * the specified plugin name, but if it is found, remove it from the list.
+ */
+bool check_and_remove_inventory_plugin(const char *name)
+{
+	struct inventory_plugin *p;
 
-	return false;
+	if (n_inventory_plugins == -1)
+		return true; /* backwards compatibility */
+
+	p = find_inventory_plugin(name);
+	if (!p)
+		return false;
+
+	xfree(p->name);
+	list_del(&p->node);
+	xfree(p);
+	n_inventory_plugins--;
+	return true;
 }
 
 /**
@@ -368,6 +389,7 @@ int write_img_inventory(InventoryEntry *he, const InventoryEntry *parent_ie)
 	xfree(pe.plugins);
 
 	xfree(he->root_ids);
+	xfree(he->dump_criu_run_id);
 	close_image(img);
 	if (ret < 0)
 		return -1;
@@ -411,7 +433,8 @@ int get_parent_inventory(InventoryEntry **parent_ie)
 	if (dir < 0)
 		return 0;
 
-	img = open_image_at(dir, CR_FD_INVENTORY, O_RSTR);
+	/* The parent snapshot is always on disk, even when streaming */
+	img = open_image_at(dir, CR_FD_INVENTORY, O_RSTR | O_FORCE_LOCAL);
 	if (!img) {
 		pr_err("Failed to open parent pre-dump inventory image\n");
 		close(dir);
@@ -831,6 +854,26 @@ struct cr_img *img_from_fd(int fd)
 }
 
 /*
+ * The mode open_image_dir() wants for the current operation, or -1 for an
+ * operation that does not read or write an image set of its own.
+ */
+int image_dir_mode(void)
+{
+	switch (opts.mode) {
+	case CR_DUMP:
+		/* fallthrough */
+	case CR_CPUINFO_DUMP:
+		/* fallthrough */
+	case CR_PRE_DUMP:
+		return O_DUMP;
+	case CR_RESTORE:
+		return O_RSTR;
+	default:
+		return -1;
+	}
+}
+
+/*
  * `mode` should be O_RSTR or O_DUMP depending on the intent.
  * This is used when opts.stream is enabled for picking the right streamer
  * socket name. `mode` is ignored when opts.stream is not enabled.
@@ -855,7 +898,9 @@ int open_image_dir(const char *dir, int mode)
 	if (opts.stream) {
 		if (img_streamer_init(dir, mode) < 0)
 			goto err;
-	} else if (opts.img_parent) {
+	}
+
+	if (opts.img_parent) {
 		if (faccessat(fd, opts.img_parent, R_OK, 0)) {
 			pr_perror("Invalid parent image directory provided");
 			goto err;
@@ -924,7 +969,9 @@ void up_page_ids_base(void)
 
 struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi, u32 *id)
 {
-	if (flags == O_RDONLY || flags == O_RDWR) {
+	unsigned long mode = flags & ~O_FORCE_LOCAL;
+
+	if (mode == O_RDONLY || mode == O_RDWR) {
 		PagemapHead *h;
 		if (pb_read_one(pmi, &h, PB_PAGEMAP_HEAD) < 0)
 			return NULL;

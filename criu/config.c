@@ -31,6 +31,7 @@
 #include "sockets.h"
 #include "tty.h"
 #include "version.h"
+#include "plugin.h"
 
 #include "common/xmalloc.h"
 
@@ -410,8 +411,9 @@ static int pre_parse(int argc, char **argv, bool *usage_error, bool *no_default_
 	return 0;
 }
 
-void init_opts(void)
+int init_opts(void)
 {
+	cr_plugin_options_free();
 	memset(&opts, 0, sizeof(opts));
 
 	/* Default options */
@@ -437,6 +439,10 @@ void init_opts(void)
 	opts.network_lock_method = NETWORK_LOCK_DEFAULT;
 	opts.ghost_fiemap = FIEMAP_DEFAULT;
 	opts.decompress_threads = 1;
+
+	if (cr_plugin_options_init())
+		return -1;
+	return 0;
 }
 
 bool deprecated_ok(char *what)
@@ -760,10 +766,11 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		BOOL_OPT("unprivileged", &opts.unprivileged),
 		BOOL_OPT("ghost-fiemap", &opts.ghost_fiemap),
 		BOOL_OPT(OPT_ALLOW_UPROBES, &opts.allow_uprobes),
-		{ "compress",                no_argument,       0, 'c'  },
-		{ "compress-acceleration",   required_argument, 0, 1102 },
-		{ "compress-block",          required_argument, 0, 1103 },
-		{ "decompress-threads",      required_argument, 0, 1104 },
+		{ "compress", no_argument, 0, 'c' },
+		{ "compress-acceleration", required_argument, 0, 1102 },
+		{ "compress-block", required_argument, 0, 1103 },
+		{ "decompress-threads", required_argument, 0, 1104 },
+		{ "plugin-option", required_argument, 0, 1105 },
 		{},
 	};
 
@@ -875,7 +882,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			break;
 		case 'c':
 			opts.compress_mode = COMPRESS_BLOCK;
-			opts.compress_block_size = PAGE_SIZE;
+			opts.compress_block_size = 0;
 			break;
 		case 1102: {
 			char *endptr;
@@ -918,6 +925,10 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			opts.decompress_threads = (unsigned int)n;
 			break;
 		}
+		case 1105:
+			if (cr_plugin_option_add_arg(optarg))
+				return 1;
+			break;
 		case 1043: {
 			int fd;
 
@@ -1182,6 +1193,22 @@ bad_arg:
 	return 1;
 }
 
+int check_stream_conflicts(void)
+{
+	/*
+	 * A dump's page server writes the pagemap and pages images itself, so
+	 * they land outside the stream and the restore never finds them.
+	 */
+	if (opts.stream && opts.use_page_server && (opts.mode == CR_DUMP || opts.mode == CR_PRE_DUMP)) {
+		pr_err("--stream cannot be used with --page-server on a dump, it "
+		       "moves the pages images over a socket of its own and would "
+		       "leave them out of the image stream\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int check_options(void)
 {
 	/*
@@ -1191,10 +1218,8 @@ int check_options(void)
 	 * before --compress-block is not mistaken for a conflict with an
 	 * implicit --compress.
 	 */
-	if (opts.compress_acceleration && opts.compress_mode == COMPRESS_OFF) {
+	if (opts.compress_acceleration && opts.compress_mode == COMPRESS_OFF)
 		opts.compress_mode = COMPRESS_BLOCK;
-		opts.compress_block_size = PAGE_SIZE;
-	}
 
 	/*
 	 * Compression is selected by the dump client and encoded in each page
@@ -1211,8 +1236,22 @@ int check_options(void)
 		pr_err("Memory page compression requires CRIU built with LZ4 support (CONFIG_LZ4)\n");
 		return 1;
 #else
-		if (opts.compress_block_size == 0)
-			opts.compress_block_size = DEFAULT_BLOCK_SIZE;
+		/*
+		 * The page-server protocol sends a stored byte count followed by
+		 * that many bytes of data for each page. Zero pages have a count
+		 * of zero and no data. There is no field describing multi-page
+		 * blocks (see: page_server_add_compressed()).
+		 * The streaming restore reader also assumes one block_sizes entry
+		 * per page and does not support decoding multi-page blocks
+		 * (see: maybe_read_page_img_streamer_compressed()).
+		 * Keep these paths page-sized.
+		 */
+		if (opts.compress_block_size == 0) {
+			if (opts.use_page_server || opts.addr || opts.stream)
+				opts.compress_block_size = PAGE_SIZE;
+			else
+				opts.compress_block_size = DEFAULT_BLOCK_SIZE;
+		}
 		if (opts.compress_block_size % PAGE_SIZE != 0 ||
 		    opts.compress_block_size > MAX_BLOCK_SIZE) {
 			pr_err("Invalid compress block size %u\n",

@@ -25,10 +25,16 @@ static struct rb_root pid_root_rb;
 
 void core_entry_free(CoreEntry *core)
 {
-	if (core->tc && core->tc->timers)
-		xfree(core->tc->timers->posix);
-	if (core->thread_core)
+	if (core->tc) {
+		if (core->tc->timers)
+			xfree(core->tc->timers->posix);
+		xfree(core->tc->sigactions);
+	}
+	if (core->thread_core) {
 		xfree(core->thread_core->creds->groups);
+		xfree(core->thread_core->comm);
+		xfree(core->thread_core->rseq_entry);
+	}
 	arch_free_thread_info(core);
 	xfree(core);
 }
@@ -169,12 +175,30 @@ void pstree_free_cores(struct pstree_item *item)
 	unsigned int i;
 
 	if (item->core) {
-		for (i = 1; i < item->nr_threads; i++)
+		for (i = 0; i < item->nr_threads; i++)
 			if (item->core[i])
 				core_entry_free(item->core[i]);
 		xfree(item->core);
 		item->core = NULL;
 	}
+}
+
+static void free_dmp_info(struct pstree_item *item)
+{
+	struct dmp_info *dinfo = dmpi(item);
+	int i;
+
+	if (dinfo->thread_lsms) {
+		for (i = 0; dinfo->thread_lsms[i]; i++) {
+			xfree(dinfo->thread_lsms[i]->profile);
+			xfree(dinfo->thread_lsms[i]->sockcreate);
+			xfree(dinfo->thread_lsms[i]);
+		}
+		xfree(dinfo->thread_lsms);
+	}
+
+	xfree(dinfo->thread_ctls);
+	xfree(dinfo->thread_sp);
 }
 
 void free_pstree(struct pstree_item *root_item)
@@ -190,6 +214,8 @@ void free_pstree(struct pstree_item *root_item)
 		parent = item->parent;
 		list_del(&item->sibling);
 		pstree_free_cores(item);
+		free_dmp_info(item);
+		xfree(item->ids);
 		xfree(item->threads);
 		xfree(item);
 		item = parent;

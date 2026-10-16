@@ -6,4 +6,9 @@ message fifo_entry {
 	required uint32		id		= 1;
 	required uint32		pipe_id		= 2;
 	optional uint32		regf_id		= 3;
+	/*
+	 * Set for a read-only end which has not seen a writer yet, i.e.
+	 * the one poll() doesn't report POLLHUP for.
+	 */
+	optional bool		wait_writer	= 4;
 }
