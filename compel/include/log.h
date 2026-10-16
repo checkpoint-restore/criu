@@ -50,4 +50,6 @@ extern void compel_print_on_level(unsigned int loglevel, const char *format, ...
 
 #define pr_perror(fmt, ...) pr_err(fmt ": %s\n", ##__VA_ARGS__, strerror(errno))
 
+#define pr_pwarn(fmt, ...) pr_warn(fmt ": %s\n", ##__VA_ARGS__, strerror(errno))
+
 #endif /* COMPEL_LOG_H__ */
