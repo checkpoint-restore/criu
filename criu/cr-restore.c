@@ -57,6 +57,7 @@
 #include "uffd.h"
 #include "namespaces.h"
 #include "asyncd.h"
+#include "luo.h"
 #include "compression.h"
 #include "mem.h"
 #include "mount.h"
@@ -1246,6 +1247,11 @@ static inline int fork_with_pid(struct pstree_item *item)
 		if (errno == EEXIST)
 			set_cr_errno(EEXIST);
 		goto err_unlock;
+	}
+
+	if (item == root_item && opts.images_in_memfd) {
+		pr_debug("Closing LUO fds in parent after fork\n");
+		close_service_fd(LUO_SESSION_FD_OFF);
 	}
 
 	if (item == root_item) {
@@ -2463,6 +2469,12 @@ int cr_restore_tasks(void)
 	if (init_service_fd())
 		return 1;
 
+	if (opts.images_in_memfd) {
+		ret = luo_load_image_metadata();
+		if (ret < 0)
+			return ret;
+	}
+
 	if (check_img_inventory(/* restore = */ true) < 0)
 		return -1;
 
@@ -3653,6 +3665,9 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	close_service_fd(FDSTORE_SK_OFF);
 	close_service_fd(RPC_SK_OFF);
 	close_service_fd(CGROUPD_SK);
+
+	if (opts.images_in_memfd)
+		luo_cleanup(true);
 
 	__gcov_flush();
 
