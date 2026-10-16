@@ -84,6 +84,7 @@
 #include "dump.h"
 #include "eventpoll.h"
 #include "memfd.h"
+#include "extmem.h"
 #include "timens.h"
 #include "img-streamer.h"
 #include "pidfd-store.h"
@@ -1928,6 +1929,14 @@ static int cr_dump_finish(int ret)
 		}
 	}
 
+	if (ret || post_dump_ret) {
+		if (extmem_abort())
+			pr_err("Failed to abort external memory provider session\n");
+	} else if (extmem_commit()) {
+		pr_err("Failed to commit external memory provider session\n");
+		ret = -1;
+	}
+
 	/*
 	 * Dump is complete at this stage. To choose what
 	 * to do next we need to consider the following
@@ -2035,6 +2044,10 @@ int cr_dump_tasks(pid_t pid)
 	if (!root_item)
 		goto err;
 	root_item->pid->real = pid;
+
+	ret = extmem_init();
+	if (ret < 0 && ret != -ENOTSUP)
+		goto err;
 
 	ret = run_scripts(ACT_PRE_DUMP);
 	if (ret != 0) {
