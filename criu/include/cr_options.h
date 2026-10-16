@@ -151,6 +151,7 @@ struct cr_options {
 		bool daemon_mode;
 	};
 	int restore_sibling;
+	bool restore_sibling_userns;
 	bool ext_unix_sk;
 	int shell_job;
 	int handle_file_locks;
