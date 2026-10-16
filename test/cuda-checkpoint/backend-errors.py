@@ -336,9 +336,10 @@ def test_untraced_clone(work):
                                CRIU_CUDA_MOCK_FAULT_TRIGGER=str(trigger),
                                CRIU_CUDA_MOCK_CLONE_PID=str(clone_pid_file),
                                CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"))
+                assert f"selected {backend} backend" in log, log
+                assert clone_pid_file.exists(), log
                 cloned_id = int(clone_pid_file.read_text().strip())
-                assert f"selected {backend} backend" in log
-                assert f"Uncollected {mode} {cloned_id} found in task {process.pid}" in log
+                assert f"Uncollected {mode} {cloned_id} found in task {process.pid}" in log, log
                 assert f"resuming devices on pid {process.pid}" in log
                 assert "Unable to restore CUDA state" not in log
                 assert "Dumping FAILED" in log
