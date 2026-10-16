@@ -653,4 +653,8 @@ struct cr_statx {
 #define STATX_DIO_READ_ALIGN	0x00020000U	/* Want/got dio read alignment info */
 #endif
 
+#ifndef STATX_ATTR_MOUNT_ROOT
+#define STATX_ATTR_MOUNT_ROOT 0x00002000 /* Root of a mount */
+#endif
+
 #endif /* __CR_UTIL_H__ */
