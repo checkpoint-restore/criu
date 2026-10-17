@@ -127,8 +127,8 @@ def main():
             transport = criu.sk
             disconnect = criu._comm.disconnect
 
-            def fail_disconnect():
-                disconnect()
+            def fail_disconnect(**kwargs):
+                disconnect(**kwargs)
                 raise OSError("cleanup failed")
 
             with mock.patch.object(socket.socket, "recv_into", side_effect=error):
@@ -197,6 +197,8 @@ def main():
     # A request to a binary that exits without serving reaps the child.
     criu = criu_class()
     criu.use_binary("/bin/true")
+    criu.sk = criu._comm.connect(False)
+    os.waitid(os.P_PID, criu._comm.swrk, os.WEXITED | os.WNOWAIT)
     try:
         criu._send_req_and_recv_resp(make_req(criu, False))
     except CRIUExceptionInternal:
@@ -225,6 +227,7 @@ def main():
                 waitpid = patches.enter_context(mock.patch.object(os, "waitpid", wraps=os.waitpid))
                 if error is not None:
                     patches.enter_context(mock.patch.object(socket.socket, "recv", side_effect=error))
+                    patches.enter_context(mock.patch.object(socket.socket, "recvmsg", side_effect=error))
                 # connect() calls getpid() only in the worker child.
                 patches.enter_context(mock.patch.object(os, "getpid", side_effect=lambda: os._exit(0)))
                 try:
