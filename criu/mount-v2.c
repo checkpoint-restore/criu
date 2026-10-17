@@ -478,10 +478,8 @@ static int do_mount_root_v2(struct mount_info *mi)
 		return -1;
 	}
 
-	if (mflags && mount(NULL, mi->plain_mountpoint, NULL, MS_REMOUNT | MS_BIND | mflags, NULL)) {
-		pr_perror("Unable to apply root mount options");
+	if (mflags && remount_root_flags(mi->plain_mountpoint, mflags))
 		return -1;
-	}
 
 	mi->mounted = true;
 
