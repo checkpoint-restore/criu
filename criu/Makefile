@@ -96,6 +96,7 @@ UNIT-BUILTINS		+= $(obj)/string.o
 ifeq ($(CONFIG_LZ4),y)
 UNIT-BUILTINS		+= $(obj)/compression.o
 endif
+UNIT-BUILTINS		+= $(obj)/mount-remount.o
 UNIT-BUILTINS		+= $(obj)/unittest/built-in.o
 
 $(obj)/unittest/Makefile: ;

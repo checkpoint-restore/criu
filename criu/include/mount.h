@@ -1,6 +1,7 @@
 #ifndef __CR_MOUNT_H__
 #define __CR_MOUNT_H__
 
+#include <stdbool.h>
 #include <sys/types.h>
 
 #include "common/list.h"
@@ -224,5 +225,6 @@ extern int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
 
 extern struct mount_info *root_yard_mp;
 extern char *mnt_roots;
+extern int remount_root_flags(const char *target, unsigned long mflags);
 
 #endif /* __CR_MOUNT_H__ */
