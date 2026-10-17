@@ -453,6 +453,7 @@ TST_DIR		=				\
 		cgroup_ignore			\
 		cgroup_stray			\
 		cgroup_yard			\
+		cgroup_newroot			\
 		cgroup_threads			\
 		unlink_fstat04			\
 		unlink_fstat041			\
