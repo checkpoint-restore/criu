@@ -49,14 +49,24 @@ class _criu_comm_sk(_criu_comm):
         try:
             self.sk.connect(self.comm)
         except FileNotFoundError:
+            self.sk.close()
+            self.sk = None
             raise FileNotFoundError("Socket file not found.")
         except ConnectionRefusedError:
+            self.sk.close()
+            self.sk = None
             raise ConnectionRefusedError("Service not running.")
+        except Exception:
+            self.sk.close()
+            self.sk = None
+            raise
 
         return self.sk
 
     def disconnect(self):
-        self.sk.close()
+        if self.sk:
+            self.sk.close()
+            self.sk = None
 
 
 class _criu_comm_fd(_criu_comm):
@@ -75,7 +85,9 @@ class _criu_comm_fd(_criu_comm):
         return self.sk
 
     def disconnect(self):
-        self.sk.close()
+        if self.sk:
+            self.sk.close()
+            self.sk = None
 
 
 class _criu_comm_bin(_criu_comm):
@@ -132,15 +144,22 @@ class _criu_comm_bin(_criu_comm):
                 os.waitpid(p, 0)
 
         css[0].close()
-        self.swrk = struct.unpack('i', css[1].recv(4))[0]
+        try:
+            self.swrk = struct.unpack('i', css[1].recv(4))[0]
+        except Exception:
+            css[1].close()
+            raise
         self.sk = css[1]
 
         return self.sk
 
     def disconnect(self):
-        self.sk.close()
-        if not self.daemon:
+        if self.sk:
+            self.sk.close()
+            self.sk = None
+        if not self.daemon and self.swrk:
             os.waitpid(self.swrk, 0)
+            self.swrk = None
 
 
 class CRIUException(Exception):
@@ -243,26 +262,31 @@ class criu:
         if req.type == rpc.DUMP and (not req.opts.HasField('pid') or req.opts.pid == os.getpid()):
             daemon = True
 
+        s = None
         try:
             if not self.sk:
                 s = self._comm.connect(daemon)
             else:
                 s = self.sk
 
-            if req.keep_open:
-                self.sk = s
-
             s.send(req.SerializeToString())
 
             buf = s.recv(len(s.recv(1, socket.MSG_TRUNC | socket.MSG_PEEK)))
 
-            if not req.keep_open:
-                self._comm.disconnect()
-
             resp = rpc.criu_resp()
             resp.ParseFromString(buf)
+
+            if req.keep_open and resp.success:
+                self.sk = s
+                s = None
         except Exception as e:
             raise CRIUExceptionInternal(req.type, str(e))
+        finally:
+            if s is not None:
+                try:
+                    self._comm.disconnect()
+                finally:
+                    self.sk = None
 
         return resp
 
