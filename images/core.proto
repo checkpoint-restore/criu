@@ -33,6 +33,7 @@ message task_core_entry {
 	required uint32			task_state	= 1 [(criu).dict = "gen"];
 	required uint32			exit_code	= 2;
 
+	/* This is deprecated, should be per-thread */
 	required uint32			personality	= 3;
 	required uint32			flags		= 4;
 	required uint64			blk_sigset	= 5[(criu).hex = true];
@@ -112,6 +113,7 @@ message thread_core_entry {
 	optional rseq_entry		rseq_entry	= 15;
 	optional uint32			cg_set		= 16;
 	optional uint64			timerslack_ns	= 17;
+	optional uint32			personality	= 18 [(criu).hex = true];
 }
 
 message task_rlimits_entry {
