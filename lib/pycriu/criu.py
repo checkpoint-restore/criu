@@ -28,9 +28,13 @@ class _criu_comm:
         """
         pass
 
-    def disconnect(self):
+    def disconnect(self, wait=True):
         """
         Disconnect from criu.
+        wait -- wait for a binary-mode worker to exit.
+        With wait=False, an exited worker may remain a zombie until a later
+        RPC call reaps it. If another child reaper consumes its exit status,
+        a reused PID can make a later check target an unrelated child.
         """
         pass
 
@@ -59,7 +63,7 @@ class _criu_comm_sk(_criu_comm):
 
         return self.sk
 
-    def disconnect(self):
+    def disconnect(self, wait=True):
         if self.sk is None:
             return
         self.sk.close()
@@ -81,7 +85,7 @@ class _criu_comm_fd(_criu_comm):
 
         return self.sk
 
-    def disconnect(self):
+    def disconnect(self, wait=True):
         if self.sk is None:
             return
         self.sk.close()
@@ -92,6 +96,8 @@ class _criu_comm_bin(_criu_comm):
     """
     Communication class for binary.
     """
+    # Keep unfinished workers across connections and client objects.
+    _pending_workers = []
 
     def __init__(self, bin_path):
         self.comm_type = self.COMM_BIN
@@ -164,19 +170,40 @@ class _criu_comm_bin(_criu_comm):
 
         return self.sk
 
-    def disconnect(self):
+    def disconnect(self, wait=True):
         if self.sk is not None:
             self.sk.close()
             self.sk = None
         if self.daemon or not self.swrk:
             return
+
+        if not self._wait_worker(self.swrk, wait=wait):
+            # The worker may be waiting for a page server rather than
+            # reading the socket. Check it again on later RPC calls.
+            self._pending_workers.append(self.swrk)
+        self.swrk = None
+
+    @staticmethod
+    def _wait_worker(pid, wait=True):
+        options = 0
+        if not wait:
+            options = os.WNOHANG
         try:
-            os.waitpid(self.swrk, 0)
+            return os.waitpid(pid, options)[0]
         except ChildProcessError:
             # The child was already reaped, e.g. by the kernel when
             # the caller ignores SIGCHLD.
-            pass
-        self.swrk = None
+            return pid
+
+    @classmethod
+    def _reap_workers(cls):
+        for pid in cls._pending_workers[:]:
+            if cls._wait_worker(pid, wait=False):
+                try:
+                    cls._pending_workers.remove(pid)
+                except ValueError:
+                    # Another request already removed this worker.
+                    pass
 
 
 class CRIUException(Exception):
@@ -284,6 +311,7 @@ class criu:
             daemon = True
 
         try:
+            _criu_comm_bin._reap_workers()
             if not self.sk:
                 s = self._comm.connect(daemon)
             else:
@@ -300,7 +328,7 @@ class criu:
         except BaseException as e:
             self.sk = None
             try:
-                self._comm.disconnect()
+                self._comm.disconnect(wait=False)
             except Exception:
                 # Preserve the request failure if cleanup also fails.
                 pass
