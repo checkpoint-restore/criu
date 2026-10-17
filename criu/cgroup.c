@@ -2417,12 +2417,21 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 				cg->cgns_prefix = strlen(newroot);
 			} else {
 				char *prev = cg->path;
+				char *rest = cg->path + dirlen + 1;
+
+				/*
+				 * The root cgroup is dumped with an empty
+				 * name, so there is no separator to skip
+				 * after it, unless the path is "/" itself.
+				 */
+				if (!dirlen && *rest)
+					rest--;
 				/*
 				 * If no prefix present simply rename the
 				 * root but make sure the rest of path is
 				 * untouched.
 				 */
-				cg->path = xsprintf("%s%s", newroot, cg->path + dirlen + 1);
+				cg->path = xsprintf("%s%s", newroot, rest);
 				if (!cg->path) {
 					cg->path = prev;
 					xfree(dirnew);
