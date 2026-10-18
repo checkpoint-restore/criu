@@ -111,6 +111,15 @@ test_stream() {
 
 	./test/zdtm.py run -t zdtm/transition/maps007 --stream --dedup "${ZDTM_OPTS[@]}"
 
+	# Post-copy with the images streamed: the restore and the lazy-pages
+	# daemon read the same set, and nothing is written on either side.
+	if [ -e /proc/sys/vm/unprivileged_userfaultfd ]; then
+		echo 1 > /proc/sys/vm/unprivileged_userfaultfd
+	fi
+	# The source keeps running to serve the pages, so the restore needs
+	# namespaces of its own to avoid the pid it still holds.
+	./test/zdtm.py run --stream --lazy-migrate -f uns -t zdtm/static/maps00 -t zdtm/static/maps06 "${ZDTM_OPTS[@]}"
+
 	# For the streamed dump and restore over RPC. The suite skips that case
 	# when criu-image-streamer is missing, which is every job but this one.
 	make -C test/others/rpc/ run
