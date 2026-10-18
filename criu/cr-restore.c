@@ -2355,6 +2355,9 @@ skip_ns_bouncing:
 		}
 	}
 
+	if (restore_pid_ns_last_pid())
+		goto out_kill_network_unlocked;
+
 	ret = run_scripts(ACT_PRE_RESUME);
 	if (ret)
 		pr_err("Pre-resume script ret code %d\n", ret);

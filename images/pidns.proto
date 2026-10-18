@@ -4,4 +4,6 @@ syntax = "proto2";
 
 message pidns_entry {
 	optional string ext_key		= 1;
+	/* ns_last_pid of the namespace at dump time */
+	optional uint32 last_pid	= 2;
 }
