@@ -97,6 +97,7 @@ TST_NOFILE	:=				\
 		sockets02-seqpacket		\
 		sockets_spair			\
 		sockets_spair_seqpacket		\
+		sockets_spair_lowpid		\
 		socket_queues			\
 		socket_queues_seqpacket		\
 		socket-raw			\
