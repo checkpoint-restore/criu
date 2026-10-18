@@ -16,6 +16,7 @@ TST_NOFILE	:=				\
 		caps01				\
 		wait00				\
 		zombie00			\
+		pidns_last_pid		\
 		zombie01			\
 		fpu00				\
 		fpu01				\
