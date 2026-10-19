@@ -1156,8 +1156,8 @@ static inline u32 ppb_xfer_flags(struct page_xfer *xfer, struct page_pipe_buf *p
  *	aux_iov: {A,1}{B,1}{C,2}*{C+3,1}*
  */
 
-long handle_faulty_iov(int pid, struct iovec *riov, unsigned long faulty_index, struct iovec *bufvec,
-		       struct iovec *aux_iov, unsigned long *aux_len)
+static long handle_faulty_iov(int pid, struct iovec *riov, unsigned long faulty_index, struct iovec *bufvec,
+				struct iovec *aux_iov, unsigned long *aux_len)
 {
 	struct iovec dummy;
 	ssize_t bytes_read;
@@ -1181,6 +1181,10 @@ long handle_faulty_iov(int pid, struct iovec *riov, unsigned long faulty_index, 
 			dummy.iov_base += PAGE_SIZE;
 			dummy.iov_len -= PAGE_SIZE;
 			continue;
+		}
+		if (!bytes_read) {
+			pr_err("process_vm_readv made no progress during iovec recovery\n");
+			return -1;
 		}
 
 		/* A fault in the first iov can leave aux_iov empty. */
@@ -1284,6 +1288,10 @@ static long fill_userbuf(int pid, struct page_pipe_buf *ppb, struct iovec *bufve
 			start += 1;
 			continue;
 		}
+		if (!bytes_read) {
+			pr_err("process_vm_readv made no progress\n");
+			return -1;
+		}
 
 		if (bytes_read > 0) {
 			if (analyze_iov(bytes_read, riov, &start, aux_iov, aux_len) < 0)
@@ -1311,11 +1319,11 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 {
 	struct page_pipe_buf *ppb;
 	unsigned int cur_hole = 0, i;
-	long ret, bytes_read;
+	ssize_t ret, bytes_read;
 	unsigned long userbuf_len;
 	struct iovec bufvec;
 
-	struct iovec *aux_iov;
+	struct iovec *aux_iov = NULL;
 	unsigned long aux_len;
 	void *userbuf;
 
@@ -1366,7 +1374,7 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 		ret = vmsplice(ppb->p[1], &bufvec, 1, SPLICE_F_NONBLOCK | SPLICE_F_GIFT);
 
 		if (ret == -1 || ret != bytes_read) {
-			pr_err("vmsplice: Failed to splice user buffer to pipe %ld\n", ret);
+			pr_err("vmsplice: Failed to splice user buffer to pipe %zd\n", ret);
 			goto err;
 		}
 
@@ -1397,6 +1405,16 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 		}
 
 		timing_stop(TIME_MEMWRITE);
+
+		/*
+		 * SPLICE_F_GIFT allows the pipe/socket path to retain these
+		 * pages after write_pages() returns. Discard the buffer pages before
+		 * refilling the buffer so process_vm_readv() gets fresh pages.
+		 */
+		if (madvise(userbuf, userbuf_len, MADV_DONTNEED)) {
+			pr_perror("Unable to release pre-dump buffer pages");
+			goto err;
+		}
 	}
 
 	munmap(userbuf, userbuf_len);
