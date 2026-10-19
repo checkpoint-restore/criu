@@ -559,12 +559,12 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	pmc_t pmc = PMC_INIT;
 	struct page_pipe *pp;
 	struct vma_area *vma_area;
-	struct page_xfer xfer = { .parent = NULL };
+	struct page_xfer xfer = { 0 };
 	int ret, exit_code = -1;
 	unsigned cpp_flags = 0;
 	unsigned long pmc_size;
 	int possible_pid_reuse = 0;
-	bool has_parent;
+	bool has_parent = false;
 	int parent_predump_mode = -1;
 
 	pr_info("\n");
@@ -605,16 +605,15 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 			goto out_pp;
 
 		xfer.transfer_lazy = !mdc->lazy;
+		has_parent = page_xfer_has_parent(&xfer);
 	} else {
 		ret = check_parent_page_xfer(CR_FD_PAGEMAP, vpid(item));
 		if (ret < 0)
 			goto out_pp;
-
-		if (ret)
-			xfer.parent = NULL + 1;
+		has_parent = ret;
 	}
 
-	if (xfer.parent) {
+	if (has_parent) {
 		possible_pid_reuse = detect_pid_reuse(item, mdc->stat, mdc->parent_ie);
 		if (possible_pid_reuse == -1)
 			goto out_xfer;
@@ -624,7 +623,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * Step 1 -- generate the pagemap
 	 */
 	args->off = 0;
-	has_parent = !!xfer.parent && !possible_pid_reuse;
+	has_parent = has_parent && !possible_pid_reuse;
 	if (mdc->parent_ie)
 		parent_predump_mode = mdc->parent_ie->pre_dump_mode;
 
