@@ -2582,8 +2582,15 @@ static int do_mount_root(struct mount_info *mi)
 	if (restore_shared_options(mi, !mi->shared_id && !mi->master_id, mi->shared_id, mi->master_id))
 		return -1;
 
-	if (mflags && remount_root_flags(service_mountpoint(mi), mflags))
-		return -1;
+	if (mflags) {
+		bool atime_dropped;
+
+		if (remount_root_flags(service_mountpoint(mi), mflags, &atime_dropped))
+			return -1;
+		/* Later remounts reuse mi->flags, so do not ask for the rejected atime mode again */
+		if (atime_dropped)
+			mi->flags &= ~MS_MNT_ATIME_FLAGS;
+	}
 
 	return fetch_rt_stat(mi, service_mountpoint(mi));
 }

@@ -478,8 +478,15 @@ static int do_mount_root_v2(struct mount_info *mi)
 		return -1;
 	}
 
-	if (mflags && remount_root_flags(mi->plain_mountpoint, mflags))
-		return -1;
+	if (mflags) {
+		bool atime_dropped;
+
+		if (remount_root_flags(mi->plain_mountpoint, mflags, &atime_dropped))
+			return -1;
+		/* Later remounts reuse mi->flags, so do not ask for the rejected atime mode again */
+		if (atime_dropped)
+			mi->flags &= ~MS_MNT_ATIME_FLAGS;
+	}
 
 	mi->mounted = true;
 

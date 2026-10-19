@@ -735,7 +735,7 @@ static void test_root_mount_remount(void)
 		int cstatus = 0;
 
 		if (unshare(CLONE_NEWUSER | CLONE_NEWNS) < 0) {
-			if (errno == EPERM || errno == EACCES || errno == ENOSPC) {
+			if (errno == EPERM || errno == EACCES || errno == ENOSPC || errno == EINVAL) {
 				pr_msg("SKIP: unprivileged user namespace creation not permitted\n");
 				exit(0);
 			}
@@ -774,7 +774,7 @@ static void test_root_mount_remount(void)
 			exit(1);
 		}
 
-		if (mount("none", tmppath, "tmpfs", 0, NULL) < 0) {
+		if (mount("none", tmppath, "tmpfs", MS_NODEV, NULL) < 0) {
 			if (errno == EPERM || errno == EACCES) {
 				pr_msg("SKIP: mounting tmpfs inside user namespace not permitted\n");
 				rmdir(tmppath);
@@ -794,8 +794,10 @@ static void test_root_mount_remount(void)
 		}
 
 		if (cpid == 0) {
+			bool atime_dropped = false;
+
 			if (unshare(CLONE_NEWUSER | CLONE_NEWNS) < 0) {
-				if (errno == EPERM || errno == EACCES || errno == ENOSPC) {
+				if (errno == EPERM || errno == EACCES || errno == ENOSPC || errno == EINVAL) {
 					pr_msg("SKIP: nested user namespace creation not permitted\n");
 					exit(0);
 				}
@@ -804,7 +806,7 @@ static void test_root_mount_remount(void)
 			}
 
 			/* Precondition: direct remount with divergent atime must fail with EPERM */
-			if (mount(NULL, tmppath, NULL, MS_REMOUNT | MS_BIND | MS_NOATIME, NULL) == 0) {
+			if (mount(NULL, tmppath, NULL, MS_REMOUNT | MS_BIND | MS_NODEV | MS_NOATIME, NULL) == 0) {
 				pr_msg("SKIP: kernel did not lock mount atime flags on userns clone\n");
 				exit(0);
 			}
@@ -814,14 +816,25 @@ static void test_root_mount_remount(void)
 			}
 
 			/* Call the real remount_root_flags with dumped flags differing in atime */
-			if (remount_root_flags(tmppath, MS_NOATIME) != 0) {
+			if (remount_root_flags(tmppath, MS_NODEV | MS_NOATIME, &atime_dropped) != 0) {
 				pr_err("remount_root_flags failed\n");
+				exit(1);
+			}
+
+			if (!atime_dropped) {
+				pr_err("remount_root_flags did not report atime_dropped\n");
 				exit(1);
 			}
 
 			/* Assert resulting mount keeps current atime mode (relatime) */
 			if (!mount_has_relatime(tmppath)) {
 				pr_err("mount did not keep relatime option\n");
+				exit(1);
+			}
+
+			/* A locked nodev cannot be cleared: the atime fallback must still report that failure */
+			if (remount_root_flags(tmppath, MS_RELATIME, NULL) == 0) {
+				pr_err("remount_root_flags hid a locked nodev failure\n");
 				exit(1);
 			}
 

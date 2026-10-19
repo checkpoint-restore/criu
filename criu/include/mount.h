@@ -225,6 +225,10 @@ extern int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
 
 extern struct mount_info *root_yard_mp;
 extern char *mnt_roots;
-extern int remount_root_flags(const char *target, unsigned long mflags);
+#ifndef MS_STRICTATIME
+#define MS_STRICTATIME (1 << 24)
+#endif
+#define MS_MNT_ATIME_FLAGS (MS_NOATIME | MS_NODIRATIME | MS_RELATIME | MS_STRICTATIME)
+extern int remount_root_flags(const char *target, unsigned long mflags, bool *atime_dropped);
 
 #endif /* __CR_MOUNT_H__ */
