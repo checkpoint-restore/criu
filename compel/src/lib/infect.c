@@ -7,6 +7,8 @@
 #include <sys/mman.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <sys/resource.h>
 #include <linux/seccomp.h>
 
 #include "log.h"
@@ -44,6 +46,144 @@
 #endif
 
 static int prepare_thread(int pid, struct thread_ctx *ctx, bool handle_rseq);
+
+/*
+ * The parasite runs under the victim's resource limits, and a task that
+ * has sandboxed itself with tight ones breaks it:
+ *
+ *  - RLIMIT_NOFILE: the parasite needs descriptors of its own (the memfd
+ *    that carries the blob, the transport socket, the log descriptor and
+ *    whatever a command opens, such as /proc). A task with no free slot
+ *    below its limit fails memfd_create() with EMFILE. The limit also
+ *    bounds the descriptors in flight when the parasite sends them over
+ *    the transport socket (too_many_unix_fds()).
+ *  - RLIMIT_FSIZE: the parasite appends to the log file. Past the limit the
+ *    write fails and the kernel queues SIGXFSZ for the victim, which kills
+ *    it once it resumes, even after a successful dump.
+ *
+ * Such limits are raised while the parasite is inside and restored when it
+ * is cured, or when infection fails before the parasite runs. A checkpoint
+ * records the task's own limits.
+ */
+enum {
+	PARASITE_RLIM_NOFILE,
+	PARASITE_RLIM_FSIZE,
+};
+
+/* The kernel refuses an RLIMIT_NOFILE above fs.nr_open, even to root */
+static rlim_t nofile_ceiling(void)
+{
+	char buf[32];
+	ssize_t len;
+	int fd;
+
+	fd = open("/proc/sys/fs/nr_open", O_RDONLY);
+	if (fd < 0)
+		return 0;
+
+	len = read(fd, buf, sizeof(buf) - 1);
+	close(fd);
+	if (len <= 0)
+		return 0;
+
+	buf[len] = '\0';
+	return strtoull(buf, NULL, 10);
+}
+
+/*
+ * Raises @resource of the victim to @want, or to its hard limit when @want
+ * is 0. Raising the hard limit needs CAP_SYS_RESOURCE in the initial user
+ * namespace; without it the soft limit can still go up to the hard one.
+ */
+static void parasite_raise_rlimit(struct parasite_ctl *ctl, int slot, int resource, rlim_t want)
+{
+	struct parasite_rlimit *pr = &ctl->rlim[slot];
+	struct rlimit new;
+
+	pr->resource = resource;
+
+	if (prlimit(ctl->rpid, resource, NULL, &pr->orig)) {
+		pr_perror("Can't get rlimit %d of %d", resource, ctl->rpid);
+		return;
+	}
+
+	if (!want)
+		want = pr->orig.rlim_max;
+	if (pr->orig.rlim_cur >= want)
+		return;
+
+	new.rlim_cur = want;
+	new.rlim_max = pr->orig.rlim_max > want ? pr->orig.rlim_max : want;
+	if (prlimit(ctl->rpid, resource, &new, NULL)) {
+		if (errno != EPERM || pr->orig.rlim_cur == pr->orig.rlim_max)
+			goto keep;
+
+		new.rlim_cur = new.rlim_max = pr->orig.rlim_max;
+		if (prlimit(ctl->rpid, resource, &new, NULL))
+			goto keep;
+	}
+
+	pr_info("Raised rlimit %d of %d from %llu/%llu to %llu/%llu for the parasite\n", resource, ctl->rpid,
+		(unsigned long long)pr->orig.rlim_cur, (unsigned long long)pr->orig.rlim_max,
+		(unsigned long long)new.rlim_cur, (unsigned long long)new.rlim_max);
+	pr->raised = true;
+	return;
+
+keep:
+	pr_info("Can't raise rlimit %d of %d from %llu/%llu: %s\n", resource, ctl->rpid,
+		(unsigned long long)pr->orig.rlim_cur, (unsigned long long)pr->orig.rlim_max, strerror(errno));
+}
+
+static void parasite_raise_rlimits(struct parasite_ctl *ctl)
+{
+	parasite_raise_rlimit(ctl, PARASITE_RLIM_NOFILE, RLIMIT_NOFILE, nofile_ceiling());
+	parasite_raise_rlimit(ctl, PARASITE_RLIM_FSIZE, RLIMIT_FSIZE, RLIM_INFINITY);
+}
+
+static int parasite_restore_rlimits(struct parasite_ctl *ctl)
+{
+	int i, ret = 0;
+
+	for (i = 0; i < ARRAY_SIZE(ctl->rlim); i++) {
+		struct parasite_rlimit *pr = &ctl->rlim[i];
+
+		if (!pr->raised)
+			continue;
+
+		if (prlimit(ctl->rpid, pr->resource, &pr->orig, NULL)) {
+			pr_perror("Can't restore rlimit %d of %d", pr->resource, ctl->rpid);
+			ret = -1;
+			continue;
+		}
+
+		pr->raised = false;
+	}
+
+	return ret;
+}
+
+static uint64_t rlim_to_u64(rlim_t v)
+{
+	return v == RLIM_INFINITY ? UINT64_MAX : v;
+}
+
+bool compel_orig_rlimit(struct parasite_ctl *ctl, int resource, uint64_t *cur, uint64_t *max)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ctl->rlim); i++) {
+		struct parasite_rlimit *pr = &ctl->rlim[i];
+
+		if (!pr->raised || pr->resource != resource)
+			continue;
+
+		*cur = rlim_to_u64(pr->orig.rlim_cur);
+		*max = rlim_to_u64(pr->orig.rlim_max);
+		return true;
+	}
+
+	return false;
+}
 
 static inline void close_safe(int *pfd)
 {
@@ -706,15 +846,15 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	futex_set(&args->daemon_connected, 0);
 
 	if (prepare_tsock(ctl, pid, args))
-		goto err;
+		goto err_not_run;
 
 	/* after this we can catch parasite errors in chld handler */
 	if (setup_child_handler(ctl))
-		goto err;
+		goto err_not_run;
 
 	regs = ctl->orig.regs;
 	if (parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, ctl->rstack, &regs, &ctl->orig))
-		goto err;
+		goto err_not_run;
 
 	futex_wait_while_eq(&args->daemon_connected, 0);
 	if (futex_get(&args->daemon_connected) != 1) {
@@ -739,6 +879,8 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	ctl->daemonized = true;
 	pr_info("Parasite %d has been switched to daemon mode\n", pid);
 	return 0;
+err_not_run:
+	parasite_restore_rlimits(ctl);
 err:
 	return -1;
 }
@@ -757,24 +899,28 @@ static int parasite_start_daemon(struct parasite_ctl *ctl)
 
 	if (compel_get_task_regs(pid, &ctl->orig.regs, &ext_regs, ictx->save_regs, ictx->regs_arg, ictx->flags)) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
-		return -1;
+		goto err;
 	}
 
 	if (__compel_arch_fetch_thread_area(pid, &ctl->orig)) {
 		pr_err("Can't get thread area of %d\n", pid);
-		return -1;
+		goto err;
 	}
 
 	if (ictx->make_sigframe(ictx->regs_arg, ctl->sigframe, ctl->rsigframe, &ctl->orig.sigmask))
-		return -1;
+		goto err;
 
 	if (parasite_setup_shstk(ctl, &ext_regs))
-		return -1;
+		goto err;
 
+	/* Restores the limits itself if it fails before the parasite runs */
 	if (parasite_init_daemon(ctl))
 		return -1;
 
 	return 0;
+err:
+	parasite_restore_rlimits(ctl);
+	return -1;
 }
 
 static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size, int remote_prot)
@@ -1042,6 +1188,8 @@ int compel_infect_no_daemon(struct parasite_ctl *ctl, unsigned long nr_threads, 
 	if (nr_threads > 1)
 		map_exchange_size += PARASITE_STACK_SIZE;
 
+	parasite_raise_rlimits(ctl);
+
 	ret = compel_map_exchange(ctl, map_exchange_size);
 	if (ret)
 		goto err;
@@ -1108,6 +1256,8 @@ int compel_infect_no_daemon(struct parasite_ctl *ctl, unsigned long nr_threads, 
 	return 0;
 
 err:
+	/* The parasite has not run, so nothing logs under the task's own limits */
+	parasite_restore_rlimits(ctl);
 	return -1;
 }
 
@@ -1605,7 +1755,7 @@ int compel_stop_daemon(struct parasite_ctl *ctl)
 	return 0;
 }
 
-int compel_cure_remote(struct parasite_ctl *ctl)
+static int __compel_cure_remote(struct parasite_ctl *ctl)
 {
 	long ret;
 	int err;
@@ -1627,6 +1777,17 @@ int compel_cure_remote(struct parasite_ctl *ctl)
 	}
 
 	return 0;
+}
+
+int compel_cure_remote(struct parasite_ctl *ctl)
+{
+	int ret;
+
+	ret = __compel_cure_remote(ctl);
+	if (parasite_restore_rlimits(ctl))
+		ret = -1;
+
+	return ret;
 }
 
 int compel_cure_local(struct parasite_ctl *ctl)

@@ -500,6 +500,9 @@ static void restore_rlims(struct task_restore_args *ta)
 	for (r = 0; r < ta->rlims_n; r++) {
 		struct krlimit krlim;
 
+		if (rlimit_set_by_criu(r))
+			continue;
+
 		krlim.rlim_cur = ta->rlims[r].rlim_cur;
 		krlim.rlim_max = ta->rlims[r].rlim_max;
 		sys_setrlimit(r, &krlim);
