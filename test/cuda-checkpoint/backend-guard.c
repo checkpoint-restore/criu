@@ -51,6 +51,50 @@ static volatile sig_atomic_t criu_timed_out;
 static pid_t resumed_tid;
 static k_rtsigset_t resumed_sigset;
 
+static pthread_t worker_thread;
+static bool worker_joinable;
+
+int __real_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+			  void *(*start)(void *), void *arg);
+int __real_pthread_join(pthread_t thread, void **result);
+
+/*
+ * Each backend operation must join its worker before returning. Track the
+ * join directly because the kernel can release a joined worker's TID later.
+ */
+int __wrap_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+			  void *(*start)(void *), void *arg)
+{
+	int ret;
+
+	assert(!worker_joinable);
+
+	ret = __real_pthread_create(thread, attr, start, arg);
+	if (ret)
+		return ret;
+
+	worker_thread = *thread;
+	worker_joinable = true;
+
+	return 0;
+}
+
+int __wrap_pthread_join(pthread_t thread, void **result)
+{
+	int ret;
+
+	assert(worker_joinable);
+	assert(pthread_equal(thread, worker_thread));
+
+	ret = __real_pthread_join(thread, result);
+	if (ret)
+		return ret;
+
+	worker_joinable = false;
+
+	return 0;
+}
+
 static void other_sigchld(int signal, siginfo_t *info, void *context)
 {
 	int saved_errno = errno, status;
@@ -325,39 +369,49 @@ static off_t file_size(const char *path)
 	return status.st_size;
 }
 
-static pid_t check_api_calls(const char *path, bool completed, bool driver, bool restore_fault, bool helper_error)
+static pid_t check_api_calls(const char *path, bool completed, bool driver,
+			     bool restore_fault, bool helper_error)
 {
-	FILE *file = fopen(path, "r");
+	FILE *file;
 	char operation[32];
 	pid_t api_caller = -1;
-	int target_pid, caller, checkpoints = 0, restores = 0, unlocks = 0;
+	int target_pid, caller;
+	int checkpoints = 0;
+	int restores = 0;
+	int unlocks = 0;
 
+	file = fopen(path, "r");
 	assert(file);
+
 	while (fscanf(file, "%31s %d %d", operation, &target_pid, &caller) == 3) {
 		int status;
 
 		if (api_caller < 0)
 			api_caller = caller;
+
 		if (driver) {
-			if (!strcmp(operation, "checkpoint") || !strcmp(operation, "restore") ||
-			    !strcmp(operation, "unlock") || !strcmp(operation, "init"))
+			if (!strcmp(operation, "checkpoint") ||
+			    !strcmp(operation, "restore") ||
+			    !strcmp(operation, "unlock") ||
+			    !strcmp(operation, "init"))
 				assert(caller != getpid());
-			if (caller != getpid())
-				assert(syscall(SYS_tgkill, getpid(), caller, 0) == -1 && errno == ESRCH);
 		} else {
 			assert(waitpid(caller, &status, __WALL | WNOHANG) == -1 && errno == ECHILD);
 			assert(kill(caller, 0) == -1 && errno == ESRCH);
 		}
+
 		checkpoints += !strcmp(operation, "checkpoint");
 		restores += !strcmp(operation, "restore");
 		unlocks += !strcmp(operation, "unlock");
 	}
 	assert(feof(file));
 	fclose(file);
+
 	assert(checkpoints == 1);
 	assert(restores == (((completed && !helper_error) || restore_fault) ? 1 : 0));
 	assert(unlocks == (completed ? 1 : 0));
 	assert(api_caller > 0);
+
 	return api_caller;
 }
 
@@ -540,9 +594,11 @@ static void run_case(const char *directory, const char *behavior,
 		alarm(1);
 	}
 	ret = backend->checkpoint_devices(pid);
+	assert(!worker_joinable);
 	if (restore_fault || init_fault || !strcmp(behavior, "init-hang")) {
 		assert(ret == 0);
 		ret = backend->resume_devices_late(pid, NULL);
+		assert(!worker_joinable);
 	}
 	assert(clock_gettime(CLOCK_MONOTONIC, &end) == 0);
 	elapsed = end.tv_sec - start.tv_sec + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -590,6 +646,7 @@ static void run_case(const char *directory, const char *behavior,
 		char line[256];
 
 		assert(backend->resume_devices_late(pid, &map) == 0);
+		assert(!worker_joinable);
 		file = fopen(mapping, "r");
 		assert(file);
 		assert(fgets(line, sizeof(line), file));
@@ -633,6 +690,7 @@ static void run_case(const char *directory, const char *behavior,
 	}
 	before_cleanup = file_size(marker);
 	ret = backend->dump_finish(success ? 0 : -1);
+	assert(!worker_joinable);
 	assert((ret == 0) == completed);
 	if (!completed)
 		assert(file_size(marker) == before_cleanup); /* No API reentry during rollback. */
@@ -722,6 +780,7 @@ static void run_unseized_rollback(const char *directory, const struct cuda_plugi
 	assert(backend->probe(false) == 0);
 	assert(backend->pause_devices(pid) == 0);
 	assert(backend->dump_finish(-1) == 0);
+	assert(!worker_joinable);
 	assert(count_api_calls(marker, "lock", pid) == 1);
 	assert(count_api_calls(marker, "unlock", pid) == 1);
 	check_log("was not seized");
@@ -760,15 +819,18 @@ static void run_sibling_rollback(const char *directory, const struct cuda_plugin
 	stop_target(pid_b);
 	stop_target(pid_a);
 	assert(backend->checkpoint_devices(pid_b) == 0);
+	assert(!worker_joinable);
 
 	assert(setenv("CRIU_CUDA_MOCK_FAULT_TRIGGER", trigger_a, 1) == 0);
 	assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "fault", 1) == 0);
 	assert(backend->checkpoint_devices(pid_a) != 0);
+	assert(!worker_joinable);
 	assert(unsetenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR") == 0);
 	/* No new operation starts after the fault. */
 	assert(backend->pause_devices(getpid()) != 0);
 
 	ret = backend->dump_finish(-1);
+	assert(!worker_joinable);
 	assert(ret != 0);
 	assert(count_api_calls(marker, "restore", pid_b) == 1);
 	assert(count_api_calls(marker, "unlock", pid_b) == 1);
