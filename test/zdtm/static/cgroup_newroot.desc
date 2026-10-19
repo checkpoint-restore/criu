@@ -1,0 +1,4 @@
+{   'dopts': '--manage-cgroups',
+    'flags': 'suid excl reqrst',
+    'flavor': 'h',
+    'ropts': '--manage-cgroups --cgroup-root name=zdtmtst:/newroot'}
