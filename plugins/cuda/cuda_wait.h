@@ -14,7 +14,7 @@ struct cuda_wait {
 	int pid;
 	int tid;
 	int *thread_status;
-	int64_t deadline_ms;
+	int64_t deadline_ns;
 	unsigned int timeout_seconds;
 	/* Cleanup must still reap helpers and stop resumed threads after timeout. */
 	bool ignore_criu_timeout;
