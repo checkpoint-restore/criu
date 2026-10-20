@@ -110,13 +110,58 @@ int criu_get_image_dir(void)
 	return get_service_fd(IMG_FD_OFF);
 }
 
+/*
+ * Initialize the plugin for the stage and chain its hooks.
+ */
+static int cr_plugin_register(int stage, cr_plugin_desc_t *d, void *dlhandle, const char *path)
+{
+	plugin_desc_t *this;
+	size_t i;
+
+	if (verify_plugin(d)) {
+		pr_err("Corrupted plugin %s\n", path);
+		return -1;
+	}
+
+	this = xzalloc(sizeof(*this));
+	if (!this)
+		return -1;
+
+	this->d = d;
+	this->dlhandle = dlhandle;
+	INIT_LIST_HEAD(&this->list);
+
+	for (i = 0; i < d->max_hooks; i++)
+		INIT_LIST_HEAD(&this->link[i]);
+
+	list_add_tail(&this->list, &cr_plugin_ctl.head);
+	show_plugin_desc(d);
+
+	if (d->init && d->init(stage)) {
+		pr_err("Failed in init(%d) of \"%s\"\n", stage, d->name);
+		list_del(&this->list);
+		xfree(this);
+		return -1;
+	}
+
+	/*
+	 * Chain hooks into appropriate places for
+	 * fast handler access.
+	 */
+	for (i = 0; i < d->max_hooks; i++) {
+		if (!d->hooks[i])
+			continue;
+		list_add_tail(&this->link[i], &cr_plugin_ctl.hook_chain[i]);
+	}
+
+	return 0;
+}
+
 static int cr_lib_load(int stage, char *path)
 {
 	cr_plugin_desc_t *d;
-	plugin_desc_t *this;
-	size_t i;
-	void *h;
 	bool allocated = false;
+	void *h;
 
 	h = dlopen(path, RTLD_LAZY);
 	if (h == NULL) {
@@ -140,45 +185,11 @@ static int cr_lib_load(int stage, char *path)
 		allocated = true;
 	}
 
-	this = xzalloc(sizeof(*this));
-	if (!this)
+	if (cr_plugin_register(stage, d, h, path))
 		goto error_close;
-
-	if (verify_plugin(d)) {
-		pr_err("Corrupted plugin %s\n", path);
-		goto error_free;
-	}
-
-	this->d = d;
-	this->dlhandle = h;
-	INIT_LIST_HEAD(&this->list);
-
-	for (i = 0; i < d->max_hooks; i++)
-		INIT_LIST_HEAD(&this->link[i]);
-
-	list_add_tail(&this->list, &cr_plugin_ctl.head);
-	show_plugin_desc(d);
-
-	if (d->init && d->init(stage)) {
-		pr_err("Failed in init(%d) of \"%s\"\n", stage, d->name);
-		list_del(&this->list);
-		goto error_free;
-	}
-
-	/*
-	 * Chain hooks into appropriate places for
-	 * fast handler access.
-	 */
-	for (i = 0; i < d->max_hooks; i++) {
-		if (!d->hooks[i])
-			continue;
-		list_add_tail(&this->link[i], &cr_plugin_ctl.hook_chain[i]);
-	}
 
 	return 0;
 
-error_free:
-	xfree(this);
 error_close:
 	dlclose(h);
 	if (allocated)
@@ -207,6 +218,20 @@ void cr_plugin_fini(int stage, int ret)
 			xfree(this->d);
 		dlclose(h);
 	}
+}
+
+static int cr_plugin_restore_init(void)
+{
+	int ret;
+
+	if (check_inventory_plugins())
+		return -1;
+
+	ret = run_plugins_all(RESTORE_INIT);
+	if (ret && ret != -ENOTSUP)
+		return -1;
+
+	return 0;
 }
 
 int cr_plugin_init(int stage)
@@ -261,16 +286,8 @@ int cr_plugin_init(int stage)
 			goto err;
 	}
 
-	if (stage == CR_PLUGIN_STAGE__RESTORE) {
-		int ret;
-
-		if (check_inventory_plugins())
-			goto err;
-
-		ret = run_plugins_all(RESTORE_INIT);
-		if (ret && ret != -ENOTSUP)
-			goto err;
-	}
+	if (stage == CR_PLUGIN_STAGE__RESTORE && cr_plugin_restore_init())
+		goto err;
 
 	exit_code = 0;
 err:
