@@ -132,6 +132,9 @@ export CFLAGS-GCOV
 ifeq ($(ARCH),mips)
 WARNINGS		:= -rdynamic
 endif
+ifeq ($(STATIC),1)
+WARNINGS		:= $(filter-out -rdynamic,$(WARNINGS))
+endif
 
 ifeq ($(ARCH),loongarch64)
 WARNINGS		+= -Wno-implicit-function-declaration

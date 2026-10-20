@@ -25,6 +25,7 @@ static void __attribute__((constructor)) cr_plugin_ctl_init(void)
 		INIT_LIST_HEAD(&cr_plugin_ctl.hook_chain[i]);
 }
 
+#ifndef CONFIG_STATIC
 /*
  * If we met old version of a plugin, selfgenerate a plugin descriptor for it.
  */
@@ -104,12 +105,14 @@ static int verify_plugin(cr_plugin_desc_t *d)
 
 	return 0;
 }
+#endif
 
 int criu_get_image_dir(void)
 {
 	return get_service_fd(IMG_FD_OFF);
 }
 
+#ifndef CONFIG_STATIC
 /*
  * Initialize the plugin for the stage and chain its hooks.
  */
@@ -196,13 +199,13 @@ error_close:
 		xfree(d);
 	return -1;
 }
+#endif
 
 void cr_plugin_fini(int stage, int ret)
 {
 	plugin_desc_t *this, *tmp;
 
 	list_for_each_entry_safe(this, tmp, &cr_plugin_ctl.head, list) {
-		void *h = this->dlhandle;
 		size_t i;
 
 		list_del(&this->list);
@@ -216,7 +219,9 @@ void cr_plugin_fini(int stage, int ret)
 
 		if (this->d->version == CRIU_PLUGIN_VERSION_OLD)
 			xfree(this->d);
-		dlclose(h);
+#ifndef CONFIG_STATIC
+		dlclose(this->dlhandle);
+#endif
 	}
 }
 
@@ -234,6 +239,7 @@ static int cr_plugin_restore_init(void)
 	return 0;
 }
 
+#ifndef CONFIG_STATIC
 int cr_plugin_init(int stage)
 {
 	int exit_code = -1;
@@ -298,3 +304,17 @@ err:
 
 	return exit_code;
 }
+#else
+int cr_plugin_init(int stage)
+{
+	if (opts.libdir || getenv("CRIU_LIBS_DIR")) {
+		pr_err("A static CRIU binary cannot load plugins\n");
+		return -1;
+	}
+
+	if (stage == CR_PLUGIN_STAGE__RESTORE)
+		return cr_plugin_restore_init();
+
+	return 0;
+}
+#endif
