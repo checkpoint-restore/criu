@@ -333,6 +333,26 @@ jobs:
     - name: Run Podman Test
       run: sudo make -C scripts/ci podman-test
 
+  static-test:
+    needs: [alpine-test]
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v7
+    - name: Check the static dependency cache and build tools
+      run: make -C scripts/build/static check
+    - name: Build static binaries with and without plugins
+      run: |
+        docker build -f scripts/build/Dockerfile.static -o build/static .
+        docker build -f scripts/build/Dockerfile.static -o build/static-cuda \
+          --build-arg PLUGINS=cuda .
+    - name: Run static binary tests
+      run: |
+        sudo test/others/static/run.sh build/static/criu
+        sudo test/others/static/run.sh build/static-cuda/criu cuda
+    - name: Print dmesg
+      if: always()
+      run: sudo dmesg
+
   stream-test:
     needs: [alpine-test]
     runs-on: ubuntu-22.04
