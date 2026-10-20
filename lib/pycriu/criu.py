@@ -170,10 +170,11 @@ class CRIUExceptionExternal(CRIUException):
     Exception class for handling and storing criu RPC errors.
     """
 
-    def __init__(self, req_typ, resp_typ, errno):
+    def __init__(self, req_typ, resp_typ, errno, errmsg=None):
         self.typ = req_typ
         self.resp_typ = resp_typ
         self.errno = errno
+        self.errmsg = errmsg
         self._str = self._gen_error_str()
 
     def _gen_error_str(self):
@@ -195,6 +196,9 @@ class CRIUExceptionExternal(CRIUException):
 
         else:
             s += "Unknown"
+
+        if self.errmsg:
+            s += ": %s" % (self.errmsg.strip(), )
 
         return s
 
@@ -277,7 +281,7 @@ class criu:
         resp = self._send_req_and_recv_resp(req)
 
         if not resp.success:
-            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno)
+            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno, resp.cr_errmsg)
 
     def dump(self):
         """
@@ -290,7 +294,7 @@ class criu:
         resp = self._send_req_and_recv_resp(req)
 
         if not resp.success:
-            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno)
+            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno, resp.cr_errmsg)
 
         return resp.dump
 
@@ -305,7 +309,7 @@ class criu:
         resp = self._send_req_and_recv_resp(req)
 
         if not resp.success:
-            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno)
+            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno, resp.cr_errmsg)
 
         return resp.dump
 
@@ -320,7 +324,7 @@ class criu:
         resp = self._send_req_and_recv_resp(req)
 
         if not resp.success:
-            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno)
+            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno, resp.cr_errmsg)
 
         return resp.restore
 
@@ -333,7 +337,7 @@ class criu:
         resp = self._send_req_and_recv_resp(req)
 
         if not resp.success:
-            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno)
+            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno, resp.cr_errmsg)
 
         return resp.ps
 
@@ -345,6 +349,6 @@ class criu:
         resp = self._send_req_and_recv_resp(req)
 
         if not resp.success:
-            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno)
+            raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno, resp.cr_errmsg)
 
         return resp.status
