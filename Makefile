@@ -1,6 +1,10 @@
 __nmk_dir=$(CURDIR)/scripts/nmk/scripts/
 export __nmk_dir
 
+# Save caller flags before the ordinary CRIU build adds its own flags.
+STATIC_USER_CFLAGS := $(CFLAGS)
+STATIC_USER_LDFLAGS := $(LDFLAGS)
+
 #
 # No need to try to remake our Makefiles
 Makefile: ;
@@ -233,14 +237,17 @@ criu-deps	+= include/common/asm
 #
 # Configure variables.
 export CONFIG_HEADER := include/common/config.h
-ifeq ($(filter tags etags cscope clean lint indent fetch-clang-format help mrproper,$(MAKECMDGOALS)),)
-include Makefile.config
+ifeq ($(filter tags etags cscope clean lint indent fetch-clang-format help mrproper \
+              static,$(MAKECMDGOALS)),)
+    include Makefile.config
 else
-# To clean all files, enable make/build options here
-export CONFIG_COMPAT := y
-export CONFIG_GNUTLS := y
-export CONFIG_HAS_LIBBPF := y
-export CONFIG_LZ4 := y
+    ifneq ($(filter clean mrproper,$(MAKECMDGOALS)),)
+        # To clean all files, enable make/build options here
+        export CONFIG_COMPAT := y
+        export CONFIG_GNUTLS := y
+        export CONFIG_HAS_LIBBPF := y
+        export CONFIG_LZ4 := y
+    endif
 endif
 
 #
@@ -426,6 +433,79 @@ docker-test:
 		./test/zdtm.py run -a --keep-going --ignore-taint
 .PHONY: docker-test
 
+#
+# Build a fully static criu binary.
+#
+# Downloads and builds all of criu's library dependencies as static
+# archives under STATIC_DEP_DIR (default build/static-deps/<target>, where
+# <target> is reported by `$(CC) -dumpmachine`), then links criu and libc
+# statically. The resulting binary appears at criu/criu, just like
+# `make criu`.
+#
+# Requires a musl toolchain plus autoconf, automake, libtool, m4, flex,
+# bison, and the protobuf code generators; see INSTALL.md.
+# scripts/build/Dockerfile.static provides such an environment.
+#
+ifneq ($(filter static,$(MAKECMDGOALS)),)
+# A static glibc still loads NSS modules at run time (e.g. for
+# getaddrinfo()), so the result would not be self-contained.
+STATIC_CC_IS_GLIBC := $(shell \
+	$(CC) -dM -E -x c -include features.h /dev/null 2>/dev/null | \
+	grep -q __GLIBC__ && echo y)
+ifeq ($(STATIC_CC_IS_GLIBC),y)
+$(error static requires a musl compiler: static glibc loads NSS modules at run time. \
+	Build in scripts/build/Dockerfile.static instead, see INSTALL.md)
+endif
+
+# Archives built for one target or libc must not be reused for another.
+STATIC_DEP_DIR ?= $(CURDIR)/build/static-deps/$(shell $(CC) -dumpmachine)
+override STATIC_DEP_DIR := $(abspath $(STATIC_DEP_DIR))
+endif
+
+STATIC_DIR := scripts/build/static
+
+# Command-line variables that are forwarded to the CRIU build. Other
+# command-line variables are dropped so that they do not leak into the
+# dependency builds.
+STATIC_PASS_VARS := PREFIX V
+STATIC_PASS_ARGS = $(foreach v,$(STATIC_PASS_VARS),$(if $(filter command line,$(origin $(v))),$(v)='$($(v))'))
+
+# descriptor.proto comes with the host's protobuf, like protoc itself.
+STATIC_PROTOBUF_INCLUDE = $(or $(shell pkg-config --variable=includedir protobuf 2>/dev/null),/usr/include)
+
+# Under -n, make still runs recipe lines that invoke $(MAKE), which would
+# configure and build the dependencies for real. Only describe them.
+STATIC_DRY_RUN = $(findstring n,$(firstword -$(MAKEFLAGS)))
+
+# Drop command-line variables from MAKEFLAGS. For the dependency build,
+# also drop nmk's -r and -R, which disable the built-in rules and variables
+# that the dependencies' own Makefiles rely on. Other flags, including the
+# jobserver, are kept.
+STATIC_MAKEFLAGS = buildflags=$${MAKEFLAGS%% -- *}; MAKEFLAGS="$$buildflags"
+STATIC_DEP_MAKEFLAGS = \
+	buildflags=$${MAKEFLAGS%% -- *}; \
+	shortflags=$${buildflags%% *}; \
+	filtered_flags=$$(printf '%s' "$$shortflags" | tr -d rR); \
+	MAKEFLAGS="$$filtered_flags$${buildflags\#$$shortflags}"
+
+STATIC_DEP_BUILD = $(STATIC_DEP_MAKEFLAGS) $(MAKE) -C $(STATIC_DIR) O=$(STATIC_DEP_DIR) CC='$(CC)'
+
+static:
+	+@$(if $(STATIC_DRY_RUN),echo 'Build static dependencies in $(STATIC_DEP_DIR)',$(STATIC_DEP_BUILD))
+	$(MAKE) mrproper
+	@$(STATIC_MAKEFLAGS); \
+	PKG_CONFIG_PATH= \
+	PKG_CONFIG_LIBDIR=$(STATIC_DEP_DIR)/install/lib/pkgconfig \
+	PKG_CONFIG="pkg-config --static" \
+	LIBS= DEFINES= HOSTCFLAGS= \
+	CONFIG_GNUTLS= CONFIG_HAS_LIBBPF= CONFIG_HAS_DRM_COLOR_CTM_3X4= \
+	CFLAGS="$(STATIC_USER_CFLAGS) -I$(STATIC_DEP_DIR)/install/include" \
+	LDFLAGS="-L$(STATIC_DEP_DIR)/install/lib $(STATIC_USER_LDFLAGS) -static" \
+	$(MAKE) CC='$(CC)' $(STATIC_PASS_ARGS) CONFIG_AMDGPU=n NO_GNUTLS=1 NO_LIBBSD=1 \
+	    PROTOBUF_INCLUDE='$(STATIC_PROTOBUF_INCLUDE)' STATIC=1 criu
+	$(STATIC_DIR)/check-binary.sh criu/criu
+.PHONY: static
+
 help:
 	@echo '    Targets:'
 	@echo '      all             - Build all [*] targets'
@@ -448,6 +528,7 @@ help:
 	@echo '      indent          - Indent C code'
 	@echo '      amdgpu_plugin   - Make AMD GPU plugin'
 	@echo '      cuda_plugin     - Make NVIDIA CUDA plugin'
+	@echo '      static          - Build a fully static criu binary (see INSTALL.md)'
 .PHONY: help
 
 ruff:
