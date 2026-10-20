@@ -1168,6 +1168,10 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
 				pr_msg("GitID: %s\n", CRIU_GITID);
+#ifdef CONFIG_STATIC
+			if (cr_plugin_show_builtin())
+				return 1;
+#endif
 			exit(0);
 		case 'h':
 			*usage_error = false;

@@ -1,4 +1,5 @@
 CFLAGS_REMOVE_clone-noasan.o += $(CFLAGS-ASAN)
+CFLAGS_plugin.o		+= -D'BUILTIN_PLUGINS=$(foreach p,$(PLUGINS),BUILTIN_PLUGIN($(p)_plugin_desc))'
 CFLAGS_kerndat.o	+= -DKDAT_MAGIC_2=${shell echo $${SOURCE_DATE_EPOCH:-$$(date +%s)}} -DKDAT_RUNDIR=\"$(RUNDIR)\"
 ldflags-y		+= -r
 

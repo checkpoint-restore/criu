@@ -13,6 +13,7 @@
 #include "servicefd.h"
 #include "common/list.h"
 #include "log.h"
+#include "util.h"
 
 cr_plugin_ctl_t cr_plugin_ctl;
 
@@ -78,6 +79,7 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 
 	return d;
 }
+#endif
 
 static void show_plugin_desc(cr_plugin_desc_t *d)
 {
@@ -105,16 +107,15 @@ static int verify_plugin(cr_plugin_desc_t *d)
 
 	return 0;
 }
-#endif
 
 int criu_get_image_dir(void)
 {
 	return get_service_fd(IMG_FD_OFF);
 }
 
-#ifndef CONFIG_STATIC
 /*
- * Initialize the plugin for the stage and chain its hooks.
+ * Initialize the plugin for the stage and chain its hooks. dlhandle is NULL
+ * for a built-in plugin.
  */
 static int cr_plugin_register(int stage, cr_plugin_desc_t *d, void *dlhandle, const char *path)
 {
@@ -160,6 +161,7 @@ static int cr_plugin_register(int stage, cr_plugin_desc_t *d, void *dlhandle, co
 	return 0;
 }
 
+#ifndef CONFIG_STATIC
 static int cr_lib_load(int stage, char *path)
 {
 	cr_plugin_desc_t *d;
@@ -305,16 +307,58 @@ err:
 	return exit_code;
 }
 #else
+/*
+ * Plugins built into a static binary by `make static PLUGINS=...`.
+ * BUILTIN_PLUGINS is a list of BUILTIN_PLUGIN(descriptor) entries.
+ */
+#ifndef BUILTIN_PLUGINS
+#define BUILTIN_PLUGINS
+#endif
+
+#define BUILTIN_PLUGIN(desc) extern cr_plugin_desc_t desc;
+BUILTIN_PLUGINS
+#undef BUILTIN_PLUGIN
+
+#define BUILTIN_PLUGIN(desc) &desc,
+static cr_plugin_desc_t *builtin_plugins[] = { BUILTIN_PLUGINS NULL };
+#undef BUILTIN_PLUGIN
+
+int cr_plugin_show_builtin(void)
+{
+	cr_plugin_desc_t **d;
+	char *names = NULL;
+
+	for (d = builtin_plugins; *d; d++) {
+		names = xstrcat(names, " %s", (*d)->name);
+		if (!names)
+			return -1;
+	}
+
+	pr_msg("Plugins:%s\n", names ? names : " none");
+	xfree(names);
+	return 0;
+}
+
 int cr_plugin_init(int stage)
 {
+	cr_plugin_desc_t **d;
+
 	if (opts.libdir || getenv("CRIU_LIBS_DIR")) {
 		pr_err("A static CRIU binary cannot load plugins\n");
 		return -1;
 	}
 
-	if (stage == CR_PLUGIN_STAGE__RESTORE)
-		return cr_plugin_restore_init();
+	for (d = builtin_plugins; *d; d++) {
+		if (cr_plugin_register(stage, *d, NULL, (*d)->name))
+			goto err;
+	}
+
+	if (stage == CR_PLUGIN_STAGE__RESTORE && cr_plugin_restore_init())
+		goto err;
 
 	return 0;
+err:
+	cr_plugin_fini(stage, -1);
+	return -1;
 }
 #endif

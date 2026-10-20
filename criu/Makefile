@@ -78,6 +78,13 @@ PROGRAM-BUILTINS	+= $(ARCH-LIB)
 PROGRAM-BUILTINS	+= soccr/libsoccr.a
 PROGRAM-BUILTINS	+= $(COMPEL_LIBS)
 
+# Plugins built into a static binary, see `make static`.
+PROGRAM-BUILTINS	+= $(foreach p,$(PLUGINS),plugins/$(p)/builtin.o)
+
+# Plugins include CRIU headers, some of which are generated.
+plugins/%/builtin.o: $(obj)/built-in.o .FORCE
+	$(Q) $(MAKE) -C plugins/$* builtin.o
+
 $(obj)/built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) all
 

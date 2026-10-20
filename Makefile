@@ -460,6 +460,17 @@ endif
 # Archives built for one target or libc must not be reused for another.
 STATIC_DEP_DIR ?= $(CURDIR)/build/static-deps/$(shell $(CC) -dumpmachine)
 override STATIC_DEP_DIR := $(abspath $(STATIC_DEP_DIR))
+
+# PLUGINS lists the directories under plugins/ to build into the binary.
+# Sorting fixes the order in which their hooks run.
+STATIC_PLUGINS := $(sort $(PLUGINS))
+$(foreach p,$(STATIC_PLUGINS),$(if $(shell grep -s '^builtin.o:' plugins/$(p)/Makefile),, \
+	$(error plugins/$(p) cannot be built into a static binary)))
+else ifneq ($(PLUGINS),)
+# The sub-makes of `make static` set STATIC=1.
+ifeq ($(STATIC)$(filter clean mrproper,$(MAKECMDGOALS)),)
+$(error PLUGINS is only supported by `make static`)
+endif
 endif
 
 STATIC_DIR := scripts/build/static
@@ -502,8 +513,9 @@ static:
 	CFLAGS="$(STATIC_USER_CFLAGS) -I$(STATIC_DEP_DIR)/install/include" \
 	LDFLAGS="-L$(STATIC_DEP_DIR)/install/lib $(STATIC_USER_LDFLAGS) -static" \
 	$(MAKE) CC='$(CC)' $(STATIC_PASS_ARGS) CONFIG_AMDGPU=n NO_GNUTLS=1 NO_LIBBSD=1 \
-	    PROTOBUF_INCLUDE='$(STATIC_PROTOBUF_INCLUDE)' STATIC=1 criu
-	$(STATIC_DIR)/check-binary.sh criu/criu
+	    PROTOBUF_INCLUDE='$(STATIC_PROTOBUF_INCLUDE)' \
+	    STATIC=1 PLUGINS='$(STATIC_PLUGINS)' criu
+	$(STATIC_DIR)/check-binary.sh criu/criu $(STATIC_PLUGINS)
 .PHONY: static
 
 help:

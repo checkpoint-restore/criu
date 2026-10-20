@@ -28,7 +28,21 @@ archives, and produces a fully static `criu/criu`: it has no shared-library
 dependencies or dynamic loader. It requires a Linux host with the matching
 architecture and the kernel features needed by the workload. Such a binary
 cannot load `.so` plugins, so `--libdir` and `CRIU_LIBS_DIR` are rejected,
-as are restore images that require a plugin.
+as are restore images that require a plugin that is not built in.
+
+`PLUGINS` lists the plugins to build into the binary, by their directory
+under `plugins/`:
+
+```
+make static PLUGINS="NAME..."
+```
+
+`criu --version` reports the built-in plugins, which are initialized for
+every dump and restore and accept `--plugin-option` as usual. Images record
+the plugins they require by name, so a binary with a plugin built in
+restores images dumped with the same plugin loaded as a `.so`, and vice
+versa. Only plugins with a `builtin.o` target in their Makefile can be built
+in.
 
 The build requires a musl toolchain, such as the native compiler on Alpine
 Linux, with curl, pkg-config, autoconf, automake, libtool, m4, flex, and
@@ -42,7 +56,8 @@ the provided Alpine image with Docker or Podman:
 docker build -f scripts/build/Dockerfile.static -o build/static .
 ```
 
-This exports `build/static/criu`.
+This exports `build/static/criu`; add `--build-arg PLUGINS="NAME..."` to build
+plugins in.
 
 The static target cleans existing CRIU build products before rebuilding,
 and omits optional GnuTLS, libbsd, and BPF features. LZ4 compression,

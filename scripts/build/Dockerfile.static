@@ -4,6 +4,8 @@
 #
 #   docker build -f scripts/build/Dockerfile.static -o build/static .
 #
+# Pass --build-arg PLUGINS="..." to build plugins into the binary.
+#
 # `make static` checks the binary with scripts/build/static/check-binary.sh.
 
 # musl, unlike glibc, can be linked statically without loading NSS modules
@@ -37,9 +39,10 @@ RUN apk add --no-cache \
         tar \
         xz
 
+ARG PLUGINS=
 COPY . /criu
 WORKDIR /criu
-RUN make static CC=clang
+RUN make static CC=clang PLUGINS="$PLUGINS"
 
 FROM scratch AS export
 COPY --from=build /criu/criu/criu /criu
