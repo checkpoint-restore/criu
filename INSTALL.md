@@ -18,6 +18,9 @@ to the make command:
    needed, `make` can be called like this:
    `make NETWORK_LOCK_DEFAULT=NETWORK_LOCK_NFTABLES`
 
+ * **NO_LIBBSD=1** builds without libbsd and skips its compiler probe, even
+   when libbsd development files are installed.
+
 ## Installing CRIU from source code
 
 Once CRIU is built one can easily setup the complete CRIU package
