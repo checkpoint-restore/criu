@@ -574,6 +574,7 @@ shellcheck:
 	shellcheck --version
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh
+	shellcheck scripts/build/static/*.sh
 	shellcheck contrib/apt-install contrib/dependencies/*.sh
 	shellcheck -x test/cuda-checkpoint/*.sh
 	shellcheck -x test/plugins/*.sh
@@ -584,6 +585,7 @@ shellcheck:
 	shellcheck -x test/others/action-script/*.sh
 	shellcheck -x contrib/criu-service-client/test/*.sh
 	shellcheck -x test/others/compression/*/*.sh
+	shellcheck -x test/others/static/*.sh
 
 codespell:
 	codespell
