@@ -4,6 +4,7 @@
 import socket, os, errno
 import rpc_pb2 as rpc
 import argparse
+from setup_swrk import setup_swrk
 
 parser = argparse.ArgumentParser(description="Test errno reported by CRIU RPC")
 parser.add_argument('socket', type=str, help="CRIU service socket")
@@ -150,12 +151,32 @@ class test:
 
         print('Success')
 
+    def swrk_first_err(self):
+        print('Receive first error message from criu swrk')
+
+        # swrk reports this error before its log is initialized
+        swrk, s = setup_swrk()
+        req = self.get_base_req()
+        req.type = rpc.DUMP
+        req.opts.log_file = "../file.log"
+
+        s.send(req.SerializeToString())
+        resp = rpc.criu_resp()
+        resp.ParseFromString(s.recv(self._MAX_MSG_SIZE))
+        s.close()
+        swrk.wait()
+
+        self.check_resp(resp, rpc.DUMP, errno.EBADRQC, "No subdirs are allowed in log_file name")
+
+        print('Success')
+
     def run(self):
         self.no_process()
         self.process_exists()
         self.bad_options()
         self.bad_request()
         self.child_first_err()
+        self.swrk_first_err()
 
 
 t = test()
