@@ -34,7 +34,7 @@ as are restore images that require a plugin that is not built in.
 under `plugins/`:
 
 ```
-make static PLUGINS="NAME..."
+make static PLUGINS=cuda
 ```
 
 `criu --version` reports the built-in plugins, which are initialized for
@@ -42,7 +42,9 @@ every dump and restore and accept `--plugin-option` as usual. Images record
 the plugins they require by name, so a binary with a plugin built in
 restores images dumped with the same plugin loaded as a `.so`, and vice
 versa. Only plugins with a `builtin.o` target in their Makefile can be built
-in.
+in. The CUDA plugin cannot load `libcuda.so.1` in a static binary, so it
+uses the `cuda-checkpoint` backend and does not support
+`cuda_plugin.device-map`.
 
 The build requires a musl toolchain, such as the native compiler on Alpine
 Linux, with curl, pkg-config, autoconf, automake, libtool, m4, flex, and
@@ -56,7 +58,7 @@ the provided Alpine image with Docker or Podman:
 docker build -f scripts/build/Dockerfile.static -o build/static .
 ```
 
-This exports `build/static/criu`; add `--build-arg PLUGINS="NAME..."` to build
+This exports `build/static/criu`; add `--build-arg PLUGINS=cuda` to build
 plugins in.
 
 The static target cleans existing CRIU build products before rebuilding,
