@@ -1331,8 +1331,13 @@ static unsigned long find_executable_area(int pid)
 		start = strtoul(aux, &f, 16);
 		end = strtoul(f + 1, &f, 16);
 
-		/* f now points at " rwx" (yes, with space) part */
-		if (f[3] == 'x') {
+		/*
+		 * f now points at " rwxp" (yes, with space) part. The syscall
+		 * instruction is written into this area with ptrace, so it must
+		 * be private: a shared mapping cannot be written that way when
+		 * read-only, and the write would reach the file when writable.
+		 */
+		if (f[3] == 'x' && f[4] == 'p') {
 			BUG_ON(end - start < PARASITE_START_AREA_MIN);
 			ret = start;
 			break;
