@@ -435,10 +435,14 @@ static int kerndat_get_dirty_track(void)
 	 * a couple of kernel releases)
 	 */
 	ret = do_task_reset_dirty_track(getpid());
-	if (ret < 0)
+	if (ret < 0) {
+		munmap(map, PAGE_SIZE);
 		return ret;
-	if (ret == 1)
+	}
+	if (ret == 1) {
+		munmap(map, PAGE_SIZE);
 		goto no_dt;
+	}
 
 	ret = -1;
 	pm2 = open_proc(PROC_SELF, "pagemap");
