@@ -1315,6 +1315,37 @@ int __attribute__((used)) criu_restore_thread(pid_t tid)
 	return ret;
 }
 
+/*
+ * CRIU decides from the seccomp mode that it collected when it seized a
+ * thread whether to suspend seccomp for the parasite in the thread and
+ * whether to dump the thread's seccomp filters. A thread that a plugin
+ * resumed during CHECKPOINT_DEVICES can change the seccomp mode of the
+ * task's threads, for example by installing a seccomp filter, so refuse
+ * to dump the task if one of its threads has changed its mode since.
+ */
+static int check_seized_seccomp_mode(struct pstree_item *item)
+{
+	struct proc_status_creds cr;
+	int i;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		pid_t tid = item->threads[i].real;
+		struct seccomp_entry *entry = seccomp_find_entry(tid);
+
+		if (!entry)
+			return -1;
+		if (parse_pid_status(tid, &cr.s, NULL))
+			return -1;
+		if (cr.s.seccomp_mode != entry->mode) {
+			pr_err("Seccomp mode of thread %d changed from %u to %d during CHECKPOINT_DEVICES\n", tid,
+			       entry->mode, cr.s.seccomp_mode);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 int checkpoint_devices(void)
 {
 	struct pstree_item *iter;
@@ -1335,6 +1366,8 @@ int checkpoint_devices(void)
 			goto err;
 		}
 		if (thread_resumed && verify_pstree(root_item))
+			goto err;
+		if (thread_resumed && check_seized_seccomp_mode(iter))
 			goto err;
 	}
 
