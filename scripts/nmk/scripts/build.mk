@@ -44,8 +44,9 @@ export __nmk-makefile-deps
 # assumes that we're using $(CC) for building built-in
 # targets (and they have all rights to). But we're
 # using $(LD) directly instead so filter out -Wl
-# flags to make maintainer's life easier.
-LDFLAGS-MASK	:= -Wl,%
+# flags to make maintainer's life easier. Same for
+# -march, which some build farms add to LDFLAGS.
+LDFLAGS-MASK	:= -Wl,% -march%
 LDFLAGS		:= $(filter-out $(LDFLAGS-MASK),$(LDFLAGS))
 
 #
