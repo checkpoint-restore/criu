@@ -656,6 +656,9 @@ class zdtm_test:
             opts += ["--external", "mnt[ZDTM_DEV]:%s" % self.__flavor.devpath]
         return opts
 
+    def retry(self, action):
+        return self.__desc.get('retry') == action
+
     def __expand(self, value):
         return value.replace('{test}', os.path.abspath(self.__name)).replace(
             '{pid}', os.environ.get('ZDTM_TEST_PID', '0'))
@@ -870,6 +873,9 @@ class inhfd_test:
 
     def getenv(self, action):
         return {}
+
+    def retry(self, action):
+        return False
 
     def getdopts(self):
         return self.__dump_opts
@@ -1332,7 +1338,7 @@ class criu:
                     os.environ.pop(key, None)
                 else:
                     os.environ[key] = value
-            return self.__criu.run(action, args, self.__criu_bin, fault,
+            return self.__criu.run(action, args[:], self.__criu_bin, fault,
                                    strace, preexec, preload, nowait)
         finally:
             for key, value in saved.items():
@@ -1413,6 +1419,9 @@ class criu:
             return ret
 
         grep_errors(os.path.join(__ddir, log))
+        retry = self.__test.retry(action)
+        if ret == 0 and retry:
+            raise test_fail_exc("expected CRIU %s failure before retry" % action)
         if ret != 0:
             fault = 0
             if self.__fault:
@@ -1423,7 +1432,7 @@ class criu:
             dump_early = action == 'dump' and fault == 1
             expected_kill = dump_early and ret == -signal.SIGKILL
             crashed = self.__criu.exit_signal(ret) and not expected_kill
-            if fatal_fault and not crashed:
+            if (fatal_fault or retry) and not crashed:
                 # A late restore failure may have already written the pidfile.
                 if action == "restore" and os.path.exists(self.__test.getname() + '.pid'):
                     self.__test.getpid()
@@ -2960,6 +2969,8 @@ class group:
         if self.__desc.get('renv') != desc.get('renv'):
             return False
         if self.__desc.get('fault') != desc.get('fault'):
+            return False
+        if self.__desc.get('retry') != desc.get('retry'):
             return False
         return True
 
