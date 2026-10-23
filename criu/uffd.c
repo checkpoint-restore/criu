@@ -29,6 +29,7 @@
 #include "util-pie.h"
 #include "protobuf.h"
 #include "pstree.h"
+#include "img-streamer.h"
 #include "crtools.h"
 #include "cr_options.h"
 #include "xmalloc.h"
@@ -1474,6 +1475,16 @@ int cr_lazy_pages(bool daemon)
 			return -1;
 		}
 	}
+
+	/*
+	 * Every image this daemon reads has been read by now, and with a page
+	 * server the fault loop below reads none. Let the image stream go: the
+	 * server end treats the last reader closing as the signal that the
+	 * checkpoint arrived whole, and holding it for the length of the drain
+	 * makes a restore wait for pages it is meant to fault in later.
+	 */
+	if (opts.stream)
+		img_streamer_finish();
 
 	ret = handle_requests(epollfd, &events, nr_fds);
 

@@ -1957,8 +1957,17 @@ static int cr_dump_finish(int ret)
 		delete_link_remaps();
 	}
 
-	if (!ret && opts.lazy_pages)
+	/*
+	 * The lazy transfer below only ends once the destination has restored
+	 * and drained the pages, and the destination cannot restore until the
+	 * image stream is closed. Every image is written by now, so dismiss
+	 * the streamer before serving rather than after.
+	 */
+	if (!ret && opts.lazy_pages) {
+		if (opts.stream)
+			img_streamer_finish();
 		ret = cr_lazy_mem_dump();
+	}
 
 	if (arch_set_thread_regs(root_item, true) < 0)
 		return -1;
