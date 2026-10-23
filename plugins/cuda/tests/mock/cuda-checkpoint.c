@@ -133,14 +133,6 @@ int main(int argc, char *argv[])
 		case 'a':
 			action = optarg;
 			operation = optarg;
-			marker = getenv("CRIU_CUDA_MOCK_LOCK_MARKER");
-			if (marker && !strcmp(optarg, "lock")) {
-				marker_file = fopen(marker, "a");
-				if (!marker_file)
-					return 1;
-				fputs("lock\n", marker_file);
-				fclose(marker_file);
-			}
 			break;
 		case 'm':
 			if (record_value("CRIU_CUDA_MOCK_DEVICE_MAP_MARKER", optarg))

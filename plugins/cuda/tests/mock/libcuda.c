@@ -28,10 +28,6 @@
 #define MOCK_GPU_COUNT		      4
 #define MOCK_DEVICE_HANDLE_BASE	      100
 
-#ifndef MOCK_CUDA_DRIVER_VERSION
-#define MOCK_CUDA_DRIVER_VERSION 13000
-#endif
-
 /* Keep these test-local declarations ABI-compatible with the plugin. */
 typedef int mock_cuda_result_t;
 
@@ -95,8 +91,6 @@ static mock_cuda_process_state_t parse_process_state(const char *state)
 {
 	unsigned int i;
 
-	if (!state)
-		return MOCK_CUDA_PROCESS_STATE_RUNNING;
 	for (i = 0; i <= MOCK_CUDA_PROCESS_STATE_FAILED; i++) {
 		if (!strcmp(state, state_names[i]))
 			return i;
@@ -139,11 +133,11 @@ static mock_cuda_process_state_t read_process_state(int pid)
 	FILE *file;
 
 	if (!path)
-		return parse_process_state(getenv("CRIU_CUDA_MOCK_INITIAL_STATE"));
+		return MOCK_CUDA_PROCESS_STATE_RUNNING;
 	file = fopen(path, "r");
 	if (!file) {
 		if (errno == ENOENT)
-			return parse_process_state(getenv("CRIU_CUDA_MOCK_INITIAL_STATE"));
+			return MOCK_CUDA_PROCESS_STATE_RUNNING;
 		_exit(1);
 	}
 	if (fscanf(file, "%31s", state) != 1 || fclose(file))
@@ -349,7 +343,7 @@ mock_cuda_result_t cuDriverGetVersion(int *driver_version)
 	if (!driver_version)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 
-	*driver_version = MOCK_CUDA_DRIVER_VERSION;
+	*driver_version = 13000;
 	if (version)
 		*driver_version = atoi(version);
 
@@ -408,15 +402,13 @@ static int nonleader_restore_tid(int pid)
 mock_cuda_result_t cuCheckpointProcessGetRestoreThreadId(int pid, int *tid)
 {
 	const char *error = getenv("CRIU_CUDA_MOCK_TID_ERROR");
-	const char *cuda_pid = getenv("CRIU_CUDA_MOCK_CUDA_PID");
 	const char *cpu_pid = getenv("CRIU_CUDA_MOCK_CPU_PID");
 	const char *restore_thread = getenv("CRIU_CUDA_MOCK_RESTORE_THREAD");
 
 	record_api("get-tid", pid);
 	if (cpu_pid && atoi(cpu_pid) == pid)
 		return 3;
-	/* A selected PID can remain CUDA while the rest of a process tree is not. */
-	if (error && (!cuda_pid || atoi(cuda_pid) != pid))
+	if (error)
 		return atoi(error);
 
 	*tid = pid;
@@ -441,22 +433,12 @@ mock_cuda_result_t cuCheckpointProcessGetState(int pid, mock_cuda_process_state_
 mock_cuda_result_t cuCheckpointProcessLock(int pid, void *args)
 {
 	struct mock_process *process = get_process(pid);
-	const char *marker = getenv("CRIU_CUDA_MOCK_LOCK_MARKER");
 
 	(void)args;
 	record_api("lock", pid);
 	if (getenv("CRIU_CUDA_MOCK_LOCK_HANG")) {
 		for (;;)
 			pause();
-	}
-
-	if (marker) {
-		FILE *file = fopen(marker, "a");
-
-		if (!file)
-			return MOCK_CUDA_ERROR_INVALID_VALUE;
-		fputs("lock\n", file);
-		fclose(file);
 	}
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_RUNNING)
