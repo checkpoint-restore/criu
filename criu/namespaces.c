@@ -1680,8 +1680,13 @@ int restore_userns_binfmt_misc(struct pstree_item *item)
 
 	ret = binfmt_misc_restore_sandboxed(item->pid->real, e->binfmt_misc, e->n_binfmt_misc);
 
-	userns_entry__free_unpacked(ns->user.e, NULL);
-	ns->user.e = NULL;
+	/*
+	 * Don't free the entry here. This runs in the root task, so it
+	 * would only free the task's copy of criu's heap, while clearing
+	 * ns->user.e (ns_id is in shared memory) would make criu lose its
+	 * own copy. The task's copy goes away with the restorer unmapping
+	 * criu memory.
+	 */
 
 	return ret ? -1 : 0;
 }
