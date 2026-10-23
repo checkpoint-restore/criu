@@ -117,6 +117,8 @@ enum {
 
 	CR_FD_AUTOFS,
 
+	CR_FD_LUO_METADATA,
+
 	CR_FD_MAX
 };
 
