@@ -360,11 +360,12 @@ def explore_rss(opts):
         vmi = 0
         pvmi = -1
         for pm in pms[1:]:
-            pstr = '\t%lx / %-8d' % (pm['vaddr'], pm['nr_pages'])
+            nr_pages = _get_nr_pages(pm)
+            pstr = '\t%lx / %-8d' % (pm['vaddr'], nr_pages)
             while vmi < len(vmas) and vmas[vmi]['end'] <= pm['vaddr']:
                 vmi += 1
 
-            pme = pm['vaddr'] + (pm['nr_pages'] << 12)
+            pme = pm['vaddr'] + (nr_pages << 12)
             vstr = ''
             while vmi < len(vmas) and vmas[vmi]['start'] < pme:
                 vma = vmas[vmi]
