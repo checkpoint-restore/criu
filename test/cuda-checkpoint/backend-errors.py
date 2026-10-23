@@ -256,6 +256,35 @@ def test_post_dump_failure(work):
                     assert (directory / f"state.{pids[0]}").read_text().strip() == expected_state
 
 
+def test_resume_fault(work):
+    for phase in ("init", "restore"):
+        directory = work / f"resume-{phase}-fault"
+        directory.mkdir()
+        marker = directory / "api.calls"
+        variables = dict(CRIU_CUDA_MOCK_API_MARKER=str(marker),
+                         CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"))
+        with target(directory) as (process, pids):
+            run_criu(directory, "dump", pid=pids[0], **variables)
+            process.wait(timeout=5)
+            marker.unlink()
+            log = run_criu(directory, "restore", expected_success=False,
+                           restore_detached=False, CRIU_CUDA_MOCK_RESUME_FAULT=phase,
+                           CRIU_CUDA_MOCK_TARGET_PID=str(pids[0]), **variables)
+            assert "selected Driver API backend" in log, log
+            assert "failed during Driver API operation" in log, log
+            assert "stopped by signal 5" in log, log
+            assert "Device hook failed" in log, log
+            assert not Path(f"/proc/{pids[0]}").exists(), 'faulted target survived restore'
+            calls = [line.split() for line in marker.read_text().splitlines()]
+            operations = [call[0] for call in calls]
+            assert "init" in operations
+            assert ("restore" in operations) == (phase == "restore")
+            assert "unlock" not in operations, 'CUDA API reentered after a target fault'
+            callers = {int(call[2]) for call in calls}
+            for caller in callers:
+                assert not Path(f"/proc/{caller}").exists(), f"CUDA caller {caller} leaked"
+
+
 def test_foreground_restore(work):
     directory = work / "foreground-restore"
     directory.mkdir()
@@ -368,6 +397,7 @@ if __name__ == "__main__":
         test_dump_finish(work)
         test_dump_finish_hook_failure(work)
         test_post_dump_failure(work)
+        test_resume_fault(work)
         test_foreground_restore(work)
         test_freezing_timeout(work)
         test_untraced_clone(work)

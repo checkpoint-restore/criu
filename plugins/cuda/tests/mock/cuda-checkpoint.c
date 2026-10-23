@@ -237,15 +237,14 @@ int main(int argc, char *argv[])
 				if (i == 5000)
 					return 1;
 			}
-			if (!strcmp(behavior, "fault") || !strcmp(behavior, "fork")) {
+			if (!strcmp(behavior, "fork")) {
 				const char *trigger = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
 				FILE *file = trigger ? fopen(trigger, "w") : NULL;
 
 				if (!file || fclose(file))
 					return 1;
 			}
-			if (!strcmp(behavior, "hang") || !strcmp(behavior, "fault") ||
-			    !strcmp(behavior, "hang-closed-output") ||
+			if (!strcmp(behavior, "hang") || !strcmp(behavior, "hang-closed-output") ||
 			    !strcmp(behavior, "fork")) {
 				if (!strcmp(behavior, "hang-closed-output")) {
 					close(STDOUT_FILENO);
