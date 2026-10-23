@@ -19,6 +19,12 @@ message ghost_file_entry {
 	optional uint64		size		= 10;
 	/* this field makes sense only when S_ISLNK(mode) */
 	optional string		symlnk_target	= 11;
+	repeated ghost_xattr_entry xattrs		= 12;
+}
+
+message ghost_xattr_entry {
+	required string		name		= 1;
+	required bytes		value		= 2;
 }
 
 message ghost_chunk_entry {
