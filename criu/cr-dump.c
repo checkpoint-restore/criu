@@ -2204,6 +2204,7 @@ int cr_dump_tasks(pid_t pid)
 
 	exit_code = write_img_inventory(&he, parent_ie);
 err:
+	free_inventory(&he);
 	if (parent_ie)
 		inventory_entry__free_unpacked(parent_ie, NULL);
 
