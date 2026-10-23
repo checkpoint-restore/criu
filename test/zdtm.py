@@ -1378,7 +1378,11 @@ class criu:
 
         grep_errors(os.path.join(__ddir, log))
         if ret != 0:
-            if self.__fault and int(self.__fault) < 128:
+            # FI_DUMP_EARLY deliberately kills CRIU while tasks are seized.
+            expected_kill = (bool(self.__fault) and int(self.__fault) == 1 and
+                             action == 'dump' and ret == -signal.SIGKILL)
+            if self.__fault and int(self.__fault) < 128 and \
+               (expected_kill or not self.__criu.exit_signal(ret)):
                 # A late restore failure may have already written the pidfile.
                 if action == "restore" and os.path.exists(self.__test.getname() + '.pid'):
                     self.__test.getpid()
