@@ -23,6 +23,17 @@
 #define __stringify_1(x...) #x
 #define __stringify(x...)   __stringify_1(x)
 
+/*
+ * Clang 22 added __SANITIZE_ADDRESS__ to match GCC. Define it for
+ * older clang versions (same as the kernel does), so it can be used
+ * to check for ASan regardless of the compiler.
+ */
+#ifdef __clang__
+#if __has_feature(address_sanitizer) && !defined(__SANITIZE_ADDRESS__)
+#define __SANITIZE_ADDRESS__
+#endif
+#endif
+
 #define NORETURN	__attribute__((__noreturn__))
 #define __packed	__attribute__((__packed__))
 #define __used		__attribute__((__used__))
