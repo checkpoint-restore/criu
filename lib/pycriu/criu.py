@@ -182,6 +182,10 @@ class CRIUExceptionExternal(CRIUException):
         if self.typ != self.resp_typ:
             s += "Unexpected response type %d: " % (self.resp_typ, )
 
+        # Most errors don't set cr_errno, so there is nothing to decode.
+        if self.errno == 0:
+            return s + "see the criu log for details"
+
         s += "Error(%d): " % (self.errno, )
 
         if self.errno == errno.EBADRQC:
