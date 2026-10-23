@@ -16,7 +16,8 @@ import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MOCK = ROOT / "test/cuda-checkpoint"
+MOCK = ROOT / "plugins/cuda/tests/mock"
+SUPPORT = ROOT / "test/cuda-checkpoint"
 
 
 @contextlib.contextmanager
@@ -142,7 +143,7 @@ def build_inventory_failure_plugin(work):
                     f"ARCH={arch}", f"COMPEL={ROOT / 'compel/compel-host'}",
                     f"__nmk_dir={ROOT / 'scripts/nmk/scripts'}/",
                     f"PLUGIN_INCLUDE={includes}", "DEFINES=-D_GNU_SOURCE",
-                    f"PLUGIN_LDFLAGS=-Wl,--wrap,add_inventory_plugin {MOCK / 'inventory-failure.c'}"],
+                    f"PLUGIN_LDFLAGS=-Wl,--wrap,add_inventory_plugin {SUPPORT / 'inventory-failure.c'}"],
                    check=True, timeout=30)
     return directory
 
@@ -200,7 +201,7 @@ def build_dump_finish_failure_plugins(work):
     directory = work / "dump-finish-failure-plugins"
     directory.mkdir()
     shutil.copy2(ROOT / "plugins/cuda/cuda_plugin.so", directory)
-    shutil.copy2(MOCK / "dump_finish_failure.so", directory)
+    shutil.copy2(SUPPORT / "dump_finish_failure.so", directory)
     return directory
 
 
@@ -312,7 +313,7 @@ def test_freezing_timeout(work):
 
 
 def test_untraced_clone(work):
-    binary = MOCK / "untraced-clone-target"
+    binary = SUPPORT / "untraced-clone-target"
     for backend, library in (("Driver API", MOCK), ("cuda-checkpoint CLI", MOCK / "unsupported")):
         for mode in ("child", "thread"):
             directory = work / f"untraced-clone-{library.name}-{mode}"

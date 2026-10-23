@@ -723,7 +723,7 @@ class zdtm_test:
         if opts.get('mocked_cuda_checkpoint') or opts.get('cuda_checkpoint'):
             subprocess.check_call(["make", "-C", "..", "cuda_plugin"])
         if 'mocked_cuda_checkpoint' in opts and opts['mocked_cuda_checkpoint']:
-            subprocess.check_call(["make", "-C", "cuda-checkpoint/"])
+            subprocess.check_call(["make", "-C", "../plugins/cuda/tests/mock/"])
         if 'rootless' in opts and opts['rootless']:
             return
         subprocess.check_call(
@@ -2513,7 +2513,7 @@ class Launcher:
             os.setuid(NON_ROOT_UID)
         env = dict(os.environ, CR_CT_TEST_INFO=arg)
         if opts['mocked_cuda_checkpoint']:
-            cuda_mock_dir = os.path.join(os.getcwd(), "cuda-checkpoint")
+            cuda_mock_dir = os.path.join(os.getcwd(), "..", "plugins", "cuda", "tests", "mock")
             env["PATH"] = cuda_mock_dir + ":" + env["PATH"]
             if "LD_LIBRARY_PATH" in env:
                 env["LD_LIBRARY_PATH"] = cuda_mock_dir + ":" + env["LD_LIBRARY_PATH"]
