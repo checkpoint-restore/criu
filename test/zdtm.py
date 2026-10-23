@@ -1711,6 +1711,7 @@ class criu:
                     "--port", "12345",
                 ] + self.__tls
 
+        a_opts += ["--timeout", "10"]
         a_opts += self.__test.getdopts()
 
         if stream:
@@ -1722,8 +1723,6 @@ class criu:
 
         if self.__image_io_mode:
             a_opts += ["--image-io-mode", self.__image_io_mode]
-
-        a_opts += ["--timeout", "10"]
 
         criu_dir = os.path.dirname(os.getcwd())
         if os.getenv("GCOV"):
