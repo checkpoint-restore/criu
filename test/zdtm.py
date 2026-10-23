@@ -966,9 +966,10 @@ class criu_cli:
             preload_libfault=False,
             nowait=False,
             timeout=60):
+        # LeakSanitizer does not work under ptrace (strace).
         env = dict(
             os.environ,
-            ASAN_OPTIONS="log_path=asan.log:disable_coredump=0:detect_leaks=0",
+            ASAN_OPTIONS="log_path=asan.log:disable_coredump=0:detect_leaks=%d:fast_unwind_on_malloc=0" % (not strace),
             CRIU_LIBS_DIR=PLUGINS_DIR
         )
 
