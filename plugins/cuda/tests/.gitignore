@@ -1,4 +1,5 @@
 cuda-device-map-test
+fork-target
 /zdtm/.gitignore
 /zdtm/*.pid
 /zdtm/*.pidns
