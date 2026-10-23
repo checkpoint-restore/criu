@@ -22,7 +22,7 @@ if len(sys.argv) == 1:
 
 
 CALL_FIXTURES = ('.calls', '.cli', '.driver')
-FIXTURES = CALL_FIXTURES + ('.once', '.checked', '.once.post-dump')
+FIXTURES = CALL_FIXTURES + ('.once', '.checked', '.once.post-dump', '.test.trigger', '.test.clone')
 
 name = Path(sys.argv[0]).with_suffix('')
 desc = ast.literal_eval(name.with_suffix('.desc').read_text())
@@ -117,6 +117,10 @@ def check_failure(action):
                     assert 'unlock' in ops, f'pid {pid} was not unlocked'
                 if 'checkpoint' in ops:
                     assert 'restore' in ops, f'pid {pid} was not restored'
+        if checks.get('creation'):
+            cloned = int(fixture('.test.clone').read_text())
+            assert Path(f'/proc/{cloned}').exists(), 'untraced task disappeared'
+            assert str(cloned) in log, log
         if checks.get('unseized'):
             assert 'was not seized; rolling back its CUDA state without ptrace' in log, log
             assert not any(call[0] == 'checkpoint' for call in calls()), 'checkpointed before seizure'

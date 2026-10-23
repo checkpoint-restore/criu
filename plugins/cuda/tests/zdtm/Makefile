@@ -38,7 +38,13 @@ TST_NOFILE := \
 	cuda_mock_cli_post_dump00 \
 	cuda_mock_cli_post_dump_error00
 
-TST := $(TST_NOFILE)
+TST_FILE := \
+	cuda_mock_driver_clone_child00 \
+	cuda_mock_driver_clone_thread00 \
+	cuda_mock_cli_clone_child00 \
+	cuda_mock_cli_clone_thread00
+
+TST := $(TST_NOFILE) $(TST_FILE)
 SRC := $(TST:%=%.c)
 OBJ := $(SRC:%.c=%.o)
 DEP := $(SRC:%.c=%.d)
@@ -49,6 +55,9 @@ all: $(TST)
 
 $(TST_NOFILE:%=%.pid): %.pid: %
 	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out
+
+$(TST_FILE:%=%.pid): %.pid: %
+	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out --filename=$<.test
 
 $(TST): | $(LIB)
 
@@ -61,6 +70,8 @@ THREADED_TST := \
 	cuda_mock_driver_finish_unlock00
 
 $(THREADED_TST): LDLIBS += -pthread
+cuda_mock_driver_clone_thread00: CFLAGS += -DCUDA_MOCK_THREAD
+cuda_mock_cli_clone_thread00: CFLAGS += -DCUDA_MOCK_THREAD
 
 $(LIB): force
 	$(Q) $(MAKE) -C $(LIBDIR)

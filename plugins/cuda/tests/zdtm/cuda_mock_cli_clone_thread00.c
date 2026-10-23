@@ -1,0 +1,1 @@
+cuda_mock_clone00.c
