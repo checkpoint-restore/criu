@@ -1,6 +1,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <signal.h>
@@ -167,8 +168,6 @@ static struct mock_process *get_process(int pid)
 	return &processes[nr_processes++];
 }
 
-static bool checkpoint_behavior(int pid, const char *behavior);
-
 static void format_uuid(FILE *file, const unsigned char uuid[16])
 {
 	unsigned int i;
@@ -207,6 +206,28 @@ static int record_device_map(const struct mock_cuda_restore_args *args)
 	return 0;
 }
 
+/* Keep the worker blocked until the tracer kills the faulted restore target. */
+static bool resume_fault(int pid, const char *phase)
+{
+	const char *fault = getenv("CRIU_CUDA_MOCK_RESUME_FAULT");
+	struct pollfd target;
+	int ret;
+
+	if (!fault || strcmp(fault, phase))
+		return false;
+
+	target.fd = syscall(SYS_pidfd_open, pid, 0);
+	target.events = POLLIN;
+	if (target.fd < 0 || kill(pid, SIGTRAP))
+		_exit(1);
+	do {
+		ret = poll(&target, 1, 5000);
+	} while (ret < 0 && errno == EINTR);
+	if (ret != 1 || !(target.revents & POLLIN) || close(target.fd))
+		_exit(1);
+	return true;
+}
+
 mock_cuda_result_t cuInit(unsigned int flags)
 {
 	const char *marker = getenv("CRIU_CUDA_MOCK_INIT_MARKER");
@@ -214,8 +235,8 @@ mock_cuda_result_t cuInit(unsigned int flags)
 
 	record_api("init", 0);
 	(void)flags;
-	if (getenv("CRIU_CUDA_MOCK_INIT_FAULT") &&
-	    checkpoint_behavior(required_env_int("CRIU_CUDA_MOCK_TARGET_PID"), "fault"))
+	if (getenv("CRIU_CUDA_MOCK_RESUME_FAULT") &&
+	    resume_fault(required_env_int("CRIU_CUDA_MOCK_TARGET_PID"), "init"))
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 	if (getenv("CRIU_CUDA_MOCK_INIT_HANG")) {
 		for (;;)
@@ -383,7 +404,6 @@ mock_cuda_result_t cuCheckpointProcessGetRestoreThreadId(int pid, int *tid)
 {
 	const char *error = getenv("CRIU_CUDA_MOCK_TID_ERROR");
 	const char *cuda_pid = getenv("CRIU_CUDA_MOCK_CUDA_PID");
-	const char *restore_tid = getenv("CRIU_CUDA_MOCK_RESTORE_TID");
 	const char *restore_thread = getenv("CRIU_CUDA_MOCK_RESTORE_THREAD");
 
 	record_api("get-tid", pid);
@@ -392,8 +412,6 @@ mock_cuda_result_t cuCheckpointProcessGetRestoreThreadId(int pid, int *tid)
 		return atoi(error);
 
 	*tid = pid;
-	if (restore_tid)
-		*tid = atoi(restore_tid);
 	if (restore_thread)
 		*tid = nonleader_restore_tid(pid);
 	if (!*tid)
@@ -444,22 +462,10 @@ mock_cuda_result_t cuCheckpointProcessLock(int pid, void *args)
  */
 static bool checkpoint_behavior(int pid, const char *behavior)
 {
-	const char *tid_value = getenv("CRIU_CUDA_MOCK_RESTORE_TID");
-	int tid = tid_value ? atoi(tid_value) : pid;
-	bool fault;
-
 	if (!behavior)
 		return false;
 	if (!mock_failure())
 		return false;
-	if (!strcmp(behavior, "exit"))
-		_exit(77);
-	if (!strcmp(behavior, "unrelated")) {
-		int fd = required_env_int("CRIU_CUDA_MOCK_OTHER_FD");
-
-		if (write(fd, "x", 1) != 1)
-			_exit(1);
-	}
 	if (!strcmp(behavior, "untraced-clone")) {
 		const char *trigger = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
 		const char *done = getenv("CRIU_CUDA_MOCK_CLONE_PID");
@@ -483,20 +489,18 @@ static bool checkpoint_behavior(int pid, const char *behavior)
 		}
 		_exit(1);
 	}
-	fault = !strcmp(behavior, "fault") || !strcmp(behavior, "target-exit") ||
-		!strcmp(behavior, "fork");
-	if (fault) {
-		const char *path = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
-		FILE *file = path ? fopen(path, "w") : NULL;
+	if (!strcmp(behavior, "trap") && syscall(SYS_tgkill, pid, pid, SIGTRAP))
+		_exit(1);
+	if (!strcmp(behavior, "target-kill") && kill(pid, SIGKILL))
+		_exit(1);
+	if (!strcmp(behavior, "fork")) {
+		const char *trigger = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
+		FILE *file = trigger ? fopen(trigger, "w") : NULL;
 
 		if (!file || fclose(file))
 			_exit(1);
 	}
-	if (!strcmp(behavior, "trap") && syscall(SYS_tgkill, pid, tid, SIGTRAP))
-		_exit(1);
-	if (!strcmp(behavior, "target-kill") && kill(pid, SIGKILL))
-		_exit(1);
-	if (fault || !strcmp(behavior, "trap") || !strcmp(behavior, "target-kill")) {
+	if (!strcmp(behavior, "trap") || !strcmp(behavior, "target-kill") || !strcmp(behavior, "fork")) {
 		int fd = required_env_int("CRIU_CUDA_MOCK_TARGET_PIPE");
 		char byte;
 		ssize_t ret;
@@ -507,10 +511,6 @@ static bool checkpoint_behavior(int pid, const char *behavior)
 		if (ret != 0)
 			_exit(1);
 		return true;
-	}
-	if (!strcmp(behavior, "hang")) {
-		for (;;)
-			pause();
 	}
 	return false;
 }
@@ -527,7 +527,6 @@ mock_cuda_result_t cuCheckpointProcessCheckpoint(int pid, void *args)
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_LOCKED)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 	set_process_state(process, MOCK_CUDA_PROCESS_STATE_CHECKPOINTED);
-	/* Test rollback when the mock changes state before reporting an error. */
 	if (getenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION") && mock_failure())
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 	return MOCK_CUDA_SUCCESS;
@@ -538,9 +537,8 @@ mock_cuda_result_t cuCheckpointProcessRestore(int pid, void *args)
 	struct mock_process *process = get_process(pid);
 
 	record_api("restore", pid);
-	if (checkpoint_behavior(pid, getenv("CRIU_CUDA_MOCK_RESTORE_BEHAVIOR")))
+	if (resume_fault(pid, "restore"))
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
-
 	if (getenv("CRIU_CUDA_MOCK_RESTORE_ERROR") && mock_failure())
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 

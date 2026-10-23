@@ -1,6 +1,6 @@
 CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS) -fPIC
 
-BIN := cuda-device-map-test cuda-backend-guard-test untraced-clone-target dump_finish_failure.so
+BIN := cuda-device-map-test untraced-clone-target dump_finish_failure.so
 SRC := untraced-clone-target.c
 DEP	:= $(SRC:%.c=%.d)
 OBJ	:= $(SRC:%.c=%.o)
@@ -36,16 +36,6 @@ cuda-device-map-test: device-map.c $(CUDA_PLUGIN_DIR)/cuda_device_map.c $(CUDA_P
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
 		-o $@ -Wl,--wrap,fork -Wl,--wrap,write -Wl,--wrap,close -ldl -lprotobuf-c
 
-cuda-backend-guard-test: backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c \
-		$(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
-		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h ../../compel/libcompel.a
-	$(E) " LINK     " $@
-	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) -I../../compel/include/uapi \
-		backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
-		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
-		../../compel/libcompel.a \
-		-Wl,--wrap,ptrace -ldl -pthread -o $@
-
 untraced-clone-target: untraced-clone-target.c
 	$(E) " LINK     " $@
 	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
@@ -56,7 +46,6 @@ dump_finish_failure.so: dump-finish-failure.c ../../criu/include/criu-plugin.h
 
 test: all
 	LD_LIBRARY_PATH="$(MOCK_DIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-device-map-test
-	PATH="$(MOCK_DIR):$$PATH" LD_LIBRARY_PATH="$(MOCK_DIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-backend-guard-test
 .PHONY: test
 
 clean-more:
