@@ -1897,6 +1897,18 @@ static int cr_lazy_mem_dump(void)
 	return ret;
 }
 
+/*
+ * Set before network_lock() is called (it may fail half-way), so that
+ * cr_dump_finish() does not unlock the network which was never locked.
+ */
+static bool network_locked;
+
+static void dump_network_unlock(void)
+{
+	if (network_locked)
+		network_unlock();
+}
+
 static int cr_dump_finish(int ret)
 {
 	int post_dump_ret = 0;
@@ -1953,7 +1965,7 @@ static int cr_dump_finish(int ret)
 	 */
 	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
 		unsuspend_lsm();
-		network_unlock();
+		dump_network_unlock();
 		delete_link_remaps();
 	}
 
@@ -1974,7 +1986,7 @@ static int cr_dump_finish(int ret)
 			 * must roll back their devices as well.
 			 */
 			unsuspend_lsm();
-			network_unlock();
+			dump_network_unlock();
 			delete_link_remaps();
 			ret = plugin_ret;
 			plugin_ret = run_plugins_all(DUMP_FINISH, ret);
@@ -2099,6 +2111,7 @@ int cr_dump_tasks(pid_t pid)
 	if (collect_pstree_ids())
 		goto err;
 
+	network_locked = true;
 	if (network_lock())
 		goto err;
 
