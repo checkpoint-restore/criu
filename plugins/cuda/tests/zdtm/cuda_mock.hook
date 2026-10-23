@@ -21,7 +21,7 @@ if len(sys.argv) == 1:
     sys.exit(0)
 
 
-CALL_FIXTURES = ('.calls', '.cli', '.driver')
+CALL_FIXTURES = ('.calls', '.cli', '.driver', '.map')
 FIXTURES = CALL_FIXTURES + ('.once', '.checked', '.once.post-dump', '.test.trigger', '.test.clone')
 
 name = Path(sys.argv[0]).with_suffix('')
@@ -167,3 +167,9 @@ elif phase == '--post-restore':
     log = (Path(os.environ['ZDTM_CRIU_IMG_DIR']) / 'restore.log').read_text()
     check_backend(log, 'restore')
     check_state('running')
+    if checks.get('mapping'):
+        def uuid(offset):
+            value = bytes(range(offset, offset + 16)).hex()
+            return f'GPU-{value[:8]}-{value[8:12]}-{value[12:16]}-{value[16:20]}-{value[20:]}'
+        expected = ','.join(f'{uuid(i * 16)}={uuid(64 + i * 16)}' for i in range(4))
+        assert fixture('.map').read_text().splitlines() == [expected]
