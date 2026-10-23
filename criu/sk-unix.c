@@ -199,6 +199,7 @@ static int write_unix_entry(struct unix_sk_desc *sk)
 	show_one_unix_img("Dumped", sk->ue);
 
 	release_skopts(sk->ue->opts);
+	xfree(sk->ue->name_dir);
 	xfree(sk->ue);
 
 	sk->ue = NULL;
@@ -560,6 +561,7 @@ dump:
 
 err:
 	release_skopts(skopts);
+	xfree(ue->name_dir);
 	xfree(ue);
 	return -1;
 }
