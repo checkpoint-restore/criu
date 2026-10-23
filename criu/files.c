@@ -1809,6 +1809,13 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 #endif
 	}
 
+	/*
+	 * On success, the sub-message is owned by its collector,
+	 * and nobody keeps the FileEntry wrapper itself.
+	 */
+	if (!ret)
+		xfree(fe);
+
 	return ret;
 }
 
