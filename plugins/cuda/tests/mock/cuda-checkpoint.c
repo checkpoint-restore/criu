@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
 		const char *behavior = getenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR");
 		const char *lock_hang = getenv("CRIU_CUDA_MOCK_LOCK_HANG");
 
-		if (!strcmp(action, "lock") && lock_hang) {
+		if (!strcmp(action, "lock") && lock_hang && mock_failure()) {
 			if (!strncmp(lock_hang, "locked", strlen("locked")) && write_state(pid, "locked"))
 				return 1;
 			if (strstr(lock_hang, "closed-output")) {
@@ -197,7 +197,7 @@ int main(int argc, char *argv[])
 			for (;;)
 				pause();
 		}
-		if (!strcmp(action, "checkpoint") && behavior) {
+		if (!strcmp(action, "checkpoint") && behavior && mock_failure()) {
 			if (!strcmp(behavior, "exit"))
 				return 77;
 			if (!strcmp(behavior, "signal"))
@@ -238,14 +238,19 @@ int main(int argc, char *argv[])
 					return 1;
 			}
 			if (!strcmp(behavior, "fault") || !strcmp(behavior, "fork")) {
-				const char *path = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
-				FILE *file = path ? fopen(path, "w") : NULL;
+				const char *trigger = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
+				FILE *file = trigger ? fopen(trigger, "w") : NULL;
 
 				if (!file || fclose(file))
 					return 1;
 			}
 			if (!strcmp(behavior, "hang") || !strcmp(behavior, "fault") ||
+			    !strcmp(behavior, "hang-closed-output") ||
 			    !strcmp(behavior, "fork")) {
+				if (!strcmp(behavior, "hang-closed-output")) {
+					close(STDOUT_FILENO);
+					close(STDERR_FILENO);
+				}
 				for (;;)
 					pause();
 			}

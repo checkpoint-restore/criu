@@ -1,0 +1,5 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '--plugin-option=cuda_plugin.timeout=4294967295',
+ 'cuda_mock': {'backend': 'Driver API'}}

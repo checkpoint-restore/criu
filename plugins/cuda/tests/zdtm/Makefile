@@ -14,6 +14,7 @@ TST_NOFILE := \
 	cuda_mock_driver_finish_hook00 \
 	cuda_mock_driver_finish_restore00 \
 	cuda_mock_driver_finish_unlock00 \
+	cuda_mock_driver_timeout_max00 \
 	cuda_mock_cli00 \
 	cuda_mock_cli_rollback00 \
 	cuda_mock_cli_checkpoint_error00 \
@@ -21,6 +22,17 @@ TST_NOFILE := \
 	cuda_mock_cli_finish_hook00 \
 	cuda_mock_cli_finish_restore00 \
 	cuda_mock_cli_finish_unlock00 \
+	cuda_mock_cli_timeout_max00 \
+	cuda_mock_helper_hang_finite00 \
+	cuda_mock_helper_hang_closed_output_finite00 \
+	cuda_mock_helper_exit_unlimited00 \
+	cuda_mock_helper_signal_unlimited00 \
+	cuda_mock_helper_delay_unlimited00 \
+	cuda_mock_helper_delay_closed_output_unlimited00 \
+	cuda_mock_freezing_open_output_finite00 \
+	cuda_mock_freezing_closed_output_unlimited00 \
+	cuda_mock_freezing_locked_unlimited00 \
+	cuda_mock_freezing_locked_closed_output_finite00 \
 	cuda_mock_driver_post_dump00 \
 	cuda_mock_driver_post_dump_error00 \
 	cuda_mock_cli_post_dump00 \
