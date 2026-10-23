@@ -1313,7 +1313,7 @@ static void kerndat_save_cache(void)
 	if (ret < 0) {
 		pr_perror("Couldn't save %s", kdat_file);
 	unl:
-		unlink(kdat_file);
+		unlink(kdat_file_tmp);
 	}
 }
 
