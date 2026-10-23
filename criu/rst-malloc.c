@@ -7,6 +7,25 @@
 #include "log.h"
 #include "common/bug.h"
 
+#if defined(__SANITIZE_ADDRESS__)
+#include <sanitizer/lsan_interface.h>
+/*
+ * rst_mem buffers are plain mmap()-s that LeakSanitizer doesn't scan,
+ * so heap objects referenced only from there (e.g. from pstree items)
+ * would be reported as leaks. Register them as root regions.
+ */
+static void lsan_move_region(void *old, unsigned long old_size, void *new, unsigned long new_size)
+{
+	if (old)
+		__lsan_unregister_root_region(old, old_size);
+	__lsan_register_root_region(new, new_size);
+}
+#else
+static inline void lsan_move_region(void *old, unsigned long old_size, void *new, unsigned long new_size)
+{
+}
+#endif
+
 struct rst_mem_type_s {
 	bool remapable;
 	bool enabled;
@@ -47,6 +66,7 @@ static int grow_shared(struct rst_mem_type_s *t, unsigned long size)
 	if (aux == MAP_FAILED)
 		return -1;
 
+	lsan_move_region(NULL, 0, aux, size);
 	t->free_mem = aux;
 	t->free_bytes = size;
 	t->last = 0;
@@ -91,6 +111,7 @@ static int grow_remap(struct rst_mem_type_s *t, int flag, unsigned long size)
 	if (aux == MAP_FAILED)
 		return -1;
 
+	lsan_move_region(t->buf, t->size, aux, t->size + size);
 	t->free_mem += (aux - t->buf);
 	t->free_bytes += size;
 	t->size += size;
@@ -223,6 +244,7 @@ static int rst_mem_remap_one(struct rst_mem_type_s *t, void *to)
 		pr_perror("Can't mremap rst mem");
 		return -1;
 	}
+	lsan_move_region(t->buf, t->size, aux, t->size);
 
 	t->buf = aux;
 	return 0;
