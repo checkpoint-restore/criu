@@ -1,0 +1,8 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '--plugin-option=cuda_plugin.timeout=0 '
+         '--plugin-option=cuda_plugin.backend=cuda-checkpoint',
+ 'cuda_mock': {'backend': 'cuda-checkpoint CLI'},
+ 'denv': {'CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR': 'delay-closed-output',
+          'CRIU_CUDA_MOCK_ONCE': '{test}.once'}}
