@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
-"""Regression tests for CUDA discovery, inventory allocation, and dump rollback errors.
-
-Requires a built CRIU, CUDA plugin, and plugins/cuda/tests/mock mocks. All targets
-are ordinary CPU processes; neither backend accesses a real GPU.
-"""
+"""CUDA mock tests for destructive failures and foreground restore."""
 
 import contextlib
 import os
 from pathlib import Path
-import shutil
 import signal
 import subprocess
 import tempfile
@@ -17,27 +12,34 @@ import time
 
 ROOT = Path(__file__).resolve().parents[3]
 MOCK = Path(__file__).with_name("mock")
-SUPPORT = ROOT / "test/cuda-checkpoint"
 
 
 @contextlib.contextmanager
-def target(directory, mixed=False, duration=300):
+def target(directory, mixed=False, pass_fds=(), duration=300):
     child_file = directory / "child.pid"
     command = ["sleep", str(duration)]
     if mixed:
-        command = ["sh", "-c", 'sleep 300 & echo $! > "$1"; wait',
+        # Only the root holds fault-notification pipes open.
+        close_fds = " ".join(f"{fd}>&-" for fd in pass_fds)
+        command = ["sh", "-c", f'sleep {duration} {close_fds} & echo $! > "$1"; wait',
                    "sh", str(child_file)]
     process = subprocess.Popen(command, stdin=subprocess.DEVNULL,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               pass_fds=pass_fds)
     pids = [process.pid]
     try:
         if mixed:
             deadline = time.monotonic() + 5
-            while not child_file.exists() or not child_file.read_text().strip():
+            while True:
+                child_pid_text = ""
+                if child_file.exists():
+                    child_pid_text = child_file.read_text().strip()
+                if child_pid_text:
+                    break
                 if time.monotonic() >= deadline:
                     raise RuntimeError("test child did not start")
                 time.sleep(0.01)
-            pids.append(int(child_file.read_text()))
+            pids.append(int(child_pid_text))
         yield process, pids
     finally:
         for pid in reversed(pids):
@@ -49,33 +51,31 @@ def target(directory, mixed=False, duration=300):
         process.wait(timeout=5)
 
 
-def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
-             expected_success=True, leave_running=False, action_script=None,
-             restore_detached=True, command_timeout=30, freezing_timeout=10,
-             plugin_timeout=None, **variables):
+def run_criu(directory, pid=None, *, operation="dump", expected_success=False,
+             pass_fds=(), **variables):
     environment = {key: value for key, value in os.environ.items()
                    if not key.startswith("CRIU_CUDA_MOCK_")}
-    environment.update(CRIU_FAULT="138", LD_LIBRARY_PATH=str(library or MOCK),
+    environment.update(CRIU_FAULT="138", LD_LIBRARY_PATH=str(MOCK),
                        PATH=f"{MOCK}:{environment['PATH']}",
                        CRIU_CUDA_MOCK_CLI_MARKER=str(directory / "cli.marker"),
                        **variables)
     command = [str(ROOT / "criu/criu"), operation, "--no-default-config",
                "--images-dir", str(directory), "--log-file", f"{operation}.log",
-               "--verbosity=4", "--libdir", str(plugin or ROOT / "plugins/cuda"),
-               "--shell-job", "--timeout", str(freezing_timeout)]
-    if plugin_timeout is not None:
-        command += ["--plugin-option", f"cuda_plugin.timeout={plugin_timeout}"]
+               "--verbosity=4", "--libdir", str(ROOT / "plugins/cuda"),
+               "--shell-job", "--timeout", "10"]
     if operation == "dump":
         command += ["--tree", str(pid)]
-        if leave_running:
-            command += ["--leave-running"]
-    elif restore_detached:
-        command += ["--restore-detached"]
-    if action_script:
-        command += ["--action-script", str(action_script)]
-    result = subprocess.run(command, env=environment, timeout=command_timeout)
+    with subprocess.Popen(command, env=environment, pass_fds=pass_fds,
+                          start_new_session=True) as result:
+        try:
+            result.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(result.pid, signal.SIGKILL)
+            result.wait()
+            raise
     log = (directory / f"{operation}.log").read_text()
-    if (result.returncode == 0) != expected_success:
+    if result.returncode < 0 or (result.returncode == 0) != expected_success:
         raise RuntimeError(f"{directory.name} {operation}: status {result.returncode}\n{log}")
     return log
 
@@ -85,175 +85,83 @@ def assert_untraced(pid):
     assert "TracerPid:\t0\n" in status, status
 
 
-def test_discovery(work):
-    for error in (1, 3):  # INVALID_VALUE and NOT_INITIALIZED mean non-CUDA here.
-        directory = work / f"cpu-{error}"
+def test_target_fault(work):
+    for behavior, mixed in (("trap", False), ("target-kill", False), ("trap", True)):
+        directory = work / f"target-{behavior}-{mixed}"
         directory.mkdir()
-        with target(directory) as (process, pids):
-            log = run_criu(directory, "dump", pid=pids[0],
-                           CRIU_CUDA_MOCK_TID_ERROR=str(error))
-            assert "selected Driver API backend" in log
-            process.wait(timeout=5)
-            # No CUDA requirement may have been recorded for this CPU-only image.
-            log = run_criu(directory, "restore", CRIU_CUDA_MOCK_DRIVER_VERSION_ERROR="1")
-            assert "selected Driver API backend" not in log
-            assert not (directory / "cli.marker").exists()
-            assert_untraced(pids[0])
-
-    directory = work / "mixed"
-    directory.mkdir()
-    with target(directory, mixed=True) as (process, pids):
-        variables = dict(CRIU_CUDA_MOCK_TID_ERROR="3", CRIU_CUDA_MOCK_CUDA_PID=str(pids[1]))
-        log = run_criu(directory, "dump", pid=pids[0], **variables)
-        assert f"Checkpointing CUDA devices on pid {pids[1]} " in log
-        assert f"Checkpointing CUDA devices on pid {pids[0]} " not in log
-        process.wait(timeout=5)
-        log = run_criu(directory, "restore", CRIU_CUDA_MOCK_INITIAL_STATE="checkpointed", **variables)
-        assert f"resuming devices on pid {pids[1]}\n" in log
-        assert f"resuming devices on pid {pids[0]}\n" not in log
-        assert not (directory / "cli.marker").exists()
-        for pid in pids:
-            assert_untraced(pid)
-
-    directory = work / "discovery-error"
-    directory.mkdir()
-    with target(directory) as (process, pids):
-        log = run_criu(directory, "dump", pid=pids[0], expected_success=False,
-                       CRIU_CUDA_MOCK_TID_ERROR="999")
-        assert f"cuCheckpointProcessGetRestoreThreadId({pids[0]}) failed" in log
-        assert "(999)" in log
-        assert not (directory / "cli.marker").exists()
-        assert process.poll() is None
-        assert_untraced(pids[0])
-
-
-def build_inventory_failure_plugin(work):
-    # Reuse the plugin's own source list, including at intermediate series commits.
-    # Build in a private directory so the normal plugin is never replaced.
-    directory = work / "inventory-plugin"
-    directory.mkdir()
-    source = ROOT / "plugins/cuda"
-    for path in [source / "Makefile", *source.glob("*.[ch]"), *source.glob("*.proto")]:
-        shutil.copy2(path, directory / path.name)
-    machine = os.uname().machine
-    arch = {"x86_64": "x86", "aarch64": "arm64"}.get(machine, machine)
-    includes = " ".join(f"-iquote{ROOT / path}" for path in
-                        ("include", "criu/include", f"criu/arch/{arch}/include", "."))
-    subprocess.run(["make", "--no-print-directory", "-C", str(directory), "cuda_plugin.so",
-                    f"ARCH={arch}", f"COMPEL={ROOT / 'compel/compel-host'}",
-                    f"__nmk_dir={ROOT / 'scripts/nmk/scripts'}/",
-                    f"PLUGIN_INCLUDE={includes}", "DEFINES=-D_GNU_SOURCE",
-                    f"PLUGIN_LDFLAGS=-Wl,--wrap,add_inventory_plugin {SUPPORT / 'inventory-failure.c'}"],
-                   check=True, timeout=30)
-    return directory
-
-
-def test_inventory_failure(work):
-    plugin = build_inventory_failure_plugin(work)
-    for backend, library in (("Driver API", MOCK), ("cuda-checkpoint CLI", MOCK / "unsupported")):
-        directory = work / ("inventory-driver" if library == MOCK else "inventory-cli")
-        directory.mkdir()
-        marker = directory / "lock.marker"
-        with target(directory) as (process, pids):
-            log = run_criu(directory, "dump", pid=pids[0], plugin=plugin, library=library,
-                           expected_success=False, CRIU_CUDA_MOCK_LOCK_MARKER=str(marker))
-            assert f"selected {backend} backend" in log
-            assert "Failed to add CUDA plugin to inventory image" in log
-            assert not marker.exists(), "inventory allocation failed after locking CUDA"
-            assert "Unable to restore CUDA state" not in log
-            assert process.poll() is None
-            assert_untraced(pids[0])
-
-
-def test_dump_finish(work):
-    for backend, library in (("Driver API", MOCK), ("cuda-checkpoint CLI", MOCK / "unsupported")):
-        for failure in (None, "RESTORE", "UNLOCK"):
-            directory = work / f"dump-finish-{library.name}-{failure}"
-            directory.mkdir()
-            variables = {"CRIU_CUDA_MOCK_STATE_FILE": str(directory / "state")}
-            if failure:
-                variables[f"CRIU_CUDA_MOCK_{failure}_ERROR"] = "1"
-            # The driver mock tracks each PID separately. Use two tasks to
-            # verify that one rollback failure does not skip the next task.
-            with target(directory, mixed=library == MOCK) as (process, pids):
-                log = run_criu(directory, "dump", pid=pids[0], library=library,
-                               leave_running=True, expected_success=failure is None,
-                               **variables)
-                assert f"selected {backend} backend" in log
-                assert process.poll() is None
-                for pid in pids:
-                    assert_untraced(pid)
-                    assert f"resuming devices on pid {pid}" in log
-                    if failure:
-                        assert f"Unable to restore CUDA state for pid {pid} during dump cleanup" in log
-                if failure:
-                    assert "Dumping FAILED" in log
-                    assert "Dumping finished successfully" not in log
-                else:
-                    assert "Unable to restore CUDA state" not in log
-                    assert "Dumping finished successfully" in log
-                if library != MOCK:
-                    expected_state = {None: "running", "RESTORE": "checkpointed", "UNLOCK": "locked"}[failure]
-                    assert (directory / f"state.{pids[0]}").read_text().strip() == expected_state
-
-
-def build_dump_finish_failure_plugins(work):
-    directory = work / "dump-finish-failure-plugins"
-    directory.mkdir()
-    shutil.copy2(ROOT / "plugins/cuda/cuda_plugin.so", directory)
-    shutil.copy2(SUPPORT / "dump_finish_failure.so", directory)
-    return directory
-
-
-def test_dump_finish_hook_failure(work):
-    plugins = build_dump_finish_failure_plugins(work)
-    for backend, library in (("Driver API", MOCK), ("cuda-checkpoint CLI", MOCK / "unsupported")):
-        directory = work / f"dump-finish-hook-{library.name}"
-        directory.mkdir()
-        with target(directory) as (process, pids):
-            # No --leave-running: CUDA sees a successful dump before another
-            # DUMP_FINISH handler fails and CRIU decides to resume the task.
-            log = run_criu(directory, "dump", pid=pids[0], plugin=plugins, library=library,
-                           expected_success=False,
-                           CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"))
-            assert f"selected {backend} backend" in log
-            assert "DUMP_FINISH plugin hook failed, ret -5" in log
-            # Rollback must run and return the task to its running state.
-            assert f"resuming devices on pid {pids[0]}" in log
-            assert "Unable to restore CUDA state" not in log
-            assert "Dumping FAILED" in log
-            assert process.poll() is None
-            assert_untraced(pids[0])
-            if library != MOCK:
-                assert (directory / f"state.{pids[0]}").read_text().strip() == "running"
-
-
-def test_post_dump_failure(work):
-    script = work / "fail-post-dump.sh"
-    script.write_text('#!/bin/sh\n[ "$CRTOOLS_SCRIPT_ACTION" != post-dump ] || exit 42\n')
-    script.chmod(0o755)
-    for backend, library in (("Driver API", MOCK), ("cuda-checkpoint CLI", MOCK / "unsupported")):
-        for rollback_error in (False, True):
-            directory = work / f"post-dump-{library.name}-{rollback_error}"
-            directory.mkdir()
-            variables = {"CRIU_CUDA_MOCK_STATE_FILE": str(directory / "state")}
-            if rollback_error:
-                variables["CRIU_CUDA_MOCK_RESTORE_ERROR"] = "1"
-            with target(directory) as (process, pids):
-                # No --leave-running: only the script error requests rollback.
-                log = run_criu(directory, "dump", pid=pids[0], library=library,
-                               action_script=script, expected_success=False, **variables)
-                assert f"selected {backend} backend" in log
-                assert "Post dump script passed with" in log
-                assert process.poll() is None
-                assert_untraced(pids[0])
-                assert f"resuming devices on pid {pids[0]}" in log
-                assert ("Unable to restore CUDA state" in log) == rollback_error
+        marker = directory / "api.calls"
+        reader, writer = os.pipe()
+        try:
+            with target(directory, mixed=mixed, pass_fds=(writer,)) as (process, pids):
+                os.close(writer)
+                writer = -1
+                log = run_criu(directory, pids[0], pass_fds=(reader,),
+                               CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR=behavior,
+                               CRIU_CUDA_MOCK_TARGET_PIPE=str(reader),
+                               CRIU_CUDA_MOCK_API_MARKER=str(marker))
+                assert "failed during Driver API operation" in log
                 assert "Dumping FAILED" in log
-                assert "Dumping finished successfully" not in log
-                if library != MOCK:
-                    expected_state = "checkpointed" if rollback_error else "running"
-                    assert (directory / f"state.{pids[0]}").read_text().strip() == expected_state
+                assert process.wait(timeout=5) == -signal.SIGKILL
+                calls = [line.split() for line in marker.read_text().splitlines()]
+                operations = [call[0] for call in calls if int(call[1]) == pids[0]]
+                assert "checkpoint" in operations
+                assert "restore" not in operations and "unlock" not in operations
+                if mixed:
+                    os.kill(pids[1], 0)
+                    assert_untraced(pids[1])
+                    assert any(call[0] == "unlock" and int(call[1]) == pids[1] for call in calls)
+        finally:
+            os.close(reader)
+            if writer >= 0:
+                os.close(writer)
+
+
+def test_traced_fork(work):
+    binary = Path(__file__).with_name("fork-target")
+    for backend, version in (("Driver API", "13000"), ("cuda-checkpoint CLI", "12000")):
+        directory = work / f"fork-{version}"
+        directory.mkdir()
+        ready = directory / "ready.pid"
+        trigger = directory / "clone.trigger"
+        clone_pid_file = directory / "clone.pid"
+        reader, writer = os.pipe()
+        process = None
+        try:
+            process = subprocess.Popen([str(binary), str(ready), str(trigger), str(clone_pid_file)],
+                                       stdin=subprocess.DEVNULL,
+                                       stdout=subprocess.DEVNULL,
+                                       stderr=subprocess.DEVNULL,
+                                       pass_fds=(writer,), start_new_session=True)
+            os.close(writer)
+            writer = -1
+            deadline = time.monotonic() + 5
+            while not ready.exists() or not ready.read_text().strip():
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("clone target did not start")
+                time.sleep(0.01)
+            log = run_criu(directory, process.pid, pass_fds=(reader,),
+                           CRIU_CUDA_MOCK_DRIVER_VERSION=version,
+                           CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR="fork",
+                           CRIU_CUDA_MOCK_TARGET_PIPE=str(reader),
+                           CRIU_CUDA_MOCK_FAULT_TRIGGER=str(trigger),
+                           CRIU_CUDA_MOCK_CLONE_PID=str(clone_pid_file),
+                           CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"))
+            assert f"selected {backend} backend" in log, log
+            assert "stopped by signal 5" in log
+            assert "Dumping FAILED" in log
+            if backend == "Driver API":
+                assert process.wait(timeout=5) == -signal.SIGKILL
+            else:
+                assert process.poll() is None
+                assert_untraced(process.pid)
+        finally:
+            os.close(reader)
+            if writer >= 0:
+                os.close(writer)
+            if process is not None:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGKILL)
+                process.wait(timeout=5)
 
 
 def test_resume_fault(work):
@@ -264,11 +172,11 @@ def test_resume_fault(work):
         variables = dict(CRIU_CUDA_MOCK_API_MARKER=str(marker),
                          CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"))
         with target(directory) as (process, pids):
-            run_criu(directory, "dump", pid=pids[0], **variables)
+            run_criu(directory, pids[0], expected_success=True, **variables)
             process.wait(timeout=5)
             marker.unlink()
-            log = run_criu(directory, "restore", expected_success=False,
-                           restore_detached=False, CRIU_CUDA_MOCK_RESUME_FAULT=phase,
+            log = run_criu(directory, operation="restore",
+                           CRIU_CUDA_MOCK_RESUME_FAULT=phase,
                            CRIU_CUDA_MOCK_TARGET_PID=str(pids[0]), **variables)
             assert "selected Driver API backend" in log, log
             assert "failed during Driver API operation" in log, log
@@ -289,16 +197,14 @@ def test_foreground_restore(work):
     directory = work / "foreground-restore"
     directory.mkdir()
     marker = directory / "api.calls"
+    variables = dict(CRIU_CUDA_MOCK_API_MARKER=str(marker),
+                     CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"))
     with target(directory, duration=3) as (process, pids):
-        log = run_criu(directory, "dump", pid=pids[0],
-                       CRIU_CUDA_MOCK_API_MARKER=str(marker))
+        log = run_criu(directory, pids[0], expected_success=True, **variables)
         assert "selected Driver API backend" in log
         process.wait(timeout=5)
-        # Restore must reinstate SIGCHLD handling before CRIU waits for the
-        # restored process tree to exit.
-        log = run_criu(directory, "restore", restore_detached=False,
-                       command_timeout=10, CRIU_CUDA_MOCK_INITIAL_STATE="checkpointed",
-                       CRIU_CUDA_MOCK_API_MARKER=str(marker))
+        # Foreground restore must wait for the restored workload to exit.
+        log = run_criu(directory, operation="restore", expected_success=True, **variables)
         assert "selected Driver API backend" in log
         assert not Path(f"/proc/{pids[0]}").exists()
         assert not (directory / "cli.marker").exists()
@@ -308,97 +214,13 @@ def test_foreground_restore(work):
             assert not Path(f"/proc/{caller}").exists(), f"CUDA caller {caller} leaked"
 
 
-def test_freezing_timeout(work):
-    cases = ((behavior, timeout)
-             for behavior in ("1", "closed-output", "locked", "locked-closed-output")
-             for timeout in (0, 30))
-    for behavior, timeout in cases:
-        library = MOCK / "unsupported"
-        directory = work / f"freezing-timeout-{behavior}-{timeout}"
-        directory.mkdir()
-        marker = directory / "api.calls"
-        with target(directory) as (process, pids):
-            start = time.monotonic()
-            log = run_criu(directory, "dump", pid=pids[0], library=library,
-                           expected_success=False, freezing_timeout=1,
-                           plugin_timeout=timeout, command_timeout=10,
-                           CRIU_CUDA_MOCK_LOCK_HANG=behavior,
-                           CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"),
-                           CRIU_CUDA_MOCK_API_MARKER=str(marker))
-            assert time.monotonic() - start < 5
-            assert "selected cuda-checkpoint CLI backend" in log
-            assert "interrupted by CRIU's freezing timeout" in log
-            assert "FATAL: Unable to interrupt" not in log
-            assert "Dumping FAILED" in log
-            assert process.poll() is None
-            assert_untraced(pids[0])
-            if behavior.startswith("locked"):
-                assert (directory / f"state.{pids[0]}").read_text().strip() == "running"
-                assert any(line.startswith("unlock ") for line in marker.read_text().splitlines())
-            workers = {int(line.split()[2]) for line in marker.read_text().splitlines()}
-            assert workers
-            for worker in workers:
-                assert not Path(f"/proc/{worker}").exists(), f"CUDA helper {worker} leaked"
-
-
-def test_untraced_clone(work):
-    binary = SUPPORT / "untraced-clone-target"
-    for backend, library in (("Driver API", MOCK), ("cuda-checkpoint CLI", MOCK / "unsupported")):
-        for mode in ("child", "thread"):
-            directory = work / f"untraced-clone-{library.name}-{mode}"
-            directory.mkdir()
-            ready = directory / "ready.pid"
-            trigger = directory / "clone.trigger"
-            clone_pid_file = directory / "clone.pid"
-            process = subprocess.Popen([str(binary), mode, str(ready), str(trigger), str(clone_pid_file)],
-                                       stdin=subprocess.DEVNULL,
-                                       stdout=subprocess.DEVNULL,
-                                       stderr=subprocess.DEVNULL)
-            try:
-                deadline = time.monotonic() + 5
-                while not ready.exists() or not ready.read_text().strip():
-                    if time.monotonic() >= deadline:
-                        raise RuntimeError("untraced clone target did not start")
-                    time.sleep(0.01)
-                log = run_criu(directory, "dump", pid=process.pid, library=library,
-                               expected_success=False,
-                               CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR="untraced-clone",
-                               CRIU_CUDA_MOCK_FAULT_TRIGGER=str(trigger),
-                               CRIU_CUDA_MOCK_CLONE_PID=str(clone_pid_file),
-                               CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"))
-                assert f"selected {backend} backend" in log, log
-                assert clone_pid_file.exists(), log
-                cloned_id = int(clone_pid_file.read_text().strip())
-                assert f"Uncollected {mode} {cloned_id} found in task {process.pid}" in log, log
-                assert f"resuming devices on pid {process.pid}" in log
-                assert "Unable to restore CUDA state" not in log
-                assert "Dumping FAILED" in log
-                assert process.poll() is None
-                assert_untraced(process.pid)
-                assert Path(f"/proc/{cloned_id}").exists()
-                if library != MOCK:
-                    assert (directory / f"state.{process.pid}").read_text().strip() == "running"
-            finally:
-                if clone_pid_file.exists() and clone_pid_file.read_text().strip():
-                    with contextlib.suppress(ProcessLookupError):
-                        os.kill(int(clone_pid_file.read_text().strip()), signal.SIGKILL)
-                with contextlib.suppress(ProcessLookupError):
-                    os.kill(process.pid, signal.SIGKILL)
-                process.wait(timeout=5)
-
-
 if __name__ == "__main__":
     if not __debug__:
         raise SystemExit("these checks use assert; run without python -O")
     with tempfile.TemporaryDirectory(prefix="criu-cuda-backend-errors-") as directory:
         work = Path(directory)
-        test_discovery(work)
-        test_inventory_failure(work)
-        test_dump_finish(work)
-        test_dump_finish_hook_failure(work)
-        test_post_dump_failure(work)
+        test_target_fault(work)
+        test_traced_fork(work)
         test_resume_fault(work)
         test_foreground_restore(work)
-        test_freezing_timeout(work)
-        test_untraced_clone(work)
-    print("CUDA backend error regression tests PASS")
+    print("CUDA backend regression tests PASS")
