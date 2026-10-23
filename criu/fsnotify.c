@@ -535,8 +535,11 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 
 	exit_code = 0;
 free:
-	for (i = 0; i < ie.n_wd; i++)
+	for (i = 0; i < ie.n_wd; i++) {
+		/* Set by check_open_handle() */
+		xfree(ie.wd[i]->f_handle->path);
 		xfree(ie.wd[i]);
+	}
 	xfree(ie.wd);
 
 	return exit_code;
@@ -648,8 +651,12 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 
 	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fle, PB_FILE);
 free:
-	for (i = 0; i < fe.n_mark; i++)
+	for (i = 0; i < fe.n_mark; i++) {
+		/* Set by check_open_handle() */
+		if (fe.mark[i]->ie)
+			xfree(fe.mark[i]->ie->f_handle->path);
 		xfree(fe.mark[i]);
+	}
 	xfree(fe.mark);
 	return ret;
 }
