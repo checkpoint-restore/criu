@@ -11,6 +11,7 @@
 #include <sys/sendfile.h>
 #include <sched.h>
 #include <sys/capability.h>
+#include <sys/xattr.h>
 #include <sys/ioctl.h>
 #include <elf.h>
 #include <linux/fiemap.h>
@@ -427,6 +428,30 @@ static int ghost_apply_metadata(const char *path, GhostFileEntry *gfe)
 	return 0;
 }
 
+/*
+ * Put back the attributes collected by dump_ghost_xattrs(). An ACL carries
+ * the permission bits, so this runs after the mode has been applied.
+ */
+static int ghost_apply_xattrs(const char *path, GhostFileEntry *gfe)
+{
+	size_t i;
+
+	for (i = 0; i < gfe->n_xattrs; i++) {
+		GhostXattrEntry *x = gfe->xattrs[i];
+
+		if (setxattr(path, x->name, x->value.data, x->value.len, 0)) {
+			if (errno == EOPNOTSUPP || errno == ENOTSUP) {
+				pr_debug("ghost %s: %s is not supported here\n", path, x->name);
+				continue;
+			}
+			pr_perror("Can't set %s on ghost %s", x->name, path);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int create_ghost_dentry(char *path, GhostFileEntry *gfe, struct cr_img *img)
 {
 	int ret = -1;
@@ -485,6 +510,9 @@ static int nomntns_create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, stru
 	if (ghost_apply_metadata(path, gfe))
 		return -1;
 
+	if (ghost_apply_xattrs(path, gfe))
+		return -1;
+
 	__strlcpy(gf->remap.rpath, path + 1, PATH_MAX);
 	pr_debug("Remap rpath is %s\n", gf->remap.rpath);
 	return 0;
@@ -522,6 +550,9 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 		return -1;
 
 	if (ghost_apply_metadata(path, gfe))
+		return -1;
+
+	if (ghost_apply_xattrs(path, gfe))
 		return -1;
 
 	/*
@@ -895,6 +926,137 @@ static struct collect_image_info remap_cinfo = {
 /* Tiny files don't need to generate chunks in ghost image. */
 #define GHOST_CHUNKS_THRESH (3 * 4096)
 
+/*
+ * Extended attributes a ghost file can carry that cannot be reconstructed
+ * from the rest of the entry. The namespaces mirror the ones tmpfs content
+ * carries, see tmpfs_dump() in filesystems.c.
+ */
+static bool ghost_xattr_wanted(const char *name)
+{
+	return !strncmp(name, "user.", 5) || !strcmp(name, "system.posix_acl_access") ||
+	       !strcmp(name, "security.capability");
+}
+
+static void free_ghost_xattrs(GhostXattrEntry **xattrs, size_t n)
+{
+	size_t i;
+
+	if (!xattrs)
+		return;
+
+	for (i = 0; i < n; i++) {
+		if (!xattrs[i])
+			continue;
+		xfree(xattrs[i]->name);
+		xfree(xattrs[i]->value.data);
+		xfree(xattrs[i]);
+	}
+	xfree(xattrs);
+}
+
+/*
+ * Collect the attributes through /proc/self/fd so that a drained ghost with
+ * no read permissions is still readable. Symlinks are skipped: the proc entry
+ * for them resolves to the target, so there is nothing safe to read here.
+ */
+static int dump_ghost_xattrs(int _fd, const struct stat *st, GhostFileEntry *gfe)
+{
+	GhostXattrEntry **xattrs = NULL;
+	char procpath[PATH_MAX], *list = NULL;
+	ssize_t llen, off;
+	size_t n = 0, cnt = 0;
+	int exit_code = -1;
+
+	if (S_ISLNK(st->st_mode))
+		return 0;
+
+	snprintf(procpath, sizeof(procpath), "/proc/self/fd/%d", _fd);
+
+	llen = listxattr(procpath, NULL, 0);
+	if (llen <= 0) {
+		if (llen == 0 || errno == EOPNOTSUPP || errno == ENOTSUP)
+			return 0;
+		pr_perror("Can't list xattrs of ghost file");
+		return -1;
+	}
+
+	list = xmalloc(llen);
+	if (!list)
+		return -1;
+
+	llen = listxattr(procpath, list, llen);
+	if (llen < 0) {
+		pr_perror("Can't list xattrs of ghost file");
+		goto out;
+	}
+
+	for (off = 0; off < llen; off += strlen(list + off) + 1)
+		if (ghost_xattr_wanted(list + off))
+			cnt++;
+
+	if (!cnt) {
+		exit_code = 0;
+		goto out;
+	}
+
+	xattrs = xzalloc(cnt * sizeof(*xattrs));
+	if (!xattrs)
+		goto out;
+
+	for (off = 0; off < llen && n < cnt; off += strlen(list + off) + 1) {
+		const char *name = list + off;
+		ssize_t vlen;
+
+		if (!ghost_xattr_wanted(name))
+			continue;
+
+		vlen = getxattr(procpath, name, NULL, 0);
+		if (vlen < 0) {
+			/* It can be removed between the two calls. */
+			if (errno == ENODATA)
+				continue;
+			pr_perror("Can't get size of %s on ghost file", name);
+			goto out;
+		}
+
+		xattrs[n] = xzalloc(sizeof(**xattrs));
+		if (!xattrs[n])
+			goto out;
+		ghost_xattr_entry__init(xattrs[n]);
+
+		xattrs[n]->name = xstrdup(name);
+		if (!xattrs[n]->name)
+			goto out;
+
+		xattrs[n]->value.data = xmalloc(vlen ?: 1);
+		if (!xattrs[n]->value.data)
+			goto out;
+
+		if (vlen) {
+			vlen = getxattr(procpath, name, xattrs[n]->value.data, vlen);
+			if (vlen < 0) {
+				if (errno == ENODATA) {
+					n++;
+					continue;
+				}
+				pr_perror("Can't get %s on ghost file", name);
+				goto out;
+			}
+		}
+		xattrs[n]->value.len = vlen;
+		n++;
+	}
+
+	gfe->n_xattrs = n;
+	gfe->xattrs = xattrs;
+	xattrs = NULL;
+	exit_code = 0;
+out:
+	free_ghost_xattrs(xattrs, cnt);
+	xfree(list);
+	return exit_code;
+}
+
 static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_dev)
 {
 	struct cr_img *img;
@@ -965,6 +1127,9 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 		gfe.symlnk_target = pathbuf;
 	}
 
+	if (dump_ghost_xattrs(_fd, st, &gfe))
+		goto err_out;
+
 	if (pb_write_one(img, &gfe, PB_GHOST_FILE))
 		goto err_out;
 
@@ -1002,6 +1167,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 
 	exit_code = 0;
 err_out:
+	free_ghost_xattrs(gfe.xattrs, gfe.n_xattrs);
 	close_image(img);
 	return exit_code;
 }
@@ -1661,7 +1827,7 @@ static int get_build_id(const int fd, const struct stat *fd_status, unsigned cha
 	 */
 	mapped_size = min_t(size_t, fd_status->st_size, BUILD_ID_MAP_SIZE);
 	start_addr = mmap(0, mapped_size, PROT_READ, MAP_PRIVATE | MAP_FILE, fd, 0);
-	if ((void*)start_addr == MAP_FAILED) {
+	if ((void *)start_addr == MAP_FAILED) {
 		pr_warn("Couldn't mmap file with fd %d\n", fd);
 		return -1;
 	}
