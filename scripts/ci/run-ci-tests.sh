@@ -527,7 +527,7 @@ run_non_shardable_tests() {
 			--mocked-cuda-checkpoint --fault 138
 		./test/zdtm.py --set cuda run -a --mocked-cuda-checkpoint
 		./test/cuda-checkpoint/checkpoint-error-rollback.sh
-		python3 ./test/cuda-checkpoint/backend-errors.py
+		python3 ./plugins/cuda/tests/backend-errors.py
 		./test/cuda-checkpoint/backend-selection.sh
 		./test/cuda-checkpoint/restore-backend-selection.sh
 		./test/cuda-checkpoint/device-map-backends.sh

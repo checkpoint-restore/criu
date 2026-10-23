@@ -1,3 +1,4 @@
+cuda-device-map-test
 /zdtm/.gitignore
 /zdtm/*.pid
 /zdtm/*.pidns
