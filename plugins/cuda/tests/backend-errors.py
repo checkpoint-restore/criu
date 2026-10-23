@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Regression tests for CUDA discovery, inventory allocation, and dump rollback errors.
 
-Requires a built CRIU, CUDA plugin, and test/cuda-checkpoint mocks. All targets
+Requires a built CRIU, CUDA plugin, and plugins/cuda/tests/mock mocks. All targets
 are ordinary CPU processes; neither backend accesses a real GPU.
 """
 
@@ -15,8 +15,8 @@ import tempfile
 import time
 
 
-ROOT = Path(__file__).resolve().parents[2]
-MOCK = ROOT / "plugins/cuda/tests/mock"
+ROOT = Path(__file__).resolve().parents[3]
+MOCK = Path(__file__).with_name("mock")
 SUPPORT = ROOT / "test/cuda-checkpoint"
 
 

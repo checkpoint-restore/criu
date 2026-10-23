@@ -1,6 +1,6 @@
 CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS) -fPIC
 
-BIN := cuda-device-map-test untraced-clone-target dump_finish_failure.so
+BIN := untraced-clone-target dump_finish_failure.so
 SRC := untraced-clone-target.c
 DEP	:= $(SRC:%.c=%.d)
 OBJ	:= $(SRC:%.c=%.o)
@@ -27,15 +27,6 @@ mocks:
 .PHONY: mocks
 .PHONY: all
 
-cuda-device-map-test: device-map.c $(CUDA_PLUGIN_DIR)/cuda_device_map.c $(CUDA_PLUGIN_DIR)/cuda.proto \
-		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h
-	$(Q)$(MAKE) --no-print-directory -C $(CUDA_PLUGIN_DIR) cuda.pb-c.c
-	$(E) " LINK     " $@
-	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) \
-		device-map.c $(CUDA_PLUGIN_DIR)/cuda_device_map.c $(CUDA_PLUGIN_DIR)/cuda.pb-c.c \
-		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
-		-o $@ -Wl,--wrap,fork -Wl,--wrap,write -Wl,--wrap,close -ldl -lprotobuf-c
-
 untraced-clone-target: untraced-clone-target.c
 	$(E) " LINK     " $@
 	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
@@ -45,7 +36,7 @@ dump_finish_failure.so: dump-finish-failure.c ../../criu/include/criu-plugin.h
 	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) $(LDFLAGS) -shared -nostartfiles $< -o $@
 
 test: all
-	LD_LIBRARY_PATH="$(MOCK_DIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-device-map-test
+	$(Q)$(MAKE) -C ../../plugins/cuda/tests test
 .PHONY: test
 
 clean-more:

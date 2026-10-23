@@ -220,7 +220,7 @@ post-call stop waits, and rollback:
 ```
 make cuda_plugin
 make -C test/cuda-checkpoint test
-sudo python3 test/cuda-checkpoint/backend-errors.py
+sudo python3 plugins/cuda/tests/backend-errors.py
 ```
 
 Real CUDA workloads are still needed to validate GPU checkpoint/restore and
