@@ -656,6 +656,9 @@ class zdtm_test:
             opts += ["--external", "mnt[ZDTM_DEV]:%s" % self.__flavor.devpath]
         return opts
 
+    def retry(self, action):
+        return self.__desc.get('retry') == action
+
     def __expand(self, value):
         return value.replace('{test}', os.path.abspath(self.__name)).replace(
             '{pid}', os.environ.get('ZDTM_TEST_PID', '0'))
@@ -870,6 +873,9 @@ class inhfd_test:
 
     def getenv(self, action):
         return {}
+
+    def retry(self, action):
+        return False
 
     def getdopts(self):
         return self.__dump_opts
@@ -1413,11 +1419,14 @@ class criu:
             return ret
 
         grep_errors(os.path.join(__ddir, log))
+        retry = self.__test.retry(action)
+        if ret == 0 and retry:
+            raise test_fail_exc("expected CRIU %s failure before retry" % action)
         if ret != 0:
             # FI_DUMP_EARLY deliberately kills CRIU while tasks are seized.
             expected_kill = (bool(self.__fault) and int(self.__fault) == 1 and
                              action == 'dump' and ret == -signal.SIGKILL)
-            if self.__fault and int(self.__fault) < 128 and \
+            if ((self.__fault and int(self.__fault) < 128) or retry) and \
                (expected_kill or not self.__criu.exit_signal(ret)):
                 # A late restore failure may have already written the pidfile.
                 if action == "restore" and os.path.exists(self.__test.getname() + '.pid'):
@@ -2954,6 +2963,8 @@ class group:
         if self.__desc.get('renv') != desc.get('renv'):
             return False
         if self.__desc.get('fault') != desc.get('fault'):
+            return False
+        if self.__desc.get('retry') != desc.get('retry'):
             return False
         return True
 
