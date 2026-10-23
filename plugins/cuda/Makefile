@@ -27,6 +27,11 @@ cuda_plugin.so: $(PLUGIN_SRCS) $(PLUGIN_HEADERS)
 	$(call msg-gen, $@)
 	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl -lpthread
 
+test:
+	$(Q) $(MAKE) -C ../.. cuda_plugin
+	$(Q) $(MAKE) -C tests run
+.PHONY: test
+
 clean:
 	$(call msg-clean, $@)
 	$(Q) $(MAKE) -C tests clean
