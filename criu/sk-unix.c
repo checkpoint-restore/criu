@@ -221,7 +221,7 @@ int kerndat_socket_unix_file(void)
 	}
 	fd = ioctl(sk, SIOCUNIXFILE);
 	if (fd < 0 && errno != ENOENT) {
-		pr_warn("Unable to open a socket file: %s\n", strerror(errno));
+		pr_pwarn("Unable to open a socket file");
 		kdat.sk_unix_file = false;
 		close(sk);
 		return 0;

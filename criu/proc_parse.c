@@ -1015,7 +1015,7 @@ int prepare_loginuid(unsigned int value)
 	}
 
 	if (write(fd, buf, len) < 0) {
-		pr_warn("Write %s to /proc/self/loginuid failed: %s\n", buf, strerror(errno));
+		pr_pwarn("Write %s to /proc/self/loginuid failed", buf);
 		ret = -1;
 	}
 	close(fd);
