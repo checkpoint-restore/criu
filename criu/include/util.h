@@ -363,6 +363,14 @@ extern int epoll_prepare(int nr_events, struct epoll_event **evs);
 extern void rlimit_unlimit_nofile(void);
 
 extern int call_in_child_process(int (*fn)(void *), void *arg);
+
+#if defined(__SANITIZE_ADDRESS__)
+extern void lsan_skip_leak_check(void);
+#else
+static inline void lsan_skip_leak_check(void)
+{
+}
+#endif
 #ifdef __GLIBC__
 extern void print_stack_trace(pid_t pid);
 #else

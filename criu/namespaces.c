@@ -927,6 +927,7 @@ static int check_user_ns(int pid)
 		uid_t uid;
 		gid_t gid;
 
+		lsan_skip_leak_check();
 		uid = host_uid(0);
 		gid = host_gid(0);
 		if (uid == INVALID_ID || gid == INVALID_ID) {
@@ -1153,6 +1154,7 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 		}
 
 		if (pid == 0) {
+			lsan_skip_leak_check();
 			ret = do_dump_namespaces(ns);
 			exit(ret);
 		}
@@ -1526,6 +1528,8 @@ int start_unix_cred_daemon(pid_t *pid, int (*daemon_func)(int sk), bool passcred
 
 	if (*pid == 0) {
 		int ret;
+
+		lsan_skip_leak_check();
 		close(sk[0]);
 		ret = daemon_func(sk[1]);
 		exit(ret);

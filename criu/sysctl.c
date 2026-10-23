@@ -286,6 +286,8 @@ static int __userns_sysctl_op(void *arg, int proc_fd, pid_t pid)
 		int nsfd;
 		const char *nsname = ns_to_string(userns_req->ns);
 
+		lsan_skip_leak_check();
+
 		BUG_ON(!nsname);
 		nsfd = openat(proc_fd, nsname, O_RDONLY);
 		if (nsfd < 0) {
