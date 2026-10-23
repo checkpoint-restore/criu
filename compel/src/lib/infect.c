@@ -127,9 +127,10 @@ int compel_interrupt_task(int pid)
 		/*
 		 * ptrace API doesn't allow to distinguish
 		 * attaching to zombie from other errors.
-		 * All errors will be handled in compel_wait_task().
+		 * All errors will be handled in compel_wait_task()
+		 * or by the caller.
 		 */
-		pr_warn("Unable to interrupt task: %d (%s)\n", pid, strerror(errno));
+		pr_info("Unable to interrupt task: %d (%s)\n", pid, strerror(errno));
 		return ret;
 	}
 

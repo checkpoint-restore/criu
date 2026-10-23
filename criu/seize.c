@@ -1096,6 +1096,7 @@ int collect_pstree(void)
 		}
 
 		if (compel_interrupt_task(pid)) {
+			pr_perror("Can't seize task %d", pid);
 			set_cr_errno(ESRCH);
 			goto err;
 		}
