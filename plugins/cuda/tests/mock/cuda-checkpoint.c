@@ -7,6 +7,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "mock.h"
+
 static int record_value(const char *environment, const char *value)
 {
 	const char *path = getenv(environment);
@@ -259,7 +261,7 @@ int main(int argc, char *argv[])
 		} else if (!strcmp(action, "checkpoint")) {
 			if (write_state(pid, "checkpointed"))
 				return 1;
-			if (getenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION"))
+			if (getenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION") && mock_failure())
 				return 1;
 		} else if (!strcmp(action, "unlock")) {
 			if (write_state(pid, "running"))

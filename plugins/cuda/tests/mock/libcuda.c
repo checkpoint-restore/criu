@@ -10,6 +10,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "mock.h"
+
 /*
  * Mock implementation of the CUDA checkpoint Driver API used by CRIU tests.
  *
@@ -524,7 +526,7 @@ mock_cuda_result_t cuCheckpointProcessCheckpoint(int pid, void *args)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 	set_process_state(process, MOCK_CUDA_PROCESS_STATE_CHECKPOINTED);
 	/* Test rollback when the mock changes state before reporting an error. */
-	if (getenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION"))
+	if (getenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION") && mock_failure())
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 	return MOCK_CUDA_SUCCESS;
 }

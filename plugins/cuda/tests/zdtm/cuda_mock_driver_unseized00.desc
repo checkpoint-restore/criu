@@ -1,0 +1,9 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API',
+               'rollback': True,
+               'unseized': True,
+               'error': 'fault: CUDA pause completed'},
+ 'fault': 102}
