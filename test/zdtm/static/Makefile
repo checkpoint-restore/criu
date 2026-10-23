@@ -358,6 +358,7 @@ TST_FILE	=				\
 		unlink_fstat01+			\
 		unlink_fstat02			\
 		unlink_fstat03			\
+		ghost_xattr			\
 		ghost_holes00			\
 		ghost_holes01			\
 		ghost_holes02			\
