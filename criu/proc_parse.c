@@ -748,6 +748,7 @@ err_bogus_mapfile:
 	goto err;
 }
 
+/* Returns 1 if the vma is skipped (not added to the list), 0 if added, -1 on error. */
 static int vma_list_add(struct vma_area *vma_area, struct vm_area_list *vma_area_list, unsigned long *prev_end,
 			struct vma_file_info *vfi, struct vma_file_info *prev_vfi)
 {
@@ -764,7 +765,7 @@ static int vma_list_add(struct vma_area *vma_area, struct vm_area_list *vma_area
 	} else if (vma_area->e->status & VMA_AREA_UPROBES) {
 		pr_debug("Skipping uprobes vma %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
 		         vma_area->e->end);
-		return 0;
+		return 1;
 	} else if (vma_area->e->status & VMA_UNSUPP) {
 		pr_err("Unsupported mapping found %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
 		       vma_area->e->end);
@@ -871,9 +872,15 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t du
 			prev_vma_area->e->end = vma_area->e->end;
 			xfree(vma_area);
 			vma_area = NULL;
-		} else {
-			if (vma_area && vma_list_add(vma_area, vma_area_list, &prev_end, &vfi, &prev_vfi))
+		} else if (vma_area) {
+			int rc = vma_list_add(vma_area, vma_area_list, &prev_end, &vfi, &prev_vfi);
+
+			if (rc < 0)
 				goto err;
+			if (rc > 0) {
+				xfree(vma_area);
+				vma_area = NULL;
+			}
 			prev_vma_area = vma_area;
 		}
 
