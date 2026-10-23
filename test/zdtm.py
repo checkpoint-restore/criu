@@ -1300,6 +1300,9 @@ class criu:
     def __ddir(self):
         return os.path.join(self.__dump_path, "%d" % self.__iter)
 
+    def image_dir(self):
+        return self.__ddir()
+
     def set_user_id(self):
         # Numbers should match those in zdtm_test
         os.setresgid(58467, 58467, 58467)
@@ -1392,7 +1395,7 @@ class criu:
                 if action == "restore" and os.path.exists(self.__test.getname() + '.pid'):
                     self.__test.getpid()
                     self.__test.gone()
-                try_run_hook(self.__test, ["--fault", action])
+                try_run_hook(self.__test, ["--fault", action], __ddir)
                 if action == "dump":
                     # create a clean directory for images
                     os.rename(__ddir, __ddir + ".fail")
@@ -1417,6 +1420,7 @@ class criu:
                 os.path.join(__ddir, "restore-succeeded"), os.F_OK)
             if (self.__test.blocking() and not self.__criu.exit_signal(ret)) or \
                (self.__sat and action == 'restore' and rst_succeeded):
+                try_run_hook(self.__test, ["--fail", action], __ddir)
                 raise test_fail_expected_exc(action)
             else:
                 raise test_fail_exc("CRIU %s" % action)
@@ -1895,11 +1899,12 @@ class criu:
             print("criu-image-streamer exited with %s" % ret)
 
 
-def try_run_hook(test, args):
+def try_run_hook(test, args, images=None):
     hname = test.getname() + '.hook'
     if os.access(hname, os.X_OK):
         print("Running %s(%s)" % (hname, ', '.join(args)))
-        hook = subprocess.Popen([hname] + args)
+        env = dict(os.environ, ZDTM_CRIU_IMG_DIR=os.path.abspath(images)) if images else None
+        hook = subprocess.Popen([hname] + args, env=env)
         if hook.wait() != 0:
             raise test_fail_exc("hook " + " ".join(args))
 
@@ -1950,7 +1955,7 @@ def cr(cr_api, test, opts):
             else:
                 sbs('before pre-dump %d' % p)
                 cr_api.dump("pre-dump", intermediate=True)
-                try_run_hook(test, ["--post-pre-dump"])
+                try_run_hook(test, ["--post-pre-dump"], cr_api.image_dir())
                 test.pre_dump_notify()
             time.sleep(pre[1])
 
@@ -1968,11 +1973,11 @@ def cr(cr_api, test, opts):
             else:
                 test.unlink_pidfile()
             sbs('before restore')
-            try_run_hook(test, ["--pre-restore"])
+            try_run_hook(test, ["--pre-restore"], cr_api.image_dir())
             cr_api.restore()
             os.environ["ZDTM_TEST_PID"] = str(test.getpid())
             os.environ["ZDTM_IMG_DIR"] = cr_api.logs()
-            try_run_hook(test, ["--post-restore"])
+            try_run_hook(test, ["--post-restore"], cr_api.image_dir())
             sbs('after restore')
 
         time.sleep(iters[1])
@@ -2307,6 +2312,7 @@ def do_run_test(tname, tdesc, flavs, opts):
             except test_fail_expected_exc as e:
                 if e.cr_action == "dump":
                     t.stop()
+                try_run_hook(t, ["--clean"])
             else:
                 check_visible_state(t, s, opts)
                 if opts['join_ns']:
@@ -2321,7 +2327,8 @@ def do_run_test(tname, tdesc, flavs, opts):
             t.print_output()
             t.kill()
             cr_api.kill()
-            try_run_hook(t, ["--clean"])
+            if e.step != "hook --clean":
+                try_run_hook(t, ["--clean"])
             if cr_api.logs():
                 add_to_report(cr_api.logs(),
                               tname.replace('/', '_') + "_" + f + "/images")
