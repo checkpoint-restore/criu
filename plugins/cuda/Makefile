@@ -29,6 +29,7 @@ cuda_plugin.so: $(PLUGIN_SRCS) $(PLUGIN_HEADERS)
 
 clean:
 	$(call msg-clean, $@)
+	$(Q) $(MAKE) -C tests/mock clean
 	$(Q) $(RM) $(PLUGIN_SOBJ) cuda.pb-c.c cuda.pb-c.h
 .PHONY: clean
 

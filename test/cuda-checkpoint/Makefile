@@ -1,7 +1,7 @@
 CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS) -fPIC
 
-BIN := cuda-checkpoint libcuda.so.1 unsupported/libcuda.so.1 cuda-device-map-test cuda-backend-guard-test untraced-clone-target dump_finish_failure.so
-SRC := cuda-checkpoint.c libcuda.c
+BIN := cuda-device-map-test cuda-backend-guard-test untraced-clone-target dump_finish_failure.so
+SRC := untraced-clone-target.c
 DEP	:= $(SRC:%.c=%.d)
 OBJ	:= $(SRC:%.c=%.o)
 TARGETS	:= $(BIN)
@@ -18,22 +18,14 @@ CUDA_TEST_CPPFLAGS += -iquote$(CUDA_PLUGIN_DIR)
 PRESERVE_GITIGNORE := y
 include ../zdtm/Makefile.inc
 
-all:	$(TARGETS)
+MOCK_DIR := $(abspath ../../plugins/cuda/tests/mock)
+
+all: mocks $(TARGETS)
+
+mocks:
+	$(MAKE) -C $(MOCK_DIR)
+.PHONY: mocks
 .PHONY: all
-
-cuda-checkpoint: cuda-checkpoint.o
-	$(E) " LINK     " $@
-	$(Q)$(CC) $(LDFLAGS) $^ -o $@
-
-libcuda.so.1: libcuda.o
-	$(E) " LINK     " $@
-	$(Q)$(CC) $(LDFLAGS) -shared $^ -o $@
-
-unsupported/libcuda.so.1: libcuda.c
-	$(E) " LINK     " $@
-	$(Q)mkdir -p $(@D)
-	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -shared \
-		-DMOCK_CUDA_DRIVER_VERSION=12000 $< -o $@
 
 cuda-device-map-test: device-map.c $(CUDA_PLUGIN_DIR)/cuda_device_map.c $(CUDA_PLUGIN_DIR)/cuda.proto \
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h
@@ -63,8 +55,8 @@ dump_finish_failure.so: dump-finish-failure.c ../../criu/include/criu-plugin.h
 	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) $(LDFLAGS) -shared -nostartfiles $< -o $@
 
 test: all
-	LD_LIBRARY_PATH="$(CURDIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-device-map-test
-	PATH="$(CURDIR):$$PATH" LD_LIBRARY_PATH="$(CURDIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-backend-guard-test
+	LD_LIBRARY_PATH="$(MOCK_DIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-device-map-test
+	PATH="$(MOCK_DIR):$$PATH" LD_LIBRARY_PATH="$(MOCK_DIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-backend-guard-test
 .PHONY: test
 
 clean-more:

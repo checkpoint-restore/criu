@@ -5,7 +5,7 @@ set -eu
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
 CRIU="$ROOT/criu/criu"
 PLUGIN_BUILD_DIR="$ROOT/plugins/cuda"
-MOCK_DIR="$ROOT/test/cuda-checkpoint"
+MOCK_DIR="$ROOT/plugins/cuda/tests/mock"
 WORK_DIR=$(mktemp -d)
 PLUGIN_DIR="$WORK_DIR/plugins"
 EMPTY_PLUGIN_DIR="$WORK_DIR/empty-plugins"
