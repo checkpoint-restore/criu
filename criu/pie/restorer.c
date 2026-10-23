@@ -98,6 +98,10 @@
 /* Native AIO restore in-flight window size (used by restore_vma_aio path). */
 #define AIO_BATCH 128
 
+#ifndef POSIX_TIMER_CREATE_WAIT_MS
+#define POSIX_TIMER_CREATE_WAIT_MS 100
+#endif
+
 static struct task_entries *task_entries_local;
 
 static atomic_t thread_inprogress;
@@ -1369,7 +1373,31 @@ static int create_posix_timers(struct task_restore_args *args)
 		}
 
 		while (1) {
-			ret = sys_timer_create(args->posix_timers[i].spt.clock_id, &sev, &timer_id);
+			int attempt;
+
+			/*
+			 * sys_timer_create() can return -EAGAIN if the kernel cannot allocate a
+			 * k_itimer and sigqueue (either allocation fails, or if RLIMIT_SIGPENDING
+			 * is exceeded). This can happen due to a transient race condition with
+			 * another process or due to a delay in the RCU grace period.
+			 *
+			 * We retry with a timeout because two scenarios are possible:
+			 * 
+			 * 1. The limit was reached (or allocation failed) due to unpredictable
+			 *    workload spikes asynchronous release of k_itimer resources, and a
+			 *    new timer will soon be allocatable.
+			 * 2. RLIMIT_SIGPENDING is simply too low to ever restore the process.
+			 *    Without a timeout we would hang indefinitely with no indication to
+			 *    the user as to what is happening.
+			 */
+			for (attempt = 0; attempt <= POSIX_TIMER_CREATE_WAIT_MS; attempt++) {
+				struct timespec req = { .tv_sec = 0, .tv_nsec = 1000000 };
+
+				ret = sys_timer_create(args->posix_timers[i].spt.clock_id, &sev, &next_id);
+				if (ret != -EAGAIN || attempt == POSIX_TIMER_CREATE_WAIT_MS)
+					break;
+				sys_nanosleep(&req, NULL);
+			}
 			if (ret < 0) {
 				pr_err("Can't create posix timer - %d\n", i);
 				goto out;
