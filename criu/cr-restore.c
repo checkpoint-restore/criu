@@ -1528,6 +1528,11 @@ static int __restore_task_with_children(void *_arg)
 	int ret;
 
 	current = ca->item;
+	/*
+	 * Restored tasks either switch to the restorer or exit()
+	 * (zombies, helpers, errors), possibly with no usable /proc.
+	 */
+	lsan_skip_leak_check();
 
 	if (current != root_item) {
 		char buf[12];

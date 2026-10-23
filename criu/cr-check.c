@@ -932,6 +932,7 @@ struct clone_arg {
 
 static int clone_cb(void *_arg)
 {
+	lsan_skip_leak_check();
 	exit(0);
 }
 
