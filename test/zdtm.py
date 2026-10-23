@@ -656,6 +656,17 @@ class zdtm_test:
             opts += ["--external", "mnt[ZDTM_DEV]:%s" % self.__flavor.devpath]
         return opts
 
+    def __expand(self, value):
+        return value.replace('{test}', os.path.abspath(self.__name)).replace(
+            '{pid}', os.environ.get('ZDTM_TEST_PID', '0'))
+
+    def getenv(self, action):
+        env = {}
+        env.update(self.__desc.get('env', {}))
+        env.update(self.__desc.get('denv' if action != 'restore' else 'renv', {}))
+        return {key: self.__expand(value) if value is not None else None
+                for key, value in env.items()}
+
     def unlink_pidfile(self):
         self.__pid = 0
         os.unlink(self.__pidfile())
@@ -856,6 +867,9 @@ class inhfd_test:
         os.waitpid(self.__peer_pid, 0)
         wait_pid_die(self.__peer_pid, self.__name)
         self.__files = None
+
+    def getenv(self, action):
+        return {}
 
     def getdopts(self):
         return self.__dump_opts
@@ -1308,6 +1322,25 @@ class criu:
         os.setresgid(58467, 58467, 58467)
         os.setresuid(18943, 18943, 18943)
 
+    def __run_criu(self, action, args, fault, strace, preexec, preload=False, nowait=False):
+        env = self.__test.getenv(action)
+        saved = {key: os.environ.get(key) for key in env}
+
+        try:
+            for key, value in env.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+            return self.__criu.run(action, args, self.__criu_bin, fault,
+                                   strace, preexec, preload, nowait)
+        finally:
+            for key, value in saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
     def __criu_act(self, action, opts=[], log=None, nowait=False):
         if not log:
             log = action + ".log"
@@ -1364,7 +1397,7 @@ class criu:
 
         preload_libfault = self.__preload_libfault and action in ['dump', 'pre-dump', 'restore']
 
-        ret = self.__criu.run(action, s_args, self.__criu_bin, self.__fault,
+        ret = self.__run_criu(action, s_args, self.__fault,
                               strace, preexec, preload_libfault, nowait)
 
         if nowait:
@@ -1411,8 +1444,7 @@ class criu:
                     fd.write(ns_last_pid)
                 # try again without faults
                 print("Run criu " + action)
-                ret = self.__criu.run(action, s_args, self.__criu_bin, False,
-                                      strace, preexec)
+                ret = self.__run_criu(action, s_args, False, strace, preexec)
                 grep_errors(os.path.join(__ddir, log))
                 if ret == 0:
                     return None
@@ -1945,6 +1977,7 @@ def cr(cr_api, test, opts):
 
     iters = iter_parm(opts['iters'], 1)
     for _ in iters[0]:
+        os.environ["ZDTM_TEST_PID"] = str(test.getpid())
         pre = iter_parm(opts['pre'], 0)
         for p in pre[0]:
             if opts['snaps']:
@@ -1961,7 +1994,6 @@ def cr(cr_api, test, opts):
 
         sbs('before dump')
 
-        os.environ["ZDTM_TEST_PID"] = str(test.getpid())
         if opts['norst']:
             try_run_hook(test, ["--pre-dump"])
             cr_api.dump("dump", opts=["--leave-running"])
@@ -2917,6 +2949,12 @@ class group:
         if self.__desc.get('opts') != desc.get('opts'):
             return False
         if self.__desc.get('feature') != desc.get('feature'):
+            return False
+        if self.__desc.get('env') != desc.get('env'):
+            return False
+        if self.__desc.get('denv') != desc.get('denv'):
+            return False
+        if self.__desc.get('renv') != desc.get('renv'):
             return False
         return True
 
