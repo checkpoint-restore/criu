@@ -652,14 +652,14 @@ class zdtm_test:
             self.__desc.get('dopts', '').split()
         if self.__flavor.ns:
             opts += ["--external", "mnt[/dev]:ZDTM_DEV"]
-        return opts
+        return [self.__expand(value) for value in opts]
 
     def getropts(self):
         opts = self.__getcropts() + self.__freezer.getropts() + \
             self.__desc.get('ropts', '').split()
         if self.__flavor.ns:
             opts += ["--external", "mnt[ZDTM_DEV]:%s" % self.__flavor.devpath]
-        return opts
+        return [self.__expand(value) for value in opts]
 
     def retry(self, action):
         return self.__desc.get('retry') == action
@@ -734,7 +734,7 @@ class zdtm_test:
             subprocess.check_call(["make", "-C", "..", "cuda_plugin"])
         if 'mocked_cuda_checkpoint' in opts and opts['mocked_cuda_checkpoint']:
             subprocess.check_call(["make", "-C", CUDA_TESTS_DIR, "zdtm", "mock",
-                                   "cuda_plugin.so"])
+                                   "cuda_plugin.so", "dump_finish_failure.so"])
         if 'rootless' in opts and opts['rootless']:
             return
         subprocess.check_call(
