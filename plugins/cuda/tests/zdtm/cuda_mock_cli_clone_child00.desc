@@ -1,0 +1,10 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '--plugin-option=cuda_plugin.backend=cuda-checkpoint',
+ 'cuda_mock': {'backend': 'cuda-checkpoint CLI', 'error': 'Uncollected child', 'creation': True},
+ 'denv': {'CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR': 'untraced-clone',
+          'CRIU_CUDA_MOCK_ONCE': '{test}.once',
+          'CRIU_CUDA_MOCK_FAULT_TRIGGER': '{test}.test.trigger',
+          'CRIU_CUDA_MOCK_CLONE_PID': '{test}.test.clone'},
+ 'retry': 'dump'}

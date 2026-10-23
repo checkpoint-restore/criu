@@ -450,6 +450,8 @@ static bool checkpoint_behavior(int pid, const char *behavior)
 
 	if (!behavior)
 		return false;
+	if (!mock_failure())
+		return false;
 	if (!strcmp(behavior, "exit"))
 		_exit(77);
 	if (!strcmp(behavior, "unrelated")) {
