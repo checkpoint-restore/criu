@@ -15,6 +15,7 @@ extern int write_img_inventory(InventoryEntry *he, const InventoryEntry *parent_
 extern int inventory_save_uptime(InventoryEntry *he);
 extern int get_parent_inventory(InventoryEntry **parent_ie);
 extern int prepare_inventory(InventoryEntry *he, const InventoryEntry *parent_ie);
+extern void free_inventory(InventoryEntry *he);
 struct pprep_head {
 	int (*actor)(struct pprep_head *);
 	struct pprep_head *next;
