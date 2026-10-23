@@ -9,7 +9,7 @@ import sys
 
 
 CALL_FIXTURES = ('.calls', '.cli', '.driver')
-FIXTURES = CALL_FIXTURES
+FIXTURES = CALL_FIXTURES + ('.once', '.checked')
 
 name = Path(sys.argv[0]).with_suffix('')
 desc = ast.literal_eval(name.with_suffix('.desc').read_text())
@@ -81,14 +81,52 @@ def archive():
         shutil.copy2(path, directory / path.name)
 
 
+def check_failure(action):
+    archive()
+    log = (Path(os.environ['ZDTM_CRIU_IMG_DIR']) / (action + '.log')).read_text()
+    check_backend(log, action)
+    assert checks['error'] in log, log
+    if action == 'dump':
+        assert 'Dumping FAILED' in log, log
+        root = int(os.environ['ZDTM_TEST_PID'])
+        os.kill(root, 0)
+        for pid in {root} | {int(call[1]) for call in calls() if int(call[1])}:
+            status = Path(f'/proc/{pid}/status').read_text()
+            assert 'TracerPid:\t0\n' in status, status
+        check_state(checks.get('failure_state', 'running'))
+        if checks.get('rollback'):
+            assert 'Unable to restore CUDA state' not in log, log
+            operations = {}
+            for operation, pid, _ in calls():
+                operations.setdefault(int(pid), []).append(operation)
+            for pid, ops in operations.items():
+                if 'lock' in ops:
+                    assert 'unlock' in ops, f'pid {pid} was not unlocked'
+                if 'checkpoint' in ops:
+                    assert 'restore' in ops, f'pid {pid} was not restored'
+        if checks.get('unseized'):
+            assert 'was not seized; rolling back its CUDA state without ptrace' in log, log
+            assert not any(call[0] == 'checkpoint' for call in calls()), 'checkpointed before seizure'
+        if checks.get('no_lock'):
+            assert not any(call[0] == 'lock' for call in calls()), 'locked before inventory failure'
+
+
 if not __debug__:
     raise SystemExit('these checks require Python assertions')
 
 if phase in ('--pre-dump', '--clean'):
     cleanup()
+elif phase in ('--fault', '--fail'):
+    check_failure(sys.argv[2])
+    fixture('.checked').touch()
+    if phase == '--fault':
+        for suffix in CALL_FIXTURES:
+            fixture(suffix).unlink(missing_ok=True)
 elif phase == '--pre-restore':
     # Save the evidence first: --clean removes it if a check fails.
     archive()
+    if desc.get('fault') or desc.get('retry') == 'dump':
+        assert fixture('.checked').exists(), 'dump did not exercise the expected failure'
     log = (Path(os.environ['ZDTM_CRIU_IMG_DIR']) / 'dump.log').read_text()
     check_backend(log, 'dump')
     check_state('checkpointed')

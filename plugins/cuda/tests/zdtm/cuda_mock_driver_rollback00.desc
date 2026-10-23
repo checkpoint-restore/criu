@@ -1,0 +1,8 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API',
+               'rollback': True,
+               'error': 'fault: CUDA checkpoint completed'},
+ 'fault': 100}

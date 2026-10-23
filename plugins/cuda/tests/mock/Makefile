@@ -17,7 +17,7 @@ libcuda.so.1: libcuda.o
 	$(E) " LINK     " $@
 	$(Q)$(CC) $(LDFLAGS) -shared $^ -o $@
 
-unsupported/libcuda.so.1: libcuda.c
+unsupported/libcuda.so.1: libcuda.c mock.h
 	$(Q)mkdir -p $(@D)
 	$(E) " LINK     " $@
 	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) -shared -DMOCK_CUDA_DRIVER_VERSION=12000 $< -o $@

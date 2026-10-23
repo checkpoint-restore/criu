@@ -1,0 +1,9 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API',
+               'state_required': False,
+               'no_lock': True,
+               'error': 'Failed to add CUDA plugin to inventory image'},
+ 'fault': 101}
