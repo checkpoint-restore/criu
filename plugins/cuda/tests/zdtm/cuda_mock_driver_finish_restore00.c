@@ -1,0 +1,1 @@
+../../../../test/zdtm/static/pthread00.c

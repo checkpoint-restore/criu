@@ -8,8 +8,21 @@ import shutil
 import sys
 
 
+# CRIU also invokes this hook as the post-dump action script in those variants.
+if len(sys.argv) == 1:
+    if os.environ['CRTOOLS_SCRIPT_ACTION'] == 'post-dump':
+        try:
+            with open(os.environ['CRIU_CUDA_MOCK_ONCE'] + '.post-dump', 'x'):
+                pass
+        except FileExistsError:
+            pass
+        else:
+            sys.exit(42)
+    sys.exit(0)
+
+
 CALL_FIXTURES = ('.calls', '.cli', '.driver')
-FIXTURES = CALL_FIXTURES + ('.once', '.checked')
+FIXTURES = CALL_FIXTURES + ('.once', '.checked', '.once.post-dump')
 
 name = Path(sys.argv[0]).with_suffix('')
 desc = ast.literal_eval(name.with_suffix('.desc').read_text())
@@ -109,6 +122,11 @@ def check_failure(action):
             assert not any(call[0] == 'checkpoint' for call in calls()), 'checkpointed before seizure'
         if checks.get('no_lock'):
             assert not any(call[0] == 'lock' for call in calls()), 'locked before inventory failure'
+        if checks.get('cleanup_error'):
+            pids = {int(call[1]) for call in calls() if call[0] == 'checkpoint'}
+            assert len(pids) >= checks.get('processes', 1)
+            for pid in pids:
+                assert f'Unable to restore CUDA state for pid {pid} during dump cleanup' in log, log
 
 
 if not __debug__:

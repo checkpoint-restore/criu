@@ -539,7 +539,7 @@ mock_cuda_result_t cuCheckpointProcessRestore(int pid, void *args)
 	if (checkpoint_behavior(pid, getenv("CRIU_CUDA_MOCK_RESTORE_BEHAVIOR")))
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 
-	if (getenv("CRIU_CUDA_MOCK_RESTORE_ERROR"))
+	if (getenv("CRIU_CUDA_MOCK_RESTORE_ERROR") && mock_failure())
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_CHECKPOINTED)
@@ -557,7 +557,7 @@ mock_cuda_result_t cuCheckpointProcessUnlock(int pid, void *args)
 	(void)args;
 	record_api("unlock", pid);
 
-	if (getenv("CRIU_CUDA_MOCK_UNLOCK_ERROR"))
+	if (getenv("CRIU_CUDA_MOCK_UNLOCK_ERROR") && mock_failure())
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_LOCKED)

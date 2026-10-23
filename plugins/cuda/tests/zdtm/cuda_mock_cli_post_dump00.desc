@@ -1,0 +1,10 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '--plugin-option=cuda_plugin.backend=cuda-checkpoint',
+ 'cuda_mock': {'backend': 'cuda-checkpoint CLI',
+               'error': 'Post dump script passed with',
+               'rollback': True},
+ 'dopts': '--action-script {test}.hook',
+ 'denv': {'CRIU_CUDA_MOCK_ONCE': '{test}.once'},
+ 'retry': 'dump'}
