@@ -1152,7 +1152,7 @@ class criu_rpc:
             if e.typ != e.resp_typ:
                 ret = -2
             else:
-                print("Fail", e)
+                print("criu %s via RPC: %s" % (action, e))
                 ret = -1
         else:
             ret = 0
