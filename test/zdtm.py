@@ -2487,7 +2487,10 @@ class Launcher:
               'rootless', 'preload_libfault', 'mocked_cuda_checkpoint', 'cuda_checkpoint',
               'compress', 'compress_acceleration', 'compress_block',
               'pycriu_search_path')
-        arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
+        test_opts = {d: self.__opts[d] for d in nd}
+        if not test_opts['fault'] and desc.get('fault'):
+            test_opts['fault'] = str(desc['fault'])
+        arg = repr((name, desc, flavor, test_opts))
 
         if self.__use_log:
             logf = name.replace('/', '_') + ".log"
@@ -2955,6 +2958,8 @@ class group:
         if self.__desc.get('denv') != desc.get('denv'):
             return False
         if self.__desc.get('renv') != desc.get('renv'):
+            return False
+        if self.__desc.get('fault') != desc.get('fault'):
             return False
         return True
 
