@@ -2063,6 +2063,8 @@ static int prepare_cgroup_dirs(char **cnames, int n_cnames, char *paux, size_t p
 			if (opts.manage_cgroups & (CG_MODE_SOFT | CG_MODE_NONE)) {
 				pr_info("Skip restoring properties on cgroup dir %s\n", paux);
 				if (e->n_properties > 0) {
+					for (j = 0; j < e->n_properties; j++)
+						cgroup_prop_entry__free_unpacked(e->properties[j], NULL);
 					xfree(e->properties);
 					e->properties = NULL;
 					e->n_properties = 0;
