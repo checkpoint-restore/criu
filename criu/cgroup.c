@@ -2527,12 +2527,14 @@ int prepare_cgroup(void)
 		 * with cg_set_compare(CGCMP_ISSUB) call.
 		 */
 		ret = prepare_cgroup_sfd(ce);
-		if (ret < 0)
-			return ret;
-		ret = prepare_cgroup_thread_sfd();
+		if (!ret)
+			ret = prepare_cgroup_thread_sfd();
 	} else {
 		ret = 0;
 	}
+
+	/* Sets and controllers are kept, only free the wrapper. */
+	xfree(ce);
 
 	return ret;
 }
