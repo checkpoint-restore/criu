@@ -54,9 +54,17 @@ fi
 # check set_compel_interrupt_only_mode when test cgroup is frozen
 ./test/zdtm.py run -t zdtm/static/env00 --freezecg zdtm:f --fault 137
 
-if ./test/zdtm.py run -t zdtm/static/vfork00 --fault 136 --report report -f h ; then
+# vfork00 is a crfail test, so a failed dump is expected and reported as PASS.
+# With FI_DUMP_CRASH, criu dump crashes instead, and zdtm must report a FAIL.
+# Only show the output if the check fails, as an expected FAIL is confusing.
+log=$(mktemp)
+if ./test/zdtm.py run -t zdtm/static/vfork00 --fault 136 --report report -f h > "$log" 2>&1 ||
+		! grep -q "Test zdtm/static/vfork00 FAIL at CRIU dump" "$log"; then
+	cat "$log"
 	fail
 fi
+rm -f "$log"
+echo "zdtm/static/vfork00: criu dump crash detected as expected"
 
 # Check the case when /sys/fs/cgroup isn't the root cgroupv2 mount.
 ./test/zdtm.py run -t zdtm/static/cgroupns -t zdtm/static/cgroupv2_00 --fault 139 || fail
