@@ -52,7 +52,8 @@ cuda-backend-guard-test: backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c
 		backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
 		../../compel/libcompel.a \
-		-Wl,--wrap,ptrace -ldl -pthread -o $@
+		-Wl,--wrap,ptrace -Wl,--wrap,pthread_create -Wl,--wrap,pthread_join \
+		-ldl -pthread -o $@
 
 untraced-clone-target: untraced-clone-target.c
 	$(E) " LINK     " $@
