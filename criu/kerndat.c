@@ -100,6 +100,7 @@ static int check_pagemap(void)
 			break;
 		default:
 			pr_perror("PAGEMAP_SCAN failed with unexpected errno");
+			close(fd);
 			return -1;
 		}
 	}
