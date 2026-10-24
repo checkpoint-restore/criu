@@ -607,6 +607,7 @@ static int drain_fds(struct parasite_drain_fd *args)
 static int dump_thread(struct parasite_dump_thread *args)
 {
 	args->tid = sys_gettid();
+	args->personality = sys_personality(0xffffffff);
 	return dump_thread_common(args);
 }
 
