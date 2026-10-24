@@ -534,6 +534,8 @@ static bool kerndat_has_memfd_create(void)
 		kdat.has_memfd = true;
 	else {
 		pr_perror("Unexpected error from memfd_create(NULL, 0)");
+		if (ret >= 0)
+			close(ret);
 		return -1;
 	}
 
