@@ -258,7 +258,8 @@ class criu:
 
             s.send(req.SerializeToString())
 
-            buf = s.recv(len(s.recv(1, socket.MSG_TRUNC | socket.MSG_PEEK)))
+            size = s.recv_into(bytearray(1), 1, socket.MSG_TRUNC | socket.MSG_PEEK)
+            buf = s.recv(size)
 
             if not req.keep_open:
                 self._comm.disconnect()

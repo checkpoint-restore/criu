@@ -16,6 +16,7 @@ STATUS_FD := 200
 run: start
 	cleanup() { $(MAKE) --no-print-directory stop || true; }
 	trap cleanup EXIT INT TERM
+	"$(PYTHON)" test_rpc_receive.py
 	"$(PYTHON)" test_check.py
 	"$(PYTHON)" test_check_fail.py
 	"$(PYTHON)" test_check_images_dir.py
