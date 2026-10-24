@@ -968,7 +968,7 @@ class criu_cli:
             timeout=60):
         env = dict(
             os.environ,
-            ASAN_OPTIONS="log_path=asan.log:disable_coredump=0:detect_leaks=0",
+            ASAN_OPTIONS="log_path=asan.log:disable_coredump=0:detect_leaks=1:fast_unwind_on_malloc=0",
             CRIU_LIBS_DIR=PLUGINS_DIR
         )
 

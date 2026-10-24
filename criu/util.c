@@ -1518,6 +1518,29 @@ out:
 	return ret;
 }
 
+#if defined(__SANITIZE_ADDRESS__)
+#include <sanitizer/lsan_interface.h>
+
+static bool lsan_turned_off;
+
+/* Called by LeakSanitizer before it checks for leaks at exit. */
+int __lsan_is_turned_off(void)
+{
+	return lsan_turned_off;
+}
+
+/*
+ * Forked helpers share the parent's heap, so checking them for leaks
+ * only duplicates the parent's reports. Worse, a helper can run in a
+ * pid namespace that doesn't match its /proc, and then LeakSanitizer
+ * fails to stop the world and dies with a fatal error.
+ */
+void lsan_skip_leak_check(void)
+{
+	lsan_turned_off = true;
+}
+#endif
+
 void rlimit_unlimit_nofile(void)
 {
 	struct rlimit new;

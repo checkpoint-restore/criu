@@ -2969,13 +2969,13 @@ out:
 
 static int get_mp_root(MntEntry *me, struct mount_info *mi)
 {
-	char *ext = NULL;
+	char *ext = NULL, *root = me->root, *ext_key = me->ext_key;
 
 	BUG_ON(me->ext_mount && me->ext_key);
 
 	/* Forward compatibility fixup */
 	if (me->ext_mount) {
-		me->ext_key = me->root;
+		ext_key = me->root;
 		/*
 		 * Putting the id of external mount which is provided by user,
 		 * to ->root can confuse mnt_is_external_bind and other functions
@@ -2983,14 +2983,14 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 		 * of these mount (mounts_equal, mnt_build_ids_tree,
 		 * find_fsroot_mount_for, find_best_external_match, etc.)
 		 */
-		me->root = NO_ROOT_MOUNT;
+		root = NO_ROOT_MOUNT;
 	}
 
-	mi->root = xstrdup(me->root);
+	mi->root = xstrdup(root);
 	if (!mi->root)
 		return -1;
 
-	if (!me->ext_key)
+	if (!ext_key)
 		goto out;
 
 	/*
@@ -2998,7 +2998,7 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 	 * from the command line and put into root's place
 	 */
 
-	if (!strcmp(me->ext_key, AUTODETECTED_MOUNT)) {
+	if (!strcmp(ext_key, AUTODETECTED_MOUNT)) {
 		if (!opts.autodetect_ext_mounts) {
 			pr_err("Mount %d:%s is autodetected external mount. "
 			       "Try \"--ext-mount-map auto\" to allow them.\n",
@@ -3016,10 +3016,10 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 		 */
 
 		ext = mi->source;
-	} else if (!strcmp(me->ext_key, EXTERNAL_DEV_MOUNT)) {
+	} else if (!strcmp(ext_key, EXTERNAL_DEV_MOUNT)) {
 		ext = EXTERNAL_DEV_MOUNT;
 	} else {
-		ext = ext_mount_lookup(me->ext_key);
+		ext = ext_mount_lookup(ext_key);
 		if (!ext) {
 			pr_err("No mapping for %d:%s mountpoint\n", mi->mnt_id, mi->ns_mountpoint);
 			return -1;
@@ -3210,15 +3210,17 @@ static int collect_mnt_from_image(struct mount_info **head, struct mount_info **
 		pr_debug("\t"
 			 "Read %d mp @ %s\n",
 			 pm->mnt_id, pm->ns_mountpoint);
-	}
 
-	if (me)
 		mnt_entry__free_unpacked(me, NULL);
+		me = NULL;
+	}
 
 	close_image(img);
 
 	return 0;
 err:
+	if (me)
+		mnt_entry__free_unpacked(me, NULL);
 	close_image(img);
 	return -1;
 }
