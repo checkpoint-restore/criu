@@ -1054,6 +1054,37 @@ static int cgroup_version(void)
 	return -1;
 }
 
+/*
+ * PTRACE_SEIZE fails for a zombie, including a thread group leader
+ * which has exited while some of its threads are still running.
+ * Tell the user if this is why the root task can't be seized.
+ */
+static void report_root_seize_error(pid_t pid)
+{
+	struct proc_status_creds creds;
+	struct pid *threads = NULL;
+	int nr_threads = 0;
+	int err = errno;
+
+	if (kill(pid, 0) && errno == ESRCH) {
+		pr_err("The root task %d does not exist\n", pid);
+		return;
+	}
+
+	if (parse_pid_status(pid, &creds.s, NULL) || creds.s.state != 'Z') {
+		errno = err;
+		pr_perror("Can't seize the root task %d", pid);
+		return;
+	}
+
+	if (parse_threads(pid, &threads, &nr_threads) == 0 && nr_threads > 1)
+		pr_err("The root task %d is a zombie with threads, which is not supported\n", pid);
+	else
+		pr_err("The root task %d is a zombie\n", pid);
+
+	xfree(threads);
+}
+
 int collect_pstree(void)
 {
 	pid_t pid = root_item->pid->real;
@@ -1096,7 +1127,9 @@ int collect_pstree(void)
 		}
 
 		if (compel_interrupt_task(pid)) {
-			pr_perror("Can't seize task %d", pid);
+			report_root_seize_error(pid);
+			/* The task is not seized, so make sure it is not unseized. */
+			root_item->pid->state = TASK_DEAD;
 			set_cr_errno(ESRCH);
 			goto err;
 		}
