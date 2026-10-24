@@ -84,19 +84,66 @@ static void record_api(const char *operation, int pid)
 		_exit(1);
 }
 
-static mock_cuda_process_state_t initial_process_state(void)
-{
-	const char *state = getenv("CRIU_CUDA_MOCK_INITIAL_STATE");
+static const char *const state_names[] = { "running", "locked", "checkpointed", "failed" };
 
-	if (!state || !strcmp(state, "running"))
+static mock_cuda_process_state_t parse_process_state(const char *state)
+{
+	unsigned int i;
+
+	if (!state)
 		return MOCK_CUDA_PROCESS_STATE_RUNNING;
-	if (!strcmp(state, "locked"))
-		return MOCK_CUDA_PROCESS_STATE_LOCKED;
-	if (!strcmp(state, "checkpointed"))
-		return MOCK_CUDA_PROCESS_STATE_CHECKPOINTED;
-	if (!strcmp(state, "failed"))
-		return MOCK_CUDA_PROCESS_STATE_FAILED;
-	return MOCK_CUDA_PROCESS_STATE_RUNNING;
+	for (i = 0; i <= MOCK_CUDA_PROCESS_STATE_FAILED; i++) {
+		if (!strcmp(state, state_names[i]))
+			return i;
+	}
+	fprintf(stderr, "Invalid CUDA mock state: %s\n", state);
+	_exit(1);
+}
+
+static const char *state_path(int pid)
+{
+	static char path[4096];
+	const char *base = getenv("CRIU_CUDA_MOCK_STATE_FILE");
+	int length;
+
+	if (!base)
+		return NULL;
+	length = snprintf(path, sizeof(path), "%s.%d", base, pid);
+	if (length < 0 || (size_t)length >= sizeof(path))
+		_exit(1);
+	return path;
+}
+
+static void set_process_state(struct mock_process *process, mock_cuda_process_state_t state)
+{
+	const char *path = state_path(process->pid);
+	FILE *file;
+
+	process->state = state;
+	if (!path)
+		return;
+	file = fopen(path, "w");
+	if (!file || fprintf(file, "%s\n", state_names[state]) < 0 || fclose(file))
+		_exit(1);
+}
+
+static mock_cuda_process_state_t read_process_state(int pid)
+{
+	const char *path = state_path(pid);
+	char state[32];
+	FILE *file;
+
+	if (!path)
+		return parse_process_state(getenv("CRIU_CUDA_MOCK_INITIAL_STATE"));
+	file = fopen(path, "r");
+	if (!file) {
+		if (errno == ENOENT)
+			return parse_process_state(getenv("CRIU_CUDA_MOCK_INITIAL_STATE"));
+		_exit(1);
+	}
+	if (fscanf(file, "%31s", state) != 1 || fclose(file))
+		_exit(1);
+	return parse_process_state(state);
 }
 
 static struct mock_process *get_process(int pid)
@@ -112,7 +159,7 @@ static struct mock_process *get_process(int pid)
 		return NULL;
 
 	processes[nr_processes].pid = pid;
-	processes[nr_processes].state = initial_process_state();
+	processes[nr_processes].state = read_process_state(pid);
 	return &processes[nr_processes++];
 }
 
@@ -339,7 +386,7 @@ mock_cuda_result_t cuCheckpointProcessLock(int pid, void *args)
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_RUNNING)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
-	process->state = MOCK_CUDA_PROCESS_STATE_LOCKED;
+	set_process_state(process, MOCK_CUDA_PROCESS_STATE_LOCKED);
 	return MOCK_CUDA_SUCCESS;
 }
 
@@ -428,7 +475,7 @@ mock_cuda_result_t cuCheckpointProcessCheckpoint(int pid, void *args)
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_LOCKED)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
-	process->state = MOCK_CUDA_PROCESS_STATE_CHECKPOINTED;
+	set_process_state(process, MOCK_CUDA_PROCESS_STATE_CHECKPOINTED);
 	/* Test rollback when the mock changes state before reporting an error. */
 	if (getenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION"))
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
@@ -450,7 +497,7 @@ mock_cuda_result_t cuCheckpointProcessRestore(int pid, void *args)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 	if (record_device_map(args))
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
-	process->state = MOCK_CUDA_PROCESS_STATE_LOCKED;
+	set_process_state(process, MOCK_CUDA_PROCESS_STATE_LOCKED);
 	return MOCK_CUDA_SUCCESS;
 }
 
@@ -466,6 +513,6 @@ mock_cuda_result_t cuCheckpointProcessUnlock(int pid, void *args)
 
 	if (!process || process->state != MOCK_CUDA_PROCESS_STATE_LOCKED)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
-	process->state = MOCK_CUDA_PROCESS_STATE_RUNNING;
+	set_process_state(process, MOCK_CUDA_PROCESS_STATE_RUNNING);
 	return MOCK_CUDA_SUCCESS;
 }

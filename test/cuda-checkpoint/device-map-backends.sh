@@ -207,7 +207,7 @@ stop_restored_process
 # its --device-map option.
 CLI_MARKER="$WORK_DIR/cli-device-map"
 CLI_STATE="$WORK_DIR/cli-state"
-printf '%s\n' checkpointed > "$CLI_STATE"
+printf '%s\n' checkpointed > "$CLI_STATE.$SOURCE_PID"
 run_success "forced cuda-checkpoint restore with automatic mapping" env \
 	-u CRIU_CUDA_MOCK_NO_DEVICE_MAP \
 	CRIU_FAULT=138 \
@@ -238,7 +238,7 @@ stop_restored_process
 # cuda-checkpoint utility does not advertise --device-map support.
 UNSUPPORTED_STATE="$WORK_DIR/unsupported-cli-state"
 UNSUPPORTED_MARKER="$WORK_DIR/unsupported-cli-device-map"
-printf '%s\n' checkpointed > "$UNSUPPORTED_STATE"
+printf '%s\n' checkpointed > "$UNSUPPORTED_STATE.$SOURCE_PID"
 set +e
 timeout 30s env \
 	CRIU_FAULT=138 \
