@@ -471,6 +471,7 @@ ruff:
 		contrib/criu-service-client/test/*.py \
 		contrib/compression-benchmark/ \
 		test/others/compression/ \
+		test/others/page-server-remote-parent/ \
 		soccr/test/run.py \
 		soccr/test/tcp-test.py
 
@@ -488,6 +489,7 @@ shellcheck:
 	shellcheck -x test/others/action-script/*.sh
 	shellcheck -x contrib/criu-service-client/test/*.sh
 	shellcheck -x test/others/compression/*/*.sh
+	shellcheck -x test/others/page-server-remote-parent/*.sh
 
 codespell:
 	codespell

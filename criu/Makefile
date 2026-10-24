@@ -93,6 +93,12 @@ UNIT-BUILTINS		+= $(obj)/config.o
 UNIT-BUILTINS		+= $(obj)/plugin-options.o
 UNIT-BUILTINS		+= $(obj)/log.o
 UNIT-BUILTINS		+= $(obj)/string.o
+UNIT-BUILTINS		+= $(obj)/remote-parent.o
+UNIT-BUILTINS		+= $(obj)/image.o
+UNIT-BUILTINS		+= $(obj)/image-desc.o
+UNIT-BUILTINS		+= $(obj)/protobuf.o
+UNIT-BUILTINS		+= $(obj)/protobuf-desc.o
+UNIT-BUILTINS		+= images/built-in.o
 ifeq ($(CONFIG_LZ4),y)
 UNIT-BUILTINS		+= $(obj)/compression.o
 endif
