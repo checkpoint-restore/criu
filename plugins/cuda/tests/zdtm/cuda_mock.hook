@@ -69,8 +69,16 @@ def check_state(expected):
 
 
 def check_backend(log, action):
-    backend = checks.get('backend', 'Driver API')
-    assert f'selected {backend} backend' in log, log
+    backend = checks.get(action + '_backend', checks.get('backend', 'Driver API'))
+    if backend:
+        assert f'selected {backend} backend' in log, log
+    else:
+        assert 'selected Driver API backend' not in log, log
+        assert 'selected cuda-checkpoint CLI backend' not in log, log
+    if checks.get('no_cli') or (not backend and not checks.get('allow_cli_probe')):
+        assert not fixture('.cli').exists(), 'unexpected CLI probe'
+    if checks.get('no_driver'):
+        assert not fixture('.driver').exists(), 'unexpected Driver API probe'
     if checks.get('restore_thread'):
         pattern = (r'Checkpointing CUDA devices on pid (\d+) restore_tid (\d+)' if action == 'dump'
                    else r'Restore thread pid (\d+) found for real pid (\d+)')
