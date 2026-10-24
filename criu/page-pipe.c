@@ -375,12 +375,17 @@ int pipe_read_dest_init(struct pipe_read_dest *prd)
 	}
 
 	ret = fcntl(prd->p[0], F_SETPIPE_SZ, PIPE_MAX_SIZE * PAGE_SIZE);
-	if (ret < 0)
+	if (ret < 0) {
+		close_safe(&prd->p[0]);
+		close_safe(&prd->p[1]);
 		return -1;
+	}
 
 	prd->sink_fd = open("/dev/null", O_WRONLY);
 	if (prd->sink_fd < 0) {
 		pr_perror("Cannot open sink for reading from page-pipe");
+		close_safe(&prd->p[0]);
+		close_safe(&prd->p[1]);
 		return -1;
 	}
 

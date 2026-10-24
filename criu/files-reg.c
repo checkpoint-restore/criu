@@ -352,8 +352,10 @@ static int copy_file_from_chunks(struct cr_img *img, int fd, size_t file_size)
 		if (ret <= 0)
 			return ret;
 
-		if (copy_chunk_to_file(img_raw_fd(img), fd, ce->off, ce->len))
+		if (copy_chunk_to_file(img_raw_fd(img), fd, ce->off, ce->len)) {
+			ghost_chunk_entry__free_unpacked(ce, NULL);
 			return -1;
+		}
 
 		ghost_chunk_entry__free_unpacked(ce, NULL);
 	}
