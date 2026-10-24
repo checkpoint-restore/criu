@@ -470,6 +470,8 @@ ruff:
 		scripts/github-indent-warnings.py \
 		contrib/criu-service-client/test/*.py \
 		contrib/compression-benchmark/ \
+		plugins/cuda/tests/ \
+		plugins/cuda/tests/zdtm/cuda_mock.hook \
 		test/others/compression/ \
 		soccr/test/run.py \
 		soccr/test/tcp-test.py
@@ -479,7 +481,6 @@ shellcheck:
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh
 	shellcheck contrib/apt-install contrib/dependencies/*.sh
-	shellcheck -x test/cuda-checkpoint/*.sh
 	shellcheck -x test/plugins/*.sh
 	shellcheck -x test/others/crit/*.sh
 	shellcheck -x test/others/libcriu/*.sh

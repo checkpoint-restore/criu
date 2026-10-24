@@ -1,0 +1,11 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda crfail',
+ 'env': {'CRIU_CUDA_MOCK_CLI_FAIL': '1'},
+ 'opts': '--plugin-option=cuda_plugin.backend=cuda-checkpoint',
+ 'cuda_mock': {'backend': 'cuda-checkpoint CLI',
+               'dump_backend': False,
+               'allow_cli_probe': True,
+               'no_driver': True,
+               'state_required': False,
+               'error': 'Requested cuda-checkpoint CLI backend is unavailable'}}
