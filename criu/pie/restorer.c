@@ -98,6 +98,10 @@
 /* Native AIO restore in-flight window size (used by restore_vma_aio path). */
 #define AIO_BATCH 128
 
+#ifndef PR_SET_MM_SELF_EXE_WAIT_MS
+#define PR_SET_MM_SELF_EXE_WAIT_MS 100
+#endif
+
 static struct task_entries *task_entries_local;
 
 static atomic_t thread_inprogress;
@@ -874,12 +878,20 @@ core_restore_end:
 
 static long restore_self_exe_late(struct task_restore_args *args)
 {
-	int fd = args->fd_exe_link, ret;
+	int fd = args->fd_exe_link, ret, i;
 
 	pr_info("Restoring EXE link\n");
-	ret = sys_prctl_safe(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0);
-	if (ret)
+	for (i = 0; i <= PR_SET_MM_SELF_EXE_WAIT_MS; i++) {
+		struct timespec one_ms = { .tv_sec = 0, .tv_nsec = 1000000 };
+
+		ret = sys_prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0, 0);
+		if (ret != -EACCES || i == PR_SET_MM_SELF_EXE_WAIT_MS)
+			break;
+		sys_nanosleep(&one_ms, NULL);
+	}
+	if (ret) {
 		pr_err("Can't restore EXE link (%d)\n", ret);
+	}
 	sys_close(fd);
 
 	return ret;
@@ -2561,7 +2573,23 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		.auxv_size = args->mm_saved_auxv_size,
 		.exe_fd = args->fd_exe_link,
 	};
-	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP, (long)&prctl_map, sizeof(prctl_map), 0);
+	/*
+	 * PR_SET_MM_MAP calls replace_mm_exe_file(), which calls
+	 * exe_file_deny_write_access() and returns -EACCES (-ETXTBSY mapped to
+	 * -EACCES) if the executable inode still has a positive i_writecount.
+	 * When the executable was just extracted (e.g. from a snapshot tarball)
+	 * right before restore, delayed __fput() work in the kernel or a
+	 * transient writer can briefly keep i_writecount > 0. Retry on -EACCES
+	 * to allow transient write references to drain.
+	 */
+	for (i = 0; i <= PR_SET_MM_SELF_EXE_WAIT_MS; i++) {
+		struct timespec one_ms = { .tv_sec = 0, .tv_nsec = 1000000 };
+
+		ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP, (long)&prctl_map, sizeof(prctl_map), 0);
+		if (ret != -EACCES || i == PR_SET_MM_SELF_EXE_WAIT_MS)
+			break;
+		sys_nanosleep(&one_ms, NULL);
+	}
 	if (ret) {
 		pr_debug("prctl PR_SET_MM_MAP failed with %d\n", (int)ret);
 		pr_debug("  .start_code = %" PRIx64 "\n", prctl_map.start_code);
