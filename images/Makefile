@@ -74,6 +74,7 @@ proto-obj-y	+= bpfmap-data.o
 proto-obj-y	+= apparmor.o
 proto-obj-y	+= rseq.o
 proto-obj-y	+= pidfd.o
+proto-obj-y	+= extmem.o
 
 CFLAGS		+= -iquote $(obj)/
 
