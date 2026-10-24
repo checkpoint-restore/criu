@@ -31,8 +31,8 @@ static const char *state_path(int pid)
 	static char path[4096];
 	const char *base = getenv("CRIU_CUDA_MOCK_STATE_FILE");
 
-	if (!base || !getenv("CRIU_CUDA_MOCK_STATE_PER_PID"))
-		return base;
+	if (!base)
+		return NULL;
 	snprintf(path, sizeof(path), "%s.%d", base, pid);
 	return path;
 }

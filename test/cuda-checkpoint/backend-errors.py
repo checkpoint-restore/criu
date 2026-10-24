@@ -194,7 +194,7 @@ def test_dump_finish(work):
                     assert "Dumping finished successfully" in log
                 if library != MOCK:
                     expected_state = {None: "running", "RESTORE": "checkpointed", "UNLOCK": "locked"}[failure]
-                    assert (directory / "state").read_text().strip() == expected_state
+                    assert (directory / f"state.{pids[0]}").read_text().strip() == expected_state
 
 
 def build_dump_finish_failure_plugins(work):
@@ -225,7 +225,7 @@ def test_dump_finish_hook_failure(work):
             assert process.poll() is None
             assert_untraced(pids[0])
             if library != MOCK:
-                assert (directory / "state").read_text().strip() == "running"
+                assert (directory / f"state.{pids[0]}").read_text().strip() == "running"
 
 
 def test_post_dump_failure(work):
@@ -253,7 +253,7 @@ def test_post_dump_failure(work):
                 assert "Dumping finished successfully" not in log
                 if library != MOCK:
                     expected_state = "checkpointed" if rollback_error else "running"
-                    assert (directory / "state").read_text().strip() == expected_state
+                    assert (directory / f"state.{pids[0]}").read_text().strip() == expected_state
 
 
 def test_foreground_restore(work):
@@ -304,7 +304,7 @@ def test_freezing_timeout(work):
             assert process.poll() is None
             assert_untraced(pids[0])
             if behavior.startswith("locked"):
-                assert (directory / "state").read_text().strip() == "running"
+                assert (directory / f"state.{pids[0]}").read_text().strip() == "running"
                 assert any(line.startswith("unlock ") for line in marker.read_text().splitlines())
             workers = {int(line.split()[2]) for line in marker.read_text().splitlines()}
             assert workers
@@ -348,7 +348,7 @@ def test_untraced_clone(work):
                 assert_untraced(process.pid)
                 assert Path(f"/proc/{cloned_id}").exists()
                 if library != MOCK:
-                    assert (directory / "state").read_text().strip() == "running"
+                    assert (directory / f"state.{process.pid}").read_text().strip() == "running"
             finally:
                 if clone_pid_file.exists() and clone_pid_file.read_text().strip():
                     with contextlib.suppress(ProcessLookupError):
