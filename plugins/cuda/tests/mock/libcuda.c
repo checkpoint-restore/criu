@@ -332,6 +332,7 @@ mock_cuda_result_t cuDeviceGetUuid_v2(void *uuid, int device)
 mock_cuda_result_t cuDriverGetVersion(int *driver_version)
 {
 	const char *marker = getenv("CRIU_CUDA_MOCK_DRIVER_MARKER");
+	const char *version = getenv("CRIU_CUDA_MOCK_DRIVER_VERSION");
 
 	if (marker) {
 		FILE *marker_file = fopen(marker, "a");
@@ -348,6 +349,9 @@ mock_cuda_result_t cuDriverGetVersion(int *driver_version)
 		return MOCK_CUDA_ERROR_INVALID_VALUE;
 
 	*driver_version = MOCK_CUDA_DRIVER_VERSION;
+	if (version)
+		*driver_version = atoi(version);
+
 	return MOCK_CUDA_SUCCESS;
 }
 
@@ -404,9 +408,12 @@ mock_cuda_result_t cuCheckpointProcessGetRestoreThreadId(int pid, int *tid)
 {
 	const char *error = getenv("CRIU_CUDA_MOCK_TID_ERROR");
 	const char *cuda_pid = getenv("CRIU_CUDA_MOCK_CUDA_PID");
+	const char *cpu_pid = getenv("CRIU_CUDA_MOCK_CPU_PID");
 	const char *restore_thread = getenv("CRIU_CUDA_MOCK_RESTORE_THREAD");
 
 	record_api("get-tid", pid);
+	if (cpu_pid && atoi(cpu_pid) == pid)
+		return 3;
 	/* A selected PID can remain CUDA while the rest of a process tree is not. */
 	if (error && (!cuda_pid || atoi(cuda_pid) != pid))
 		return atoi(error);

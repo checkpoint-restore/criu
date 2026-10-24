@@ -1,0 +1,9 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda crfail',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API',
+               'restore_backend': False,
+               'allow_cli_probe': True,
+               'error': 'Missing required plugin: cuda_plugin'},
+ 'renv': {'CRIU_CUDA_MOCK_DRIVER_VERSION': '12000', 'PATH': '/nonexistent'}}

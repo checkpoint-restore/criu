@@ -23,6 +23,17 @@ TST_NOFILE := \
 	cuda_mock_cli_finish_restore00 \
 	cuda_mock_cli_finish_unlock00 \
 	cuda_mock_cli_timeout_max00 \
+	cuda_mock_options00 \
+	cuda_mock_fallback00 \
+	cuda_mock_discovery_invalid00 \
+	cuda_mock_discovery_uninitialized00 \
+	cuda_mock_discovery_mixed00 \
+	cuda_mock_discovery_error00 \
+	cuda_mock_driver_unavailable00 \
+	cuda_mock_cli_unavailable00 \
+	cuda_mock_probe_error00 \
+	cuda_mock_restore_fallback00 \
+	cuda_mock_restore_unavailable00 \
 	cuda_mock_helper_hang_finite00 \
 	cuda_mock_helper_hang_closed_output_finite00 \
 	cuda_mock_helper_exit_unlimited00 \
@@ -67,7 +78,8 @@ THREADED_TST := \
 	cuda_mock_driver_rollback00 \
 	cuda_mock_cli_rollback00 \
 	cuda_mock_driver_finish_restore00 \
-	cuda_mock_driver_finish_unlock00
+	cuda_mock_driver_finish_unlock00 \
+	cuda_mock_discovery_mixed00
 
 $(THREADED_TST): LDLIBS += -pthread
 cuda_mock_driver_clone_thread00: CFLAGS += -DCUDA_MOCK_THREAD
