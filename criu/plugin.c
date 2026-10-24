@@ -13,6 +13,7 @@
 #include "servicefd.h"
 #include "common/list.h"
 #include "log.h"
+#include "util.h"
 
 cr_plugin_ctl_t cr_plugin_ctl;
 
@@ -25,6 +26,7 @@ static void __attribute__((constructor)) cr_plugin_ctl_init(void)
 		INIT_LIST_HEAD(&cr_plugin_ctl.hook_chain[i]);
 }
 
+#ifndef CONFIG_STATIC
 /*
  * If we met old version of a plugin, selfgenerate a plugin descriptor for it.
  */
@@ -77,6 +79,7 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 
 	return d;
 }
+#endif
 
 static void show_plugin_desc(cr_plugin_desc_t *d)
 {
@@ -110,13 +113,60 @@ int criu_get_image_dir(void)
 	return get_service_fd(IMG_FD_OFF);
 }
 
+/*
+ * Initialize the plugin for the stage and chain its hooks. dlhandle is NULL
+ * for a built-in plugin.
+ */
+static int cr_plugin_register(int stage, cr_plugin_desc_t *d, void *dlhandle, const char *path)
+{
+	plugin_desc_t *this;
+	size_t i;
+
+	if (verify_plugin(d)) {
+		pr_err("Corrupted plugin %s\n", path);
+		return -1;
+	}
+
+	this = xzalloc(sizeof(*this));
+	if (!this)
+		return -1;
+
+	this->d = d;
+	this->dlhandle = dlhandle;
+	INIT_LIST_HEAD(&this->list);
+
+	for (i = 0; i < d->max_hooks; i++)
+		INIT_LIST_HEAD(&this->link[i]);
+
+	list_add_tail(&this->list, &cr_plugin_ctl.head);
+	show_plugin_desc(d);
+
+	if (d->init && d->init(stage)) {
+		pr_err("Failed in init(%d) of \"%s\"\n", stage, d->name);
+		list_del(&this->list);
+		xfree(this);
+		return -1;
+	}
+
+	/*
+	 * Chain hooks into appropriate places for
+	 * fast handler access.
+	 */
+	for (i = 0; i < d->max_hooks; i++) {
+		if (!d->hooks[i])
+			continue;
+		list_add_tail(&this->link[i], &cr_plugin_ctl.hook_chain[i]);
+	}
+
+	return 0;
+}
+
+#ifndef CONFIG_STATIC
 static int cr_lib_load(int stage, char *path)
 {
 	cr_plugin_desc_t *d;
-	plugin_desc_t *this;
-	size_t i;
-	void *h;
 	bool allocated = false;
+	void *h;
 
 	h = dlopen(path, RTLD_LAZY);
 	if (h == NULL) {
@@ -140,58 +190,24 @@ static int cr_lib_load(int stage, char *path)
 		allocated = true;
 	}
 
-	this = xzalloc(sizeof(*this));
-	if (!this)
+	if (cr_plugin_register(stage, d, h, path))
 		goto error_close;
-
-	if (verify_plugin(d)) {
-		pr_err("Corrupted plugin %s\n", path);
-		goto error_free;
-	}
-
-	this->d = d;
-	this->dlhandle = h;
-	INIT_LIST_HEAD(&this->list);
-
-	for (i = 0; i < d->max_hooks; i++)
-		INIT_LIST_HEAD(&this->link[i]);
-
-	list_add_tail(&this->list, &cr_plugin_ctl.head);
-	show_plugin_desc(d);
-
-	if (d->init && d->init(stage)) {
-		pr_err("Failed in init(%d) of \"%s\"\n", stage, d->name);
-		list_del(&this->list);
-		goto error_free;
-	}
-
-	/*
-	 * Chain hooks into appropriate places for
-	 * fast handler access.
-	 */
-	for (i = 0; i < d->max_hooks; i++) {
-		if (!d->hooks[i])
-			continue;
-		list_add_tail(&this->link[i], &cr_plugin_ctl.hook_chain[i]);
-	}
 
 	return 0;
 
-error_free:
-	xfree(this);
 error_close:
 	dlclose(h);
 	if (allocated)
 		xfree(d);
 	return -1;
 }
+#endif
 
 void cr_plugin_fini(int stage, int ret)
 {
 	plugin_desc_t *this, *tmp;
 
 	list_for_each_entry_safe(this, tmp, &cr_plugin_ctl.head, list) {
-		void *h = this->dlhandle;
 		size_t i;
 
 		list_del(&this->list);
@@ -205,10 +221,27 @@ void cr_plugin_fini(int stage, int ret)
 
 		if (this->d->version == CRIU_PLUGIN_VERSION_OLD)
 			xfree(this->d);
-		dlclose(h);
+#ifndef CONFIG_STATIC
+		dlclose(this->dlhandle);
+#endif
 	}
 }
 
+static int cr_plugin_restore_init(void)
+{
+	int ret;
+
+	if (check_inventory_plugins())
+		return -1;
+
+	ret = run_plugins_all(RESTORE_INIT);
+	if (ret && ret != -ENOTSUP)
+		return -1;
+
+	return 0;
+}
+
+#ifndef CONFIG_STATIC
 int cr_plugin_init(int stage)
 {
 	int exit_code = -1;
@@ -261,16 +294,8 @@ int cr_plugin_init(int stage)
 			goto err;
 	}
 
-	if (stage == CR_PLUGIN_STAGE__RESTORE) {
-		int ret;
-
-		if (check_inventory_plugins())
-			goto err;
-
-		ret = run_plugins_all(RESTORE_INIT);
-		if (ret && ret != -ENOTSUP)
-			goto err;
-	}
+	if (stage == CR_PLUGIN_STAGE__RESTORE && cr_plugin_restore_init())
+		goto err;
 
 	exit_code = 0;
 err:
@@ -281,3 +306,59 @@ err:
 
 	return exit_code;
 }
+#else
+/*
+ * Plugins built into a static binary by `make static PLUGINS=...`.
+ * BUILTIN_PLUGINS is a list of BUILTIN_PLUGIN(descriptor) entries.
+ */
+#ifndef BUILTIN_PLUGINS
+#define BUILTIN_PLUGINS
+#endif
+
+#define BUILTIN_PLUGIN(desc) extern cr_plugin_desc_t desc;
+BUILTIN_PLUGINS
+#undef BUILTIN_PLUGIN
+
+#define BUILTIN_PLUGIN(desc) &desc,
+static cr_plugin_desc_t *builtin_plugins[] = { BUILTIN_PLUGINS NULL };
+#undef BUILTIN_PLUGIN
+
+int cr_plugin_show_builtin(void)
+{
+	cr_plugin_desc_t **d;
+	char *names = NULL;
+
+	for (d = builtin_plugins; *d; d++) {
+		names = xstrcat(names, " %s", (*d)->name);
+		if (!names)
+			return -1;
+	}
+
+	pr_msg("Plugins:%s\n", names ? names : " none");
+	xfree(names);
+	return 0;
+}
+
+int cr_plugin_init(int stage)
+{
+	cr_plugin_desc_t **d;
+
+	if (opts.libdir || getenv("CRIU_LIBS_DIR")) {
+		pr_err("A static CRIU binary cannot load plugins\n");
+		return -1;
+	}
+
+	for (d = builtin_plugins; *d; d++) {
+		if (cr_plugin_register(stage, *d, NULL, (*d)->name))
+			goto err;
+	}
+
+	if (stage == CR_PLUGIN_STAGE__RESTORE && cr_plugin_restore_init())
+		goto err;
+
+	return 0;
+err:
+	cr_plugin_fini(stage, -1);
+	return -1;
+}
+#endif

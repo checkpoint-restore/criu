@@ -27,7 +27,10 @@ REQ-DEB-PKG-TEST-NAMES	+= libaio-dev
 REQ-RPM-PKG-TEST-NAMES	+= $(PYTHON)-PyYAML
 
 
-export LIBS		+= -lprotobuf-c -ldl -lnl-3 -lsoccr -Lsoccr/ -lnet -luuid -lpthread
+export LIBS		+= -lprotobuf-c -lnl-3 -lsoccr -Lsoccr/ -lnet -luuid -lpthread
+ifneq ($(STATIC),1)
+export LIBS		+= -ldl
+endif
 
 check-packages-failed:
 	$(warning Can not find some of the required libraries)
