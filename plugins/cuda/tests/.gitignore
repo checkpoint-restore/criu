@@ -1,0 +1,9 @@
+/zdtm/.gitignore
+/zdtm/*.pid
+/zdtm/*.pidns
+/zdtm/*.outns
+/zdtm/*.out.external
+/zdtm/*.inprogress
+/zdtm/*.test
+/zdtm/*.test.*
+/zdtm/*.state

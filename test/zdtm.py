@@ -49,6 +49,11 @@ PLUGINS_DIR = os.path.join(
     "plugins"
 )
 
+CUDA_TESTS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "plugins", "cuda", "tests"
+)
+
 prev_line = None
 uuid = uuid.uuid4()
 
@@ -665,6 +670,11 @@ class zdtm_test:
 
     def getenv(self, action):
         env = {}
+        if test_flag(self.__desc, 'mockcuda'):
+            env.update(CRIU_CUDA_MOCK_API_MARKER='{test}.calls',
+                       CRIU_CUDA_MOCK_STATE_FILE='{test}.state',
+                       CRIU_CUDA_MOCK_CLI_MARKER='{test}.cli',
+                       CRIU_CUDA_MOCK_DRIVER_MARKER='{test}.driver')
         env.update(self.__desc.get('env', {}))
         env.update(self.__desc.get('denv' if action != 'restore' else 'renv', {}))
         return {key: self.__expand(value) if value is not None else None
@@ -723,7 +733,8 @@ class zdtm_test:
         if opts.get('mocked_cuda_checkpoint') or opts.get('cuda_checkpoint'):
             subprocess.check_call(["make", "-C", "..", "cuda_plugin"])
         if 'mocked_cuda_checkpoint' in opts and opts['mocked_cuda_checkpoint']:
-            subprocess.check_call(["make", "-C", "../plugins/cuda/tests/mock/"])
+            subprocess.check_call(["make", "-C", CUDA_TESTS_DIR, "zdtm", "mock",
+                                   "cuda_plugin.so"])
         if 'rootless' in opts and opts['rootless']:
             return
         subprocess.check_call(
@@ -1250,6 +1261,7 @@ class criu:
         self.__compress_acceleration = opts.get('compress_acceleration', 0)
         self.__compress_block = opts.get('compress_block', None)
         self.__cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'] or opts['cuda_checkpoint'])
+        self.__mocked_cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'])
 
         if opts['rpc']:
             self.__criu = criu_rpc
@@ -1355,7 +1367,11 @@ class criu:
                   "--verbosity=4"] + opts
 
         if self.__cuda_checkpoint:
-            s_args += [ "--libdir" , os.path.join(os.getcwd(), "..", "plugins", "cuda") ]
+            if self.__mocked_cuda_checkpoint:
+                plugin_dir = CUDA_TESTS_DIR
+            else:
+                plugin_dir = os.path.join(os.getcwd(), "..", "plugins", "cuda")
+            s_args += ["--libdir", plugin_dir]
 
         with open(os.path.join(self.__ddir(), action + '.cropt'), 'w') as f:
             f.write(' '.join(s_args) + '\n')
@@ -2513,7 +2529,8 @@ class Launcher:
             os.setuid(NON_ROOT_UID)
         env = dict(os.environ, CR_CT_TEST_INFO=arg)
         if opts['mocked_cuda_checkpoint']:
-            cuda_mock_dir = os.path.join(os.getcwd(), "..", "plugins", "cuda", "tests", "mock")
+            cuda_mock_dir = os.path.join(CUDA_TESTS_DIR, "mock")
+            env.setdefault("CRIU_FAULT", "138")
             env["PATH"] = cuda_mock_dir + ":" + env["PATH"]
             if "LD_LIBRARY_PATH" in env:
                 env["LD_LIBRARY_PATH"] = cuda_mock_dir + ":" + env["LD_LIBRARY_PATH"]
@@ -2869,6 +2886,10 @@ def run_tests(opts):
             # so tests with a real CUDA workload require --cuda-checkpoint.
             if test_flag(tdesc, 'cuda') and not opts['cuda_checkpoint']:
                 launcher.skip(t, "CUDA checkpoint plugin not enabled")
+                continue
+
+            if test_flag(tdesc, 'mockcuda') and not opts['mocked_cuda_checkpoint']:
+                launcher.skip(t, "mock CUDA checkpoint plugin not enabled")
                 continue
 
             if self_checkskip(t):

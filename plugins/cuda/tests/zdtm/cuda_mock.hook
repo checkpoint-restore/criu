@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""Check CUDA mock state at ZDTM's existing fault and restore hooks."""
+import ast
+from pathlib import Path
+import os
+import re
+import shutil
+import sys
+
+
+CALL_FIXTURES = ('.calls', '.cli', '.driver')
+FIXTURES = CALL_FIXTURES
+
+name = Path(sys.argv[0]).with_suffix('')
+desc = ast.literal_eval(name.with_suffix('.desc').read_text())
+checks = desc['cuda_mock']
+phase = sys.argv[1]
+# Resolve the directory, not the executable symlink to the reused workload.
+base = name.parent.resolve() / name.name
+
+
+def fixture(suffix):
+    return Path(str(base) + suffix)
+
+
+def state_files():
+    return base.parent.glob(base.name + '.state.*')
+
+
+def cleanup():
+    for suffix in FIXTURES:
+        fixture(suffix).unlink(missing_ok=True)
+    for path in state_files():
+        path.unlink()
+
+
+def calls():
+    marker = fixture('.calls')
+    return [line.split() for line in marker.read_text().splitlines()] if marker.exists() else []
+
+
+def states():
+    result = {}
+    for path in state_files():
+        state = path.read_text().strip()
+        result[int(path.suffix[1:])] = state
+    return result
+
+
+def check_state(expected):
+    actual = states()
+    if checks.get('state_required', True):
+        assert actual, 'mock did not write any CUDA state'
+    for pid, state in actual.items():
+        assert state == expected, f'pid {pid}: {state}, expected {expected}'
+
+
+def check_backend(log, action):
+    backend = checks.get('backend', 'Driver API')
+    assert f'selected {backend} backend' in log, log
+    if checks.get('restore_thread'):
+        pattern = (r'Checkpointing CUDA devices on pid (\d+) restore_tid (\d+)' if action == 'dump'
+                   else r'Restore thread pid (\d+) found for real pid (\d+)')
+        threads = re.findall(pattern, log)
+        assert len(threads) == 1, 'expected one CUDA restore thread'
+        assert threads[0][0] != threads[0][1], 'CUDA restore thread is the process leader'
+    if backend == 'cuda-checkpoint CLI':
+        helpers = {int(call[2]) for call in calls()}
+        assert helpers, 'no helper calls recorded'
+        for pid in helpers:
+            assert not Path(f'/proc/{pid}').exists(), f'CUDA helper {pid} leaked'
+
+
+def archive():
+    directory = Path(os.environ['ZDTM_CRIU_IMG_DIR'])
+    for suffix in CALL_FIXTURES:
+        path = fixture(suffix)
+        if path.exists():
+            shutil.copy2(path, directory / ('cuda' + suffix))
+    for path in state_files():
+        shutil.copy2(path, directory / path.name)
+
+
+if not __debug__:
+    raise SystemExit('these checks require Python assertions')
+
+if phase in ('--pre-dump', '--clean'):
+    cleanup()
+elif phase == '--pre-restore':
+    # Save the evidence first: --clean removes it if a check fails.
+    archive()
+    log = (Path(os.environ['ZDTM_CRIU_IMG_DIR']) / 'dump.log').read_text()
+    check_backend(log, 'dump')
+    check_state('checkpointed')
+    for suffix in CALL_FIXTURES:
+        fixture(suffix).unlink(missing_ok=True)
+elif phase == '--post-restore':
+    archive()
+    log = (Path(os.environ['ZDTM_CRIU_IMG_DIR']) / 'restore.log').read_text()
+    check_backend(log, 'restore')
+    check_state('running')

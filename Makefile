@@ -470,6 +470,7 @@ ruff:
 		scripts/github-indent-warnings.py \
 		contrib/criu-service-client/test/*.py \
 		contrib/compression-benchmark/ \
+		plugins/cuda/tests/zdtm/cuda_mock.hook \
 		test/others/compression/ \
 		soccr/test/run.py \
 		soccr/test/tcp-test.py
