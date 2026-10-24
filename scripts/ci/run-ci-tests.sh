@@ -525,6 +525,7 @@ run_non_shardable_tests() {
 		# Fault 138 (FI_PLUGIN_CUDA_FORCE_ENABLE) enables the mock without a GPU.
 		./test/zdtm.py run -t zdtm/static/sigpending -t zdtm/static/pthread00 \
 			--mocked-cuda-checkpoint --fault 138
+		./test/zdtm.py --set cuda run -a --mocked-cuda-checkpoint
 		./test/cuda-checkpoint/checkpoint-error-rollback.sh
 		python3 ./test/cuda-checkpoint/backend-errors.py
 		./test/cuda-checkpoint/backend-selection.sh

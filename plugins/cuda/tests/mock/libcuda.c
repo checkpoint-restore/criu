@@ -1,4 +1,6 @@
+#include <dirent.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <signal.h>
@@ -338,17 +340,62 @@ mock_cuda_result_t cuGetErrorString(mock_cuda_result_t error, const char **pstr)
 	return MOCK_CUDA_SUCCESS;
 }
 
+static int nonleader_restore_tid(int pid)
+{
+	struct dirent *entry;
+	char path[64];
+	DIR *tasks;
+	int tid = 0;
+
+	snprintf(path, sizeof(path), "/proc/%d/task", pid);
+	tasks = opendir(path);
+	if (!tasks)
+		return 0;
+
+	for (;;) {
+		char *end;
+		long candidate;
+
+		errno = 0;
+		entry = readdir(tasks);
+		if (!entry) {
+			if (errno)
+				tid = 0;
+			break;
+		}
+
+		candidate = strtol(entry->d_name, &end, 10);
+		if (*end || candidate <= 0 || candidate > INT_MAX || candidate == pid)
+			continue;
+		/* Use the same surviving thread before and after restore. */
+		if (!tid || candidate < tid)
+			tid = (int)candidate;
+	}
+
+	if (closedir(tasks))
+		return 0;
+	return tid;
+}
+
 mock_cuda_result_t cuCheckpointProcessGetRestoreThreadId(int pid, int *tid)
 {
 	const char *error = getenv("CRIU_CUDA_MOCK_TID_ERROR");
 	const char *cuda_pid = getenv("CRIU_CUDA_MOCK_CUDA_PID");
+	const char *restore_tid = getenv("CRIU_CUDA_MOCK_RESTORE_TID");
+	const char *restore_thread = getenv("CRIU_CUDA_MOCK_RESTORE_THREAD");
 
 	record_api("get-tid", pid);
 	/* A selected PID can remain CUDA while the rest of a process tree is not. */
 	if (error && (!cuda_pid || atoi(cuda_pid) != pid))
 		return atoi(error);
 
-	*tid = getenv("CRIU_CUDA_MOCK_RESTORE_TID") ? atoi(getenv("CRIU_CUDA_MOCK_RESTORE_TID")) : pid;
+	*tid = pid;
+	if (restore_tid)
+		*tid = atoi(restore_tid);
+	if (restore_thread)
+		*tid = nonleader_restore_tid(pid);
+	if (!*tid)
+		return MOCK_CUDA_ERROR_INVALID_VALUE;
 	return MOCK_CUDA_SUCCESS;
 }
 

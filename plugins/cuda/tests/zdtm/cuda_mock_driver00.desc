@@ -1,0 +1,6 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'env': {'CRIU_CUDA_MOCK_RESTORE_THREAD': '1'},
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API', 'restore_thread': True}}
