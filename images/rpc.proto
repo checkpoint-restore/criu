@@ -170,6 +170,8 @@ message criu_opts {
 	/* Plugin-owned namespaced options in PLUGIN.NAME[=VALUE] form. */
 	repeated string			plugin_options		= 77;
 	optional bool			stream			= 78;
+	/* The caller reaps userns_helper_pid returned by sibling restore. */
+	optional bool			rst_sibling_userns	= 79;
 /*	optional bool			check_mounts		= 128;	*/
 }
 
@@ -179,6 +181,7 @@ message criu_dump_resp {
 
 message criu_restore_resp {
 	required int32 pid		= 1;
+	optional int32 userns_helper_pid	= 2;
 }
 
 message criu_notify {
