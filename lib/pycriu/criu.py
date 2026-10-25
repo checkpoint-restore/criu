@@ -200,8 +200,9 @@ class _criu_comm_bin(_criu_comm):
     def disconnect(self, wait=True):
         transport, self.sk = self.sk, None
         worker = None if self.daemon or not self.swrk else (self.swrk, self._pidfd)
+        self.swrk = None
         self._pidfd = None
-        reaped = None
+        reaped = False
         try:
             if transport is not None:
                 transport.close()
@@ -209,11 +210,10 @@ class _criu_comm_bin(_criu_comm):
                 reaped = self._wait_worker(worker, wait=wait)
         finally:
             if worker is not None:
-                if reaped is False:
-                    self._pending_workers.append(worker)
-                else:
+                if reaped:
                     self._close_worker(worker)
-        self.swrk = None
+                else:
+                    self._pending_workers.append(worker)
 
     @staticmethod
     def _open_pidfd(pid):
