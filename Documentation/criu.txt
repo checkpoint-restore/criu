@@ -1030,7 +1030,7 @@ should only be used carefully.*
 NON-ROOT
 --------
 *criu* can be used as non-root with either the *CAP_SYS_ADMIN* capability
-or with the *CAP_CHECKPOINT_RESTORE* capability introduces in Linux kernel 5.9.
+or with the *CAP_CHECKPOINT_RESTORE* capability introduced in Linux kernel 5.9.
 *CAP_CHECKPOINT_RESTORE* is the minimum that is required.
 
 *criu* also needs either *CAP_SYS_PTRACE* or a value of 0 in
@@ -1059,6 +1059,12 @@ CRIU to read symlinks in /proc/[pid]/map_files.
 
 Without access to /proc/[pid]/map_files checkpointing/restoring processes
 that have mapped deleted files may not be possible.
+
+Similarly, to checkpoint a process that uses a seccomp filter, *criu* has to
+suspend seccomp with the *PTRACE_O_SUSPEND_SECCOMP* ptrace option, and the
+kernel only allows this with *CAP_SYS_ADMIN* in the init namespace. This means
+that *CAP_CHECKPOINT_RESTORE* alone is not sufficient to checkpoint such
+processes.
 
 Independent of the capabilities it is always necessary to use "*--unprivileged*" to
 accept *criu*'s limitation in non-root mode.
