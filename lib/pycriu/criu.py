@@ -177,11 +177,17 @@ class _criu_comm_bin(_criu_comm):
         if self.daemon or not self.swrk:
             return
 
-        if not self._wait_worker(self.swrk, wait=wait):
+        pid = self.swrk
+        self.swrk = None
+        try:
+            reaped = self._wait_worker(pid, wait=wait)
+        except BaseException:
+            self._pending_workers.append(pid)
+            raise
+        if not reaped:
             # The worker may be waiting for a page server rather than
             # reading the socket. Check it again on later RPC calls.
-            self._pending_workers.append(self.swrk)
-        self.swrk = None
+            self._pending_workers.append(pid)
 
     @staticmethod
     def _wait_worker(pid, wait=True):
