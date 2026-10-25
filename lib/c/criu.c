@@ -1369,6 +1369,12 @@ int criu_add_plugin_option(const char *option)
 
 int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port)
 {
+	if (opts->rpc->ps) {
+		free(opts->rpc->ps->address);
+		free(opts->rpc->ps);
+		opts->rpc->ps = NULL;
+	}
+
 	opts->rpc->ps = malloc(sizeof(CriuPageServerInfo));
 	if (!opts->rpc->ps)
 		return -ENOMEM;
