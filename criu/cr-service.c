@@ -194,6 +194,10 @@ int send_criu_restore_resp(int socket_fd, bool success, int pid)
 	msg.restore = &resp;
 
 	resp.pid = pid;
+	if (userns_restore_helper_pid > 0) {
+		resp.has_userns_helper_pid = true;
+		resp.userns_helper_pid = userns_restore_helper_pid;
+	}
 
 	return send_criu_msg(socket_fd, &msg);
 }
@@ -483,6 +487,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 		opts.restore_sibling = req->rst_sibling;
 	}
+	if (req->has_rst_sibling_userns)
+		opts.restore_sibling_userns = req->rst_sibling_userns;
 
 	if (req->has_tcp_established)
 		opts.tcp_established_ok = req->tcp_established;
