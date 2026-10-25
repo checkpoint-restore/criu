@@ -200,6 +200,42 @@ def test_deferred_wait_error():
         return check_deferred_reaping(pid, finish)
 
 
+def test_interrupted_worker_wait():
+    for error in (KeyboardInterrupt(), SystemExit(42)):
+        fds = open_fds()
+        with blocked_worker() as (criu, pid, finish):
+            waitpid = os.waitpid
+            waitid = os.waitid
+
+            def interrupted_waitpid(worker, options):
+                if worker == pid and options == 0:
+                    raise error
+                return waitpid(worker, options)
+
+            def interrupted_waitid(idtype, ident, options):
+                # Interrupt only the blocking wait on the worker's pidfd.
+                if not options & os.WNOHANG:
+                    raise error
+                return waitid(idtype, ident, options)
+
+            with ExitStack() as patches:
+                patches.enter_context(mock.patch.object(os, "waitpid", side_effect=interrupted_waitpid))
+                patches.enter_context(mock.patch.object(os, "waitid", side_effect=interrupted_waitid))
+                try:
+                    criu._send_req_and_recv_resp(make_req(criu, False))
+                    return fail("interrupted worker wait did not raise")
+                except (KeyboardInterrupt, SystemExit) as caught:
+                    if caught is not error:
+                        return fail("worker wait changed the cancellation exception")
+            if criu._comm.swrk is not None or criu._comm._pidfd is not None:
+                return fail("interrupted worker wait left the worker cached")
+            if check_deferred_reaping(pid, finish):
+                return 1
+        if open_fds() != fds:
+            return fail("interrupted worker wait left a descriptor open")
+    return 0
+
+
 def main():
     # A failed keep_open request closes the connection, so the next
     # request reconnects instead of reusing it.
@@ -323,6 +359,8 @@ def main():
     if test_worker_reaped_elsewhere():
         return 1
     if test_deferred_wait_error():
+        return 1
+    if test_interrupted_worker_wait():
         return 1
 
     # A successful response still wraps a failure to close its transport.
