@@ -19,7 +19,7 @@
  * Top bit set in the tgt id means we've remapped
  * to a ghost file.
  */
-#define REMAP_GHOST (1 << 31)
+#define REMAP_GHOST (1U << 31)
 
 /*
  * VMA_AREA status:
@@ -81,33 +81,33 @@
  *   	because the kernel is in complete control of this vma. This is
  *   	just used to track the existence of the uprobes vma.
  */
-#define VMA_AREA_NONE	  (0 << 0)
-#define VMA_AREA_REGULAR  (1 << 0)
-#define VMA_AREA_STACK	  (1 << 1)
-#define VMA_AREA_VSYSCALL (1 << 2)
-#define VMA_AREA_VDSO	  (1 << 3)
-#define VMA_AREA_HEAP	  (1 << 5)
+#define VMA_AREA_NONE	  (0U << 0)
+#define VMA_AREA_REGULAR  (1U << 0)
+#define VMA_AREA_STACK	  (1U << 1)
+#define VMA_AREA_VSYSCALL (1U << 2)
+#define VMA_AREA_VDSO	  (1U << 3)
+#define VMA_AREA_HEAP	  (1U << 5)
 
-#define VMA_FILE_PRIVATE (1 << 6)
-#define VMA_FILE_SHARED	 (1 << 7)
-#define VMA_ANON_SHARED	 (1 << 8)
-#define VMA_ANON_PRIVATE (1 << 9)
+#define VMA_FILE_PRIVATE (1U << 6)
+#define VMA_FILE_SHARED	 (1U << 7)
+#define VMA_ANON_SHARED	 (1U << 8)
+#define VMA_ANON_PRIVATE (1U << 9)
 
-#define VMA_AREA_SYSVIPC (1 << 10)
-#define VMA_AREA_SOCKET	 (1 << 11)
-#define VMA_AREA_VVAR	 (1 << 12)
-#define VMA_AREA_AIORING (1 << 13)
-#define VMA_AREA_MEMFD	 (1 << 14)
-#define VMA_AREA_SHSTK	 (1 << 15)
-#define VMA_AREA_GUARD	 (1 << 16)
-#define VMA_AREA_UPROBES	(1 << 17)
-#define VMA_AREA_NOT_ACCOUNTABLE (1 << 18)
+#define VMA_AREA_SYSVIPC (1U << 10)
+#define VMA_AREA_SOCKET	 (1U << 11)
+#define VMA_AREA_VVAR	 (1U << 12)
+#define VMA_AREA_AIORING (1U << 13)
+#define VMA_AREA_MEMFD	 (1U << 14)
+#define VMA_AREA_SHSTK	 (1U << 15)
+#define VMA_AREA_GUARD	 (1U << 16)
+#define VMA_AREA_UPROBES	(1U << 17)
+#define VMA_AREA_NOT_ACCOUNTABLE (1U << 18)
 
-#define VMA_EXT_PLUGIN	  (1 << 27)
-#define VMA_CLOSE	  (1 << 28)
-#define VMA_NO_PROT_WRITE (1 << 29)
-#define VMA_PREMMAPED	  (1 << 30)
-#define VMA_UNSUPP	  (1 << 31)
+#define VMA_EXT_PLUGIN	  (1U << 27)
+#define VMA_CLOSE	  (1U << 28)
+#define VMA_NO_PROT_WRITE (1U << 29)
+#define VMA_PREMMAPED	  (1U << 30)
+#define VMA_UNSUPP	  (1U << 31)
 
 /*
  * The VMA areas that pr_vma() prints a short name for, one X(_o, _s)
