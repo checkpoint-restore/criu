@@ -150,7 +150,7 @@ class _criu_comm_bin(_criu_comm):
         css[0].close()
         try:
             self.swrk = struct.unpack('i', css[1].recv(4))[0]
-        except Exception:
+        except BaseException:
             css[1].close()
             # Daemon mode already reaped the intermediate child.
             if not daemon:
@@ -297,14 +297,16 @@ class criu:
 
             resp = rpc.criu_resp()
             resp.ParseFromString(buf)
-        except Exception as e:
+        except BaseException as e:
             self.sk = None
             try:
                 self._comm.disconnect()
             except Exception:
                 # Preserve the request failure if cleanup also fails.
                 pass
-            raise CRIUExceptionInternal(req.type, str(e))
+            if isinstance(e, Exception):
+                raise CRIUExceptionInternal(req.type, str(e))
+            raise
 
         if req.keep_open and resp.success:
             # Only a successful keep_open response starts a session;

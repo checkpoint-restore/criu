@@ -116,7 +116,7 @@ def main():
                 return fail("receive or parsing error left the socket open")
 
     # Cleanup must preserve the original request failure.
-    for error in (OSError(errno.EIO, "transport failed"),):
+    for error in (OSError(errno.EIO, "transport failed"), KeyboardInterrupt(), SystemExit(42)):
         client, server = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
         with client, server:
             criu = criu_class()
@@ -136,11 +136,14 @@ def main():
                     try:
                         criu._send_req_and_recv_resp(make_req(criu, False))
                         return fail("request failure did not raise")
-                    except Exception as caught:
-                        if not isinstance(caught, CRIUExceptionInternal):
-                            return fail("cleanup error replaced the transport error")
-                        if str(error) not in str(caught):
-                            return fail("internal error did not preserve the transport error")
+                    except (CRIUExceptionInternal, KeyboardInterrupt, SystemExit) as caught:
+                        if isinstance(error, Exception):
+                            if not isinstance(caught, CRIUExceptionInternal):
+                                return fail("cleanup error replaced the transport error")
+                            if str(error) not in str(caught):
+                                return fail("internal error did not preserve the transport error")
+                        elif caught is not error:
+                            return fail("cleanup changed the cancellation exception")
             if criu.sk is not None or criu._comm.sk is not None:
                 return fail("request failure kept the socket cached")
             if transport.fileno() != -1:
@@ -210,7 +213,9 @@ def main():
 
     # A failed PID handshake closes both sockets and waits only for the
     # direct child, including in daemon mode.
-    for daemon, error in ((False, None), (True, None)):
+    for daemon, error in ((False, None), (True, None),
+                          (False, KeyboardInterrupt()), (True, KeyboardInterrupt()),
+                          (False, SystemExit(42)), (True, SystemExit(42))):
         comm = criu_class()._comm
         client, server = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
         with client, server:
@@ -218,13 +223,19 @@ def main():
                 patches.enter_context(mock.patch.object(socket, "socketpair",
                                                         return_value=(client, server)))
                 waitpid = patches.enter_context(mock.patch.object(os, "waitpid", wraps=os.waitpid))
+                if error is not None:
+                    patches.enter_context(mock.patch.object(socket.socket, "recv", side_effect=error))
                 # connect() calls getpid() only in the worker child.
                 patches.enter_context(mock.patch.object(os, "getpid", side_effect=lambda: os._exit(0)))
                 try:
                     comm.connect(daemon)
                     return fail("failed worker handshake did not raise")
-                except struct.error:
-                    pass
+                except (struct.error, KeyboardInterrupt, SystemExit) as caught:
+                    if error is None:
+                        if not isinstance(caught, struct.error):
+                            return fail("failed worker handshake raised a different error")
+                    elif caught is not error:
+                        return fail("handshake cleanup changed the cancellation exception")
                 if waitpid.call_count != 1:
                     return fail("worker handshake waited for the same child twice or not at all")
             if client.fileno() != -1 or server.fileno() != -1:
