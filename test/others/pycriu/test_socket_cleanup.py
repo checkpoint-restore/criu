@@ -42,6 +42,8 @@ def blocked_worker():
             try:
                 client.close()
                 finish.close()
+                server.send(pycriu.rpc.criu_resp(type=pycriu.rpc.CHECK,
+                                                 success=True).SerializeToString())
                 # Stay alive independently of the RPC socket until the
                 # parent closes the pipe.
                 release.read(1)
@@ -113,6 +115,30 @@ def test_binary_failures():
                 return fail("binary request failure kept the transport or worker pid")
             if os.waitpid(pid, os.WNOHANG) != (0, 0):
                 return fail("request failure terminated the worker")
+            if check_deferred_reaping(pid, finish):
+                return 1
+    return 0
+
+
+def test_interrupted_worker_wait():
+    for error in (KeyboardInterrupt(), SystemExit(42)):
+        with blocked_worker() as (criu, pid, finish):
+            waitpid = os.waitpid
+
+            def interrupted_wait(worker, options):
+                if worker == pid and options == 0:
+                    raise error
+                return waitpid(worker, options)
+
+            with mock.patch.object(os, "waitpid", side_effect=interrupted_wait):
+                try:
+                    criu._send_req_and_recv_resp(make_req(criu, False))
+                    return fail("interrupted worker wait did not raise")
+                except (KeyboardInterrupt, SystemExit) as caught:
+                    if caught is not error:
+                        return fail("worker wait changed the cancellation exception")
+            if criu._comm.swrk is not None:
+                return fail("interrupted worker wait left the pid cached")
             if check_deferred_reaping(pid, finish):
                 return 1
     return 0
@@ -237,6 +263,8 @@ def main():
                 return fail("request failure left the socket open")
 
     if test_binary_failures():
+        return 1
+    if test_interrupted_worker_wait():
         return 1
 
     # A successful response still wraps a failure to close its transport.
