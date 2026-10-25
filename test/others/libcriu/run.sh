@@ -64,6 +64,7 @@ if [ "$(uname -m)" = "x86_64" ]; then
 	run_test test_pre_dump
 fi
 run_test test_errno
+run_test test_opts_reuse
 run_test test_join_ns
 run_test test_check
 if criu check --feature mem_dirty_track > /dev/null; then
