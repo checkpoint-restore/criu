@@ -1431,9 +1431,8 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 		 */
 		BUG_ON(flags & UNS_FDOUT);
 
-	/* Send the request */
-
-	unsc_msg_init(&um, &call, &flags, arg, arg_size, fd, NULL);
+	/* Send the request; the kernel adds our creds as SO_PASSCRED is set. */
+	unsc_msg_init_nocreds(&um, &call, &flags, arg, arg_size, fd);
 	ret = sendmsg(sk, &um.h, 0);
 	if (ret <= 0) {
 		pr_perror("uns: send req error");
