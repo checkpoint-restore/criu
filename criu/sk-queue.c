@@ -356,6 +356,34 @@ static int dump_sk_creds(struct ucred *ucred, SkPacketEntry *pe, int flags)
 	return 0;
 }
 
+/*
+ * recvmsg() installs the fds of SCM_RIGHTS and SCM_PIDFD before it reports
+ * anything about the control buffer, so what it installed is ours to close
+ * even when we go on to fail the dump. The kernel shortens msg_controllen to
+ * what it actually wrote, so this walk only ever sees whole cmsgs.
+ */
+static void close_received_fds(struct msghdr *mh)
+{
+	struct cmsghdr *ch;
+
+	for (ch = CMSG_FIRSTHDR(mh); ch; ch = CMSG_NXTHDR(mh, ch)) {
+		int *fds, i, nr;
+
+		if (ch->cmsg_level != SOL_SOCKET)
+			continue;
+		if (ch->cmsg_type != SCM_RIGHTS && ch->cmsg_type != SCM_PIDFD)
+			continue;
+
+		fds = (int *)CMSG_DATA(ch);
+		nr = (ch->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+		for (i = 0; i < nr; i++) {
+			/* An SCM_PIDFD payload can be a raw negative errno. */
+			if (fds[i] >= 0)
+				close(fds[i]);
+		}
+	}
+}
+
 static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 {
 	struct cmsghdr *ch;
@@ -461,6 +489,18 @@ static int dump_sk_queue_packet(int sock_fd, int sock_id, void *data, int size, 
 		 * to check...
 		 */
 		pr_err("recvmsg failed: truncated\n");
+		return -1;
+	}
+
+	if (msg.msg_flags & MSG_CTRUNC) {
+		/*
+		 * Control data was truncated: the kernel dropped part of the
+		 * ancillary messages, so SCM_RIGHTS fds or SCM_PIDFD may be
+		 * missing. Bail out, closing whatever fds recvmsg installed
+		 * before it gave up on the buffer.
+		 */
+		close_received_fds(&msg);
+		pr_err("recvmsg failed: control data truncated\n");
 		return -1;
 	}
 
