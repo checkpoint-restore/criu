@@ -79,6 +79,7 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 		CredsEntry *ce = NULL;
 
 		sz += sizeof(ThreadCoreEntry) + sizeof(ThreadSasEntry) + sizeof(CredsEntry);
+		sz += sizeof(ThreadCpuAffinityEntry) + sizeof(cpu_set_t);
 
 		sz += CR_CAP_SIZE * sizeof(ce->cap_inh[0]);
 		sz += CR_CAP_SIZE * sizeof(ce->cap_prm[0]);
@@ -150,6 +151,12 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 			ce->cap_eff = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_eff[0]));
 			ce->cap_bnd = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_bnd[0]));
 			ce->cap_amb = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_amb[0]));
+
+			core->thread_core->cpu_affinity = xptr_pull(&m, ThreadCpuAffinityEntry);
+			thread_cpu_affinity_entry__init(core->thread_core->cpu_affinity);
+			core->thread_core->cpu_affinity->n_cpumask = sizeof(cpu_set_t) / sizeof(uint64_t);
+			core->thread_core->cpu_affinity->cpumask = xptr_pull_s(&m, sizeof(cpu_set_t));
+			memzero(core->thread_core->cpu_affinity->cpumask, sizeof(cpu_set_t));
 
 			if (arch_alloc_thread_info(core)) {
 				xfree(core);
