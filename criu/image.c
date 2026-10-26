@@ -746,6 +746,23 @@ static int userns_open_image(int dfd, const char *path, int flags)
 	return userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
 }
 
+/*
+ * Open a file in the images directory, falling back to usernsd if we
+ * are in the restored user namespace and have no access to it.
+ */
+static int img_openat(int dfd, const char *path, int flags)
+{
+	int ret;
+
+	ret = openat(dfd, path, flags, CR_FD_PERM);
+	if (ret < 0 && errno == EACCES && root_ns_mask & CLONE_NEWUSER) {
+		pr_debug("Retrying to open %s via usernsd\n", path);
+		ret = userns_open_image(dfd, path, flags);
+	}
+
+	return ret;
+}
+
 static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
 {
 	int ret, flags;
@@ -763,7 +780,7 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 		 */
 		ret = userns_open_image(dfd, path, flags);
 	} else
-		ret = openat(dfd, path, flags, CR_FD_PERM);
+		ret = img_openat(dfd, path, flags);
 	if (ret < 0) {
 		if (!(flags & O_CREAT) && (errno == ENOENT || ret == -ENOENT)) {
 			pr_info("No %s image\n", path);
@@ -931,16 +948,19 @@ void close_image_dir(void)
 
 int open_parent(int dfd, int *pfd)
 {
-	struct stat st;
+	int fd;
 
 	*pfd = -1;
 	/* Check if the parent symlink exists */
-	if (fstatat(dfd, CR_PARENT_LINK, &st, AT_SYMLINK_NOFOLLOW) && errno == ENOENT) {
+	fd = img_openat(dfd, CR_PARENT_LINK, O_PATH | O_NOFOLLOW);
+	if (fd < 0 && errno == ENOENT) {
 		pr_debug("No parent images directory provided\n");
 		return 0;
 	}
+	if (fd >= 0)
+		close(fd);
 
-	*pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+	*pfd = img_openat(dfd, CR_PARENT_LINK, O_RDONLY);
 	if (*pfd < 0) {
 		pr_perror("Can't open parent path");
 		return -1;
