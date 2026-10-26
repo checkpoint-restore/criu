@@ -1330,7 +1330,7 @@ static int usernsd(int sk)
 		struct unsc_msg um;
 		static char msg[MAX_UNSFD_MSG_SIZE];
 		uns_call_t call;
-		int flags, fd, ret;
+		int flags, fd, ret, err;
 		pid_t pid;
 
 		unsc_msg_init(&um, &call, &flags, msg, sizeof(msg), 0, NULL);
@@ -1351,6 +1351,7 @@ static int usernsd(int sk)
 		 */
 
 		ret = call(msg, fd, pid);
+		err = errno;
 
 		if (fd >= 0)
 			close(fd);
@@ -1373,10 +1374,13 @@ static int usernsd(int sk)
 			continue;
 		}
 
-		if (flags & UNS_FDOUT)
+		if (flags & UNS_FDOUT) {
 			fd = ret;
-		else
+			/* Send the callback's errno back in case it failed. */
+			ret = fd < 0 ? err : 0;
+		} else {
 			fd = -1;
+		}
 
 		unsc_msg_init(&um, &call, &ret, NULL, 0, fd, NULL);
 		if (sendmsg(sk, &um.h, 0) <= 0) {
@@ -1454,10 +1458,14 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 
 	/* Decode the result and return */
 
-	if (flags & UNS_FDOUT)
+	if (flags & UNS_FDOUT) {
 		unsc_msg_pid_fd(&um, NULL, &ret);
-	else
+		/* No fd: the callback failed, and res is its errno. */
+		if (ret < 0)
+			errno = res;
+	} else {
 		ret = res;
+	}
 out:
 	if (!async)
 		mutex_unlock(&task_entries->userns_sync_lock);
