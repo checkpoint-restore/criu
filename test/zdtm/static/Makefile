@@ -156,6 +156,7 @@ TST_NOFILE	:=				\
 		sock_uid				\
 		sk-unix-unconn			\
 		sk-unix-unconn-seqpacket	\
+		sk-unix-dgram-cred-none		\
 		ipc_namespace			\
 		selfexe00			\
 		sem				\
