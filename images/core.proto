@@ -91,6 +91,10 @@ message thread_sas_entry {
 	required uint32			ss_flags	= 3;
 }
 
+message thread_cpu_affinity_entry {
+	repeated uint64			cpumask		= 1;
+}
+
 message thread_core_entry {
 	required uint64			futex_rla	= 1;
 	required uint32			futex_rla_len	= 2;
@@ -112,6 +116,7 @@ message thread_core_entry {
 	optional rseq_entry		rseq_entry	= 15;
 	optional uint32			cg_set		= 16;
 	optional uint64			timerslack_ns	= 17;
+	optional thread_cpu_affinity_entry	cpu_affinity	= 18;
 }
 
 message task_rlimits_entry {
