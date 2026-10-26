@@ -206,8 +206,8 @@ typedef int (*uns_call_t)(void *arg, int fd, pid_t pid);
  */
 #define UNS_ASYNC 0x1
 /*
- * The call returns an FD which should be sent back. Conflicts
- * with UNS_ASYNC.
+ * The call returns an FD which should be sent back, or -1 with errno
+ * set, which is then passed back to the caller. Conflicts with UNS_ASYNC.
  */
 #define UNS_FDOUT 0x2
 

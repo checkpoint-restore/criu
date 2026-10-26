@@ -724,20 +724,26 @@ static int img_write_magic(struct cr_img *img, int oflags, int type)
 struct openat_args {
 	char path[PATH_MAX];
 	int flags;
-	int err;
 	int mode;
 };
 
 static int userns_openat(void *arg, int dfd, int pid)
 {
 	struct openat_args *pa = (struct openat_args *)arg;
-	int ret;
 
-	ret = openat(dfd, pa->path, pa->flags, pa->mode);
-	if (ret < 0)
-		pa->err = errno;
+	return openat(dfd, pa->path, pa->flags, pa->mode);
+}
 
-	return ret;
+/* Open an image via usernsd, i.e. with the root user namespace credentials. */
+static int userns_open_image(int dfd, const char *path, int flags)
+{
+	struct openat_args pa = {
+		.flags = flags,
+		.mode = CR_FD_PERM,
+	};
+
+	snprintf(pa.path, PATH_MAX, "%s", path);
+	return userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
 }
 
 static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
@@ -755,15 +761,7 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 		 * restore, that may require proper capabilities, so we ask
 		 * usernsd to do it for us
 		 */
-		struct openat_args pa = {
-			.flags = flags,
-			.err = 0,
-			.mode = CR_FD_PERM,
-		};
-		snprintf(pa.path, PATH_MAX, "%s", path);
-		ret = userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
-		if (ret < 0)
-			errno = pa.err;
+		ret = userns_open_image(dfd, path, flags);
 	} else
 		ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
