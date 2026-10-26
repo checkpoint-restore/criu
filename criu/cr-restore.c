@@ -132,6 +132,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *ta, unsigned l
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core);
 static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
+static int prepare_cpu_affinity(int pid, struct task_restore_args *ta, CoreEntry *core);
 
 /*
  * Architectures can overwrite this function to restore registers that are not
@@ -672,6 +673,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (prepare_signals(pid, ta, core))
+		return -1;
+
+	if (prepare_cpu_affinity(pid, ta, core))
 		return -1;
 
 	if (prepare_posix_timers(pid, ta, core))
@@ -2971,6 +2975,78 @@ out:
 	return ret;
 }
 
+static int prepare_cpu_affinity(int pid, struct task_restore_args *ta, CoreEntry *core)
+{
+	struct rst_cpu_affinity *rca;
+	unsigned int nr_cpus, i;
+	size_t sz;
+
+	/*
+	 * The leader's thread_core carries the affinity data for all
+	 * threads. On old images (without the cpu_affinity field) the
+	 * pointer is NULL, so fall back to a no-restore rca.
+	 */
+	if (!core->thread_core->cpu_affinity) {
+		pr_info("No cpu affinity in image, skipping\n");
+		nr_cpus = 0;
+		goto alloc_rca;
+	}
+
+	nr_cpus = core->thread_core->cpu_affinity->n_cpumask;
+	if (nr_cpus == 0) {
+		pr_info("Empty cpu affinity, skipping\n");
+		goto alloc_rca;
+	}
+
+	if (!opts.cpu_affinity) {
+		pr_info("CPU affinity found in image but not restored "
+			"(use --cpu-affinity to restore)\n");
+		goto alloc_rca;
+	}
+
+	for (i = 0; i < current->nr_threads; i++) {
+		ThreadCpuAffinityEntry *ac = current->core[i]->thread_core->cpu_affinity;
+
+		if (!ac || ac->n_cpumask == 0) {
+			pr_warn("Thread %d has empty cpu affinity, skipping restore\n", i);
+			goto alloc_rca;
+		}
+	}
+
+	ta->cpu_affinity = (struct rst_cpu_affinity *)rst_mem_align_cpos(RM_PRIVATE);
+	sz = sizeof(struct rst_cpu_affinity) + nr_cpus * sizeof(uint64_t) * current->nr_threads;
+	rca = rst_mem_alloc(sz, RM_PRIVATE);
+	if (!rca)
+		return -1;
+
+	rca->nr_cpus = nr_cpus;
+
+	for (i = 0; i < current->nr_threads; i++) {
+		ThreadCpuAffinityEntry *ac = current->core[i]->thread_core->cpu_affinity;
+		uint64_t *dst = &rca->cpumasks[i * nr_cpus];
+
+		memcpy(dst, ac->cpumask, nr_cpus * sizeof(uint64_t));
+	}
+
+	return 0;
+
+alloc_rca:
+	/*
+	 * Fallback path: allocate a minimal rca with nr_cpus=0 so the
+	 * restorer blob's RST_MEM_FIXUP_PPTR yields a valid pointer and
+	 * restore_cpu_affinity() skips via !rca->nr_cpus. Without this,
+	 * ta->cpu_affinity stays 0 and RST_MEM_FIXUP_PPTR(0) would point it
+	 * at the rst_mem base, where nr_cpus would read garbage.
+	 */
+	ta->cpu_affinity = (struct rst_cpu_affinity *)rst_mem_align_cpos(RM_PRIVATE);
+	sz = sizeof(struct rst_cpu_affinity);
+	rca = rst_mem_alloc(sz, RM_PRIVATE);
+	if (!rca)
+		return -1;
+	rca->nr_cpus = 0;
+	return 0;
+}
+
 extern void __gcov_flush(void) __attribute__((weak));
 void __gcov_flush(void)
 {
@@ -3447,6 +3523,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	RST_MEM_FIXUP_PPTR(task_args->timerfd);
 	RST_MEM_FIXUP_PPTR(task_args->posix_timers);
 	RST_MEM_FIXUP_PPTR(task_args->siginfo);
+	RST_MEM_FIXUP_PPTR(task_args->cpu_affinity);
 	RST_MEM_FIXUP_PPTR(task_args->rlims);
 	RST_MEM_FIXUP_PPTR(task_args->helpers);
 	RST_MEM_FIXUP_PPTR(task_args->zombies);

@@ -270,6 +270,9 @@ struct cr_options {
 	/* This stores which method to use for file validation. */
 	int file_validation_method;
 
+	/* Restore CPU affinity saved during dump. */
+	int cpu_affinity;
+
 	/* This stores the I/O mode (writeback/direct) for the pages image. */
 	int image_io_mode;
 
