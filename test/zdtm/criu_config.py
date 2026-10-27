@@ -22,9 +22,10 @@ class criu_config:
                     arg = arg.strip("-")
                 config_fd.write("%s " % arg)
 
+        # LeakSanitizer does not work under ptrace (strace).
         env = dict(
             os.environ,
-            ASAN_OPTIONS="log_path=asan.log:disable_coredump=0:detect_leaks=0"
+            ASAN_OPTIONS="log_path=asan.log:disable_coredump=0:detect_leaks=%d:fast_unwind_on_malloc=0" % (not strace)
         )
 
         if fault:

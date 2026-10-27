@@ -2063,6 +2063,8 @@ static int prepare_cgroup_dirs(char **cnames, int n_cnames, char *paux, size_t p
 			if (opts.manage_cgroups & (CG_MODE_SOFT | CG_MODE_NONE)) {
 				pr_info("Skip restoring properties on cgroup dir %s\n", paux);
 				if (e->n_properties > 0) {
+					for (j = 0; j < e->n_properties; j++)
+						cgroup_prop_entry__free_unpacked(e->properties[j], NULL);
 					xfree(e->properties);
 					e->properties = NULL;
 					e->n_properties = 0;
@@ -2512,8 +2514,10 @@ int prepare_cgroup(void)
 	if (ret <= 0) /* Zero is OK -- no sets there. */
 		return ret;
 
-	if (rewrite_cgroup_roots(ce))
+	if (rewrite_cgroup_roots(ce)) {
+		cgroup_entry__free_unpacked(ce, NULL);
 		return -1;
+	}
 
 	n_sets = ce->n_sets;
 	rst_sets = ce->sets;
@@ -2527,12 +2531,14 @@ int prepare_cgroup(void)
 		 * with cg_set_compare(CGCMP_ISSUB) call.
 		 */
 		ret = prepare_cgroup_sfd(ce);
-		if (ret < 0)
-			return ret;
-		ret = prepare_cgroup_thread_sfd();
+		if (!ret)
+			ret = prepare_cgroup_thread_sfd();
 	} else {
 		ret = 0;
 	}
+
+	/* Sets and controllers are kept, only free the wrapper. */
+	xfree(ce);
 
 	return ret;
 }

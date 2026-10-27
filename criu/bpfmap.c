@@ -244,7 +244,7 @@ static int dump_one_bpfmap(int lfd, u32 id, const struct fd_parms *p)
 		bpf.id = id;
 		bpf.flags = p->flags;
 		bpf.fown = (FownEntry *)&p->fown;
-		bpf.map_name = xstrdup(map_info.name);
+		bpf.map_name = map_info.name;
 		bpf.ifindex = map_info.ifindex;
 
 		fe.type = FD_TYPES__BPFMAP;

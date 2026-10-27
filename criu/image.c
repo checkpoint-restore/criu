@@ -388,8 +388,7 @@ int write_img_inventory(InventoryEntry *he, const InventoryEntry *parent_ie)
 	free_inventory_plugins_list();
 	xfree(pe.plugins);
 
-	xfree(he->root_ids);
-	xfree(he->dump_criu_run_id);
+	free_inventory(he);
 	close_image(img);
 	if (ret < 0)
 		return -1;
@@ -509,13 +508,12 @@ int prepare_inventory(InventoryEntry *he, const InventoryEntry *parent_ie)
 	crt.i.pid->real = getpid();
 	if (get_task_ids(&crt.i))
 		return -1;
+	he->root_ids = crt.i.ids;
 
 	if (!opts.unprivileged)
 		he->has_root_cg_set = true;
 	if (dump_thread_cgroup(NULL, &he->root_cg_set, NULL, -1))
 		return -1;
-
-	he->root_ids = crt.i.ids;
 
 	/* tcp_close has to be set on restore if it has been set on dump. */
 	if (opts.tcp_close) {
@@ -544,6 +542,15 @@ int prepare_inventory(InventoryEntry *he, const InventoryEntry *parent_ie)
 	}
 
 	return 0;
+}
+
+/* Free what prepare_inventory() has allocated. */
+void free_inventory(InventoryEntry *he)
+{
+	xfree(he->root_ids);
+	he->root_ids = NULL;
+	xfree(he->dump_criu_run_id);
+	he->dump_criu_run_id = NULL;
 }
 
 static struct cr_imgset *alloc_cr_imgset(int nr)

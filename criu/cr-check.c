@@ -397,6 +397,9 @@ static int check_fdinfo_eventpoll(void)
 	pr_info("Epoll fdinfo works OK\n");
 
 epoll_err:
+	for (int i = 0; i < efe.n_tfd; i++)
+		xfree(efe.tfd[i]);
+	xfree(efe.tfd);
 	close(efd);
 pipe_err:
 	close(pfd[0]);
@@ -428,16 +431,19 @@ static int check_fdinfo_inotify(void)
 
 	if (ret < 0) {
 		pr_err("Error parsing proc fdinfo\n");
-		return -1;
-	}
-
-	if (ify.n_wd != 1 || ify.wd[0]->wd != wd) {
+		ret = -1;
+	} else if (ify.n_wd != 1 || ify.wd[0]->wd != wd) {
 		pr_err("WD mismatch (or not met)\n");
-		return -1;
+		ret = -1;
+	} else {
+		pr_info("Inotify fdinfo works OK\n");
+		ret = 0;
 	}
 
-	pr_info("Inotify fdinfo works OK\n");
-	return 0;
+	for (int i = 0; i < ify.n_wd; i++)
+		xfree(ify.wd[i]);
+	xfree(ify.wd);
+	return ret;
 }
 
 static int check_fdinfo_ext(void)
@@ -932,6 +938,7 @@ struct clone_arg {
 
 static int clone_cb(void *_arg)
 {
+	lsan_skip_leak_check();
 	exit(0);
 }
 
