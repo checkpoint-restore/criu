@@ -2019,6 +2019,281 @@ static int restore_vma_preadv_one(struct task_restore_args *args,
 	return 0;
 }
 
+#ifdef CONFIG_X86_64
+struct raw_restore_stats {
+	unsigned long long read_bytes, read_calls;
+	unsigned long long helper_spawned, helper_reaped;
+	unsigned long long helper_user_us, helper_system_us;
+	unsigned long long helper_minor_faults, helper_major_faults;
+	unsigned long long nanoseconds;
+};
+
+static long noinline raw_restore_clone(struct _clone_args *args)
+{
+	long pid;
+
+	/* Only the child switches stacks. Keep the saved-thread trampolines unchanged. */
+	asm volatile("syscall\n"
+		     "testq %%rax, %%rax\n"
+		     "jnz 1f\n"
+		     "xorq %%rbp, %%rbp\n"
+		     "popq %%rax\n"
+		     "popq %%rdi\n"
+		     "callq *%%rax\n"
+		     "ud2\n"
+		     "1:\n"
+		     : "=a"(pid)
+		     : "0"(__NR_clone3), "D"(args), "S"(sizeof(*args))
+		     : "rcx", "r11", "cc", "memory");
+	return pid;
+}
+
+#define RAW_RESTORE_CHUNK (64UL << 20)
+#define RAW_RESTORE_IOVS 1024
+
+struct raw_restore_work {
+	const struct restore_vma_io *rio;
+	int fd;
+	size_t first, bytes;
+	int parent_pid, result;
+	long pid;
+	unsigned long long read_bytes, read_calls;
+	struct iovec iovs[RAW_RESTORE_IOVS];
+};
+
+static int raw_restore_size(const struct restore_vma_io *rio, size_t *bytes)
+{
+	*bytes = 0;
+	if (rio->storage != VMA_IO_UNCOMPRESSED)
+		return -ENOTSUP;
+	if (rio->nr_iovs < 0 || rio->off < 0 || (rio->off & ~PAGE_MASK))
+		return -EINVAL;
+	for (int i = 0; i < rio->nr_iovs; i++) {
+		unsigned long address = (unsigned long)rio->iovs[i].iov_base;
+		size_t length = rio->iovs[i].iov_len;
+
+		if ((address & ~PAGE_MASK) || (length & ~PAGE_MASK) || address > ULONG_MAX - length ||
+		    *bytes > SIZE_MAX - length)
+			return -EINVAL;
+		*bytes += length;
+	}
+	return *bytes > LLONG_MAX - rio->off ? -EOVERFLOW : 0;
+}
+
+static int raw_restore_read(struct raw_restore_work *work, unsigned int nr, loff_t offset, size_t bytes)
+{
+	struct iovec *iov = work->iovs;
+
+	while (bytes) {
+		ssize_t read = sys_preadv(work->fd, iov, nr, offset);
+		size_t consumed;
+
+		work->read_calls++;
+		if (read == -EINTR)
+			continue;
+		if (read <= 0 || read > bytes || (read & ~PAGE_MASK))
+			return read < 0 ? read : -EIO;
+		work->read_bytes += read;
+		bytes -= read;
+		offset += read;
+		consumed = read;
+		while (nr && consumed >= iov->iov_len) {
+			consumed -= iov->iov_len;
+			iov++;
+			nr--;
+		}
+		if (consumed) {
+			iov->iov_base = (char *)iov->iov_base + consumed;
+			iov->iov_len -= consumed;
+		}
+	}
+	return 0;
+}
+
+static int raw_restore_slice(struct raw_restore_work *work)
+{
+	const struct restore_vma_io *rio = work->rio;
+	size_t skip = work->first, remaining = work->bytes, within;
+	loff_t offset = rio->off + work->first;
+	int index = 0;
+
+	while (index < rio->nr_iovs && skip >= rio->iovs[index].iov_len) {
+		skip -= rio->iovs[index].iov_len;
+		index++;
+	}
+	within = skip;
+	while (remaining) {
+		size_t bytes = 0, limit = min_t(size_t, remaining, RAW_RESTORE_CHUNK);
+		unsigned int nr = 0;
+		int ret;
+
+		while (bytes < limit && nr < RAW_RESTORE_IOVS && index < rio->nr_iovs) {
+			size_t length = min_t(size_t, rio->iovs[index].iov_len - within, limit - bytes);
+
+			if (length) {
+				work->iovs[nr].iov_base = (char *)rio->iovs[index].iov_base + within;
+				work->iovs[nr++].iov_len = length;
+				bytes += length;
+				within += length;
+			}
+			if (within == rio->iovs[index].iov_len) {
+				index++;
+				within = 0;
+			}
+		}
+		if (!bytes)
+			return -EINVAL;
+		ret = raw_restore_read(work, nr, offset, bytes);
+		if (ret)
+			return ret;
+		offset += bytes;
+		remaining -= bytes;
+	}
+	return 0;
+}
+
+static void NORETURN raw_restore_child(struct raw_restore_work *work)
+{
+	work->result = sys_prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+	if (!work->result && sys_getppid() != work->parent_pid)
+		work->result = -ESRCH;
+	if (!work->result)
+		work->result = raw_restore_slice(work);
+	sys_exit(work->result ? 1 : 0);
+	__builtin_unreachable();
+}
+
+static int raw_restore_wave(const struct task_restore_args *args, const struct restore_vma_io *rio,
+			    size_t bytes, struct raw_restore_stats *stats)
+{
+	const unsigned long stack_size = 64UL << 10, stack_stride = stack_size + 2 * PAGE_SIZE;
+	unsigned long pages = bytes / PAGE_SIZE;
+	unsigned int count = min_t(unsigned long, args->raw_restore_workers, pages), started = 0;
+	struct raw_restore_work *work;
+	void *stacks = NULL;
+	size_t work_size;
+	int parent_pid = sys_getpid(), ret = 0;
+	bool cancelled = false;
+
+	if (!count)
+		return 0;
+	work_size = count * sizeof(*work);
+	work = (void *)sys_mmap(NULL, work_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (IS_ERR(work))
+		return PTR_ERR(work);
+	if (count > 1) {
+		stacks = (void *)sys_mmap(NULL, (count - 1) * stack_stride, PROT_NONE,
+					 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		if (IS_ERR(stacks)) {
+			ret = PTR_ERR(stacks);
+			goto unmap_work;
+		}
+	}
+	for (unsigned int i = 0; i < count; i++) {
+		work[i].fd = args->vma_ios_fd;
+		work[i].rio = rio;
+		work[i].first = (pages / count * i + min_t(unsigned long, i, pages % count)) * PAGE_SIZE;
+		work[i].bytes = (pages / count + (i < pages % count)) * PAGE_SIZE;
+		work[i].parent_pid = parent_pid;
+		work[i].result = -EIO;
+	}
+	/* Keep temporary helper PIDs out of saved-task creation until they are reaped. */
+	mutex_lock(&task_entries_local->last_pid_mutex);
+	for (unsigned int i = 1; i < count; i++) {
+		char *stack = (char *)stacks + (i - 1) * stack_stride + PAGE_SIZE;
+		unsigned long *top = (unsigned long *)(stack + stack_size);
+		struct _clone_args clone_args = { .flags = CLONE_VM,
+			.stack = (unsigned long)stack, .stack_size = stack_size - 2 * sizeof(unsigned long) };
+		long pid;
+
+		ret = sys_mprotect(stack, stack_size, PROT_READ | PROT_WRITE);
+		if (ret)
+			break;
+		top[-2] = (unsigned long)raw_restore_child;
+		top[-1] = (unsigned long)&work[i];
+		pid = raw_restore_clone(&clone_args);
+		if (pid < 0) {
+			ret = pid;
+			break;
+		}
+		work[i].pid = pid;
+		started++;
+		stats->helper_spawned++;
+	}
+	if (!ret)
+		ret = raw_restore_slice(&work[0]);
+	for (unsigned int i = 0; i < started; i++) {
+		struct rusage usage = {};
+		int status;
+		long waited;
+
+		if (ret && !cancelled) {
+			for (unsigned int j = i; j < started; j++)
+				sys_kill(work[j + 1].pid, SIGKILL);
+			cancelled = true;
+		}
+		do {
+			waited = sys_wait4(work[i + 1].pid, &status, __WCLONE, &usage);
+		} while (waited == -EINTR);
+		if (waited != work[i + 1].pid) {
+			pr_err("Cannot reap raw restore worker %ld: %ld\n", work[i + 1].pid, waited);
+			futex_abort_and_wake(&task_entries_local->nr_in_progress);
+			sys_exit_group(1);
+			__builtin_unreachable();
+		}
+		stats->helper_reaped++;
+		stats->helper_user_us += usage.ru_utime.tv_sec * 1000000ULL + usage.ru_utime.tv_usec;
+		stats->helper_system_us += usage.ru_stime.tv_sec * 1000000ULL + usage.ru_stime.tv_usec;
+		stats->helper_minor_faults += usage.ru_minflt;
+		stats->helper_major_faults += usage.ru_majflt;
+		if (!ret)
+			ret = WIFEXITED(status) && !WEXITSTATUS(status) ? work[i + 1].result : -EIO;
+	}
+	mutex_unlock(&task_entries_local->last_pid_mutex);
+	for (unsigned int i = 0; i <= started; i++) {
+		stats->read_bytes += work[i].read_bytes;
+		stats->read_calls += work[i].read_calls;
+	}
+	if (stacks)
+		sys_munmap(stacks, (count - 1) * stack_stride);
+unmap_work:
+	sys_munmap(work, work_size);
+	return ret;
+}
+
+static int restore_vma_workers(struct task_restore_args *args)
+{
+	const struct restore_vma_io *rio = args->vma_ios;
+	struct raw_restore_stats stats = {};
+	struct timespec before = {}, after = {};
+	bool timed = !sys_clock_gettime(CLOCK_MONOTONIC, &before);
+	int ret = 0;
+
+	for (unsigned int i = 0; i < args->vma_ios_n; i++) {
+		size_t bytes;
+
+		ret = raw_restore_size(rio, &bytes);
+		if (ret)
+			break;
+		ret = raw_restore_wave(args, rio, bytes, &stats);
+		if (ret)
+			break;
+		rio = (const struct restore_vma_io *)((const char *)rio + RIO_SIZE(rio->nr_iovs));
+	}
+	if (timed && !sys_clock_gettime(CLOCK_MONOTONIC, &after))
+		stats.nanoseconds = (after.tv_sec - before.tv_sec) * 1000000000LL + after.tv_nsec - before.tv_nsec;
+	pr_info("Raw restore workers: workers=%u chunk_bytes=%lu read_bytes=%llu read_calls=%llu wall_ns=%llu result=%d\n",
+		args->raw_restore_workers, RAW_RESTORE_CHUNK, stats.read_bytes, stats.read_calls,
+		stats.nanoseconds, ret);
+	pr_info("Raw restore helpers: spawned=%llu reaped=%llu user_us=%llu system_us=%llu minor_faults=%llu major_faults=%llu\n",
+		stats.helper_spawned, stats.helper_reaped, stats.helper_user_us, stats.helper_system_us,
+		stats.helper_minor_faults, stats.helper_major_faults);
+	sys_close(args->vma_ios_fd);
+	args->vma_ios_fd = -1;
+	return ret;
+}
+#endif
+
 /*
  * Restore private VMA page contents via Linux native AIO.
  *
@@ -2443,7 +2718,8 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Now read the contents (if any).
 	 *
-	 * Engine is selected from args->vma_ios_use_direct, populated by
+	 * An explicit worker count selects parallel positioned reads. Otherwise,
+	 * the engine is selected from args->vma_ios_use_direct, populated by
 	 * probe_pages_o_direct() at restore-args build time:
 	 *   true  -> restore_vma_aio()    (io_submit, O_DIRECT, batched)
 	 *   false -> restore_vma_preadv_mixed() (buffered, sequential I/O)
@@ -2455,11 +2731,17 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	if (args->vma_ios_n > 0 && args->vma_ios_fd != -1) {
 		int rc;
 
-		if (args->vma_ios_use_direct)
+		if (args->vma_ios_use_direct && !args->raw_restore_workers)
 			pr_debug("Restoring delayed VMA I/O with native AIO\n");
-		rc = args->vma_ios_use_direct ?
-			     restore_vma_aio(args) :
-			     restore_vma_preadv_mixed(args);
+
+#ifdef CONFIG_X86_64
+		if (args->raw_restore_workers)
+			rc = restore_vma_workers(args);
+		else
+#endif
+			rc = args->vma_ios_use_direct ?
+				     restore_vma_aio(args) :
+				     restore_vma_preadv_mixed(args);
 		if (rc < 0)
 			goto core_restore_end;
 	}

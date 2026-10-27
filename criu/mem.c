@@ -1657,7 +1657,7 @@ int open_vmas(struct pstree_item *t)
 static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 {
 	struct cr_img *pages;
-	int ret;
+	struct page_read_iov *piov;
 
 	/*
 	 * We optimize the case when rsti(t)->vma_io is empty.
@@ -1672,6 +1672,15 @@ static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 		ta->vma_ios_fd = -1;
 		ta->vma_ios_use_direct = false;
 		return 0;
+	}
+
+	if (opts.raw_restore_workers) {
+		list_for_each_entry(piov, &rsti(t)->vma_io, l) {
+			if (piov->storage != VMA_IO_UNCOMPRESSED) {
+				pr_err("--raw-restore-workers requires uncompressed delayed page ranges\n");
+				return -1;
+			}
+		}
 	}
 
 	/*
@@ -1691,20 +1700,24 @@ static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 	if (ta->vma_ios_fd >= 0 && opts.image_io_mode == IMAGE_IO_DIRECT &&
 	    pagemap_iovec_is_direct_compatible(&rsti(t)->vma_io)) {
 		int direct = probe_pages_o_direct(ta->vma_ios_fd);
-		if (direct < 0) {
-			close_image(pages);
-			ta->vma_ios_fd = -1;
-			return -1;
-		}
+		if (direct < 0)
+			goto err_close;
 		ta->vma_ios_use_direct = (direct == 1);
 	}
 
-	ret = pagemap_render_iovec(&rsti(t)->vma_io, ta);
-	if (ret) {
-		close_image(pages);
-		ta->vma_ios_fd = -1;
+	if (opts.raw_restore_workers && !ta->vma_ios_use_direct) {
+		pr_err("--raw-restore-workers requires working O_DIRECT for the pages image\n");
+		goto err_close;
 	}
-	return ret;
+	ta->raw_restore_workers = opts.raw_restore_workers;
+	if (pagemap_render_iovec(&rsti(t)->vma_io, ta))
+		goto err_close;
+	return 0;
+
+err_close:
+	close_image(pages);
+	ta->vma_ios_fd = -1;
+	return -1;
 }
 
 int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)

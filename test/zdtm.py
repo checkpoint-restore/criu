@@ -1224,6 +1224,7 @@ class criu:
         self.__crit_bin = opts['crit_bin']
         self.__pre_dump_mode = opts['pre_dump_mode']
         self.__image_io_mode = opts['image_io_mode']
+        self.__raw_restore_workers = opts['raw_restore_workers']
         self.__preload_libfault = bool(opts['preload_libfault'])
         self.__mntns_compat_mode = bool(opts['mntns_compat_mode'])
         self.__compress = bool(opts['compress'])
@@ -1796,6 +1797,8 @@ class criu:
 
         if self.__image_io_mode:
             r_opts += ["--image-io-mode", self.__image_io_mode]
+        if self.__raw_restore_workers:
+            r_opts += ["--raw-restore-workers", str(self.__raw_restore_workers)]
 
         self.__prev_dump_iter = None
         criu_dir = os.path.dirname(os.getcwd())
@@ -2436,8 +2439,8 @@ class Launcher:
               'sat', 'script', 'rpc', 'criu_config', 'lazy_pages', 'join_ns',
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
-              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'image_io_mode', 'mntns_compat_mode',
-              'rootless', 'preload_libfault', 'mocked_cuda_checkpoint', 'cuda_checkpoint',
+              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'image_io_mode',
+              'raw_restore_workers', 'mntns_compat_mode', 'rootless', 'preload_libfault', 'mocked_cuda_checkpoint', 'cuda_checkpoint',
               'compress', 'compress_acceleration', 'compress_block',
               'pycriu_search_path')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
@@ -3160,6 +3163,8 @@ def get_cli_args():
                     help="Set the pages image I/O mode",
                     choices=['writeback', 'direct'],
                     default=None)
+    rp.add_argument("--raw-restore-workers", type=int, choices=range(1, 17),
+                    help="Use positioned-read workers during restore", default=None)
     rp.add_argument("--mntns-compat-mode",
                     help="Use old compat mounts restore engine",
                     action='store_true')
