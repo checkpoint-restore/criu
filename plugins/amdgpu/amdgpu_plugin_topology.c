@@ -306,6 +306,7 @@ void maps_init(struct device_maps *maps)
 	INIT_LIST_HEAD(&maps->gpu_maps);
 	maps->tail_cpu = 0;
 	maps->tail_gpu = 0;
+	maps->mapped_cnt = 0;
 }
 
 void maps_free(struct device_maps *maps)
@@ -1219,6 +1220,7 @@ static bool map_devices(struct tp_system *src_sys, struct tp_system *dest_sys, s
 
 			if (map_devices(src_sys, dest_sys, src_nodes, dest_nodes, maps)) {
 				pr_debug("Matched nodes 0x%04X and after\n", dest_node->gpu_id);
+				maps->mapped_cnt++;
 				return true;
 			} else {
 				/* We could not map remaining nodes in the list. Add dest node back
