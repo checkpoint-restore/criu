@@ -96,6 +96,8 @@ struct kerndat_s {
 	u64 statmount_supported_mask;
 	bool has_statmount;
 	bool has_statmount_by_fd;
+	/* PMD-mapped THP size, zero if hpage_pmd_size is not available */
+	unsigned long thp_pmd_size;
 };
 
 extern struct kerndat_s kdat;
