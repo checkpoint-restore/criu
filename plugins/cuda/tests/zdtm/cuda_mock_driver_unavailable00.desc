@@ -1,0 +1,10 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda crfail',
+ 'env': {'CRIU_CUDA_MOCK_DRIVER_VERSION': '12000'},
+ 'opts': '--plugin-option=cuda_plugin.backend=driver-api',
+ 'cuda_mock': {'backend': 'Driver API',
+               'dump_backend': False,
+               'no_cli': True,
+               'state_required': False,
+               'error': 'Requested Driver API backend is unavailable: -95'}}

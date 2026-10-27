@@ -6,8 +6,8 @@
 # test code coverage and missing code coverage should be handled
 # by the options used in this file.
 #
-# This script tries to only exit if criu crashes. A return value
-# of '1' should not stop the script.
+# Most calls only check for crashes and allow a return value of 1.
+# The CUDA cases also check for the expected validation errors.
 
 set -xbm
 
@@ -105,4 +105,44 @@ $CRIU check --file-validation filesizefilesize
 $CRIU dump --file-validation filesize
 $CRIU restore --file-validation buildid
 $CRIU check --file-validation buildid --deprecated
+
+# CUDA options are parsed during plugin initialization, not by "criu check".
+if [ "$(uname -m)" = x86_64 ] && [ "${COMPAT_TEST:-}" != y ] && \
+	[ -f "$BASE_DIR/plugins/cuda/cuda_plugin.so" ]; then
+	(
+		trap - CHLD
+		CUDA_WORK=$(mktemp -d) || exit 1
+		trap 'rm -rf "$CUDA_WORK"' EXIT
+
+		for option in backend=invalid backend= backend \
+			timeout=invalid timeout= timeout timeout=-1 timeout=-18446744073709551615 \
+			timeout=4294967296 timeout=18446744073709551616 timeout=1x 'timeout= 1' \
+			device-map=auto; do
+			case "$option" in
+			backend|timeout)
+				expected_error="cuda_plugin.$option requires a value"
+				;;
+			backend=*|timeout=*)
+				expected_error="Invalid cuda_plugin.${option%%=*} value '${option#*=}'"
+				;;
+			device-map=*)
+				expected_error="cuda_plugin.device-map is valid only during restore"
+				;;
+			esac
+
+			# Validation precedes task collection; use a nonexistent PID.
+			rm -f "$CUDA_WORK/dump.log"
+			timeout --kill-after=1s 10s "$CRIU" dump --no-default-config \
+				--libdir "$BASE_DIR/plugins/cuda" --images-dir "$CUDA_WORK" \
+				--log-file dump.log --tree 2147483647 \
+				"--plugin-option=cuda_plugin.$option"
+			status=$?
+			if [ "$status" -ne 1 ] || ! grep -Fq "$expected_error" "$CUDA_WORK/dump.log"; then
+				cat "$CUDA_WORK/dump.log"
+				echo "cuda_plugin.$option did not report the expected validation error (status $status)"
+				exit 1
+			fi
+		done
+	) || exit 1
+fi
 exit 0

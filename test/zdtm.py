@@ -49,6 +49,11 @@ PLUGINS_DIR = os.path.join(
     "plugins"
 )
 
+CUDA_TESTS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "plugins", "cuda", "tests"
+)
+
 prev_line = None
 uuid = uuid.uuid4()
 
@@ -647,14 +652,33 @@ class zdtm_test:
             self.__desc.get('dopts', '').split()
         if self.__flavor.ns:
             opts += ["--external", "mnt[/dev]:ZDTM_DEV"]
-        return opts
+        return [self.__expand(value) for value in opts]
 
     def getropts(self):
         opts = self.__getcropts() + self.__freezer.getropts() + \
             self.__desc.get('ropts', '').split()
         if self.__flavor.ns:
             opts += ["--external", "mnt[ZDTM_DEV]:%s" % self.__flavor.devpath]
-        return opts
+        return [self.__expand(value) for value in opts]
+
+    def retry(self, action):
+        return self.__desc.get('retry') == action
+
+    def __expand(self, value):
+        return value.replace('{test}', os.path.abspath(self.__name)).replace(
+            '{pid}', os.environ.get('ZDTM_TEST_PID', '0'))
+
+    def getenv(self, action):
+        env = {}
+        if test_flag(self.__desc, 'mockcuda'):
+            env.update(CRIU_CUDA_MOCK_API_MARKER='{test}.calls',
+                       CRIU_CUDA_MOCK_STATE_FILE='{test}.state',
+                       CRIU_CUDA_MOCK_CLI_MARKER='{test}.cli',
+                       CRIU_CUDA_MOCK_DRIVER_MARKER='{test}.driver')
+        env.update(self.__desc.get('env', {}))
+        env.update(self.__desc.get('denv' if action != 'restore' else 'renv', {}))
+        return {key: self.__expand(value) if value is not None else None
+                for key, value in env.items()}
 
     def unlink_pidfile(self):
         self.__pid = 0
@@ -709,7 +733,8 @@ class zdtm_test:
         if opts.get('mocked_cuda_checkpoint') or opts.get('cuda_checkpoint'):
             subprocess.check_call(["make", "-C", "..", "cuda_plugin"])
         if 'mocked_cuda_checkpoint' in opts and opts['mocked_cuda_checkpoint']:
-            subprocess.check_call(["make", "-C", "cuda-checkpoint/"])
+            subprocess.check_call(["make", "-C", CUDA_TESTS_DIR, "zdtm", "mock",
+                                   "cuda_plugin.so", "dump_finish_failure.so"])
         if 'rootless' in opts and opts['rootless']:
             return
         subprocess.check_call(
@@ -856,6 +881,12 @@ class inhfd_test:
         os.waitpid(self.__peer_pid, 0)
         wait_pid_die(self.__peer_pid, self.__name)
         self.__files = None
+
+    def getenv(self, action):
+        return {}
+
+    def retry(self, action):
+        return False
 
     def getdopts(self):
         return self.__dump_opts
@@ -1230,6 +1261,7 @@ class criu:
         self.__compress_acceleration = opts.get('compress_acceleration', 0)
         self.__compress_block = opts.get('compress_block', None)
         self.__cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'] or opts['cuda_checkpoint'])
+        self.__mocked_cuda_checkpoint = bool(opts['mocked_cuda_checkpoint'])
 
         if opts['rpc']:
             self.__criu = criu_rpc
@@ -1300,10 +1332,32 @@ class criu:
     def __ddir(self):
         return os.path.join(self.__dump_path, "%d" % self.__iter)
 
+    def image_dir(self):
+        return self.__ddir()
+
     def set_user_id(self):
         # Numbers should match those in zdtm_test
         os.setresgid(58467, 58467, 58467)
         os.setresuid(18943, 18943, 18943)
+
+    def __run_criu(self, action, args, fault, strace, preexec, preload=False, nowait=False):
+        env = self.__test.getenv(action)
+        saved = {key: os.environ.get(key) for key in env}
+
+        try:
+            for key, value in env.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+            return self.__criu.run(action, args[:], self.__criu_bin, fault,
+                                   strace, preexec, preload, nowait)
+        finally:
+            for key, value in saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
 
     def __criu_act(self, action, opts=[], log=None, nowait=False):
         if not log:
@@ -1313,7 +1367,11 @@ class criu:
                   "--verbosity=4"] + opts
 
         if self.__cuda_checkpoint:
-            s_args += [ "--libdir" , os.path.join(os.getcwd(), "..", "plugins", "cuda") ]
+            if self.__mocked_cuda_checkpoint:
+                plugin_dir = CUDA_TESTS_DIR
+            else:
+                plugin_dir = os.path.join(os.getcwd(), "..", "plugins", "cuda")
+            s_args += ["--libdir", plugin_dir]
 
         with open(os.path.join(self.__ddir(), action + '.cropt'), 'w') as f:
             f.write(' '.join(s_args) + '\n')
@@ -1361,7 +1419,7 @@ class criu:
 
         preload_libfault = self.__preload_libfault and action in ['dump', 'pre-dump', 'restore']
 
-        ret = self.__criu.run(action, s_args, self.__criu_bin, self.__fault,
+        ret = self.__run_criu(action, s_args, self.__fault,
                               strace, preexec, preload_libfault, nowait)
 
         if nowait:
@@ -1377,13 +1435,25 @@ class criu:
             return ret
 
         grep_errors(os.path.join(__ddir, log))
+        retry = self.__test.retry(action)
+        if ret == 0 and retry:
+            raise test_fail_exc("expected CRIU %s failure before retry" % action)
         if ret != 0:
-            if self.__fault and int(self.__fault) < 128:
+            fault = 0
+            if self.__fault:
+                fault = int(self.__fault)
+            fatal_fault = 0 < fault < 128
+
+            # FI_DUMP_EARLY deliberately kills CRIU while tasks are seized.
+            dump_early = action == 'dump' and fault == 1
+            expected_kill = dump_early and ret == -signal.SIGKILL
+            crashed = self.__criu.exit_signal(ret) and not expected_kill
+            if (fatal_fault or retry) and not crashed:
                 # A late restore failure may have already written the pidfile.
                 if action == "restore" and os.path.exists(self.__test.getname() + '.pid'):
                     self.__test.getpid()
                     self.__test.gone()
-                try_run_hook(self.__test, ["--fault", action])
+                try_run_hook(self.__test, ["--fault", action], __ddir)
                 if action == "dump":
                     # create a clean directory for images
                     os.rename(__ddir, __ddir + ".fail")
@@ -1399,8 +1469,7 @@ class criu:
                     fd.write(ns_last_pid)
                 # try again without faults
                 print("Run criu " + action)
-                ret = self.__criu.run(action, s_args, self.__criu_bin, False,
-                                      strace, preexec)
+                ret = self.__run_criu(action, s_args, False, strace, preexec)
                 grep_errors(os.path.join(__ddir, log))
                 if ret == 0:
                     return None
@@ -1408,6 +1477,7 @@ class criu:
                 os.path.join(__ddir, "restore-succeeded"), os.F_OK)
             if (self.__test.blocking() and not self.__criu.exit_signal(ret)) or \
                (self.__sat and action == 'restore' and rst_succeeded):
+                try_run_hook(self.__test, ["--fail", action], __ddir)
                 raise test_fail_expected_exc(action)
             else:
                 raise test_fail_exc("CRIU %s" % action)
@@ -1707,6 +1777,7 @@ class criu:
                     "--port", "12345",
                 ] + self.__tls
 
+        a_opts += ["--timeout", "10"]
         a_opts += self.__test.getdopts()
 
         if stream:
@@ -1718,8 +1789,6 @@ class criu:
 
         if self.__image_io_mode:
             a_opts += ["--image-io-mode", self.__image_io_mode]
-
-        a_opts += ["--timeout", "10"]
 
         criu_dir = os.path.dirname(os.getcwd())
         if os.getenv("GCOV"):
@@ -1887,11 +1956,12 @@ class criu:
             print("criu-image-streamer exited with %s" % ret)
 
 
-def try_run_hook(test, args):
+def try_run_hook(test, args, images=None):
     hname = test.getname() + '.hook'
     if os.access(hname, os.X_OK):
         print("Running %s(%s)" % (hname, ', '.join(args)))
-        hook = subprocess.Popen([hname] + args)
+        env = dict(os.environ, ZDTM_CRIU_IMG_DIR=os.path.abspath(images)) if images else None
+        hook = subprocess.Popen([hname] + args, env=env)
         if hook.wait() != 0:
             raise test_fail_exc("hook " + " ".join(args))
 
@@ -1932,6 +2002,7 @@ def cr(cr_api, test, opts):
 
     iters = iter_parm(opts['iters'], 1)
     for _ in iters[0]:
+        os.environ["ZDTM_TEST_PID"] = str(test.getpid())
         pre = iter_parm(opts['pre'], 0)
         for p in pre[0]:
             if opts['snaps']:
@@ -1942,13 +2013,12 @@ def cr(cr_api, test, opts):
             else:
                 sbs('before pre-dump %d' % p)
                 cr_api.dump("pre-dump", intermediate=True)
-                try_run_hook(test, ["--post-pre-dump"])
+                try_run_hook(test, ["--post-pre-dump"], cr_api.image_dir())
                 test.pre_dump_notify()
             time.sleep(pre[1])
 
         sbs('before dump')
 
-        os.environ["ZDTM_TEST_PID"] = str(test.getpid())
         if opts['norst']:
             try_run_hook(test, ["--pre-dump"])
             cr_api.dump("dump", opts=["--leave-running"])
@@ -1960,11 +2030,11 @@ def cr(cr_api, test, opts):
             else:
                 test.unlink_pidfile()
             sbs('before restore')
-            try_run_hook(test, ["--pre-restore"])
+            try_run_hook(test, ["--pre-restore"], cr_api.image_dir())
             cr_api.restore()
             os.environ["ZDTM_TEST_PID"] = str(test.getpid())
             os.environ["ZDTM_IMG_DIR"] = cr_api.logs()
-            try_run_hook(test, ["--post-restore"])
+            try_run_hook(test, ["--post-restore"], cr_api.image_dir())
             sbs('after restore')
 
         time.sleep(iters[1])
@@ -2299,6 +2369,7 @@ def do_run_test(tname, tdesc, flavs, opts):
             except test_fail_expected_exc as e:
                 if e.cr_action == "dump":
                     t.stop()
+                try_run_hook(t, ["--clean"])
             else:
                 check_visible_state(t, s, opts)
                 if opts['join_ns']:
@@ -2313,7 +2384,8 @@ def do_run_test(tname, tdesc, flavs, opts):
             t.print_output()
             t.kill()
             cr_api.kill()
-            try_run_hook(t, ["--clean"])
+            if e.step != "hook --clean":
+                try_run_hook(t, ["--clean"])
             if cr_api.logs():
                 add_to_report(cr_api.logs(),
                               tname.replace('/', '_') + "_" + f + "/images")
@@ -2440,7 +2512,10 @@ class Launcher:
               'rootless', 'preload_libfault', 'mocked_cuda_checkpoint', 'cuda_checkpoint',
               'compress', 'compress_acceleration', 'compress_block',
               'pycriu_search_path')
-        arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
+        test_opts = {d: self.__opts[d] for d in nd}
+        if not test_opts['fault'] and desc.get('fault'):
+            test_opts['fault'] = str(desc['fault'])
+        arg = repr((name, desc, flavor, test_opts))
 
         if self.__use_log:
             logf = name.replace('/', '_') + ".log"
@@ -2454,7 +2529,8 @@ class Launcher:
             os.setuid(NON_ROOT_UID)
         env = dict(os.environ, CR_CT_TEST_INFO=arg)
         if opts['mocked_cuda_checkpoint']:
-            cuda_mock_dir = os.path.join(os.getcwd(), "cuda-checkpoint")
+            cuda_mock_dir = os.path.join(CUDA_TESTS_DIR, "mock")
+            env.setdefault("CRIU_FAULT", "138")
             env["PATH"] = cuda_mock_dir + ":" + env["PATH"]
             if "LD_LIBRARY_PATH" in env:
                 env["LD_LIBRARY_PATH"] = cuda_mock_dir + ":" + env["LD_LIBRARY_PATH"]
@@ -2812,6 +2888,10 @@ def run_tests(opts):
                 launcher.skip(t, "CUDA checkpoint plugin not enabled")
                 continue
 
+            if test_flag(tdesc, 'mockcuda') and not opts['mocked_cuda_checkpoint']:
+                launcher.skip(t, "mock CUDA checkpoint plugin not enabled")
+                continue
+
             if self_checkskip(t):
                 launcher.skip(t, "checkskip failed")
                 continue
@@ -2902,6 +2982,16 @@ class group:
         if self.__desc.get('opts') != desc.get('opts'):
             return False
         if self.__desc.get('feature') != desc.get('feature'):
+            return False
+        if self.__desc.get('env') != desc.get('env'):
+            return False
+        if self.__desc.get('denv') != desc.get('denv'):
+            return False
+        if self.__desc.get('renv') != desc.get('renv'):
+            return False
+        if self.__desc.get('fault') != desc.get('fault'):
+            return False
+        if self.__desc.get('retry') != desc.get('retry'):
             return False
         return True
 

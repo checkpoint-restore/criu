@@ -1,0 +1,8 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API', 'error': 'Post dump script passed with', 'rollback': True},
+ 'dopts': '--action-script {test}.hook',
+ 'denv': {'CRIU_CUDA_MOCK_ONCE': '{test}.once'},
+ 'retry': 'dump'}

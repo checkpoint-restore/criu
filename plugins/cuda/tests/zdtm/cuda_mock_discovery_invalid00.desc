@@ -1,0 +1,10 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API',
+               'state_required': False,
+               'restore_backend': False,
+               'no_cli': True},
+ 'denv': {'CRIU_CUDA_MOCK_TID_ERROR': '1'},
+ 'renv': {'CRIU_CUDA_MOCK_DRIVER_VERSION_ERROR': '1'}}

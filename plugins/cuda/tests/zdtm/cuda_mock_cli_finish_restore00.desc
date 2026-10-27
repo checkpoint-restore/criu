@@ -1,0 +1,11 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda crfail',
+ 'opts': '--plugin-option=cuda_plugin.backend=cuda-checkpoint',
+ 'cuda_mock': {'backend': 'cuda-checkpoint CLI',
+               'processes': 1,
+               'cleanup_error': True,
+               'failure_state': 'checkpointed',
+               'error': 'Unable to restore CUDA state'},
+ 'denv': {'CRIU_CUDA_MOCK_RESTORE_ERROR': '1'},
+ 'dopts': '--leave-running'}
