@@ -280,6 +280,7 @@ TST_NOFILE	:=				\
 		netns_sub_sysctl	\
 		unlink_multiple_largefiles	\
 		thp_disable			\
+		thp_advice			\
 		pid_file			\
 		selinux00			\
 		selinux01			\
@@ -708,6 +709,7 @@ mntns_root_bind02:	CFLAGS += -DROOT_BIND02
 maps02: get_smaps_bits.o
 mlock_setuid: get_smaps_bits.o
 thp_disable: get_smaps_bits.o
+thp_advice: get_smaps_bits.o
 reservation_mmaps: get_smaps_bits.o
 inotify01:		CFLAGS += -DINOTIFY01
 unlink_fstat01+:	CFLAGS += -DUNLINK_OVER

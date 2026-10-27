@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# madvise(MADV_HUGEPAGE) fails without THP
+test -f /sys/kernel/mm/transparent_hugepage/hpage_pmd_size
