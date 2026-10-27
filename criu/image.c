@@ -888,6 +888,9 @@ int image_dir_mode(void)
 	}
 }
 
+#define CR_MAX_PARENT_DEPTH 32
+static int check_parent_cycle(int img_fd, const char *parent_path);
+
 /*
  * `mode` should be O_RSTR or O_DUMP depending on the intent.
  * This is used when opts.stream is enabled for picking the right streamer
@@ -916,15 +919,29 @@ int open_image_dir(const char *dir, int mode)
 	}
 
 	if (opts.img_parent) {
-		if (faccessat(fd, opts.img_parent, R_OK, 0)) {
-			pr_perror("Invalid parent image directory provided");
+		if (check_parent_cycle(fd, opts.img_parent))
 			goto err;
-		}
 
 		ret = symlinkat(opts.img_parent, fd, CR_PARENT_LINK);
-		if (ret < 0 && errno != EEXIST) {
-			pr_perror("Can't link parent snapshot");
-			goto err;
+		if (ret < 0) {
+			if (errno == EEXIST) {
+				char target[PATH_MAX];
+				ssize_t len;
+
+				len = readlinkat(fd, CR_PARENT_LINK, target, sizeof(target) - 1);
+				if (len < 0) {
+					pr_perror("Can't read existing parent symlink");
+					goto err;
+				}
+				target[len] = '\0';
+
+				/* Validate the parent chain that is actually on disk */
+				if (check_parent_cycle(fd, target))
+					goto err;
+			} else {
+				pr_perror("Can't link parent snapshot");
+				goto err;
+			}
 		}
 
 		if (opts.img_parent[0] == '/')
@@ -964,6 +981,78 @@ int open_parent(int dfd, int *pfd)
 	if (*pfd < 0) {
 		pr_perror("Can't open parent path");
 		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Check if linking parent_path as a parent of img_fd would introduce a cycle
+ * (e.g. A -> A, A -> B -> A, or any multi-step cycle).
+ * Walks up the parent chain starting from parent_path.
+ *
+ * Returns:
+ *   0 if safe (no cycle found, reached root of chain)
+ *  -1 if a cycle is detected, chain is too deep, or stat/open error occurs.
+ */
+static int check_parent_cycle(int img_fd, const char *parent_path)
+{
+	struct stat img_st, cur_st;
+	int cur_fd, next_fd, depth = 0;
+
+	if (fstat(img_fd, &img_st)) {
+		pr_perror("Can't stat images directory");
+		return -1;
+	}
+
+	/* Open the immediate parent directory */
+	cur_fd = openat(img_fd, parent_path, O_RDONLY);
+	if (cur_fd < 0) {
+		pr_perror("Invalid parent image directory provided");
+		return -1;
+	}
+
+	while (1) {
+		if (fstat(cur_fd, &cur_st)) {
+			pr_perror("Can't stat parent in chain");
+			close(cur_fd);
+			return -1;
+		}
+
+		if (!S_ISDIR(cur_st.st_mode)) {
+			pr_err("Parent images path in chain is not a directory\n");
+			close(cur_fd);
+			return -1;
+		}
+
+		/* If any ancestor shares the same dev and inode as img_fd, cycle detected! */
+		if (img_st.st_dev == cur_st.st_dev &&
+		    img_st.st_ino == cur_st.st_ino) {
+			pr_err("Circular parent images directory loop detected\n");
+			close(cur_fd);
+			return -1;
+		}
+
+		if (++depth > CR_MAX_PARENT_DEPTH) {
+			pr_err("Parent images chain too deep (max %d)\n", CR_MAX_PARENT_DEPTH);
+			close(cur_fd);
+			return -1;
+		}
+
+		/* Check if this parent has its own parent symlink */
+		if (open_parent(cur_fd, &next_fd)) {
+			close(cur_fd);
+			return -1;
+		}
+
+		close(cur_fd);
+
+		if (next_fd < 0) {
+			/* Reached root of the snapshot chain without encountering img_st. Safe! */
+			break;
+		}
+
+		cur_fd = next_fd;
 	}
 
 	return 0;
