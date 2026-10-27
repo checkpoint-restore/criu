@@ -2534,8 +2534,11 @@ err:
 	return ret;
 }
 
-static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_head *self_vma_list, long min_addr, long vma_len)
+static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_head *self_vma_list,
+				  long min_addr, long vma_len, unsigned long reserved_start,
+				  unsigned long reserved_len)
 {
+	unsigned long reserved_end = reserved_start + reserved_len;
 	struct vma_area *t_vma, *s_vma;
 	long prev_vma_end = min_addr;
 	struct vma_area end_vma;
@@ -2588,6 +2591,15 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_he
 			}
 
 			t_vma = vma_next(t_vma);
+			continue;
+		}
+
+		/*
+		 * The premapped reservation may contain unmapped alignment
+		 * gaps. They are not available for the restorer bootstrap.
+		 */
+		if (reserved_len && prev_vma_end < reserved_end && prev_vma_end + vma_len > reserved_start) {
+			prev_vma_end = reserved_end;
 			continue;
 		}
 
@@ -3351,7 +3363,9 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	mem = (void *)restorer_get_vma_hint(&vmas->h, &self_vmas.h,
 					    shstk_min_mmap_addr(&task_args->shstk, kdat.mmap_min_addr),
-					    task_args->bootstrap_len);
+					    task_args->bootstrap_len,
+					    (unsigned long)rsti(current)->premmapped_addr,
+					    rsti(current)->premmapped_len);
 	if (mem == (void *)-1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n", task_args->bootstrap_len);
 		goto err;
