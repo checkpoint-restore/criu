@@ -127,4 +127,20 @@ static inline bool vma_entry_can_be_lazy(VmaEntry *e)
 		!(vma_entry_is(e, VMA_AREA_VSYSCALL)) && !(e->flags & MAP_HUGETLB));
 }
 
+/*
+ * Return the THP advice saved for a VMA, or 0 if it has none. The advice
+ * decides the size of the pages a fault allocates, and a page that is already
+ * present keeps its size. Restore applies it before filling the VMA.
+ */
+static inline int vma_entry_thp_advice(VmaEntry *e)
+{
+	if (!e->has_madv)
+		return 0;
+	if (e->madv & (1ul << MADV_HUGEPAGE))
+		return MADV_HUGEPAGE;
+	if (e->madv & (1ul << MADV_NOHUGEPAGE))
+		return MADV_NOHUGEPAGE;
+	return 0;
+}
+
 #endif /* __CR_VMA_H__ */
