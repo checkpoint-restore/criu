@@ -2539,10 +2539,14 @@ err:
 	return ret;
 }
 
-static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_head *self_vma_list, long min_addr, long vma_len)
+static unsigned long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_head *self_vma_list,
+					   unsigned long min_addr, unsigned long vma_len,
+					   unsigned long reserved_start, unsigned long reserved_len)
 {
+	unsigned long reserved_end = reserved_start + reserved_len;
 	struct vma_area *t_vma, *s_vma;
-	long prev_vma_end = min_addr;
+	unsigned long prev_vma_end = min_addr;
+	unsigned long vma_end;
 	struct vma_area end_vma;
 	VmaEntry end_e;
 
@@ -2555,7 +2559,11 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_he
 	t_vma = list_first_entry(tgt_vma_list, struct vma_area, list);
 
 	while (1) {
-		if (prev_vma_end + vma_len > s_vma->e->start) {
+		if (vma_len > kdat.task_size || prev_vma_end > kdat.task_size - vma_len)
+			break;
+		vma_end = prev_vma_end + vma_len;
+
+		if (vma_end > s_vma->e->start) {
 			if (s_vma == &end_vma)
 				break;
 
@@ -2575,7 +2583,7 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_he
 			continue;
 		}
 
-		if (prev_vma_end + vma_len > t_vma->e->start) {
+		if (vma_end > t_vma->e->start) {
 			if (t_vma == &end_vma)
 				break;
 
@@ -2596,10 +2604,24 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list, struct list_he
 			continue;
 		}
 
+		/*
+		 * The premapped area is not fully covered by self_vma_list.
+		 * On kernels that hide the stack guard gap, unmap_guard_pages()
+		 * leaves a one-page hole in front of each premapped grow-down
+		 * VMA. If that VMA is the first one, the hole is the first page
+		 * of the area and adjoins the free space below it, so the
+		 * restorer bootstrap could end in it. Keep the bootstrap out
+		 * of the whole area.
+		 */
+		if (reserved_len && prev_vma_end < reserved_end && vma_end > reserved_start) {
+			prev_vma_end = reserved_end;
+			continue;
+		}
+
 		return prev_vma_end;
 	}
 
-	return -1;
+	return (unsigned long)-1;
 }
 
 static int prepare_mm(pid_t pid, struct task_restore_args *args)
@@ -3356,7 +3378,9 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	mem = (void *)restorer_get_vma_hint(&vmas->h, &self_vmas.h,
 					    shstk_min_mmap_addr(&task_args->shstk, kdat.mmap_min_addr),
-					    task_args->bootstrap_len);
+					    task_args->bootstrap_len,
+					    (unsigned long)rsti(current)->premmapped_addr,
+					    rsti(current)->premmapped_len);
 	if (mem == (void *)-1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n", task_args->bootstrap_len);
 		goto err;
@@ -3440,6 +3464,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	task_args->premmapped_addr = (unsigned long)rsti(current)->premmapped_addr;
 	task_args->premmapped_len = rsti(current)->premmapped_len;
+	task_args->thp_pmd_size = kdat.thp_pmd_size;
 
 	task_args->task_size = kdat.task_size;
 #ifdef ARCH_HAS_LONG_PAGES

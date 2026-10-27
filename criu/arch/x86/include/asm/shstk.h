@@ -84,7 +84,7 @@ static always_inline void shstk_set_restorer_stack(struct rst_shstk_info *info, 
 }
 #define shstk_set_restorer_stack shstk_set_restorer_stack
 
-static always_inline long shstk_min_mmap_addr(struct rst_shstk_info *info, unsigned long __maybe_unused def)
+static always_inline unsigned long shstk_min_mmap_addr(struct rst_shstk_info *info, unsigned long __maybe_unused def)
 {
 	return !(info->cet & ARCH_SHSTK_SHSTK) ? def : (4UL << 30);
 }

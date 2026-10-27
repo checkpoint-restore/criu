@@ -977,6 +977,10 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 	 * image files, once in process). Unfortunately, MAP_LOCKED defeats
 	 * that mechanism as it causes the process to be charged for memory
 	 * immediately upon mmap, not later upon preadv().
+	 *
+	 * MAP_LOCKED may also populate pages during mmap(), before the THP
+	 * advice is applied, so such a mapping may not get the page size
+	 * it asked for.
 	 */
 	pr_debug("\tmmap(%" PRIx64 " -> %" PRIx64 ", %x %x %d)\n", vma_entry->start, vma_entry->end, prot, flags,
 		 (int)vma_entry->fd);
@@ -1176,7 +1180,7 @@ static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 	return 0;
 }
 
-static int vma_remap(VmaEntry *vma_entry, int uffd)
+static int vma_remap(VmaEntry *vma_entry, int uffd, unsigned long thp_pmd_size)
 {
 	unsigned long src = vma_premmaped_start(vma_entry);
 	unsigned long dst = vma_entry->start;
@@ -1235,7 +1239,7 @@ static int vma_remap(VmaEntry *vma_entry, int uffd)
 		 * |G|---tgt-----|                          |
 		 */
 
-		unsigned long addr;
+		unsigned long addr, align = 0, pad = 0;
 
 		/* Map guard page (step 2) */
 		tmp = sys_mmap((void *)guard, PAGE_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
@@ -1244,11 +1248,51 @@ static int vma_remap(VmaEntry *vma_entry, int uffd)
 			return -1;
 		}
 
+		/*
+		 * mremap() keeps PMD-mapped huge pages only if the source
+		 * and the destination have the same offset within a PMD.
+		 * Otherwise it splits them. Place the temporary area at the
+		 * same PMD offset as src, so that the huge pages survive
+		 * the move to the temporary area. Both addresses are
+		 * page-aligned, so the skipped head is never larger than
+		 * align - PAGE_SIZE.
+		 */
+		if (uffd < 0 && thp_pmd_size && len >= thp_pmd_size &&
+		    !((src ^ dst) & (thp_pmd_size - 1)) &&
+		    round_up(dst, thp_pmd_size) <= vma_entry->end - thp_pmd_size &&
+		    vma_entry_thp_advice(vma_entry) != MADV_NOHUGEPAGE &&
+		    !vma_entry_is(vma_entry, VMA_AREA_SHSTK)) {
+			align = thp_pmd_size;
+			pad = align - PAGE_SIZE;
+		}
+
 		/* Move src to non-overlapping place (step 3) */
-		addr = sys_mmap(NULL, len, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+		addr = sys_mmap(NULL, len + pad, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 		if (IS_ERR((void *)addr)) {
 			pr_err("Unable to reserve memory (%lx)\n", addr);
 			return -1;
+		}
+
+		if (align) {
+			unsigned long head = (src - addr) & (align - 1);
+			unsigned long tail = pad - head;
+
+			if (head) {
+				tmp = sys_munmap((void *)addr, head);
+				if (tmp) {
+					pr_err("Unable to unmap %lx (%lx)\n", addr, tmp);
+					return -1;
+				}
+				addr += head;
+			}
+
+			if (tail) {
+				tmp = sys_munmap((void *)(addr + len), tail);
+				if (tmp) {
+					pr_err("Unable to unmap %lx (%lx)\n", addr + len, tmp);
+					return -1;
+				}
+			}
 		}
 
 		tmp = sys_mremap(src, len, len, MREMAP_MAYMOVE | MREMAP_FIXED, addr);
@@ -1564,6 +1608,45 @@ static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len, v
 			pr_err("Unable to unmap (%p-%p): %d\n", (void *)(p2 + s2), (void *)task_size, ret);
 			return -1;
 		}
+	}
+
+	return 0;
+}
+
+/*
+ * Premapped VMAs are placed one by one in the premapped area, in the order of
+ * args->vmas. There may be holes between them: rooms skipped to keep the THP
+ * alignment, and guard pages of grow-down VMAs. They are unmapped here,
+ * once all CRIU mappings are gone and before any VMA is moved to its target
+ * place, which may intersect the premapped area.
+ */
+static int unmap_premmapped_gaps(struct task_restore_args *args)
+{
+	unsigned long addr = args->premmapped_addr;
+	int i, ret;
+
+	for (i = 0; i < args->vmas_n; i++) {
+		VmaEntry *vma_entry = args->vmas + i;
+		unsigned long start;
+
+		if (!vma_entry_is(vma_entry, VMA_PREMMAPED))
+			continue;
+
+		start = vma_premmaped_start(vma_entry);
+		if (start < addr) {
+			pr_err("Premapped VMAs are not sorted (%lx < %lx)\n", start, addr);
+			return -1;
+		}
+
+		if (start > addr) {
+			ret = sys_munmap((void *)addr, start - addr);
+			if (ret) {
+				pr_err("Unable to unmap (%lx-%lx): %d\n", addr, start, ret);
+				return -1;
+			}
+		}
+
+		addr = start + vma_entry_len(vma_entry);
 	}
 
 	return 0;
@@ -2432,6 +2515,9 @@ __visible long __export_restore_task(struct task_restore_args *args)
 			   args->task_size))
 		goto core_restore_end;
 
+	if (unmap_premmapped_gaps(args))
+		goto core_restore_end;
+
 	/* Map vdso that wasn't parked */
 	if (args->can_map_vdso && (map_vdso(args, args->compatible_mode) < 0))
 		goto core_restore_end;
@@ -2451,7 +2537,7 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		if (vma_entry->start > vma_entry->shmid)
 			break;
 
-		if (vma_remap(vma_entry, args->uffd))
+		if (vma_remap(vma_entry, args->uffd, args->thp_pmd_size))
 			goto core_restore_end;
 	}
 
@@ -2468,7 +2554,7 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		if (vma_entry->start < vma_entry->shmid)
 			break;
 
-		if (vma_remap(vma_entry, args->uffd))
+		if (vma_remap(vma_entry, args->uffd, args->thp_pmd_size))
 			goto core_restore_end;
 	}
 
