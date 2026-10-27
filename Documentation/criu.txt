@@ -186,7 +186,8 @@ Performs the pre-dump procedure, during which *criu* creates a snapshot of
 memory changes since the previous *pre-dump*. Note that during this
 *criu* also creates the fsnotify cache which speeds up the *restore*
 procedure. *pre-dump* requires at least *-t* option (see *dump* below).
-In addition, *page-server* options may be specified.
+In addition, *--irmap-scan-path* (see *dump*) and *page-server* options,
+including the TLS options, may be specified.
 
 *--track-mem*::
     Turn on memory changes tracker in the kernel. If the option is
@@ -364,14 +365,38 @@ mount -t cgroup -o devices,freezer none devices,freezer
     The TCP stack on the client side is expected to handle the
     re-connect gracefully.
 
+*--empty-ns* *net*::
+    Do not save the configuration of the network namespace: links,
+    addresses, routes, routing rules, iptables and nftables rules, and
+    sysctls. Restore such a dump with *--empty-ns net* and configure the
+    new namespace from an action script (see *restore* and *EXAMPLES*).
+    This works only for the network namespace of the root task. Mark
+    any other network namespace in the tree as external with
+    *--external* **net[**__inode__**]:**__name__, otherwise the dump
+    fails.
+
+*--skip-mnt* 'mountpoint'::
+    Do not dump the mount at 'mountpoint', a path in the dumped tree's
+    mount namespace. The mount is not restored. The dump fails if an
+    open file or another mount depends on it. Can be used multiple
+    times.
+
 *--evasive-devices*::
     Use any path to a device file if the original one is inaccessible.
 
 *--page-server*::
-    Send pages to a page server (see the *page-server* command).
+    Send pages to a page server. See the *page-server* command for
+    connection and TLS options.
 
 *--force-irmap*::
     Force resolving names for inotify and fsnotify watches.
+
+*--irmap-scan-path* 'path'::
+    Scan 'path' when resolving names for inotify and fsnotify watches.
+    'path' is an absolute path in the dumped tree's mount namespace, and
+    the directory tree below it is scanned recursively. Can be used
+    multiple times; the paths are scanned in the order given, before the
+    built-in locations.
 
 *--auto-dedup*::
     Deduplicate "old" data in pages images of previous *dump*. This option
@@ -596,6 +621,11 @@ usually need to be escaped from shell.
 *-d*, *--restore-detached*::
     Detach *criu* itself once restore is complete.
 
+*--exec-cmd*::
+    After a successful restore, execute the command given after *--* in
+    place of *criu*, so that the command becomes the parent of the
+    restored root task. Cannot be combined with *--restore-detached*.
+
 *-s*, *--leave-stopped*::
     Leave tasks in stopped state after restore (rather than resuming
     their execution).
@@ -654,6 +684,19 @@ usually need to be escaped from shell.
     possible using *--external* and *--inheritfd*. 'EXTRA_OPTS' is optional
     and can be used to specify UID and GID for user namespace (e.g.,
     *--join-ns user:PID,UID,GID*).
+
+*--empty-ns* *net*::
+    Create a new network namespace for the restored tree, but do not
+    configure it. Configure the namespace from an action script at the
+    *setup-namespaces* stage, where *CRTOOLS_INIT_PID* gives the PID of
+    the restored root task. Only *net* is supported, and this option
+    cannot be combined with *--join-ns net*.
++
+To restore into a network namespace that already exists, do not use
+*--empty-ns*. Either join it with *--join-ns* **net:**__PID__, or dump
+with *--external* **net[**__inode__**]:**__name__ and restore with
+*--inherit-fd* **fd[**__N__**]:**__name__. See *EXAMPLES* for both
+*--empty-ns* and a Kubernetes Pod.
 
 *--manage-cgroups* ['mode']::
     Restore cgroups configuration associated with a task from the image.
@@ -765,6 +808,12 @@ For example, this option can be used in case *--cpu-cap=cpu* was used
 during *dump*, and images are migrated to a less capable CPU and are
 to be restored. By default, *criu* shows an error that CPU capabilities
 are not adequate, but this can be suppressed by using *--cpu-cap=none*.
+
+*--mntns-compat-mode*::
+    Restore mount namespaces with the compatibility mount engine instead
+    of mount-v2. Without this option, *criu* uses mount-v2 when the
+    kernel supports MOVE_MOUNT_SET_GROUP and openat2, and the
+    compatibility engine otherwise.
 
 *--weak-sysctls*::
    Silently skip restoring sysctls that are not available. This allows
@@ -926,6 +975,13 @@ Launches *criu* in page server mode.
 *--tls*::
     Use TLS to secure remote connections.
 
+*--tls-no-cn-verify*::
+    Do not check that the peer certificate matches the *--address*
+    host. Without this option, a client checks the server certificate,
+    and a page server started with *--address* checks the client
+    certificate. The certificate is still verified against the trusted
+    CAs.
+
 *lazy-pages*
 ~~~~~~~~~~~~
 Launches *criu* in lazy-pages daemon mode.
@@ -937,6 +993,10 @@ checkpoint directory. When a restored process access certain memory
 page for the first time, the *lazy-pages* daemon injects its contents
 into the process address space. The memory pages that are not yet
 requested by the restored processes are injected in the background.
+
+To fetch pages from a remote page server, use *--page-server* with
+*--address* and *--port*. See the *page-server* command for connection
+and TLS options.
 
 *exec*
 ~~~~~~
@@ -1077,6 +1137,49 @@ To restore this program detaching criu itself:
 ----------
     criu restore -d -D checkpoint
 ----------
+
+To restore a program into a new network namespace and configure it from
+an action script, dump and restore it with *--empty-ns net*:
+
+----------
+    criu dump -D checkpoint -t 1234 --empty-ns net
+    criu restore -D checkpoint --empty-ns net --action-script ./netns.sh
+----------
+
+where *netns.sh* moves an interface into the namespace of the restored
+root task and configures it:
+
+----------
+    #!/bin/sh
+    [ "$CRTOOLS_SCRIPT_ACTION" = setup-namespaces ] || exit 0
+    ip link set veth1 netns "$CRTOOLS_INIT_PID"
+    nsenter -t "$CRTOOLS_INIT_PID" -n sh -c '
+        ip link set lo up
+        ip addr add 10.0.0.2/24 dev veth1
+        ip link set veth1 up'
+----------
+
+In Kubernetes, the network namespace belongs to the Pod. The container
+runtime and the network plugin create and configure it before any
+container in the Pod starts, so do not use *--empty-ns net* to restore
+a container into a Pod. Instead, mark the namespace as external on dump
+and pass the namespace of the target Pod on restore:
+
+----------
+    ino=$(stat -L -c %i /proc/1234/ns/net)
+    criu dump -D checkpoint -t 1234 --external "net[$ino]:pod-netns"
+
+    criu restore -D checkpoint --inherit-fd "fd[3]:pod-netns" \
+        3</proc/5678/ns/net
+----------
+
+where *1234* is the container's init process and *5678* is any process
+in the target Pod, such as its infrastructure (pause) container. The
+target Pod usually has a different IP address, so TCP connections
+dumped with *--tcp-established* cannot be restored there. The commands
+show only the options for the network namespace. Container runtimes that
+support checkpointing, such as crun, pass them together with the other
+options a container needs, such as external mounts.
 
 
 AUTHOR
