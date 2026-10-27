@@ -1438,6 +1438,35 @@ out_unmap:
 	return ret;
 }
 
+/*
+ * Restore places premapped VMAs that want huge pages at a PMD-compatible
+ * offset, so it needs the size of a PMD-mapped huge page. Leave it at 0 when
+ * the kernel has no THP or sysfs cannot tell. Restore then skips the alignment.
+ */
+static void kerndat_thp_pmd_size(void)
+{
+	unsigned long size = 0;
+	FILE *f;
+	int ret;
+
+	kdat.thp_pmd_size = 0;
+
+	f = fopen("/sys/kernel/mm/transparent_hugepage/hpage_pmd_size", "r");
+	if (!f) {
+		pr_info("Can't open hpage_pmd_size: %s\n", strerror(errno));
+		return;
+	}
+
+	ret = fscanf(f, "%lu", &size);
+	fclose(f);
+	if (ret != 1 || size < PAGE_SIZE || (size & (size - 1))) {
+		pr_warn("Unexpected hpage_pmd_size %lu, premapped VMAs won't be THP-aligned\n", size);
+		return;
+	}
+
+	kdat.thp_pmd_size = size;
+}
+
 static int kerndat_tun_netns(void)
 {
 	return check_tun_netns_cr(&kdat.tun_ns);
@@ -2149,6 +2178,8 @@ int kerndat_init(void)
 		pr_err("kerndat_has_thp_disable failed when initializing kerndat.\n");
 		ret = -1;
 	}
+	if (!ret)
+		kerndat_thp_pmd_size();
 	/* Needs kdat.compat_cr filled before */
 	if (!ret && kerndat_vdso_fill_symtable()) {
 		pr_err("kerndat_vdso_fill_symtable failed when initializing kerndat.\n");
