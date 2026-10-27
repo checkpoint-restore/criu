@@ -165,6 +165,7 @@ TST_NOFILE	:=				\
 		maps09				\
 		maps10				\
 		maps11				\
+		maps_shared_exec_anon		\
 		mlock_setuid			\
 		xids00				\
 		groups				\
@@ -408,6 +409,8 @@ TST_FILE	=				\
 		netns-nft			\
 		netns-nft-ipt			\
 		maps_file_prot			\
+		maps_shared_exec		\
+		maps_shared_exec_rw		\
 		socket_close_data01		\
 		fifo_upon_unix_socket00		\
 		fifo_upon_unix_socket01		\
@@ -651,6 +654,8 @@ socket_aio:		LDLIBS += -lrt -pthread
 uptime_grow:		LDLIBS += -lrt -pthread
 unlink_largefile:	CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 inotify_system_nodel:	CFLAGS += -DNO_DEL
+maps_shared_exec_anon:	CFLAGS += -DSHARED_ANON
+maps_shared_exec_rw:	CFLAGS += -DSHARED_RW
 pthread00:		LDLIBS += -pthread
 pthread00-pac:		CFLAGS += ${PAC_CFLAGS}
 pthread00-pac:		LDLIBS += -pthread
