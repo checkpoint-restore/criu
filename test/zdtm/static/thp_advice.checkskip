@@ -1,0 +1,9 @@
+#!/bin/sh
+
+pmd_file=/sys/kernel/mm/transparent_hugepage/hpage_pmd_size
+
+# madvise(MADV_HUGEPAGE) fails without THP
+test -f "$pmd_file" || exit 1
+
+# Larger PMD sizes (e.g. 512M with 64K pages) make the test too heavy
+test "$(cat "$pmd_file")" -le 33554432
