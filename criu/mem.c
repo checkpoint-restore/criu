@@ -761,6 +761,72 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 	return ret;
 }
 
+/*
+ * THP advice for a VMA that is filled before the restorer runs. Lazy restore
+ * is left alone. A lazy VMA can hold eager pages too, and a huge page faulted
+ * in for one of them would populate the lazy pages around it.
+ */
+static int premap_thp_advice(struct vma_area *vma)
+{
+	if (opts.lazy_pages || vma_area_is(vma, VMA_AREA_SHSTK))
+		return 0;
+	return vma_entry_thp_advice(vma->e);
+}
+
+static bool task_thp_disabled(struct pstree_item *t)
+{
+	return rsti(t)->mm->has_thp_disabled && rsti(t)->mm->thp_disabled;
+}
+
+/*
+ * A premapped VMA reaches its real address with mremap(), and mremap() keeps a
+ * huge page PMD-mapped only when the source and the destination have the same
+ * offset within a PMD. Return the alignment needed to premap a VMA at such an
+ * offset, or 0 if the VMA can't get PMD-mapped huge pages.
+ *
+ * VMAs without THP advice are aligned too. Anonymous memory gets huge pages
+ * without any advice when THP is set to "always". In other modes, only
+ * some address space of the PROT_NONE reservation is wasted.
+ */
+static unsigned long premap_thp_align(struct pstree_item *t, struct vma_area *vma)
+{
+	unsigned long pmd = kdat.thp_pmd_size;
+
+	if (!pmd || opts.lazy_pages || vma_area_is(vma, VMA_AREA_SHSTK))
+		return 0;
+
+	if (kdat.has_thp_disable && task_thp_disabled(t))
+		return 0;
+
+	switch (premap_thp_advice(vma)) {
+	case MADV_NOHUGEPAGE:
+		return 0;
+	case MADV_HUGEPAGE:
+		break;
+	default:
+		if (!vma_area_is(vma, VMA_ANON_PRIVATE))
+			return 0;
+	}
+
+	/* The VMA has to contain at least one aligned PMD */
+	if (vma->e->end - vma->e->start < pmd ||
+	    round_up(vma->e->start, pmd) > vma->e->end - pmd)
+		return 0;
+
+	return pmd;
+}
+
+/*
+ * The room reserved to align a premapped VMA. Both addresses are
+ * page-aligned, so the skipped room is never larger than this.
+ */
+static unsigned long premap_thp_pad(struct pstree_item *t, struct vma_area *vma)
+{
+	unsigned long align = premap_thp_align(t, vma);
+
+	return align ? align - PAGE_SIZE : 0;
+}
+
 int prepare_mm_pid(struct pstree_item *i)
 {
 	pid_t pid = vpid(i);
@@ -813,12 +879,6 @@ int prepare_mm_pid(struct pstree_item *i)
 		}
 		list_add_tail(&vma->list, &ri->vmas.h);
 
-		if (vma_area_is_private(vma, kdat.task_size)) {
-			ri->vmas.rst_priv_size += vma_area_len(vma);
-			if (vma_has_guard_gap_hidden(vma))
-				ri->vmas.rst_priv_size += PAGE_SIZE;
-		}
-
 		pr_info("vma 0x%" PRIx64 " 0x%" PRIx64 "\n", vma->e->start, vma->e->end);
 
 		if (vma_area_is(vma, VMA_ANON_SHARED))
@@ -868,6 +928,13 @@ static inline bool check_cow_vmas(struct vma_area *vma, struct vma_area *pvma)
 	/* ... both be accountable, since COW VMAs may carry restored pages */
 	if (vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE) ||
 	    vma_area_is(pvma, VMA_AREA_NOT_ACCOUNTABLE))
+		return false;
+
+	/*
+	 * COW premapping can reuse the parent's existing pages.
+	 * Different THP advice requires independent premapping.
+	 */
+	if (premap_thp_advice(vma) != premap_thp_advice(pvma))
 		return false;
 
 	pr_debug("Found two COW VMAs @0x%" PRIx64 "-0x%" PRIx64 "\n", vma->e->start, pvma->e->end);
@@ -938,6 +1005,15 @@ void prepare_cow_vmas(void)
 			 */
 			continue;
 
+		if (!opts.lazy_pages && kdat.has_thp_disable &&
+		    task_thp_disabled(pi) != task_thp_disabled(ppi))
+			/*
+			 * THP_DISABLE governs page size on fault without
+			 * setting per-VMA advice bits. Tasks with different
+			 * THP_DISABLE states cannot share COW premappings.
+			 */
+			continue;
+
 		prepare_cow_vmas_for(vmas, pvmas);
 	}
 }
@@ -945,9 +1021,9 @@ void prepare_cow_vmas(void)
 /* Map a private vma, if it is not mapped by a parent yet */
 static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void **tgt_addr)
 {
-	int ret;
+	int ret, advice;
 	void *addr;
-	unsigned long nr_pages, size;
+	unsigned long nr_pages, size, align;
 
 	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 	vma->page_bitmap = xzalloc(BITS_TO_LONGS(nr_pages) * sizeof(long));
@@ -955,13 +1031,34 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		return -1;
 
 	/*
+	 * Determine THP alignment from the original VMA,
+	 * before modifying its boundaries.
+	 */
+	align = premap_thp_align(t, vma);
+
+	/*
 	 * A grow-down VMA has a guard page, which protect a VMA below it.
-	 * So one more page is mapped here to restore content of the first page
+	 * So one more page is mapped here to restore content of the first page.
 	 */
 	if (vma_has_guard_gap_hidden(vma))
 		vma->e->start -= PAGE_SIZE;
 
+	/*
+	 * Calculate the actual mapping size, including the guard.
+	 */
 	size = vma_entry_len(vma->e);
+
+	if (align) {
+		/*
+		 * The skipped room stays mapped as a part of the PROT_NONE
+		 * reservation. A hole here could be taken by any mmap() call
+		 * made before the restorer. unmap_old_vmas() keeps the whole
+		 * premapped area, so such a mapping would survive in the
+		 * restored task. The restorer unmaps the skipped room after
+		 * all CRIU mappings are gone (see unmap_premmapped_gaps()).
+		 */
+		*tgt_addr += (vma->e->start - (unsigned long)*tgt_addr) & (align - 1);
+	}
 
 	if (!vma_inherited(vma)) {
 		int flag = 0;
@@ -1006,6 +1103,17 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		}
 		if (addr == MAP_FAILED) {
 			pr_perror("Unable to map ANON_VMA");
+			return -1;
+		}
+
+		/*
+		 * MAP_LOCKED may populate pages during mmap(), before the THP
+		 * advice is applied, so such a mapping may not get the page
+		 * size it asked for.
+		 */
+		advice = premap_thp_advice(vma);
+		if (advice && madvise(addr, size, advice)) {
+			pr_perror("Unable to apply THP advice %d to %p(%lx)", advice, addr, size);
 			return -1;
 		}
 	} else {
@@ -1097,14 +1205,12 @@ static int task_size_check(pid_t pid, VmaEntry *entry)
 #endif
 }
 
-static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, void **at, struct page_read *pr)
+static int plan_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
+			  struct page_read *pr, unsigned long *premap_size)
 {
 	struct vma_area *vma;
 	unsigned long pstart = 0;
-	int ret = 0;
-	LIST_HEAD(empty);
-
-	filemap_ctx_init(true);
+	uint64_t size = 0;
 
 	list_for_each_entry(vma, &vmas->h, list) {
 		bool exceptional;
@@ -1115,14 +1221,12 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 		if (vma_area_is(vma, VMA_AREA_GUARD))
 			continue;
 
-		if (task_size_check(vpid(t), vma->e)) {
-			ret = -1;
-			break;
-		}
+		if (task_size_check(vpid(t), vma->e))
+			return -1;
+
 		if (pstart > vma->e->start) {
-			ret = -1;
 			pr_err("VMA-s are not sorted in the image file\n");
-			break;
+			return -1;
 		}
 		pstart = vma->e->start;
 
@@ -1153,29 +1257,22 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 		 */
 		if (exceptional) {
 			has_lz4 = page_read_range_has_lz4(pr, vma->e->start, vma->e->end);
-			if (has_lz4 < 0) {
-				ret = -1;
-				break;
-			}
+			if (has_lz4 < 0)
+				return -1;
 		} else {
 			needs_premap = page_read_range_needs_premap(pr, vma->e->start, vma->e->end);
-			if (needs_premap < 0) {
-				ret = -1;
-				break;
-			}
+			if (needs_premap < 0)
+				return -1;
 		}
 		if (exceptional) {
 			has_parent = page_read_range_has_parent(pr, vma->e->start, vma->e->end);
-			if (has_parent < 0) {
-				ret = -1;
-				break;
-			}
+			if (has_parent < 0)
+				return -1;
 			if (has_parent) {
 				pr_err("Non-premapped VMA %#" PRIx64 "-%#" PRIx64
 				       " contains pages inherited from a parent image\n",
 				       vma->e->start, vma->e->end);
-				ret = -1;
-				break;
+				return -1;
 			}
 		}
 
@@ -1184,8 +1281,7 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 				pr_err("Hugetlb VMA %#" PRIx64 "-%#" PRIx64
 				       " contains an LZ4 block\n",
 				       vma->e->start, vma->e->end);
-				ret = -1;
-				break;
+				return -1;
 			}
 			continue;
 		}
@@ -1196,8 +1292,7 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 				pr_err("External-plugin VMA %#" PRIx64 "-%#" PRIx64
 				       " contains an LZ4 block\n",
 				       vma->e->start, vma->e->end);
-				ret = -1;
-				break;
+				return -1;
 			}
 			continue;
 		}
@@ -1220,8 +1315,35 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 			continue;
 		}
 
-		ret = premap_private_vma(t, vma, at);
+		size += vma_area_len(vma) + premap_thp_pad(t, vma);
+		if (vma_has_guard_gap_hidden(vma))
+			size += PAGE_SIZE;
 
+		vma->should_premap = true;
+	}
+
+	if (size > kdat.task_size) {
+		pr_err("Premap size %" PRIu64 " exceeds task size %lx\n",
+		       size, kdat.task_size);
+		return -1;
+	}
+
+	*premap_size = size;
+	return 0;
+}
+
+static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, void **at)
+{
+	struct vma_area *vma;
+	int ret = 0;
+
+	filemap_ctx_init(true);
+
+	list_for_each_entry(vma, &vmas->h, list) {
+		if (!vma->should_premap)
+			continue;
+
+		ret = premap_private_vma(t, vma, at);
 		if (ret < 0)
 			break;
 	}
@@ -1492,28 +1614,35 @@ out:
 	return exit_code;
 }
 
-static int maybe_disable_thp(struct pstree_item *t, struct page_read *pr)
+static int setup_restore_thp_state(struct pstree_item *t, struct page_read *pr)
 {
-	/*
-	 * There is no need to disable it if the page read doesn't
-	 * have parent. In this case VMA will be empty until
-	 * userfaultfd_register, so there would be no pages to
-	 * collapse. And, once we register the VMA with uffd,
-	 * khugepaged will skip it.
-	 */
-	if (!(opts.lazy_pages && page_read_has_parent(pr)))
-		return 0;
+	bool saved_disabled = task_thp_disabled(t);
+	bool lazy_guard = opts.lazy_pages && page_read_has_parent(pr);
+	bool disabled = saved_disabled || lazy_guard;
 
-	if (!kdat.has_thp_disable)
+	/*
+	 * Lazy restore with parent images needs THP disabled
+	 * temporarily to prevent premature huge-page collapse.
+	 * Without a usable has_thp_disable the prctl() may still
+	 * work. Warn and try it.
+	 */
+	if (!kdat.has_thp_disable) {
+		if (!lazy_guard)
+			return 0;
 		pr_warn("Disabling transparent huge pages. "
 			"It may affect performance!\n");
+	}
 
 	/*
-	 * temporarily disable THP to avoid collapse of pages
-	 * in the areas that will be monitored by uffd
+	 * Apply the saved process-wide THP state before
+	 * premapping and populating memory. With a usable
+	 * PR_SET_THP_DISABLE, the prctl() call runs for every
+	 * task so THP_DISABLE inherited across fork() from the
+	 * parent task (or from CRIU itself) is cleared when the
+	 * restored task did not have it set.
 	 */
-	if (prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0)) {
-		pr_perror("Cannot disable THP");
+	if (prctl(PR_SET_THP_DISABLE, disabled, 0, 0, 0)) {
+		pr_perror("Cannot set THP_DISABLE=%d", disabled);
 		return -1;
 	}
 
@@ -1523,9 +1652,10 @@ static int maybe_disable_thp(struct pstree_item *t, struct page_read *pr)
 int prepare_mappings(struct pstree_item *t)
 {
 	int ret = 0;
-	void *addr;
+	void *addr = NULL;
 	struct vm_area_list *vmas;
 	struct page_read pr;
+	unsigned long premap_size = 0;
 
 	void *old_premmapped_addr = NULL;
 	unsigned long old_premmapped_len;
@@ -1534,31 +1664,43 @@ int prepare_mappings(struct pstree_item *t)
 	if (vmas->nr == 0) /* Zombie */
 		goto out;
 
-	/* Reserve a place for mapping private vma-s one by one */
-	addr = mmap(NULL, vmas->rst_priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-	if (addr == MAP_FAILED) {
-		ret = -1;
-		pr_perror("Unable to reserve memory (%lu bytes)", vmas->rst_priv_size);
-		goto out;
-	}
-
-	old_premmapped_addr = rsti(t)->premmapped_addr;
-	old_premmapped_len = rsti(t)->premmapped_len;
-	rsti(t)->premmapped_addr = addr;
-	rsti(t)->premmapped_len = vmas->rst_priv_size;
-
 	ret = open_page_read(vpid(t), &pr, PR_TASK);
 	if (ret <= 0)
 		return -1;
 
-	if (maybe_disable_thp(t, &pr))
-		return -1;
+	if (setup_restore_thp_state(t, &pr)) {
+		ret = -1;
+		goto err_close_pr;
+	}
 
 	pr.advance(&pr); /* shift to the 1st iovec */
 
-	ret = premap_priv_vmas(t, vmas, &addr, &pr);
+	ret = plan_priv_vmas(t, vmas, &pr, &premap_size);
 	if (ret < 0)
-		goto out;
+		goto err_close_pr;
+
+	old_premmapped_addr = rsti(t)->premmapped_addr;
+	old_premmapped_len = rsti(t)->premmapped_len;
+
+	if (premap_size) {
+		/* Reserve a place for mapping private vma-s one by one */
+		addr = mmap(NULL, premap_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+		if (addr == MAP_FAILED) {
+			ret = -1;
+			pr_perror("Unable to reserve memory (%lu bytes)", premap_size);
+			goto err_close_pr;
+		}
+
+		rsti(t)->premmapped_addr = addr;
+		rsti(t)->premmapped_len = premap_size;
+
+		ret = premap_priv_vmas(t, vmas, &addr);
+		if (ret < 0)
+			goto err_close_pr;
+	} else {
+		rsti(t)->premmapped_addr = NULL;
+		rsti(t)->premmapped_len = 0;
+	}
 
 	pr.reset(&pr);
 
@@ -1573,24 +1715,30 @@ int prepare_mappings(struct pstree_item *t)
 	}
 
 	/*
-	 * Not all VMAs were premmaped. Find out the unused tail of the
-	 * premapped area and unmap it.
+	 * Unused THP alignment room may remain at the end of the
+	 * premapped area. Unmap that tail.
 	 */
-	old_premmapped_len = addr - rsti(t)->premmapped_addr;
-	if (old_premmapped_len < rsti(t)->premmapped_len) {
-		unsigned long tail;
+	if (rsti(t)->premmapped_len) {
+		old_premmapped_len = addr - rsti(t)->premmapped_addr;
+		if (old_premmapped_len < rsti(t)->premmapped_len) {
+			unsigned long tail;
 
-		tail = rsti(t)->premmapped_len - old_premmapped_len;
-		ret = munmap(addr, tail);
-		if (ret < 0)
-			pr_perror("Unable to unmap %p(%lx)", addr, tail);
-		rsti(t)->premmapped_len = old_premmapped_len;
-		if (!rsti(t)->premmapped_len)
-			rsti(t)->premmapped_addr = NULL;
-		pr_info("Shrunk premap area to %p(%lx)\n", rsti(t)->premmapped_addr, rsti(t)->premmapped_len);
+			tail = rsti(t)->premmapped_len - old_premmapped_len;
+			ret = munmap(addr, tail);
+			if (ret < 0)
+				pr_perror("Unable to unmap %p(%lx)", addr, tail);
+			rsti(t)->premmapped_len = old_premmapped_len;
+			if (!rsti(t)->premmapped_len)
+				rsti(t)->premmapped_addr = NULL;
+			pr_info("Shrunk premap area to %p(%lx)\n", rsti(t)->premmapped_addr, rsti(t)->premmapped_len);
+		}
 	}
 
 out:
+	return ret;
+
+err_close_pr:
+	pr.close(&pr);
 	return ret;
 }
 

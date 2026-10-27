@@ -54,7 +54,7 @@ static always_inline long shstk_set_restorer_stack(struct rst_shstk_info *info, 
 #endif
 
 #ifndef shstk_min_mmap_addr
-static always_inline long shstk_min_mmap_addr(struct rst_shstk_info *info, unsigned long def)
+static always_inline unsigned long shstk_min_mmap_addr(struct rst_shstk_info *info, unsigned long def)
 {
 	return def;
 }
