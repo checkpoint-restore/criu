@@ -52,6 +52,7 @@
 #include "fault-injection.h"
 #include "external.h"
 #include "memfd.h"
+#include "fdstore.h"
 #include "openat2.h"
 
 #include "protobuf.h"
@@ -2352,16 +2353,99 @@ err:
 	return -1;
 }
 
+/*
+ * Gets a descriptor of the root of the mount on which the file is located
+ * and the path of the file relative to it. This is only possible with
+ * mount-v2, which keeps a descriptor for each restored mount. *mnt_fd is
+ * set to -1 if the mount descriptor isn't available.
+ */
+static int get_file_mnt_fd(struct reg_file_info *rfi, int *mnt_fd, char **rel_path)
+{
+	struct mount_info *mi;
+	int mnt_id = rfi->rfe->mnt_id;
+
+	*mnt_fd = -1;
+
+	/* Directories are opened via their ghost paths (see open_path) */
+	if (rfi->remap && rfi->remap->is_dir)
+		mnt_id = rfi->remap->rmnt_id;
+
+	if (mnt_id == -1)
+		return 0;
+
+	mi = lookup_mnt_id(mnt_id);
+	if (!mi || mi->mnt_fd_id < 0)
+		return 0;
+
+	/*
+	 * The path dumped from /proc/pid/fd/N is the mountpoint path
+	 * followed by the path of the file relative to the mount root.
+	 */
+	*rel_path = get_relative_path(rfi->path, mi->ns_mountpoint);
+	if (!*rel_path) {
+		pr_warn("File %s isn't under the mountpoint %s of mount %d\n", rfi->path, mi->ns_mountpoint,
+			mi->mnt_id);
+		return 0;
+	}
+
+	if (**rel_path == '\0')
+		*rel_path = mi->is_dir ? "." : NULL;
+
+	*mnt_fd = fdstore_get(mi->mnt_fd_id);
+	if (*mnt_fd < 0) {
+		pr_err("Can't get the descriptor of mount %d\n", mi->mnt_id);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int open_reg_on_mount(int mnt_fd, char *rel_path, int flags)
+{
+	char path[32];
+	int proc_fd;
+
+	if (rel_path)
+		/*
+		 * The file is on the mount referred to by mnt_fd, so
+		 * neither mount crossings nor symlinks are expected.
+		 */
+		return openat_resolve(mnt_fd, rel_path, flags, RESOLVE_NO_XDEV | RESOLVE_NO_SYMLINKS | RESOLVE_BENEATH);
+
+	/*
+	 * A file bind-mount, the file is the mount root itself. openat2()
+	 * doesn't support AT_EMPTY_PATH, so reopen it via /proc/pid/fd.
+	 * PROC_SELF isn't used, because only service descriptors can be
+	 * used here.
+	 */
+	proc_fd = open_pid_proc(getpid());
+	if (proc_fd < 0)
+		return -1;
+
+	snprintf(path, sizeof(path), "fd/%d", mnt_fd);
+	return openat(proc_fd, path, flags & ~O_NOFOLLOW);
+}
+
 int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 {
 	u32 flags = *(u32 *)arg;
-	int fd;
+	char *rel_path = NULL;
+	int fd, mnt_fd;
 
 	/* unnamed temporary files are restored as ghost files */
 	flags &= ~O_TMPFILE;
 
 	if (rfi->follow_links) {
 		fd = openat(ns_root_fd, rfi->path, flags);
+		goto out;
+	}
+
+	if (get_file_mnt_fd(rfi, &mnt_fd, &rel_path))
+		return -1;
+
+	if (mnt_fd >= 0) {
+		fd = open_reg_on_mount(mnt_fd, rel_path, flags);
+		close(mnt_fd);
 		goto out;
 	}
 
