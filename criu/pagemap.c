@@ -30,7 +30,7 @@
 #endif
 
 #define MAX_BUNCH_SIZE 256
-#define PAGE_PADDING_CHUNK 4096
+#define STREAM_DISCARD_CHUNK (64 * 1024)
 #define ASYNC_READAHEAD_MAX_GAP (1UL << 20)
 #define ASYNC_READAHEAD_MAX_BYTES (256UL << 20)
 #define DIRECT_COMPRESSED_RUN_MAX 128
@@ -90,6 +90,8 @@ int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 		struct page_read *prp;
 
 		ret = pr->seek_pagemap(pr, off);
+		if (ret < 0)
+			return -1;
 		if (ret == 0) {
 			if (off < pr->cvaddr && pr->cvaddr < iov_end) {
 				pr_debug("pr%lu-%u:No range %lx-%lx in pagemap\n", pr->img_id, pr->id, off, pr->cvaddr);
@@ -180,6 +182,71 @@ static int advance(struct page_read *pr)
 }
 
 /*
+ * Whether the pages image itself is a stream. A remote page read has
+ * pr->streamed set too, because its pagemap comes from the streamer, but its
+ * pages arrive over the page server and it opens no pages image at all.
+ */
+static inline bool page_read_streamed(struct page_read *pr)
+{
+	return pr->streamed && pr->pi;
+}
+
+/*
+ * A streamed image is a pipe: bytes nobody wants still have to come out of it
+ * before the ones that are wanted.
+ */
+static int discard_stream_bytes(int fd, unsigned long len, const char *what)
+{
+	static char discard[STREAM_DISCARD_CHUNK];
+
+	while (len) {
+		size_t chunk = min(len, (unsigned long)sizeof(discard));
+		ssize_t ret;
+
+		ret = read(fd, discard, chunk);
+		if (ret == 0) {
+			pr_err("Reached EOF while skipping %s\n", what);
+			return -1;
+		}
+		if (ret < 0) {
+			if (errno == EINTR)
+				continue;
+			pr_perror("Can't skip %s", what);
+			return -1;
+		}
+		len -= ret;
+	}
+
+	return 0;
+}
+
+/*
+ * A streamed pages image is read straight out of a pipe and cannot be seeked,
+ * so pages that are skipped have to be read out and dropped.
+ */
+static int drop_streamed_pages(struct page_read *pr, unsigned long len)
+{
+	int fd;
+
+	fd = img_raw_fd(pr->pi);
+	if (fd < 0) {
+		pr_err("Getting raw FD failed\n");
+		return -1;
+	}
+
+	/*
+	 * advance() counts the alignment padding in pi_off before anything is
+	 * read, so len covers the payload alone. The padding has to leave the
+	 * pipe first or the stream ends up that far behind pi_off.
+	 */
+	if (discard_stream_bytes(fd, pr->stream_padding, "page-image alignment"))
+		return -1;
+	pr->stream_padding = 0;
+
+	return discard_stream_bytes(fd, len, "skipped pages");
+}
+
+/*
  * Return the page count of the current compressed block.
  * The last block of an entry may be shorter than pages_per_block when the
  * entry's nr_pages is not a multiple of pages_per_block.
@@ -198,10 +265,12 @@ static unsigned int current_block_pages(struct page_read *pr)
  * the page data. Used by seek_pagemap() to skip over pages that
  * are not needed for the current read request.
  */
-static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
+static int skip_pagemap_pages(struct page_read *pr, unsigned long len)
 {
+	off_t was = pr->pi_off;
+
 	if (!len)
-		return;
+		return 0;
 
 	if (pagemap_present(pr->pe)) {
 		if (!pr->pe->blocks || !pr->pe->blocks->n_block_sizes) {
@@ -254,7 +323,16 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 			}
 		}
 	}
+
+	/*
+	 * Each branch above moves pi_off by what the skipped pages occupy in
+	 * the image, which is not len once the entry is compressed.
+	 */
+	if (page_read_streamed(pr) && drop_streamed_pages(pr, pr->pi_off - was))
+		return -1;
+
 	pr->cvaddr += len;
+	return 0;
 }
 
 static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
@@ -270,12 +348,15 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 			break;
 
 		if (vaddr >= start && vaddr < end) {
-			skip_pagemap_pages(pr, vaddr - pr->cvaddr);
+			if (skip_pagemap_pages(pr, vaddr - pr->cvaddr))
+				return -1;
 			return 1;
 		}
 
-		if (end <= vaddr)
-			skip_pagemap_pages(pr, end - pr->cvaddr);
+		if (end <= vaddr) {
+			if (skip_pagemap_pages(pr, end - pr->cvaddr))
+				return -1;
+		}
 	adv:; /* otherwise "label at end of compound stmt" gcc error */
 	} while (advance(pr));
 
@@ -1403,23 +1484,9 @@ static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vadd
 		pr_err("Getting raw FD failed\n");
 		return -1;
 	}
-	while (pr->stream_padding) {
-		char discard[PAGE_PADDING_CHUNK];
-		size_t chunk = min(pr->stream_padding, sizeof(discard));
-
-		ret = read(fd, discard, chunk);
-		if (ret == 0) {
-			pr_err("Reached EOF while skipping page-image alignment\n");
-			return -1;
-		}
-		if (ret < 0) {
-			if (errno == EINTR)
-				continue;
-			pr_perror("Can't skip page-image alignment");
-			return -1;
-		}
-		pr->stream_padding -= ret;
-	}
+	if (discard_stream_bytes(fd, pr->stream_padding, "page-image alignment"))
+		return -1;
+	pr->stream_padding = 0;
 
 	pr_debug("\tpr%lu-%u Read page from self %lx/%" PRIx64 "\n", pr->img_id, pr->id, pr->cvaddr, pr->pi_off);
 
@@ -1471,7 +1538,6 @@ static int maybe_read_page_img_streamer_compressed(struct page_read *pr, unsigne
 	struct encoded_read_ctx *ctx = NULL;
 	uint64_t total_payload = 0;
 	unsigned long pages_done = 0;
-	ssize_t bytes;
 	int fd;
 	int ret = -1;
 
@@ -1489,23 +1555,9 @@ static int maybe_read_page_img_streamer_compressed(struct page_read *pr, unsigne
 		pr_err("Getting raw FD failed\n");
 		return -1;
 	}
-	while (pr->stream_padding) {
-		char discard[PAGE_PADDING_CHUNK];
-		size_t chunk = min(pr->stream_padding, sizeof(discard));
-
-		bytes = read(fd, discard, chunk);
-		if (bytes == 0) {
-			pr_err("Reached EOF while skipping compressed page-image alignment\n");
-			return -1;
-		}
-		if (bytes < 0) {
-			if (errno == EINTR)
-				continue;
-			pr_perror("Can't skip compressed page-image alignment");
-			return -1;
-		}
-		pr->stream_padding -= bytes;
-	}
+	if (discard_stream_bytes(fd, pr->stream_padding, "compressed page-image alignment"))
+		return -1;
+	pr->stream_padding = 0;
 
 	pr_debug("\tpr%lu-%u Read page from self %lx/%" PRIx64 "\n",
 		 pr->img_id, pr->id, pr->cvaddr, pr->pi_off);
