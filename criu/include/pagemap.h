@@ -119,7 +119,7 @@ struct page_read {
 	void (*close)(struct page_read *);
 
 	/* Advance virtual and pages-image cursors without copying data */
-	void (*skip_pages)(struct page_read *, unsigned long len);
+	int (*skip_pages)(struct page_read *, unsigned long len);
 
 	/* Process and drain queued asynchronous page reads */
 	int (*sync)(struct page_read *pr);
