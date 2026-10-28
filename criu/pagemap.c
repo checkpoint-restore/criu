@@ -1604,6 +1604,8 @@ static int read_page_complete(unsigned long img_id, unsigned long vaddr, unsigne
 		return -1;
 	}
 
+	pr->nr_in_flight--;
+
 	if (pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr_pages);
 	else
@@ -1618,8 +1620,10 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr, uns
 
 	/* We always do PR_ASAP mode here (FIXME?) */
 	ret = request_remote_pages(pr->img_id, vaddr, nr);
-	if (!ret)
+	if (!ret) {
+		pr->nr_in_flight++;
 		ret = page_server_start_read(buf, nr, read_page_complete, pr, flags);
+	}
 	return ret;
 }
 
@@ -2717,6 +2721,7 @@ void dup_page_read(struct page_read *src, struct page_read *dst)
 	memcpy(dst, src, sizeof(*dst));
 	INIT_LIST_HEAD(&dst->async);
 	dst->id = src->id + DUP_IDS_BASE * dup_ids++;
+	dst->nr_in_flight = 0;
 	dst->blk.cache_buf = NULL;
 	dst->blk.cache_vaddr = 0;
 	dst->blk.cache_size = 0;

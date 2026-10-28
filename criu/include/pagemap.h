@@ -165,6 +165,9 @@ struct page_read {
 	/* Current virtual address we are on */
 	unsigned long cvaddr;
 
+	/* Number of remote page reads not yet completed */
+	unsigned long nr_in_flight;
+
 	/* Current offset in pages file */
 	off_t pi_off;
 	/* Alignment bytes a sequential image-streamer reader must discard. */

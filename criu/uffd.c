@@ -1280,7 +1280,8 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 				break;
 			}
 
-			if (list_empty(&lpi->reqs)) {
+			/* Keep lpi until all in-flight replies are read. */
+			if (list_empty(&lpi->reqs) && !lpi->pr.nr_in_flight) {
 				lazy_pages_summary(lpi);
 				list_del(&lpi->l);
 				lpi_put(lpi);
