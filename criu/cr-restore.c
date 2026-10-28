@@ -2437,6 +2437,7 @@ int prepare_task_entries(void)
 	task_entries->nr_threads = 0;
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
+	task_entries->asyncd_sk_id = -1;
 	futex_set(&task_entries->start, CR_STATE_FAIL);
 	mutex_init(&task_entries->userns_sync_lock);
 	mutex_init(&task_entries->cgroupd_sync_lock);

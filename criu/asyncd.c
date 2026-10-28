@@ -114,6 +114,16 @@ int __async_call(const char *func_name, uns_call_t call, int flags, void *arg, s
 		return -1;
 	}
 
+	/*
+	 * Private file mappings are opened while their VMAs are premapped,
+	 * which happens before the daemon is started (e.g. for compressed
+	 * pages or lazy restore). Do the work right here in that case.
+	 */
+	if (task_entries->asyncd_sk_id < 0) {
+		pr_debug("async: daemon is not running, calling %s (%d, %x) directly\n", func_name, fd, flags);
+		return call(arg, fd, getpid());
+	}
+
 	sk = fdstore_get(task_entries->asyncd_sk_id);
 	if (sk < 0) {
 		pr_err("async: cannot get ASYNCD_SK fd\n");
