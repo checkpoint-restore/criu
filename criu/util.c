@@ -31,6 +31,7 @@
 #include <uuid/uuid.h>
 
 #include "linux/mount.h"
+#include "openat2.h"
 
 #include "kerndat.h"
 #include "page.h"
@@ -1706,6 +1707,42 @@ int cut_path_ending(char *path, char *ending)
 
 	path[ending_pos - 1] = 0;
 	return 0;
+}
+
+/*
+ * Flags accepted by openat2(). Unlike openat(), which silently drops unknown
+ * bits, openat2() fails with EINVAL if how.flags contains anything else.
+ * Flags reported by /proc/pid/fdinfo can contain kernel-internal bits (e.g.
+ * __FMODE_NONOTIFY or __FMODE_EXEC), so they have to be filtered out.
+ */
+#define OPENAT2_VALID_FLAGS                                                                              \
+	(O_ACCMODE | O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC | O_APPEND | O_NONBLOCK | O_NDELAY | O_SYNC | \
+	 O_DSYNC | O_ASYNC | O_DIRECT | O_LARGEFILE | O_DIRECTORY | O_NOFOLLOW | O_NOATIME | O_CLOEXEC | \
+	 O_PATH | O_TMPFILE)
+
+/* openat2() fails with EINVAL if O_PATH is combined with any other flags. */
+#define OPENAT2_PATH_FLAGS (O_DIRECTORY | O_NOFOLLOW | O_PATH | O_CLOEXEC)
+
+/*
+ * Opens path relative to dirfd with the given RESOLVE_* restrictions. Falls
+ * back to plain openat() (and so ignores resolve) if openat2() isn't
+ * supported by the kernel.
+ */
+int openat_resolve(int dirfd, const char *path, int flags, u64 resolve)
+{
+	struct open_how how = {};
+
+	if (!kdat.has_openat2)
+		return openat(dirfd, path, flags);
+
+	flags &= OPENAT2_VALID_FLAGS;
+	if (flags & O_PATH)
+		flags &= OPENAT2_PATH_FLAGS;
+
+	how.flags = (unsigned int)flags;
+	how.resolve = resolve;
+
+	return sys_openat2(dirfd, path, &how, sizeof(how));
 }
 
 static int is_iptables_nft(char *bin)

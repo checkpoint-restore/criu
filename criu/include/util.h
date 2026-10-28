@@ -259,6 +259,8 @@ extern bool is_same_path(char *path1, char *path2);
 int strip_deleted(char *path, int len);
 int cut_path_ending(char *path, char *sub_path);
 
+extern int openat_resolve(int dirfd, const char *path, int flags, u64 resolve);
+
 /*
  * mkdir -p
  */
