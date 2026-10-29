@@ -2305,6 +2305,10 @@ def do_run_test(tname, tdesc, flavs, opts):
             except test_fail_expected_exc as e:
                 if e.cr_action == "dump":
                     t.stop()
+                else:
+                    # The test is already gone, but its flavor
+                    # (e.g. the ns root mount) still has to be cleaned up.
+                    t.kill()
             else:
                 check_visible_state(t, s, opts)
                 if opts['join_ns']:

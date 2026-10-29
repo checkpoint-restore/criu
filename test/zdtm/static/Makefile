@@ -422,6 +422,7 @@ TST_DIR		=				\
 		cwd00				\
 		cwd01				\
 		cwd02				\
+		file_path_symlink		\
 		overmount_dev			\
 		overmount_file			\
 		overmount_fifo			\
