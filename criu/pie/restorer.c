@@ -2438,6 +2438,23 @@ __visible long __export_restore_task(struct task_restore_args *args)
 			pr_err("Can't restore %" PRIx64 " mapping with %lx\n", vma_entry->start, va);
 			goto core_restore_end;
 		}
+
+		/* Restore saved THP policy before filling the anonymous mapping. */
+		if (vma_entry_is(vma_entry, VMA_ANON_PRIVATE) &&
+		    !(vma_entry->flags & MAP_HUGETLB) && vma_entry->has_madv) {
+			unsigned long m;
+
+			for (m = MADV_HUGEPAGE; m <= MADV_NOHUGEPAGE; m++) {
+				if (!(vma_entry->madv & (1ul << m)))
+					continue;
+				ret = sys_madvise(vma_entry->start, vma_entry_len(vma_entry), m);
+				if (ret) {
+					pr_err("Early madvise(%" PRIx64 ", %" PRIu64 ", %ld) failed with %ld\n",
+					       vma_entry->start, vma_entry_len(vma_entry), m, ret);
+					goto core_restore_end;
+				}
+			}
+		}
 	}
 
 	/*

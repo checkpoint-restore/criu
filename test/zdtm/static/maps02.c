@@ -57,7 +57,7 @@ static int alloc_anon_mmap(struct mmap_data *m, int flags, int adv)
 
 int main(int argc, char **argv)
 {
-	struct mmap_data m[7] = {};
+	struct mmap_data m[8] = {};
 	size_t i;
 
 	test_init(argc, argv);
@@ -88,6 +88,10 @@ int main(int argc, char **argv)
 
 	test_msg("Alloc droppable\n");
 	if (alloc_anon_mmap(&m[6], MAP_DROPPABLE | MAP_ANONYMOUS, MADV_NORMAL))
+		return -1;
+
+	test_msg("Alloc nohugepage\n");
+	if (alloc_anon_mmap(&m[7], MAP_PRIVATE | MAP_ANONYMOUS, MADV_NOHUGEPAGE))
 		return -1;
 
 	test_msg("Fetch existing flags/adv\n");
