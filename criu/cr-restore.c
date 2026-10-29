@@ -2975,6 +2975,78 @@ out:
 	return ret;
 }
 
+/*
+ * cpu_affinity_compatible - check image affinity masks vs restore host
+ * @pid:	leader pid (for diagnostics)
+ *
+ * The affinity masks saved in the image were captured on the dump host
+ * and may reference CPUs that do not exist on the restore host (e.g.
+ * migration to a smaller machine). Restoring such a mask would either
+ * fail with -EINVAL (zero intersection with online CPUs) or silently
+ * bind the thread to a wrong subset, both of which violate the user
+ * expectation that affinity is either restored faithfully or not at
+ * all.
+ *
+ * We compare each per-thread mask against the CPU set returned by
+ * sched_getaffinity(0), i.e. the set of CPUs that the CRIU process
+ * itself is allowed to use on the restore host. This is intentionally
+ * NOT parsed from /sys/devices/system/cpu/online:
+ *
+ *   - In cgroup cpuset deployments CRIU may be confined to a subset of
+ *     online CPUs. The online sysfs file reports every online CPU in
+ *     the system, including those outside the cpuset, so a mask that is
+ *     actually restorable inside the cpuset would be falsely rejected.
+ *   - sched_getaffinity(0) returns the intersection of online CPUs and
+ *     the calling process's cpuset, which is exactly the set of CPUs a
+ *     restored thread can be pinned to.
+ *
+ * Return: true if every image mask is a subset of the restore mask (or
+ *	   no per-thread mask is present), false on any mismatch or on
+ *	   failure to read the restore mask.
+ */
+static bool cpu_affinity_compatible(int pid)
+{
+	cpu_set_t restore_mask;
+	unsigned int i;
+
+	CPU_ZERO(&restore_mask);
+	if (sched_getaffinity(0, sizeof(restore_mask), &restore_mask) < 0) {
+		pr_pwarn("Can't get restore cpu affinity, skipping cpu affinity restore");
+		return false;
+	}
+
+	for (i = 0; i < current->nr_threads; i++) {
+		ThreadCpuAffinityEntry *ac = current->core[i]->thread_core->cpu_affinity;
+		unsigned int w;
+
+		if (!ac)
+			continue;
+
+		for (w = 0; w < ac->n_cpumask; w++) {
+			uint64_t img_word = ac->cpumask[w];
+			size_t off = w * sizeof(uint64_t);
+			size_t copy_sz = sizeof(uint64_t);
+			uint64_t restore_word = 0;
+
+			if (off >= sizeof(restore_mask))
+				break;
+			if (off + copy_sz > sizeof(restore_mask))
+				copy_sz = sizeof(restore_mask) - off;
+			memcpy(&restore_word, (char *)&restore_mask + off, copy_sz);
+
+			if (img_word & ~restore_word) {
+				pr_warn("CPU topology mismatch: thread %d in process %d "
+					"has affinity to CPUs not available on restore host, "
+					"skipping cpu affinity restore\n",
+					i, pid);
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
 static int prepare_cpu_affinity(int pid, struct task_restore_args *ta, CoreEntry *core)
 {
 	struct rst_cpu_affinity *rca;
@@ -3012,6 +3084,16 @@ static int prepare_cpu_affinity(int pid, struct task_restore_args *ta, CoreEntry
 			goto alloc_rca;
 		}
 	}
+
+	/*
+	 * Verify that every per-thread affinity mask recorded in the
+	 * image is a subset of the CPU set available to CRIU on the
+	 * restore host. If any mask references CPUs that do not exist
+	 * (or are not usable) here, fall back to no-restore rather than
+	 * risking EINVAL or silently binding to a wrong subset.
+	 */
+	if (!cpu_affinity_compatible(pid))
+		goto alloc_rca;
 
 	ta->cpu_affinity = (struct rst_cpu_affinity *)rst_mem_align_cpos(RM_PRIVATE);
 	sz = sizeof(struct rst_cpu_affinity) + nr_cpus * sizeof(uint64_t) * current->nr_threads;
