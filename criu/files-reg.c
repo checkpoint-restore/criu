@@ -1778,7 +1778,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	snprintf(ext_id, sizeof(ext_id), "file[%x:%" PRIx64 "]", p->mnt_id, p->stat.st_ino);
 	if (external_lookup_id(ext_id)) {
 		/* the first symbol will be cut on restore to get an relative path*/
-		rfe.name = xstrdup(ext_id);
+		rfe.name = ext_id;
 		rfe.ext = true;
 		rfe.has_ext = true;
 		goto ext;
