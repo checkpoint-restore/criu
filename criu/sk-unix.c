@@ -1077,12 +1077,15 @@ static struct fdinfo_list_entry *get_fle_for_task(struct file_desc *tgt, struct 
 	int fd;
 
 	list_for_each_entry(fle, &tgt->fd_info_head, desc_list) {
-		if (fle->task == owner)
+		if (fle->task == owner) {
 			/*
 			 * Owner already has this file in its fdtable.
 			 * Just use one.
 			 */
+			if (force_master)
+				list_move(&fle->desc_list, &tgt->fd_info_head);
 			return fle;
+		}
 
 		e = fle->fe; /* keep any for further reference */
 	}
