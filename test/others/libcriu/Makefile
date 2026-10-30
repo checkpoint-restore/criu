@@ -6,6 +6,7 @@ TESTS += test_notify
 TESTS += test_rpc_config
 TESTS += test_iters
 TESTS += test_errno
+TESTS += test_opts_reuse
 TESTS += test_join_ns
 TESTS += test_pre_dump
 TESTS += test_check

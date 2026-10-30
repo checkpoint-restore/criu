@@ -920,28 +920,30 @@ void criu_set_cpu_cap(unsigned int cap)
 
 int criu_local_set_exec_cmd(criu_opts *opts, int argc, char *argv[])
 {
-	int i;
+	char **new_cmd;
+	int i, j;
 
-	opts->rpc->n_exec_cmd = argc;
-	opts->rpc->exec_cmd = malloc((argc) * sizeof(char *));
+	new_cmd = malloc(argc * sizeof(char *));
+	if (!new_cmd)
+		return -ENOMEM;
 
-	if (opts->rpc->exec_cmd) {
-		for (i = 0; i < argc; i++) {
-			opts->rpc->exec_cmd[i] = strdup(argv[i]);
-			if (!opts->rpc->exec_cmd[i]) {
-				while (i > 0)
-					free(opts->rpc->exec_cmd[i--]);
-				free(opts->rpc->exec_cmd);
-				opts->rpc->n_exec_cmd = 0;
-				opts->rpc->exec_cmd = NULL;
-				goto out;
-			}
+	for (i = 0; i < argc; i++) {
+		new_cmd[i] = strdup(argv[i]);
+		if (!new_cmd[i]) {
+			for (j = 0; j < i; j++)
+				free(new_cmd[j]);
+			free(new_cmd);
+			return -ENOMEM;
 		}
-		return 0;
 	}
 
-out:
-	return -ENOMEM;
+	for (i = 0; i < opts->rpc->n_exec_cmd; i++)
+		free(opts->rpc->exec_cmd[i]);
+	free(opts->rpc->exec_cmd);
+
+	opts->rpc->exec_cmd = new_cmd;
+	opts->rpc->n_exec_cmd = argc;
+	return 0;
 }
 
 int criu_set_exec_cmd(int argc, char *argv[])
@@ -1369,6 +1371,12 @@ int criu_add_plugin_option(const char *option)
 
 int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port)
 {
+	if (opts->rpc->ps) {
+		free(opts->rpc->ps->address);
+		free(opts->rpc->ps);
+		opts->rpc->ps = NULL;
+	}
+
 	opts->rpc->ps = malloc(sizeof(CriuPageServerInfo));
 	if (!opts->rpc->ps)
 		return -ENOMEM;
