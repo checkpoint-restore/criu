@@ -6,6 +6,7 @@
 #include <arpa/inet.h> /* for srvaddr_in and inet_ntoa() */
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include "../soccr.h"
 #include <stdarg.h>
@@ -20,6 +21,13 @@ static void pr_printf(unsigned int level, const char *fmt, ...)
 	va_end(args);
 }
 
+static int cmp_addr(union libsoccr_addr *a, union libsoccr_addr *b)
+{
+	if (a->sa.sa_family == AF_INET)
+		return memcmp(&a->v4, &b->v4, sizeof(a->v4));
+	return memcmp(&a->v6, &b->v6, sizeof(a->v6));
+}
+
 int main(void)
 {
 	union libsoccr_addr addr, dst;
@@ -29,6 +37,7 @@ int main(void)
 	struct libsoccr_sk_data data = {};
 	struct libsoccr_sk *so, *so_rst;
 	char buf[11] = "0123456789", *queue;
+	union libsoccr_addr *sa;
 
 	libsoccr_set_log(10, pr_printf);
 
@@ -108,6 +117,25 @@ int main(void)
 	}
 
 	so = libsoccr_pause(sock);
+
+	if (libsoccr_get_fd(so) != sock) {
+		printf("libsoccr_get_fd() returned %d, expected %d\n", libsoccr_get_fd(so), sock);
+		return 1;
+	}
+
+	sa = libsoccr_get_addr(so, 1, 0);
+	if (!sa || cmp_addr(sa, &addr)) {
+		printf("libsoccr_get_addr() returned a wrong source address\n");
+		return 1;
+	}
+
+	/* With SOCCR_MEM_EXCL the caller owns the address and has to free it */
+	sa = libsoccr_get_addr(so, 0, SOCCR_MEM_EXCL);
+	if (!sa || cmp_addr(sa, &dst)) {
+		printf("libsoccr_get_addr() returned a wrong destination address\n");
+		return 1;
+	}
+	free(sa);
 
 	dsize = libsoccr_save(so, &data, sizeof(data));
 	if (dsize < 0) {
