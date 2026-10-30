@@ -301,6 +301,9 @@ TST_NOFILE	:=				\
 		timens_nested			\
 		timens_for_kids			\
 		zombie_leader			\
+		cpu-affinity0			\
+		cpu-affinity1			\
+		cpu-affinity2			\
 		sigtrap				\
 		sigtrap01			\
 		change_mnt_context		\

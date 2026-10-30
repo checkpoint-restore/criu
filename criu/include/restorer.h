@@ -148,6 +148,20 @@ struct restore_vma_io {
 
 #define RIO_SIZE(niovs) (sizeof(struct restore_vma_io) + (niovs) * sizeof(struct iovec))
 
+/*
+ * Layout of CPU affinity data passed to the restorer blob via rst_mem.
+ * @nr_cpus:  number of uint64_t words per thread in @cpumasks. Zero means
+ *            affinity restore is skipped (no data in image, user did not
+ *            request --cpu-affinity, or topology mismatch).
+ * @cpumasks: contiguous array of nr_threads * nr_cpus uint64_t words,
+ *            laid out thread-major (thread i's mask starts at
+ *            cpumasks[i * nr_cpus]).
+ */
+struct rst_cpu_affinity {
+	unsigned int nr_cpus;
+	uint64_t cpumasks[0];
+};
+
 struct task_restore_args {
 	struct thread_restore_args *t; /* thread group leader */
 
@@ -185,6 +199,12 @@ struct task_restore_args {
 
 	siginfo_t *siginfo;
 	unsigned int siginfo_n;
+
+	/*
+	 * CPU affinity data passed to the restorer blob via rst_mem.
+	 * Points to a struct rst_cpu_affinity (see below).
+	 */
+	struct rst_cpu_affinity *cpu_affinity;
 
 	struct rst_tcp_sock *tcp_socks;
 	unsigned int tcp_socks_n;

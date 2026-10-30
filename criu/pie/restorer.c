@@ -526,6 +526,31 @@ static int restore_signals(siginfo_t *ptr, int nr, bool group)
 	return 0;
 }
 
+static int restore_cpu_affinity(struct task_restore_args *args)
+{
+	struct rst_cpu_affinity *rca = args->cpu_affinity;
+	unsigned int i;
+
+	if (!rca || !rca->nr_cpus)
+		return 0;
+
+	for (i = 0; i < args->nr_threads; i++) {
+		uint64_t *mask = &rca->cpumasks[i * rca->nr_cpus];
+		size_t sz = rca->nr_cpus * sizeof(uint64_t);
+		pid_t tid = args->thread_args[i].pid;
+		long ret;
+
+		pr_info("Restoring cpu affinity for %d (nr_cpus=%u)\n", tid, rca->nr_cpus);
+		ret = sys_sched_setaffinity(tid, sz, (const void *)mask);
+		if (ret) {
+			pr_err("Restore %d cpu affinity failed: %ld\n", tid, ret);
+			return (int)ret;
+		}
+	}
+
+	return 0;
+}
+
 static int restore_rseq(struct rst_rseq_param *rseq)
 {
 	int ret;
@@ -2778,6 +2803,10 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	ret = restore_signals(args->t->siginfo, args->t->siginfo_n, false);
+	if (ret)
+		goto core_restore_end;
+
+	ret = restore_cpu_affinity(args);
 	if (ret)
 		goto core_restore_end;
 
