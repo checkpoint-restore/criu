@@ -1,0 +1,5 @@
+#!/bin/sh
+# Skip on single-CPU systems: the test pins to CPU 0 and expects the
+# restored affinity to differ (all CPUs).  With only 1 CPU the default
+# mask is also CPU 0, so the assertion would be vacuous.
+[ "$(nproc)" -ge 2 ] || exit 1

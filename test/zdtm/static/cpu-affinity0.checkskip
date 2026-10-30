@@ -1,0 +1,5 @@
+#!/bin/sh
+# Skip on systems with fewer than 5 CPUs: the test spawns 4 worker
+# threads pinned to CPUs 1-4 plus the main thread on CPU 0, so it
+# needs at least 5 online CPUs.
+[ "$(nproc)" -ge 5 ] || exit 1

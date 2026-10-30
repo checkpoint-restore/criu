@@ -1,0 +1,79 @@
+#!/bin/bash
+#
+# Simulate a cross-topology restore by rewriting the dumped cpu
+# affinity mask so it references a CPU that does not exist on the
+# restore host.  cpu_affinity_compatible() will then detect the
+# mismatch and skip affinity restore, which is exactly the fallback
+# path this test exercises.
+
+[ "$1" == "--pre-restore" ] || exit 0
+
+set -e
+trap 'rm -f "$tmp"' EXIT
+tmp=""
+
+hook_dir="$(cd "$(dirname "$0")" && pwd)"
+test_name="$(basename "$0" .hook)"
+dump_root="$hook_dir/../../dump/zdtm/static/$test_name"
+
+img_root="$dump_root"
+[ -n "$ZDTM_TEST_PID" ] && img_root="$dump_root/$ZDTM_TEST_PID"
+
+# Find the most recent iteration directory containing core images.
+img_dir="$(find "$img_root" -type f -name 'core-*.img' 2>/dev/null \
+	| sed 's|/core-[^/]*$||' \
+	| sort -u \
+	| while read -r d; do
+		iter="${d##*/}"
+		printf '%s %s\n' "$iter" "$d"
+	done \
+	| sort -k1,1n \
+	| tail -1 \
+	| cut -d' ' -f2-)"
+[ -n "$img_dir" ] || { echo "no core images found under $img_root" >&2; exit 1; }
+
+criu_root="$(cd "$hook_dir/../../.." && pwd)"
+crit_py="env PYTHONPATH=$criu_root/lib:$criu_root/crit python3 -m crit"
+
+# Pick a CPU index that is guaranteed not to exist on the restore
+# host: nproc gives the number of online CPUs, so bit nproc is always
+# beyond the last valid CPU (CPUs are numbered 0..nproc-1).
+bad_cpu=$(nproc)
+
+for core in "$img_dir"/core-*.img; do
+	[ -e "$core" ] || continue
+	tmp="$(mktemp)"
+	$crit_py decode -i "$core" -o "$tmp"
+	python3 - "$tmp" "$bad_cpu" <<'PYEOF'
+import json, sys
+
+path, bad = sys.argv[1], int(sys.argv[2])
+word = 1 << (bad % 64)
+idx  = bad // 64
+
+with open(path) as f:
+    data = json.load(f)
+
+entries = data.get("entries", [])
+for e in entries:
+    tc = e.get("thread_core")
+    if not tc:
+        continue
+    ca = tc.get("cpu_affinity")
+    if ca is None:
+        continue
+    # Replace the entire mask with a single word carrying only the
+    # bad CPU bit, so no legitimate bits remain to confuse the
+    # subset check in cpu_affinity_compatible().
+    mask = ["0"] * (idx + 1)
+    mask[idx] = str(word)
+    ca["cpumask"] = mask
+
+with open(path, "w") as f:
+    json.dump(data, f)
+PYEOF
+	$crit_py encode -i "$tmp" -o "$core"
+	rm -f "$tmp"
+done
+
+exit 0
