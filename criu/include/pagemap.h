@@ -16,6 +16,14 @@
 #define ASYNC_BATCH_MAX_PAGES (ASYNC_BATCH_MAX_BYTES / PAGE_SIZE)
 
 /*
+ * Cap one uncompressed delayed-PIE read record. The restorer keeps up to
+ * AIO_BATCH reads in flight; without a cap one contiguous VMA collapses
+ * into a single record and restores through a single iocb.
+ */
+#define PIE_DIRECT_BATCH_MAX_BYTES (256UL << 20)
+#define PIE_DIRECT_BATCH_MAX_PAGES (PIE_DIRECT_BATCH_MAX_BYTES / PAGE_SIZE)
+
+/*
  * page_read -- engine, that reads pages from image file(s)
  *
  * Several page-read's can be arranged in a chain to read
