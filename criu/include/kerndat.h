@@ -57,6 +57,7 @@ struct kerndat_s {
 	bool has_uffd;
 	unsigned long uffd_features;
 	bool has_thp_disable;
+	unsigned long thp_pmd_size; /* 0 when the kernel has no THP */
 	bool can_map_vdso;
 	bool vdso_hint_reliable;
 	struct vdso_symtable vdso_sym;

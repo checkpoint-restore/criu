@@ -2438,6 +2438,27 @@ __visible long __export_restore_task(struct task_restore_args *args)
 			pr_err("Can't restore %" PRIx64 " mapping with %lx\n", vma_entry->start, va);
 			goto core_restore_end;
 		}
+
+		/*
+		 * Apply THP advice before the contents are read in below, so
+		 * pages are faulted in at the size the task asked for. The
+		 * madvise() bits restored at the end come too late for that.
+		 * Lazy restore is left alone. A lazy VMA can hold eager pages
+		 * too, and a huge page faulted in for one of them would
+		 * populate the lazy pages around it.
+		 */
+		if (args->uffd < 0 && vma_entry_is(vma_entry, VMA_AREA_REGULAR)) {
+			int advice = vma_entry_thp_advice(vma_entry);
+
+			if (advice) {
+				ret = sys_madvise(va, vma_entry_len(vma_entry), advice);
+				if (ret) {
+					pr_err("madvise(%lx, %" PRIu64 ", %d) failed with %ld\n", va,
+					       vma_entry_len(vma_entry), advice, ret);
+					goto core_restore_end;
+				}
+			}
+		}
 	}
 
 	/*

@@ -761,6 +761,33 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 	return ret;
 }
 
+/*
+ * THP advice for a VMA that is filled before the restorer runs. Lazy restore
+ * is left alone. A lazy VMA can hold eager pages too, and a huge page faulted
+ * in for one of them would populate the lazy pages around it.
+ */
+static int premap_thp_advice(struct vma_area *vma)
+{
+	if (opts.lazy_pages)
+		return 0;
+	return vma_entry_thp_advice(vma->e);
+}
+
+/*
+ * A premapped VMA reaches its real address with mremap(), and mremap() keeps a
+ * huge page PMD-mapped only when the source and the destination have the same
+ * offset within a PMD. Return the room needed to premap a VMA that wants huge
+ * pages at such an offset.
+ */
+static unsigned long premap_thp_pad(struct vma_area *vma)
+{
+	if (!kdat.thp_pmd_size || premap_thp_advice(vma) != MADV_HUGEPAGE)
+		return 0;
+	if (vma_area_len(vma) < kdat.thp_pmd_size)
+		return 0;
+	return kdat.thp_pmd_size;
+}
+
 int prepare_mm_pid(struct pstree_item *i)
 {
 	pid_t pid = vpid(i);
@@ -817,6 +844,7 @@ int prepare_mm_pid(struct pstree_item *i)
 			ri->vmas.rst_priv_size += vma_area_len(vma);
 			if (vma_has_guard_gap_hidden(vma))
 				ri->vmas.rst_priv_size += PAGE_SIZE;
+			ri->vmas.rst_priv_size += premap_thp_pad(vma);
 		}
 
 		pr_info("vma 0x%" PRIx64 " 0x%" PRIx64 "\n", vma->e->start, vma->e->end);
@@ -945,9 +973,9 @@ void prepare_cow_vmas(void)
 /* Map a private vma, if it is not mapped by a parent yet */
 static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void **tgt_addr)
 {
-	int ret;
+	int ret, advice;
 	void *addr;
-	unsigned long nr_pages, size;
+	unsigned long nr_pages, size, pad;
 
 	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 	vma->page_bitmap = xzalloc(BITS_TO_LONGS(nr_pages) * sizeof(long));
@@ -962,6 +990,21 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		vma->e->start -= PAGE_SIZE;
 
 	size = vma_entry_len(vma->e);
+
+	pad = premap_thp_pad(vma);
+	if (pad) {
+		unsigned long skip = (vma->e->start - (unsigned long)*tgt_addr) & (pad - 1);
+
+		/*
+		 * The skipped room is unmapped like the unused tail of the
+		 * premapped area. Otherwise it would stay in the restored task.
+		 */
+		if (skip && munmap(*tgt_addr, skip)) {
+			pr_perror("Unable to unmap %p(%lx)", *tgt_addr, skip);
+			return -1;
+		}
+		*tgt_addr += skip;
+	}
 
 	if (!vma_inherited(vma)) {
 		int flag = 0;
@@ -1006,6 +1049,12 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		}
 		if (addr == MAP_FAILED) {
 			pr_perror("Unable to map ANON_VMA");
+			return -1;
+		}
+
+		advice = premap_thp_advice(vma);
+		if (advice && madvise(addr, size, advice)) {
+			pr_perror("Unable to apply THP advice %d to %p(%lx)", advice, addr, size);
 			return -1;
 		}
 	} else {
