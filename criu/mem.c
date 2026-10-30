@@ -387,16 +387,23 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl, struct pa
 	return 0;
 }
 
-static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
+static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer, int pid, bool external_read)
 {
 	int ret;
 
 	/*
 	 * Step 3 -- write pages into image (or delay writing for
 	 *           pre-dump action (see pre_dump_one_task)
+	 *
+	 * In READ mode no parasite vmsplice ever happened, so the pages
+	 * are pulled straight from the target's address space here via
+	 * process_vm_readv() instead of drained from the parasite pipe.
 	 */
 	timing_start(TIME_MEMWRITE);
-	ret = page_xfer_dump_pages(xfer, pp);
+	if (external_read)
+		ret = page_xfer_predump_pages(pid, xfer, pp);
+	else
+		ret = page_xfer_dump_pages(xfer, pp);
 	timing_stop(TIME_MEMWRITE);
 
 	return ret;
@@ -540,9 +547,16 @@ again:
 	if (ret == -EAGAIN) {
 		BUG_ON(!(pp->flags & PP_CHUNK_MODE));
 
-		ret = drain_pages(pp, ctl, args);
+		/*
+		 * PP_CHUNK_MODE is only ever set for a full (non-pre) dump,
+		 * so this is never reached during pre-dump.
+		 */
+		if (opts.pre_dump_mode == PRE_DUMP_READ)
+			ret = 0;
+		else
+			ret = drain_pages(pp, ctl, args);
 		if (!ret)
-			ret = xfer_pages(pp, xfer);
+			ret = xfer_pages(pp, xfer, item->pid->real, opts.pre_dump_mode == PRE_DUMP_READ);
 		if (!ret) {
 			page_pipe_reinit(pp);
 			goto again;
@@ -646,14 +660,18 @@ static int __parasite_dump_pages_seized(struct pstree_item *item, struct parasit
 	 * will happen after task unfreezing in cr_pre_dump_finish(). This is
 	 * actual optimization which reduces time for which process was frozen
 	 * during pre-dump.
+	 *
+	 * For a full (non-pre) dump in READ mode there's no later stage to
+	 * defer to and no parasite vmsplice to drain either -- xfer_pages()
+	 * below reads the pages directly via process_vm_readv().
 	 */
-	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ)
+	if (opts.pre_dump_mode == PRE_DUMP_READ)
 		ret = 0;
 	else
 		ret = drain_pages(pp, ctl, args);
 
 	if (!ret && !mdc->pre_dump)
-		ret = xfer_pages(pp, &xfer);
+		ret = xfer_pages(pp, &xfer, item->pid->real, opts.pre_dump_mode == PRE_DUMP_READ);
 	if (ret)
 		goto out_xfer;
 
