@@ -272,6 +272,7 @@ struct cr_options {
 
 	/* This stores the I/O mode (writeback/direct) for the pages image. */
 	int image_io_mode;
+	unsigned int raw_restore_workers;
 
 	/* Shows the mode criu is running at the moment: dump/pre-dump/restore/... */
 	enum criu_mode mode;
