@@ -8,6 +8,11 @@
 #include <fcntl.h>
 #include <sched.h>
 #include <sys/mman.h>
+#include <stdbool.h>
+#include <sys/mount.h>
+#include <sys/wait.h>
+
+#include "mount.h"
 
 #include "log.h"
 #include "util.h"
@@ -670,6 +675,193 @@ static void test_block_compression(void)
 
 #endif
 
+static bool mount_has_relatime(const char *target)
+{
+	FILE *f = fopen("/proc/self/mountinfo", "r");
+	char line[512];
+	bool has_relatime = false;
+	bool has_noatime = false;
+
+	if (!f)
+		return false;
+
+	while (fgets(line, sizeof(line), f)) {
+		if (strstr(line, target)) {
+			char *sep = strstr(line, " - ");
+			if (sep)
+				*sep = '\0';
+			if (strstr(line, "relatime"))
+				has_relatime = true;
+			if (strstr(line, "noatime"))
+				has_noatime = true;
+			break;
+		}
+	}
+	fclose(f);
+	return has_relatime && !has_noatime;
+}
+
+static int write_id_map(const char *path, int id)
+{
+	char buf[64];
+	int fd, len;
+
+	fd = open(path, O_WRONLY);
+	if (fd < 0)
+		return -1;
+	len = snprintf(buf, sizeof(buf), "0 %d 1", id);
+	if (write(fd, buf, len) != len) {
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
+static void test_root_mount_remount(void)
+{
+	char tmppath[] = "/tmp/criu_unit_atime_XXXXXX";
+	uid_t uid = getuid();
+	gid_t gid = getgid();
+	pid_t pid;
+	int status;
+
+	pid = fork();
+	assert(pid >= 0);
+
+	if (pid == 0) {
+		int setgroups_fd;
+		pid_t cpid;
+		int cstatus = 0;
+
+		if (unshare(CLONE_NEWUSER | CLONE_NEWNS) < 0) {
+			if (errno == EPERM || errno == EACCES || errno == ENOSPC || errno == EINVAL) {
+				pr_msg("SKIP: unprivileged user namespace creation not permitted\n");
+				exit(0);
+			}
+			pr_perror("unshare(CLONE_NEWUSER | CLONE_NEWNS)");
+			exit(1);
+		}
+
+		if (write_id_map("/proc/self/uid_map", uid) < 0) {
+			if (errno == EPERM || errno == EACCES) {
+				pr_msg("SKIP: writing uid_map not permitted in this environment\n");
+				exit(0);
+			}
+			pr_perror("write uid_map");
+			exit(1);
+		}
+		setgroups_fd = open("/proc/self/setgroups", O_WRONLY);
+		if (setgroups_fd >= 0) {
+			if (write(setgroups_fd, "deny", 4) != 4) {
+				close(setgroups_fd);
+				pr_perror("write setgroups");
+				exit(1);
+			}
+			close(setgroups_fd);
+		}
+		if (write_id_map("/proc/self/gid_map", gid) < 0) {
+			if (errno == EPERM || errno == EACCES) {
+				pr_msg("SKIP: writing gid_map not permitted in this environment\n");
+				exit(0);
+			}
+			pr_perror("write gid_map");
+			exit(1);
+		}
+
+		if (!mkdtemp(tmppath)) {
+			pr_perror("mkdtemp");
+			exit(1);
+		}
+
+		if (mount("none", tmppath, "tmpfs", MS_NODEV, NULL) < 0) {
+			if (errno == EPERM || errno == EACCES) {
+				pr_msg("SKIP: mounting tmpfs inside user namespace not permitted\n");
+				rmdir(tmppath);
+				exit(0);
+			}
+			pr_perror("mount tmpfs");
+			rmdir(tmppath);
+			exit(1);
+		}
+
+		cpid = fork();
+		if (cpid < 0) {
+			pr_perror("fork grandchild");
+			umount2(tmppath, MNT_DETACH);
+			rmdir(tmppath);
+			exit(1);
+		}
+
+		if (cpid == 0) {
+			bool atime_dropped = false;
+
+			if (unshare(CLONE_NEWUSER | CLONE_NEWNS) < 0) {
+				if (errno == EPERM || errno == EACCES || errno == ENOSPC || errno == EINVAL) {
+					pr_msg("SKIP: nested user namespace creation not permitted\n");
+					exit(0);
+				}
+				pr_perror("grandchild unshare");
+				exit(1);
+			}
+
+			/* Precondition: direct remount with divergent atime must fail with EPERM */
+			if (mount(NULL, tmppath, NULL, MS_REMOUNT | MS_BIND | MS_NODEV | MS_NOATIME, NULL) == 0) {
+				pr_msg("SKIP: kernel did not lock mount atime flags on userns clone\n");
+				exit(0);
+			}
+			if (errno != EPERM) {
+				pr_perror("precondition failed: expected EPERM from direct remount");
+				exit(1);
+			}
+
+			/* Call the real remount_root_flags with dumped flags differing in atime */
+			if (remount_root_flags(tmppath, MS_NODEV | MS_NOATIME, &atime_dropped) != 0) {
+				pr_err("remount_root_flags failed\n");
+				exit(1);
+			}
+
+			if (!atime_dropped) {
+				pr_err("remount_root_flags did not report atime_dropped\n");
+				exit(1);
+			}
+
+			/* Assert resulting mount keeps current atime mode (relatime) */
+			if (!mount_has_relatime(tmppath)) {
+				pr_err("mount did not keep relatime option\n");
+				exit(1);
+			}
+
+			/* A locked nodev cannot be cleared: the atime fallback must still report that failure */
+			if (remount_root_flags(tmppath, MS_RELATIME, NULL) == 0) {
+				pr_err("remount_root_flags hid a locked nodev failure\n");
+				exit(1);
+			}
+
+			exit(0);
+		}
+
+		if (waitpid(cpid, &cstatus, 0) != cpid) {
+			pr_perror("waitpid cpid");
+			umount2(tmppath, MNT_DETACH);
+			rmdir(tmppath);
+			exit(1);
+		}
+
+		umount2(tmppath, MNT_DETACH);
+		rmdir(tmppath);
+
+		if (!WIFEXITED(cstatus) || WEXITSTATUS(cstatus) != 0)
+			exit(WIFEXITED(cstatus) ? WEXITSTATUS(cstatus) : 1);
+
+		exit(0);
+	}
+
+	assert(waitpid(pid, &status, 0) == pid);
+	assert(WIFEXITED(status));
+	assert(WEXITSTATUS(status) == 0);
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	char **configuration;
@@ -817,6 +1009,8 @@ int main(int argc, char *argv[], char *envp[])
 	test_parallel_decompression();
 	test_block_compression();
 #endif
+
+	test_root_mount_remount();
 
 	pr_msg("OK\n");
 	return 0;
