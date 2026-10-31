@@ -220,6 +220,11 @@ int pmc_fill(pmc_t *pmc, u64 start, u64 end)
 				pr_perror("Can't read %d's pagemap file", pmc->pid);
 				return -1;
 			}
+			if (ret == 0) {
+				pmc_zap(pmc);
+				pr_err("Can't read %d's pagemap file: Unexpected EOF\n", pmc->pid);
+				return -1;
+			}
 			off += ret;
 		}
 	}
