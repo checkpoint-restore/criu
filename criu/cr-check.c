@@ -1976,8 +1976,8 @@ int check_caps(void)
 	}
 
 	if (!opts.unprivileged) {
-		pr_msg("Running as non-root requires '--unprivileged'\n");
-		pr_msg("Please consult the documentation for limitations when running as non-root\n");
+		pr_err("Running as non-root requires '--unprivileged'\n");
+		pr_err("Please consult the documentation for limitations when running as non-root\n");
 		return -1;
 	}
 
@@ -1991,8 +1991,8 @@ int check_caps(void)
 
 	return 0;
 out:
-	pr_msg("CRIU needs to have the CAP_SYS_ADMIN or the CAP_CHECKPOINT_RESTORE capability: \n");
-	pr_msg("setcap cap_checkpoint_restore+eip %s\n", opts.argv_0);
+	pr_err("CRIU needs to have the CAP_SYS_ADMIN or the CAP_CHECKPOINT_RESTORE capability: \n");
+	pr_err("setcap cap_checkpoint_restore+eip %s\n", opts.argv_0);
 
 	return -1;
 }
