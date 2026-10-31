@@ -862,8 +862,9 @@ static inline bool check_cow_vmas(struct vma_area *vma, struct vma_area *pvma)
 	/* ... have growsdown and anon flags coincide */
 	if ((vma->e->flags ^ pvma->e->flags) & (MAP_GROWSDOWN | MAP_ANONYMOUS))
 		return false;
-	/* ... belong to the same file if being filemap */
-	if (!(vma->e->flags & MAP_ANONYMOUS) && vma->e->shmid != pvma->e->shmid)
+	/* ... map the same file at the same offset if being filemap */
+	if (!(vma->e->flags & MAP_ANONYMOUS) &&
+	    (vma->e->shmid != pvma->e->shmid || vma->e->pgoff != pvma->e->pgoff))
 		return false;
 	/* ... both be accountable, since COW VMAs may carry restored pages */
 	if (vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE) ||
