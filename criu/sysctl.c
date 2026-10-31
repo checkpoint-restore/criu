@@ -234,7 +234,7 @@ static int __userns_sysctl_op(void *arg, int proc_fd, pid_t pid)
 	for (i = 0; i < userns_req->nr_req; i++) {
 		int arg_len = sysctl_userns_arg_size(req->type);
 		int name_len = strlen((char *)&req[1]) + 1;
-		int total_len = sizeof(*req) + arg_len + name_len;
+		int total_len = round_up(sizeof(*req) + arg_len + name_len, sizeof(void *));
 		int flags;
 
 		/* fix up the pointers */
@@ -459,7 +459,7 @@ int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns)
 	for (i = 0; i < nr_req; i++) {
 		int arg_len = sysctl_userns_arg_size(req[i].type);
 		int name_len = strlen(req[i].name) + 1;
-		int total_len = sizeof(*cur) + arg_len + name_len;
+		int total_len = round_up(sizeof(*cur) + arg_len + name_len, sizeof(void *));
 
 		if (((char *)cur) + total_len >= ((char *)userns_req) + MAX_UNSFD_MSG_SIZE) {
 			pr_err("sysctl msg %s too big: %d\n", req[i].name, total_len);
