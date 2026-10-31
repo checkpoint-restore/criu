@@ -2112,6 +2112,33 @@ out_root:
 	if (linkat_hard(mntns_root, rpath, mntns_root, path, rfi->remap->uid, rfi->remap->gid, 0) < 0) {
 		int errno_saved = errno;
 
+		/*
+		 * The link-remap source is a CRIU-generated "link_remap.<id>"
+		 * temp file that lives next to the real file. A previous restore
+		 * of the same images can consume/unlink it, which makes the image
+		 * one-shot (this is what hits vLLM's /dev/shm POSIX semaphores).
+		 * Recreate a placeholder of the expected size and retry the link
+		 * so snapshots stay restorable more than once. The real content
+		 * (e.g. the 32-byte semaphore) is written from the dumped pages
+		 * once the file is opened below.
+		 */
+		if (errno_saved == ENOENT) {
+			int fd = openat(mntns_root, rpath, O_CREAT | O_RDWR, 0600);
+
+			if (fd >= 0 && rfi->rfe->has_size && rfi->rfe->size &&
+					ftruncate(fd, (off_t)rfi->rfe->size) < 0) {
+				close(fd);
+				fd = -1;
+			}
+			if (fd >= 0) {
+				close(fd);
+				if (linkat_hard(mntns_root, rpath, mntns_root, path,
+						rfi->remap->uid, rfi->remap->gid, 0) == 0)
+					return 0;
+				errno_saved = errno;
+			}
+		}
+
 		if (!rm_parent_dirs(mntns_root, path, *level) && errno_saved == EEXIST) {
 			errno = errno_saved;
 			return 1;
