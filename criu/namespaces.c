@@ -1976,7 +1976,7 @@ static int collect_pid_ns(struct ns_id *ns, void *oarg)
 
 	snprintf(id, sizeof(id), "pid[%u]", ns->kid);
 	val = external_lookup_by_key(id);
-	if (PTR_RET(val))
+	if (IS_ERR_OR_NULL(val))
 		return 0;
 
 	/*

@@ -54,8 +54,15 @@ char *service_mountpoint(const struct mount_info *mi)
 int ext_mount_add(char *key, char *val)
 {
 	cleanup_free char *e_str = NULL;
+	size_t len;
 
-	e_str = xmalloc(strlen(key) + strlen(val) + 8);
+	if (key[0] == '\0') {
+		pr_err("Empty key for external mount mapping\n");
+		return -1;
+	}
+
+	len = strlen(key) + sizeof("mnt[]");
+	e_str = xmalloc(len);
 	if (!e_str)
 		return -1;
 
@@ -70,35 +77,48 @@ int ext_mount_add(char *key, char *val)
 	 * be bind mounted to the respective mountpoint.
 	 */
 
-	sprintf(e_str, "mnt[%s]:%s", key, val);
-	return add_external(e_str);
+	snprintf(e_str, len, "mnt[%s]", key);
+	return add_external_val(e_str, val);
 }
 
 int ext_mount_parse_auto(char *key)
 {
-	opts.autodetect_ext_mounts = true;
-
 	if (*key == ':') {
-		key++;
-		if (*key == 'm')
-			opts.enable_external_masters = true;
-		else if (*key == 's')
-			opts.enable_external_sharing = true;
-		else if (*key != '\0')
-			return -1;
+		for (key++; *key; key++) {
+			if (*key == 'm')
+				opts.enable_external_masters = true;
+			else if (*key == 's')
+				opts.enable_external_sharing = true;
+			else {
+				pr_err("Unknown flag '%c' in external mnt[], expected 'm' or 's'\n", *key);
+				return -1;
+			}
+		}
+	} else if (*key != '\0') {
+		pr_err("Malformed external mnt[]%s, expected mnt[] or mnt[]:FLAGS\n", key);
+		return -1;
 	}
+
+	opts.autodetect_ext_mounts = true;
 
 	return 0;
 }
 
-/* Lookup ext_mount by key field */
+/*
+ * Lookup ext_mount by key field. Returns the mapped value, NULL if there
+ * is no mapping, or ERR_PTR(-ENOMEM) if the lookup key can't be allocated.
+ */
 static char *ext_mount_lookup(char *key)
 {
+	cleanup_free char *mkey = NULL;
+	size_t len = strlen(key) + sizeof("mnt[]");
 	char *v;
-	int len = strlen(key);
-	char mkey[len + 6];
 
-	snprintf(mkey, sizeof(mkey), "mnt[%s]", key);
+	mkey = xmalloc(len);
+	if (!mkey)
+		return ERR_PTR(-ENOMEM);
+
+	snprintf(mkey, len, "mnt[%s]", key);
 	v = external_lookup_by_key(mkey);
 	if (IS_ERR(v))
 		v = NULL;
@@ -490,6 +510,8 @@ static int try_resolve_ext_mount(struct mount_info *info)
 		char *ext;
 
 		ext = ext_mount_lookup(info->ns_mountpoint + 1 /* trim the . */);
+		if (IS_ERR(ext))
+			return -1;
 		if (ext) {
 			pr_info("Found %s mapping for %s mountpoint\n", ext, info->ns_mountpoint);
 			info->external = ext;
@@ -1918,9 +1940,11 @@ char *resolve_source(struct mount_info *mi)
 		struct stat st;
 		char *val;
 
-		val = external_lookup_by_key(mi->source);
-		if (!IS_ERR_OR_NULL(val))
-			return val;
+		if (strstartswith(mi->source, "dev[")) {
+			val = external_lookup_by_key(mi->source);
+			if (!IS_ERR_OR_NULL(val))
+				return val;
+		}
 
 		if (!stat(mi->source, &st) && S_ISBLK(st.st_mode) && major(st.st_rdev) == kdev_major(mi->s_dev) &&
 		    minor(st.st_rdev) == kdev_minor(mi->s_dev))
@@ -3020,6 +3044,8 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 		ext = EXTERNAL_DEV_MOUNT;
 	} else {
 		ext = ext_mount_lookup(me->ext_key);
+		if (IS_ERR(ext))
+			return -1;
 		if (!ext) {
 			pr_err("No mapping for %d:%s mountpoint\n", mi->mnt_id, mi->ns_mountpoint);
 			return -1;

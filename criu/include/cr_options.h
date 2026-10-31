@@ -165,7 +165,6 @@ struct cr_options {
 	char *root;
 	char *pidfile;
 	char *freeze_cgroup;
-	struct list_head ext_mounts;
 	struct list_head inherit_fds;
 	struct list_head external;
 	struct list_head join_ns;

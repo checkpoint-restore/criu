@@ -418,7 +418,6 @@ int init_opts(void)
 
 	/* Default options */
 	opts.final_state = TASK_DEAD;
-	INIT_LIST_HEAD(&opts.ext_mounts);
 	INIT_LIST_HEAD(&opts.inherit_fds);
 	INIT_LIST_HEAD(&opts.external);
 	INIT_LIST_HEAD(&opts.join_ns);

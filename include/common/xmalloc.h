@@ -17,6 +17,7 @@
 	})
 
 #define xstrdup(str)	  __xalloc(strdup, strlen(str) + 1, str)
+#define xstrndup(str, n)  __xalloc(strndup, (n) + 1, str, n)
 #define xmalloc(size)	  __xalloc(malloc, size, size)
 #define xzalloc(size)	  __xalloc(calloc, size, 1, size)
 #define xrealloc(p, size) __xalloc(realloc, size, p, size)

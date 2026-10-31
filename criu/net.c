@@ -3717,18 +3717,32 @@ void network_unlock(void)
 
 int veth_pair_add(char *in, char *out)
 {
-	cleanup_free char *e_str = NULL;
+	cleanup_free char *id = NULL;
+	size_t len;
 
-	e_str = xmalloc(200); /* For 3 IFNAMSIZ + 8 service characters */
-	if (!e_str)
+	if (in[0] == '\0') {
+		pr_err("Empty inner device name for veth pair\n");
 		return -1;
-	snprintf(e_str, 200, "veth[%s]:%s", in, out);
-	return add_external(e_str);
+	}
+
+	len = strlen(in) + sizeof("veth[]");
+	id = xmalloc(len);
+	if (!id)
+		return -1;
+	snprintf(id, len, "veth[%s]", in);
+	return add_external_val(id, out);
 }
 
 int macvlan_ext_add(struct external *ext)
 {
-	ext->data = (void *)(unsigned long)if_nametoindex(external_val(ext));
+	char *val = external_val(ext);
+
+	if (!val) {
+		pr_err("Missing parent for %s\n", ext->id);
+		return -1;
+	}
+
+	ext->data = (void *)(unsigned long)if_nametoindex(val);
 	if (ext->data == 0) {
 		pr_perror("can't get ifindex of %s", ext->id);
 		return -1;

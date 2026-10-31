@@ -8,32 +8,98 @@
 
 #include "net.h"
 
-int add_external(char *key)
+int add_external_val(char *id, char *val)
 {
 	struct external *ext;
 
-	if (strstartswith(key, "mnt[]"))
-		return ext_mount_parse_auto(key + 5);
+	if (val && val[0] == '\0') {
+		pr_err("Empty value for external resource %s\n", id);
+		return -1;
+	}
 
 	ext = xmalloc(sizeof(*ext));
 	if (!ext)
 		return -1;
 
-	ext->id = xstrdup(key);
+	ext->id = xstrdup(id);
 	if (!ext->id)
 		goto err_id;
 
-	if (strstartswith(key, "macvlan") && macvlan_ext_add(ext) < 0)
+	if (val) {
+		ext->val = xstrdup(val);
+		if (!ext->val)
+			goto err_val;
+	} else {
+		ext->val = NULL;
+	}
+
+	if (strstartswith(id, "macvlan[") && macvlan_ext_add(ext) < 0)
 		goto err;
 
 	list_add(&ext->node, &opts.external);
 
 	return 0;
 err:
+	xfree(ext->val);
+err_val:
 	xfree(ext->id);
 err_id:
 	xfree(ext);
 	return -1;
+}
+
+int add_external(char *key)
+{
+	cleanup_free char *id = NULL;
+	char *br, *val;
+	size_t len;
+
+	if (strstartswith(key, "mnt[]") && (key[5] == '\0' || key[5] == ':'))
+		return ext_mount_parse_auto(key + 5);
+
+	br = strchr(key, '[');
+	if (!br) {
+		pr_err("Malformed external resource %s: expected TYPE[KEY] or TYPE[KEY]:VAL\n", key);
+		return -1;
+	}
+
+	val = strstr(br + 1, "]:");
+	if (val) {
+		if (val == br + 1) {
+			pr_err("Empty key in external resource %s\n", key);
+			return -1;
+		}
+		/*
+		 * There is no escaping, so a second "]:" makes it impossible
+		 * to tell where the key ends. Keys or values containing "]:"
+		 * can be passed via the ext_mnt RPC field instead.
+		 */
+		if (strstr(val + 2, "]:")) {
+			pr_err("Ambiguous external resource %s: more than one \"]:\"\n", key);
+			return -1;
+		}
+		id = xstrndup(key, val - key + 1);
+		if (!id)
+			return -1;
+		return add_external_val(id, val + 2);
+	}
+
+	if (!strstartswith(key, "file[") && !strstartswith(key, "tty[") && !strstartswith(key, "unix[")) {
+		pr_err("Malformed external resource %s: expected TYPE[KEY]:VAL\n", key);
+		return -1;
+	}
+
+	len = strlen(key);
+	if (key[len - 1] != ']') {
+		pr_err("Malformed external resource %s: expected TYPE[KEY]\n", key);
+		return -1;
+	}
+	if (key + len - 1 == br + 1) {
+		pr_err("Empty key in external resource %s\n", key);
+		return -1;
+	}
+
+	return add_external_val(key, NULL);
 }
 
 bool external_lookup_id(char *id)
@@ -41,7 +107,7 @@ bool external_lookup_id(char *id)
 	struct external *ext;
 
 	list_for_each_entry(ext, &opts.external, node)
-		if (!strcmp(ext->id, id))
+		if (!strcmp(ext->id, id) && !ext->val)
 			return true;
 	return false;
 }
@@ -49,13 +115,10 @@ bool external_lookup_id(char *id)
 void *external_lookup_data(char *key)
 {
 	struct external *ext;
-	int len = strlen(key);
 
 	list_for_each_entry(ext, &opts.external, node) {
-		if (strncmp(ext->id, key, len))
-			continue;
-
-		return ext->data;
+		if (!strcmp(ext->id, key))
+			return ext->data;
 	}
 
 	return ERR_PTR(-ENOENT);
@@ -64,15 +127,10 @@ void *external_lookup_data(char *key)
 char *external_lookup_by_key(char *key)
 {
 	struct external *ext;
-	int len = strlen(key);
 
 	list_for_each_entry(ext, &opts.external, node) {
-		if (strncmp(ext->id, key, len))
-			continue;
-		if (ext->id[len] == ':')
-			return ext->id + len + 1;
-		else if (ext->id[len] == '\0')
-			return NULL;
+		if (!strcmp(ext->id, key))
+			return ext->val;
 	}
 	return ERR_PTR(-ENOENT);
 }
