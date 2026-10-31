@@ -52,6 +52,7 @@ int parse_statement(int i, char *line, char **configuration)
 {
 	cleanup_free char *input = NULL;
 	int offset = 0, len = 0;
+	bool quoted = false;
 	char *tmp_string;
 
 	/*
@@ -93,7 +94,7 @@ int parse_statement(int i, char *line, char **configuration)
 	if ((tmp_string = strchr(input, '\n')))
 		tmp_string[0] = 0;
 
-	if ((tmp_string = strchr(input, ' ')) || (tmp_string = strchr(input, '\t'))) {
+	if ((tmp_string = strpbrk(input, " \t"))) {
 		configuration[i] = xzalloc(tmp_string - input + strlen("--") + 1);
 		if (unlikely(!configuration[i]))
 			return -1;
@@ -121,6 +122,7 @@ int parse_statement(int i, char *line, char **configuration)
 		char *quote_start;
 		int quote_offset;
 
+		quoted = true;
 		/* Move by one to skip the leading quote. */
 		offset++;
 		quote_start = input + offset;
@@ -165,20 +167,13 @@ int parse_statement(int i, char *line, char **configuration)
 			configuration[i][quote_offset - offset] = 0;
 			/* We skipped one additional quote */
 			offset++;
-			/* Check for excessive parameters on the original line. */
-			tmp_string++;
-			if (tmp_string != 0 && strchr(tmp_string, ' ')) {
-				int j;
-				len = strlen(tmp_string);
-				for (j = 0; j < len - 1; j++) {
-					if (tmp_string[j] == '#')
-						break;
-					if (!isspace(tmp_string[j])) {
-						pr_err("Unsupported configuration file format. Please consult man page criu(8)\n");
-						xfree(configuration[i - 1]);
-						xfree(configuration[i]);
-						return -1;
-					}
+			/* Only white-space or a comment may follow the closing quote. */
+			for (tmp_string++; *tmp_string && *tmp_string != '#'; tmp_string++) {
+				if (!isspace(*tmp_string)) {
+					pr_err("Unsupported configuration file format. Please consult man page criu(8)\n");
+					xfree(configuration[i - 1]);
+					xfree(configuration[i]);
+					return -1;
 				}
 			}
 			break;
@@ -230,6 +225,14 @@ int parse_statement(int i, char *line, char **configuration)
 	}
 
 out:
+	/*
+	 * A quoted value is complete at this point: anything after the
+	 * closing quote has already been checked above, and '#' or spaces
+	 * inside the quotes are part of the value.
+	 */
+	if (quoted)
+		return i + 1;
+
 	/* Remove potential comments at the end */
 	if ((tmp_string = strstr(configuration[i], "#")) || (tmp_string = strstr(configuration[i], " #")))
 		tmp_string[0] = 0;
