@@ -20,6 +20,7 @@
 #include "plugin.h"
 
 int parse_statement(int i, char *line, char **configuration);
+void test_extmem(void);
 
 cr_plugin_ctl_t cr_plugin_ctl;
 
@@ -683,6 +684,7 @@ int main(int argc, char *argv[], char *envp[])
 	test_pagemap_offset_alignment();
 	test_plugin_dispatch_all();
 	test_plugin_options();
+	test_extmem();
 
 	i = parse_statement(0, "", configuration);
 	assert(i == 0);
