@@ -5,3 +5,5 @@ cuda-backend-guard-test
 untraced-clone-target
 dump_finish_failure.so
 unsupported/
+cuda-parallel-test
+cuda-options-test

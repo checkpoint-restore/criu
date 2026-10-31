@@ -37,6 +37,12 @@
 
 struct cr_options opts;
 unsigned int cuda_plugin_timeout;
+unsigned int cuda_plugin_parallel = 1;
+static bool test_context_suspend_seccomp;
+static bool test_real_seccomp;
+static unsigned long test_context_options;
+static pid_t fail_context_cont;
+static pid_t test_ptrace_owner;
 
 static FILE *log_file;
 static unsigned int interrupts;
@@ -131,6 +137,11 @@ int cuda_plugin_add_inventory(void)
 	return 0;
 }
 
+int criu_resume_thread_context(pid_t tid, struct criu_thread_context *ctx)
+{
+	return criu_resume_thread_context_opts(tid, ctx, test_context_options, test_context_suspend_seccomp);
+}
+
 int criu_resume_thread(pid_t tid)
 {
 	bool sigmask_changed = false;
@@ -199,13 +210,20 @@ long __wrap_ptrace(int request, ...)
 	void *addr;
 	unsigned long data;
 
+	if (test_ptrace_owner)
+		assert(syscall(SYS_gettid) == test_ptrace_owner);
 	va_start(args, request);
 	pid = va_arg(args, pid_t);
 	addr = va_arg(args, void *);
 	data = va_arg(args, unsigned long);
 	va_end(args);
-	if (request == PTRACE_SETOPTIONS)
+	if (request == PTRACE_SETOPTIONS && !test_real_seccomp)
 		data &= ~PTRACE_O_SUSPEND_SECCOMP;
+	if (request == PTRACE_CONT && pid == fail_context_cont) {
+		fail_context_cont = 0;
+		errno = EIO;
+		return -1;
+	}
 	if (request == PTRACE_CONT)
 		assert(!data); /* The backend must never forward a signal. */
 	if (request == PTRACE_INTERRUPT) {

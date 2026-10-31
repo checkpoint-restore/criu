@@ -23,9 +23,11 @@
 #define CUDA_PLUGIN_NAME	      "cuda_plugin"
 #define CUDA_PLUGIN_BACKEND_OPTION    CUDA_PLUGIN_NAME ".backend"
 #define CUDA_PLUGIN_DEVICE_MAP_OPTION CUDA_PLUGIN_NAME ".device-map"
+#define CUDA_PLUGIN_PARALLEL_OPTION   CUDA_PLUGIN_NAME ".parallel"
 #define CUDA_PLUGIN_TIMEOUT_OPTION    CUDA_PLUGIN_NAME ".timeout"
 
 unsigned int cuda_plugin_timeout;
+unsigned int cuda_plugin_parallel = 1;
 
 static const struct cuda_plugin_backend *active_backend;
 static char *device_map_option;
@@ -44,6 +46,7 @@ enum {
 	CUDA_PLUGIN_OPTION_BACKEND = 1000,
 	CUDA_PLUGIN_OPTION_DEVICE_MAP,
 	CUDA_PLUGIN_OPTION_TIMEOUT,
+	CUDA_PLUGIN_OPTION_PARALLEL,
 };
 
 static bool cuda_plugin_option_matches(const char *arg, const char *name,
@@ -89,12 +92,14 @@ static int parse_cuda_plugin_options(int stage)
 	static const struct option long_options[] = {
 		{ CUDA_PLUGIN_BACKEND_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_BACKEND },
 		{ CUDA_PLUGIN_DEVICE_MAP_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_DEVICE_MAP },
+		{ CUDA_PLUGIN_PARALLEL_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_PARALLEL },
 		{ CUDA_PLUGIN_TIMEOUT_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_TIMEOUT },
 		{},
 	};
 	const char *backend_value = NULL;
 	const char *device_map_value = NULL;
 	const char *timeout_value = NULL;
+	const char *parallel_value = NULL;
 	char *saved_optarg;
 	char **argv = NULL;
 	int saved_optopt;
@@ -106,6 +111,7 @@ static int parse_cuda_plugin_options(int stage)
 
 	backend_selection = CUDA_BACKEND_AUTO;
 	cuda_plugin_timeout = 0;
+	cuda_plugin_parallel = 1;
 	ret = criu_plugin_get_options(&argc, &argv);
 	if (ret) {
 		pr_err("Unable to read plugin options: %d\n", ret);
@@ -135,6 +141,10 @@ static int parse_cuda_plugin_options(int stage)
 		case CUDA_PLUGIN_OPTION_TIMEOUT:
 			if (cuda_plugin_option_matches(argv[optind - 1], CUDA_PLUGIN_TIMEOUT_OPTION, optarg, &ret))
 				timeout_value = optarg;
+			break;
+		case CUDA_PLUGIN_OPTION_PARALLEL:
+			if (cuda_plugin_option_matches(argv[optind - 1], CUDA_PLUGIN_PARALLEL_OPTION, optarg, &ret))
+				parallel_value = optarg;
 			break;
 		case '?':
 			/* Every plugin receives the same namespaced option list. */
@@ -171,6 +181,24 @@ static int parse_cuda_plugin_options(int stage)
 			return -EINVAL;
 		}
 		cuda_plugin_timeout = timeout;
+	}
+
+	if (parallel_value) {
+		char *end;
+		unsigned long parallel;
+
+		errno = 0;
+		parallel = strtoul(parallel_value, &end, 10);
+		if (stage != CR_PLUGIN_STAGE__RESTORE || errno ||
+		    parallel_value[0] < '0' || parallel_value[0] > '9' || *end || parallel < 1 || parallel > 64) {
+			pr_err("cuda_plugin.parallel requires an integer 1..64 and is restore-only\n");
+			return -EINVAL;
+		}
+		cuda_plugin_parallel = parallel;
+	}
+	if (cuda_plugin_parallel > 1 && backend_selection == CUDA_BACKEND_CHECKPOINT) {
+		pr_err("cuda_plugin.parallel > 1 requires the Driver API backend\n");
+		return -EINVAL;
 	}
 
 	if (device_map_value) {
@@ -301,6 +329,31 @@ static int cuda_plugin_resume_devices_late(int pid)
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, cuda_plugin_resume_devices_late)
 
+/* All lifecycle callbacks execute on the master tracer thread. */
+static int cuda_plugin_resume_devices_begin(void)
+{
+	if (!active_backend || !active_backend->resume_devices_begin)
+		return -ENOTSUP;
+	return active_backend->resume_devices_begin();
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_BEGIN, cuda_plugin_resume_devices_begin)
+
+static int cuda_plugin_resume_devices_finish(void)
+{
+	if (!active_backend || !active_backend->resume_devices_finish)
+		return -ENOTSUP;
+	return active_backend->resume_devices_finish();
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_FINISH, cuda_plugin_resume_devices_finish)
+
+static int cuda_plugin_resume_devices_abort(void)
+{
+	if (!active_backend || !active_backend->resume_devices_abort)
+		return -ENOTSUP;
+	return active_backend->resume_devices_abort();
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_ABORT, cuda_plugin_resume_devices_abort)
+
 static int cuda_plugin_restore_init(void)
 {
 	int ret;
@@ -344,8 +397,8 @@ static int cuda_plugin_init(int stage)
 	/* Do not touch libcuda or execute cuda-checkpoint for a CPU-only restore. */
 	if (stage == CR_PLUGIN_STAGE__RESTORE) {
 		restore_required = has_inventory_plugin(CR_PLUGIN_DESC.name);
-		if (!restore_required && device_map_option) {
-			pr_err("cuda_plugin.device-map was supplied for an image that does not require CUDA restore\n");
+		if (!restore_required && (device_map_option || cuda_plugin_parallel > 1)) {
+			pr_err("CUDA mapping/parallel restore was supplied for an image that does not require CUDA restore\n");
 			ret = -EINVAL;
 			goto error;
 		}
@@ -354,8 +407,8 @@ static int cuda_plugin_init(int stage)
 	}
 
 	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) && !is_cuda_device_available()) {
-		if (device_map_option) {
-			pr_err("cuda_plugin.device-map requires an available CUDA device\n");
+		if (device_map_option || cuda_plugin_parallel > 1) {
+			pr_err("CUDA mapping/parallel restore requires an available CUDA device\n");
 			ret = -ENODEV;
 			goto error;
 		}
@@ -364,11 +417,16 @@ static int cuda_plugin_init(int stage)
 	}
 
 	ret = select_cuda_backend();
-	if (ret == -ENOTSUP && backend_selection == CUDA_BACKEND_AUTO && !device_map_option)
+	if (ret == -ENOTSUP && backend_selection == CUDA_BACKEND_AUTO && !device_map_option && cuda_plugin_parallel == 1)
 		return 0;
 	if (ret)
 		goto error;
 
+	if (cuda_plugin_parallel > 1 && active_backend != &cuda_driver_backend) {
+		pr_err("cuda_plugin.parallel > 1 requires the Driver API backend\n");
+		ret = -EINVAL;
+		goto error;
+	}
 	ret = active_backend->init(stage);
 	if (ret) {
 		pr_err("Unable to initialize %s backend: %d\n", active_backend->name, ret);

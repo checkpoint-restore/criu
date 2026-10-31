@@ -1,6 +1,6 @@
 CFLAGS	+= $(USERCFLAGS) $(ARCHCFLAGS) -fPIC
 
-BIN := cuda-checkpoint libcuda.so.1 unsupported/libcuda.so.1 cuda-device-map-test cuda-backend-guard-test untraced-clone-target dump_finish_failure.so
+BIN := cuda-checkpoint libcuda.so.1 unsupported/libcuda.so.1 cuda-device-map-test cuda-backend-guard-test cuda-parallel-test cuda-options-test untraced-clone-target dump_finish_failure.so
 SRC := cuda-checkpoint.c libcuda.c
 DEP	:= $(SRC:%.c=%.d)
 OBJ	:= $(SRC:%.c=%.o)
@@ -46,13 +46,27 @@ cuda-device-map-test: device-map.c $(CUDA_PLUGIN_DIR)/cuda_device_map.c $(CUDA_P
 
 cuda-backend-guard-test: backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c \
 		$(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
-		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h ../../compel/libcompel.a
+		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h ../../compel/libcompel.a \
+		../../criu/seize-thread.c $(CUDA_PLUGIN_DIR)/cuda_parallel.h
 	$(E) " LINK     " $@
 	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) -I../../compel/include/uapi \
-		backend-guard.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
+		backend-guard.c ../../criu/seize-thread.c $(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
 		../../compel/libcompel.a \
 		-Wl,--wrap,ptrace -ldl -pthread -o $@
+
+cuda-parallel-test: parallel.c backend-guard.c ../../criu/seize-thread.c \
+		$(CUDA_PLUGIN_DIR)/cuda_plugin_driver.c $(CUDA_PLUGIN_DIR)/cuda_parallel.h \
+		../../compel/libcompel.a
+	$(E) " LINK     " $@
+	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) -I../../compel/include/uapi \
+		parallel.c ../../criu/seize-thread.c $(CUDA_PLUGIN_DIR)/cuda_plugin_cli.c \
+		$(CUDA_PLUGIN_DIR)/cuda_wait.c ../../compel/libcompel.a \
+		-Wl,--wrap,ptrace -Wl,--wrap,pthread_create -Wl,--wrap,waitpid -ldl -pthread -o $@
+
+cuda-options-test: options.c $(CUDA_PLUGIN_DIR)/cuda_plugin.c
+	$(E) " LINK     " $@
+	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) -I../../compel/include/uapi options.c -o $@
 
 untraced-clone-target: untraced-clone-target.c
 	$(E) " LINK     " $@
@@ -65,6 +79,8 @@ dump_finish_failure.so: dump-finish-failure.c ../../criu/include/criu-plugin.h
 test: all
 	LD_LIBRARY_PATH="$(CURDIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-device-map-test
 	PATH="$(CURDIR):$$PATH" LD_LIBRARY_PATH="$(CURDIR)$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}" ./cuda-backend-guard-test
+	./cuda-options-test
+	./cuda-parallel-test
 .PHONY: test
 
 clean-more:

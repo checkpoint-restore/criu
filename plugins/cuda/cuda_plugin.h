@@ -7,6 +7,7 @@ struct cuda_device_map;
 
 /* Maximum duration of one helper invocation in seconds; zero means unlimited. */
 extern unsigned int cuda_plugin_timeout;
+extern unsigned int cuda_plugin_parallel;
 
 /* Register a CUDA task before locking it, while allocation can still fail safely. */
 int cuda_plugin_add_inventory(void);
@@ -19,6 +20,9 @@ struct cuda_plugin_backend {
 	void (*fini)(int stage, int ret);
 	int (*pause_devices)(int pid);
 	int (*checkpoint_devices)(int pid);
+	int (*resume_devices_begin)(void);
+	int (*resume_devices_finish)(void);
+	int (*resume_devices_abort)(void);
 	int (*resume_devices_late)(int pid, const struct cuda_device_map *device_map);
 };
 

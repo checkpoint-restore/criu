@@ -18,6 +18,8 @@
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <time.h>
 #include <string.h>
 #include <sys/ptrace.h>
 #include <sys/syscall.h>
@@ -413,6 +415,7 @@ struct cuda_operation_work {
 	int restore_tid;
 	int exit_code;
 	atomic_bool done;
+	atomic_bool stop_failed;
 };
 
 static void *cuda_operation_worker(void *data)
@@ -427,8 +430,10 @@ static void *cuda_operation_worker(void *data)
 	 * wake up the main thread's waitpid(). If the target already crashed
 	 * and exited, tgkill is a harmless no-op (ESRCH).
 	 */
-	if (syscall(SYS_tgkill, work->pid, work->restore_tid, SIGSTOP) < 0 && errno != ESRCH)
+	if (syscall(SYS_tgkill, work->pid, work->restore_tid, SIGSTOP) < 0 && errno != ESRCH) {
 		pr_perror("Unable to stop CUDA restore tid %d", work->restore_tid);
+		atomic_store(&work->stop_failed, true);
+	}
 
 	return NULL;
 }
@@ -450,9 +455,14 @@ static void kill_traced_event_child(int restore_tid, int status)
 	if (kill((pid_t)new_tid, SIGKILL) < 0 && errno != ESRCH)
 		pr_perror("Unable to kill traced child %lu of restore tid %d",
 			  new_tid, restore_tid);
-	do {
+	for (;;) {
 		w = waitpid((pid_t)new_tid, &cstatus, __WALL);
-	} while (w < 0 && errno == EINTR);
+		if (w < 0 && errno == EINTR)
+			continue;
+		if (w < 0 || WIFEXITED(cstatus) || WIFSIGNALED(cstatus))
+			break;
+		ptrace(PTRACE_CONT, (pid_t)new_tid, NULL, 0);
+	}
 }
 
 /* Put a resumed restore thread back into a ptrace stop without a worker. */
@@ -775,6 +785,7 @@ struct cuda_resume_operation {
 	cuda_task_state_t current;
 	cuda_task_state_t initial;
 	const struct cuda_device_map *map;
+	atomic_bool *aborted;
 };
 
 static int restore_device(void *arg)
@@ -791,8 +802,10 @@ static int restore_device(void *arg)
 	 * only after resuming it, and prefer the driver's state over the state
 	 * recorded around the checkpoint call.
 	 */
+	if (atomic_load(op->aborted))
+		return -1;
 	observed_task_state = get_cuda_state(pid);
-	if (atomic_load(&operation_aborted))
+	if (atomic_load(op->aborted))
 		return -1;
 	if (observed_task_state != CUDA_TASK_UNKNOWN)
 		current_task_state = observed_task_state;
@@ -825,12 +838,18 @@ static int restore_device(void *arg)
 		}
 
 		if (cuda_driver_init()) {
-			if (atomic_load(&operation_aborted))
+			if (atomic_load(op->aborted))
 				return -1;
 			ret = -1;
 		} else {
+			if (atomic_load(op->aborted))
+				return -1;
+			if (op->aborted != &operation_aborted)
+				pr_info("CUDA parallel driver-restore-enter pid=%d\n", pid);
 			res = cuda_api.restore(pid, &args);
-			if (atomic_load(&operation_aborted))
+			if (op->aborted != &operation_aborted)
+				pr_info("CUDA parallel driver-restore-exit pid=%d rc=%d\n", pid, res);
+			if (atomic_load(op->aborted))
 				return -1;
 			if (res != CUDA_SUCCESS) {
 				cuda_log_error("cuCheckpointProcessRestore", pid, res);
@@ -842,6 +861,8 @@ static int restore_device(void *arg)
 				current_task_state = CUDA_TASK_LOCKED;
 
 			observed_task_state = get_cuda_state(pid);
+			if (atomic_load(op->aborted))
+				return -1;
 			if (observed_task_state != CUDA_TASK_UNKNOWN)
 				current_task_state = observed_task_state;
 			else {
@@ -858,13 +879,19 @@ static int restore_device(void *arg)
 		}
 	}
 
+	if (atomic_load(op->aborted))
+		return -1;
 	if (initial_task_state == CUDA_TASK_RUNNING) {
 		if (current_task_state == CUDA_TASK_LOCKED) {
 			/* If the process was running before we paused it, unlock it. */
 			if (unlock_cuda_process(pid))
 				ret = -1;
+			if (atomic_load(op->aborted))
+				return -1;
 
 			observed_task_state = get_cuda_state(pid);
+			if (atomic_load(op->aborted))
+				return -1;
 			if (observed_task_state != CUDA_TASK_UNKNOWN)
 				current_task_state = observed_task_state;
 			else {
@@ -895,6 +922,7 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 		.current = current_task_state,
 		.initial = initial_task_state,
 		.map = map,
+		.aborted = &operation_aborted,
 	};
 	enum cuda_restore_tid_result tid_result;
 	int restore_tid;
@@ -948,6 +976,8 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	return run_cuda_operation(pid, restore_tid, restore_device, &op);
 }
 
+#include "cuda_parallel.h"
+
 static int cuda_driver_resume_devices_late(int pid, const struct cuda_device_map *map)
 {
 	/* RESUME_DEVICES_LATE is used during `criu restore`.
@@ -955,6 +985,8 @@ static int cuda_driver_resume_devices_late(int pid, const struct cuda_device_map
 	 * to be in a "running" state after restore, even if it was
 	 * in a "locked" or "checkpointed" state during `criu dump`.
 	 */
+	if (cuda_plugin_parallel > 1)
+		return cuda_parallel_queue(pid, map);
 	return resume_device(pid, CUDA_TASK_CHECKPOINTED, CUDA_TASK_RUNNING, map);
 }
 
@@ -1022,6 +1054,9 @@ static int cuda_driver_backend_dump_finish(int ret)
 
 static void cuda_driver_backend_fini(int stage, int ret)
 {
+	/* Defensive: core normally drains through ABORT before plugin exit. */
+	if (cuda_batch.ops)
+		cuda_driver_resume_devices_abort();
 	if (stage == CR_PLUGIN_STAGE__DUMP) {
 		free_cuda_pid_list();
 	}
@@ -1038,4 +1073,7 @@ const struct cuda_plugin_backend cuda_driver_backend = {
 	.pause_devices = cuda_driver_pause_devices,
 	.checkpoint_devices = cuda_driver_checkpoint_devices,
 	.resume_devices_late = cuda_driver_resume_devices_late,
+	.resume_devices_begin = cuda_driver_resume_devices_begin,
+	.resume_devices_finish = cuda_driver_resume_devices_finish,
+	.resume_devices_abort = cuda_driver_resume_devices_abort,
 };

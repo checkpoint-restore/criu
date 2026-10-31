@@ -2326,6 +2326,9 @@ skip_ns_bouncing:
 	 * over the control to master process.
 	 */
 	pr_info("Run late stage hook from criu master for external devices\n");
+	ret = run_plugins_all(RESUME_DEVICES_BEGIN);
+	if (ret && ret != -ENOTSUP)
+		goto out_abort_devices;
 	for_each_pstree_item(item) {
 		if (!task_alive(item))
 			continue;
@@ -2338,9 +2341,13 @@ skip_ns_bouncing:
 		 */
 		if (ret && ret != -ENOTSUP) {
 			pr_err("Device hook failed for pid %d, ret %d\n", item->pid->real, ret);
-			goto out_kill_network_unlocked;
+			goto out_abort_devices;
 		}
 	}
+
+	ret = run_plugins_all(RESUME_DEVICES_FINISH);
+	if (ret && ret != -ENOTSUP)
+		goto out_abort_devices;
 
 	ret = run_scripts(ACT_PRE_RESUME);
 	if (ret)
@@ -2369,6 +2376,11 @@ skip_ns_bouncing:
 
 	return 0;
 
+out_abort_devices:
+	/* Join/drain while the master still owns ptrace. Never unload an active
+	 * plugin or reach pre-resume/detach with work outstanding.
+	 */
+	run_plugins_all(RESUME_DEVICES_ABORT);
 out_kill_network_unlocked:
 	pr_err("Killing processes because of failure on restore.\nThe Network was unlocked so some data or a connection may have been lost.\n");
 out_kill:

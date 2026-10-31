@@ -65,6 +65,7 @@ obj-y			+= rbtree.o
 obj-y			+= rst-malloc.o
 obj-y			+= seccomp.o
 obj-y			+= seize.o
+obj-y			+= seize-thread.o
 obj-y			+= shmem.o
 obj-y			+= sigframe.o
 obj-y			+= signalfd.o

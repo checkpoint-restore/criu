@@ -70,6 +70,10 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 	__assign_hook(DUMP_DEVICES_LATE, "cr_plugin_dump_devices_late");
 	__assign_hook(UPDATE_INETSK, "cr_plugin_update_inetsk");
 
+	__assign_hook(RESUME_DEVICES_BEGIN, "cr_plugin_resume_devices_begin");
+	__assign_hook(RESUME_DEVICES_FINISH, "cr_plugin_resume_devices_finish");
+	__assign_hook(RESUME_DEVICES_ABORT, "cr_plugin_resume_devices_abort");
+
 #undef __assign_hook
 
 	d->init = dlsym(h, "cr_plugin_init");

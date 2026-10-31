@@ -256,3 +256,39 @@ measure backend performance.
 * NVIDIA UVM Managed Memory, MIG (Multi Instance GPU), and MPS (Multi-Process
   Service) are currently not supported for checkpointing. Future CUDA releases
   will add support for these.
+
+## Parallel late device restore (experimental)
+
+`--plugin-option=cuda_plugin.parallel=N` is restore-only, accepts 1..64, and
+requires the Driver API backend for N > 1. Default 1 retains the existing serial
+path. Dump/checkpoint/rollback and the image format are unchanged. Build/install
+core and plugin together (plugin ABI 0.4 adds begin/finish/abort late hooks).
+
+For N > 1, the master initializes libcuda once, restores the first CUDA process
+(usually the API-server root) serially, then overlaps up to N remaining processes
+per wave. Only the master tracer calls ptrace/waitpid; API workers own no tracees.
+Every record has its own signal-mask/seccomp context and atomic cancellation
+state. Finish joins every worker and returns every restore TID to a consumed
+ptrace stop before pre-resume hooks or detach. Errors stop submission, abort and
+kill outstanding targets, consume their exact TID events, and join all started
+workers before core kills the restored tree. Other children are never reaped.
+
+A positive `cuda_plugin.timeout` also bounds each parallel operation, measured
+from resume to completion. Default zero is unlimited. The serial-first operation
+retains the existing serial timeout behavior. Killing a target normally releases
+an API call; if the driver itself remains blocked, error drain deliberately waits
+rather than canceling a libcuda thread or freeing live work. Use an external
+restore supervisor that kills the entire restore job on timeout, not just the
+CRIU master. Parallel restore is opt-in until real-driver/job-file/IPC sharing
+and memory pressure have passed the model-specific validation gates.
+
+CPU checks (no GPU or image operations): build the fork, then
+`make -C test/cuda-checkpoint test`. In a privileged, seccomp-unconfined CPU-only
+container, set `CRIU_TEST_REAL_SECCOMP=1` to also exercise real seccomp filter
+reenablement and resuspension. The suite includes two real ptrace contexts with
+distinct masks/reverse completion, resume unwind, serial backend regressions,
+option admission, out-of-order parallel completion, API/creation/tracee failures,
+EINTR, early SIGSTOP, a traced fork, timeout, and unrelated-child ownership.
+The fake API proves lifecycle mechanics, not CUDA driver's concurrent semantics
+or speedup. Do not run the shell integration suites in the CPU pod: they invoke
+actual CRIU dump/restore and may probe network/firewall features.

@@ -27,7 +27,7 @@
 
 #define CRIU_PLUGIN_GEN_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
 #define CRIU_PLUGIN_VERSION_MAJOR	 0
-#define CRIU_PLUGIN_VERSION_MINOR	 3
+#define CRIU_PLUGIN_VERSION_MINOR	 4
 #define CRIU_PLUGIN_VERSION_SUBLEVEL	 0
 
 #define CRIU_PLUGIN_VERSION_OLD CRIU_PLUGIN_GEN_VERSION(0, 1, 0)
@@ -69,6 +69,11 @@ enum {
 	CR_PLUGIN_HOOK__UPDATE_INETSK = 15,
 	CR_PLUGIN_HOOK__DUMP_FINISH = 16,
 
+	/* Restore-only, master tracer thread; append to preserve old descriptors. */
+	CR_PLUGIN_HOOK__RESUME_DEVICES_BEGIN = 17,
+	CR_PLUGIN_HOOK__RESUME_DEVICES_FINISH = 18,
+	CR_PLUGIN_HOOK__RESUME_DEVICES_ABORT = 19,
+
 	CR_PLUGIN_HOOK__MAX
 };
 
@@ -99,6 +104,14 @@ DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__UPDATE_INETSK, uint32_t family, uint32_
  * handlers must accept a second call and roll back on it.
  */
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_FINISH, int ret);
+/* BEGIN may allocate a batch. FINISH must join workers and restore every
+ * resumed thread to a consumed ptrace stop. ABORT is idempotent, must accept
+ * partial BEGIN/FINISH, and must drain all workers before returning. No plugin
+ * may detach a tracee here. On any error core kills the restored process tree.
+ */
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESUME_DEVICES_BEGIN, void);
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESUME_DEVICES_FINISH, void);
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESUME_DEVICES_ABORT, void);
 
 enum {
 	CR_PLUGIN_STAGE__DUMP,

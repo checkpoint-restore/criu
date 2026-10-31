@@ -1174,9 +1174,8 @@ err:
 }
 
 static struct pstree_item *checkpoint_item;
-static k_rtsigset_t resumed_sigset;
+static struct criu_thread_context serial_context;
 static bool thread_resumed;
-static pid_t resumed_tid;
 
 static int verify_task_threads_and_children(struct pstree_item *item)
 {
@@ -1258,95 +1257,52 @@ static bool thread_has_seccomp(pid_t tid)
 	return entry && entry->mode != SECCOMP_MODE_DISABLED;
 }
 
-int __attribute__((used)) criu_resume_thread(pid_t tid)
+int __attribute__((used)) criu_resume_thread_context(pid_t tid, struct criu_thread_context *ctx)
 {
-	unsigned long options = checkpoint_item ? COMPEL_PTRACE_OPTIONS : 0;
-	bool sigmask_changed = false;
-	bool options_set = false;
-	k_rtsigset_t block;
+	int ret;
 
-	if (checkpoint_item) {
-		if (resumed_tid) {
-			pr_err("Thread %d is already resumed\n", resumed_tid);
-			return -1;
-		}
-		if (!thread_collected(checkpoint_item, tid)) {
-			pr_err("Thread %d is not in collected task %d\n",
-			       tid, checkpoint_item->pid->real);
-			return -1;
-		}
-	}
-	resumed_tid = 0;
-
-	if (ptrace(PTRACE_GETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset)) {
-		int err = -errno;
-
-		if (err == -ESRCH && !pstree_thread_collected(tid))
-			return err;
-		pr_perror("Failed to get current sigmask for restore tid %d", tid);
-		return -1;
-	}
-
-	ksigfillset(&block);
-	ksigdelset(&block, SIGTRAP);
-
-	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(block), &block)) {
-		pr_perror("Failed to block signals on restore tid %d", tid);
-		return -1;
-	}
-	sigmask_changed = true;
-
-	/*
-	 * Clear PTRACE_O_SUSPEND_SECCOMP when resuming the restore thread,
-	 * and trace new task creation during CHECKPOINT_DEVICES. Plugins can
-	 * legitimately create threads during restore and dump rollback,
-	 * after the restorer or parasite has been removed.
+	/* Parallel contexts are restore-only; checkpoint retains the single
+	 * outstanding operation and collected-thread checks below.
 	 */
-	if (ptrace(PTRACE_SETOPTIONS, tid, NULL, options)) {
-		pr_perror("Could not set ptrace options on restore tid %d", tid);
-		goto unwind;
+	if (checkpoint_item && ctx != &serial_context)
+		return -EINVAL;
+	ret = criu_resume_thread_context_opts(tid, ctx,
+			checkpoint_item ? COMPEL_PTRACE_OPTIONS : 0, thread_has_seccomp(tid));
+	if (ret == -ESRCH && !pstree_thread_collected(tid))
+		return ret;
+	if (ret) {
+		pr_err("Failed to resume restore tid %d: %d\n", tid, ret);
+		return -1;
 	}
-	options_set = true;
-
-	if (ptrace(PTRACE_CONT, tid, NULL, 0)) {
-		pr_perror("Could not resume restore tid %d", tid);
-		goto unwind;
-	}
-
-	resumed_tid = tid;
 	if (checkpoint_item)
 		thread_resumed = true;
 	return 0;
+}
 
-unwind:
-	if (options_set && thread_has_seccomp(tid) && ptrace_suspend_seccomp(tid) < 0)
-		pr_err("Unable to restore ptrace options for restore tid %d\n", tid);
-	if (sigmask_changed &&
-	    ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset))
-		pr_perror("Unable to restore signal mask for restore tid %d", tid);
-
-	return -1;
+int __attribute__((used)) criu_resume_thread(pid_t tid)
+{
+	if (checkpoint_item && !thread_collected(checkpoint_item, tid)) {
+		pr_err("Thread %d is not in collected task %d\n", tid, checkpoint_item->pid->real);
+		return -1;
+	}
+	/* Preserve serial rollback semantics after a tracee died: the old serial
+	 * API discards its single slot outside CHECKPOINT_DEVICES. Parallel users
+	 * always own explicit contexts and cannot overwrite an active one.
+	 */
+	if (!checkpoint_item) {
+		serial_context.active = false;
+		serial_context.tid = 0;
+	}
+	return criu_resume_thread_context(tid, &serial_context);
 }
 
 int __attribute__((used)) criu_restore_thread(pid_t tid)
 {
-	int ret = 0;
-
-	if (resumed_tid != tid) {
+	if (!serial_context.active || serial_context.tid != tid) {
 		pr_err("Thread %d was not resumed by CRIU\n", tid);
 		return -1;
 	}
-	resumed_tid = 0;
-
-	if (thread_has_seccomp(tid) && ptrace_suspend_seccomp(tid) < 0)
-		ret = -1;
-
-	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset)) {
-		pr_perror("Unable to restore original sigmask to restore tid %d", tid);
-		ret = -1;
-	}
-
-	return ret;
+	return criu_restore_thread_context(&serial_context);
 }
 
 int checkpoint_devices(void)
@@ -1363,9 +1319,9 @@ int checkpoint_devices(void)
 		checkpoint_item = NULL;
 		if (ret < 0 && ret != -ENOTSUP)
 			goto err;
-		if (resumed_tid) {
+		if (serial_context.tid) {
 			pr_err("Plugin left thread %d running on task %d\n",
-			       resumed_tid, iter->pid->real);
+			       serial_context.tid, iter->pid->real);
 			goto err;
 		}
 		if (thread_resumed && verify_pstree(root_item))
@@ -1375,14 +1331,15 @@ int checkpoint_devices(void)
 	exit_code = 0;
 err:
 	checkpoint_item = NULL;
-	if (resumed_tid) {
+	if (serial_context.tid) {
 		int status;
 
-		if (ptrace(PTRACE_INTERRUPT, resumed_tid, NULL, 0) == 0 &&
-		    wait4(resumed_tid, &status, __WALL, NULL) == resumed_tid &&
+		if (ptrace(PTRACE_INTERRUPT, serial_context.tid, NULL, 0) == 0 &&
+		    wait4(serial_context.tid, &status, __WALL, NULL) == serial_context.tid &&
 		    WIFSTOPPED(status))
-			criu_restore_thread(resumed_tid);
-		resumed_tid = 0;
+			criu_restore_thread(serial_context.tid);
+		serial_context.tid = 0;
+		serial_context.active = false;
 	}
 	if (exit_code && iter) {
 		siginfo_t si;
