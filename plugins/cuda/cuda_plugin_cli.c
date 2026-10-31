@@ -380,7 +380,7 @@ static int cuda_process_checkpoint_action(int pid, const char *action, unsigned 
 					  const char *device_map, char *msg_buf, int buf_size)
 {
 	char pid_buf[16];
-	char timeout_buf[16];
+	char timeout_buf[32];
 	const char *args[10];
 	size_t index = 0;
 
@@ -392,8 +392,14 @@ static int cuda_process_checkpoint_action(int pid, const char *action, unsigned 
 	args[index++] = "--pid";
 	args[index++] = pid_buf;
 	if (timeout > 0) {
-		snprintf(timeout_buf, sizeof(timeout_buf), "%u", timeout);
-		args[index++] = "--timeout";
+		/* Single-token --timeout=<ms> form: the in-image CUDA-13
+		 * cuda-checkpoint wrapper REJECTS the two-token form
+		 * ("--timeout 5000" -> usage), and one of its failure modes is
+		 * usage text with exit status 0, which would look like a
+		 * successful (no-op) checkpoint. The equals form is what the
+		 * wrapper accepts; verify it stays accepted on tool upgrades.
+		 */
+		snprintf(timeout_buf, sizeof(timeout_buf), "--timeout=%u", timeout);
 		args[index++] = timeout_buf;
 	}
 	if (device_map) {
