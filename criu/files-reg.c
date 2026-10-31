@@ -2379,6 +2379,36 @@ int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *ar
 	flags &= ~O_TMPFILE;
 
 	fd = openat(ns_root_fd, rfi->path, flags);
+	if (fd < 0 && errno == ENOENT && !rfi->remap && !rfi->rfe->ext &&
+			rfi->rfe->has_size && rfi->rfe->size) {
+		/*
+		 * Some regular files live on a memory filesystem (notably
+		 * /dev/shm, e.g. POSIX shared memory such as Python's
+		 * multiprocessing.shared_memory "psm_*" segments). Such files are
+		 * not ghosts, so CRIU only stores their metadata and the mapped
+		 * pages, assuming the path keeps existing. That is true for a
+		 * same-host restore right after the dump (the dump leaves the file
+		 * behind), but not for a second restore of the same images nor for
+		 * a restore on another node (or in another container), where the
+		 * file is gone -- making the images effectively one-shot and
+		 * node-bound.
+		 *
+		 * Recreate a placeholder with the recorded size/mode and retry the
+		 * open; the real content is written back from the dumped pages once
+		 * the file is mapped. validate_file() still checks size and mode,
+		 * so a genuine mismatch is still reported.
+		 */
+		mode_t mode = rfi->rfe->has_mode ? (mode_t)(rfi->rfe->mode & 07777) : 0600;
+
+		fd = openat(ns_root_fd, rfi->path, O_CREAT | O_RDWR, mode);
+		if (fd >= 0) {
+			(void)fchmod(fd, mode);
+			if (ftruncate(fd, (off_t)rfi->rfe->size) < 0)
+				pr_perror("Can't set size of recreated file %s", rfi->path);
+			close(fd);
+			fd = openat(ns_root_fd, rfi->path, flags);
+		}
+	}
 	if (fd < 0) {
 		pr_perror("Can't open file %s on restore", rfi->path);
 		return fd;
