@@ -17,8 +17,10 @@
 #define LOG_PREFIX "cuda_plugin: "
 
 #define CUDA_WAIT_POLL_MS 10
+#define NSEC_PER_MSEC	  1000000LL
+#define NSEC_PER_SEC	  1000000000LL
 
-static int monotonic_ms(int64_t *value)
+static int monotonic_ns(int64_t *value)
 {
 	struct timespec now;
 
@@ -26,7 +28,7 @@ static int monotonic_ms(int64_t *value)
 		pr_perror("Cannot read CUDA operation clock");
 		return -errno;
 	}
-	*value = (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+	*value = (int64_t)now.tv_sec * NSEC_PER_SEC + now.tv_nsec;
 	return 0;
 }
 
@@ -46,9 +48,9 @@ int cuda_wait_init(struct cuda_wait *wait, const char *operation, int pid, int t
 		*thread_status = -1;
 	if (!timeout_seconds)
 		return 0;
-	ret = monotonic_ms(&wait->deadline_ms);
+	ret = monotonic_ns(&wait->deadline_ns);
 	if (!ret)
-		wait->deadline_ms += (int64_t)timeout_seconds * 1000;
+		wait->deadline_ns += (int64_t)timeout_seconds * NSEC_PER_SEC;
 	return ret;
 }
 
@@ -109,14 +111,15 @@ static int remaining_ms(struct cuda_wait *wait)
 	}
 	if (!wait->timeout_seconds)
 		return INT_MAX;
-	ret = monotonic_ms(&now);
+	ret = monotonic_ns(&now);
 	if (ret)
 		return ret;
-	remaining = wait->deadline_ms - now;
+	remaining = wait->deadline_ns - now;
 	if (remaining <= 0) {
 		pr_err("%s(%d) timed out after %u seconds\n", wait->operation, wait->pid, wait->timeout_seconds);
 		return -ETIMEDOUT;
 	}
+	remaining = (remaining + NSEC_PER_MSEC - 1) / NSEC_PER_MSEC;
 	return remaining > INT_MAX ? INT_MAX : (int)remaining;
 }
 

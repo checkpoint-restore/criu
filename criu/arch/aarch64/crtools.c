@@ -203,13 +203,12 @@ int arch_alloc_thread_info(CoreEntry *core)
 	if (!gpregs)
 		goto err;
 	user_aarch64_regs_entry__init(gpregs);
+	ti_aarch64->gpregs = gpregs;
 
 	gpregs->regs = xmalloc(31 * sizeof(uint64_t));
 	if (!gpregs->regs)
 		goto err;
 	gpregs->n_regs = 31;
-
-	ti_aarch64->gpregs = gpregs;
 
 	fpsimd = xmalloc(sizeof(*fpsimd));
 	if (!fpsimd)
@@ -232,6 +231,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 
 	return 0;
 err:
+	arch_free_thread_info(core);
 	return -1;
 }
 
@@ -248,8 +248,12 @@ void arch_free_thread_info(CoreEntry *core)
 			xfree(pac_entry->pac_generic_keys);
 			xfree(pac_entry);
 		}
-		xfree(CORE_THREAD_ARCH_INFO(core)->gpregs->regs);
-		xfree(CORE_THREAD_ARCH_INFO(core)->gpregs);
+		if (CORE_THREAD_ARCH_INFO(core)->gcs)
+			xfree(CORE_THREAD_ARCH_INFO(core)->gcs);
+		if (CORE_THREAD_ARCH_INFO(core)->gpregs) {
+			xfree(CORE_THREAD_ARCH_INFO(core)->gpregs->regs);
+			xfree(CORE_THREAD_ARCH_INFO(core)->gpregs);
+		}
 		xfree(CORE_THREAD_ARCH_INFO(core));
 		CORE_THREAD_ARCH_INFO(core) = NULL;
 	}

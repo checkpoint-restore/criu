@@ -17,3 +17,4 @@ region/
 malformed-*/
 transaction-compress/
 transaction-decompress/
+legacy-pagemap/

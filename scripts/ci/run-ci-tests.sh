@@ -111,6 +111,15 @@ test_stream() {
 
 	./test/zdtm.py run -t zdtm/transition/maps007 --stream --dedup "${ZDTM_OPTS[@]}"
 
+	# Post-copy with the images streamed: the restore and the lazy-pages
+	# daemon read the same set, and nothing is written on either side.
+	if [ -e /proc/sys/vm/unprivileged_userfaultfd ]; then
+		echo 1 > /proc/sys/vm/unprivileged_userfaultfd
+	fi
+	# The source keeps running to serve the pages, so the restore needs
+	# namespaces of its own to avoid the pid it still holds.
+	./test/zdtm.py run --stream --lazy-migrate -f uns -t zdtm/static/maps00 -t zdtm/static/maps06 "${ZDTM_OPTS[@]}"
+
 	# For the streamed dump and restore over RPC. The suite skips that case
 	# when criu-image-streamer is missing, which is every job but this one.
 	make -C test/others/rpc/ run
@@ -533,6 +542,13 @@ run_non_shardable_tests() {
 	fi
 }
 
+test_fallback_links() {
+	# Loading ip_gre also creates erspan0, which needs an external-link
+	# plugin. Run this last so it does not affect the other tests.
+	modprobe -v ip_gre || :
+	make -C test/others/ext-links test-fallback
+}
+
 # When sharding is enabled, shards 0..count-1 run sharded zdtm tests and
 # shard "count" (the extra shard) runs only the non-shardable tests.
 # When sharding is not enabled, run everything sequentially.
@@ -544,10 +560,12 @@ if [ -z "$ZDTM_SHARD_COUNT" ] || [ "$ZDTM_SHARD_COUNT" -eq 0 ]; then
 	fi
 	./test/zdtm.py run -a -p 2 --keep-going --criu-config "${ZDTM_OPTS[@]}"
 	run_non_shardable_tests
+	test_fallback_links
 elif [ "$ZDTM_SHARD_INDEX" -eq "$ZDTM_SHARD_COUNT" ]; then
 	# This is the extra non-shardable shard (index == count, e.g. shard 4
 	# when count is 4). Only run non-shardable tests, skip zdtm shards.
 	run_non_shardable_tests
+	test_fallback_links
 else
 	# Shards 0..count-1: run only the sharded zdtm tests
 	./test/zdtm.py run -a -p 2 --keep-going "${SHARD_OPTS[@]}" "${ZDTM_OPTS[@]}"

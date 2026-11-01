@@ -79,8 +79,7 @@ During checkpoint and restore, the Driver API backend calls libcuda in a
 worker thread while CRIU's tracing thread waits for the CUDA restore thread.
 After the API call returns, the worker sends SIGSTOP to the restore thread.
 CRIU consumes this ptrace stop and restores the thread's signal mask and
-ptrace options without forwarding SIGSTOP. If the worker cannot send SIGSTOP,
-CRIU interrupts the restore thread itself instead of waiting indefinitely.
+ptrace options without forwarding SIGSTOP.
 
 If the restore thread stops unexpectedly or exits before the operation
 completes, CRIU kills the target process with SIGKILL. Closing the target's IPC
@@ -200,7 +199,15 @@ checkpoint, restore, and unlock.
   state and release the process back to it's running state
 
 These actions are facilitated by a CUDA checkpoint+restore thread that the CUDA
-plugin will re-wake when needed.
+plugin will re-wake when needed. During the `CHECKPOINT_DEVICES` hook, CRIU
+temporarily resumes this thread with seccomp filters active and verifies
+afterward that no new tasks or threads were created in the target process tree.
+However, if the root of the checkpointed process tree is not PID 1 of a PID
+namespace, a resumed thread calling `clone()` or `clone3()` with
+`CLONE_UNTRACED` (for example with `CLONE_PARENT` or by double-forking) could
+bypass `PTRACE_O_TRACECLONE` and create an untraced process outside the
+checkpointed tree. When checkpointing untrusted workloads, it is therefore
+recommended to blacklist `CLONE_UNTRACED` using seccomp filters.
 
 # Testing
 

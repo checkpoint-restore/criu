@@ -543,13 +543,14 @@ int amdgpu_plugin_drm_restore_file(int fd, CriuRenderNode *rd)
 			}
 		}
 
-		change_args.handle = handle;
-		change_args.new_handle = boinfo->handle;
-
-		if (drmIoctl(fd, DRM_IOCTL_GEM_CHANGE_HANDLE, &change_args) == -1) {
-			pr_perror("Error Failed to call change ioctl; check if the kernel has DRM_IOCTL_GEM_CHANGE_HANDLE support");
-			ret = -1;
-			goto exit;
+		if (handle != boinfo->handle) {
+			change_args.handle = handle;
+			change_args.new_handle = boinfo->handle;
+			if (drmIoctl(fd, DRM_IOCTL_GEM_CHANGE_HANDLE, &change_args) == -1) {
+				pr_perror("Error Failed to call change ioctl; check if the kernel has DRM_IOCTL_GEM_CHANGE_HANDLE support");
+				ret = -1;
+				goto exit;
+			}
 		}
 
 		if (!boinfo->is_import)

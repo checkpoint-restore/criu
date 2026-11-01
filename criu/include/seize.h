@@ -11,5 +11,7 @@ extern bool alarm_timeouted(void);
 extern char *task_comm_info(pid_t pid, char *comm, size_t size);
 extern char *__task_comm_info(pid_t pid);
 extern void set_compel_interrupt_only_mode(void);
+extern int criu_resume_thread(pid_t tid);
+extern int criu_restore_thread(pid_t tid);
 
 #endif

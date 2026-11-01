@@ -1831,6 +1831,16 @@ static int check_compress(void)
 #endif
 }
 
+static int check_encryption(void)
+{
+#ifdef CONFIG_GNUTLS
+	return 0;
+#else
+	pr_info("TLS support is not compiled in\n");
+	return -1;
+#endif
+}
+
 struct feature_list {
 	char *name;
 	int (*func)(void);
@@ -1883,6 +1893,7 @@ static struct feature_list feature_list[] = {
 	{ "pagemap_scan_guard_pages", check_pagemap_scan_guard_pages },
 	{ "binfmt_misc_sandboxing", check_binfmt_misc_sandboxing },
 	{ "compress", check_compress },
+	{ "encryption", check_encryption },
 	{ NULL, NULL },
 };
 

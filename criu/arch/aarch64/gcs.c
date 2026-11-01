@@ -145,8 +145,7 @@ int arch_shstk_trampoline(struct pstree_item *item, CoreEntry *core,
 	pr_info("gcs: after SVC: ret=%ld x1=%ld x8=%ld\n", ret, x1_after, x8_after);
 
 	if (ret != 0) {
-		int err = errno;
-		pr_err("gcs: failed to enable GCS: ret=%ld errno=%d (%s)\n", ret, err, strerror(err));
+		pr_err("gcs: failed to enable GCS: %s\n", strerror(-ret));
 		return -1;
 	}
 

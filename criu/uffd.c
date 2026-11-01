@@ -29,6 +29,7 @@
 #include "util-pie.h"
 #include "protobuf.h"
 #include "pstree.h"
+#include "img-streamer.h"
 #include "crtools.h"
 #include "cr_options.h"
 #include "xmalloc.h"
@@ -960,6 +961,8 @@ static int uffd_seek_pages(struct lazy_pages_info *lpi, __u64 address, unsigned 
 	lpi->pr.reset(&lpi->pr);
 
 	ret = lpi->pr.seek_pagemap(&lpi->pr, address);
+	if (ret < 0)
+		return -1;
 	if (!ret) {
 		lp_err(lpi, "no pagemap covers %llx\n", address);
 		return -1;
@@ -1280,7 +1283,8 @@ static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 				break;
 			}
 
-			if (list_empty(&lpi->reqs)) {
+			/* Keep lpi until all in-flight replies are read. */
+			if (list_empty(&lpi->reqs) && !lpi->pr.nr_in_flight) {
 				lazy_pages_summary(lpi);
 				list_del(&lpi->l);
 				lpi_put(lpi);
@@ -1474,6 +1478,16 @@ int cr_lazy_pages(bool daemon)
 			return -1;
 		}
 	}
+
+	/*
+	 * Every image this daemon reads has been read by now, and with a page
+	 * server the fault loop below reads none. Let the image stream go: the
+	 * server end treats the last reader closing as the signal that the
+	 * checkpoint arrived whole, and holding it for the length of the drain
+	 * makes a restore wait for pages it is meant to fault in later.
+	 */
+	if (opts.stream)
+		img_streamer_finish();
 
 	ret = handle_requests(epollfd, &events, nr_fds);
 

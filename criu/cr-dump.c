@@ -993,7 +993,8 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 	signal_queue_entry__init(queue);
 
 	while (1) {
-		int nr, si_pos;
+		SiginfoEntry **signals;
+		int nr, i;
 		siginfo_t *si;
 
 		si = xmalloc(SI_BATCH * sizeof(*si));
@@ -1019,18 +1020,18 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 			break;
 		}
 
-		queue->n_signals += nr;
-		queue->signals = xrealloc(queue->signals, sizeof(*queue->signals) * queue->n_signals);
-		if (!queue->signals) {
+		signals = xrealloc(queue->signals, sizeof(*queue->signals) * (queue->n_signals + nr));
+		if (!signals) {
 			ret = -1;
 			xfree(si);
 			break;
 		}
+		queue->signals = signals;
 
-		for (si_pos = queue->n_signals - nr; si_pos < queue->n_signals; si_pos++) {
+		for (i = 0; i < nr; i++) {
 			SiginfoEntry *se;
 
-			se = xmalloc(sizeof(*se));
+			se = xmalloc(sizeof(*se) + sizeof(siginfo_t));
 			if (!se) {
 				ret = -1;
 				break;
@@ -1038,12 +1039,12 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 
 			siginfo_entry__init(se);
 			se->siginfo.len = sizeof(siginfo_t);
-			se->siginfo.data = (void *)si++; /* XXX we don't free cores, but when
-							  * we will, this would cause problems
-							  */
-			queue->signals[si_pos] = se;
+			se->siginfo.data = (void *)(se + 1);
+			memcpy(se->siginfo.data, &si[i], sizeof(siginfo_t));
+			queue->signals[queue->n_signals++] = se;
 		}
 
+		xfree(si);
 		if (ret < 0)
 			break;
 
@@ -1670,7 +1671,8 @@ static void alarm_handler(int signo)
 static int setup_alarm_handler(void)
 {
 	struct sigaction sa = {
-		.sa_handler = alarm_handler, .sa_flags = 0, /* Don't restart syscalls */
+		.sa_handler = alarm_handler,
+		.sa_flags = 0, /* Don't restart syscalls */
 	};
 
 	sigemptyset(&sa.sa_mask);
@@ -1895,6 +1897,18 @@ static int cr_lazy_mem_dump(void)
 	return ret;
 }
 
+/*
+ * Set before network_lock() is called (it may fail half-way), so that
+ * cr_dump_finish() does not unlock the network which was never locked.
+ */
+static bool network_locked;
+
+static void dump_network_unlock(void)
+{
+	if (network_locked)
+		network_unlock();
+}
+
 static int cr_dump_finish(int ret)
 {
 	int post_dump_ret = 0;
@@ -1951,12 +1965,21 @@ static int cr_dump_finish(int ret)
 	 */
 	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
 		unsuspend_lsm();
-		network_unlock();
+		dump_network_unlock();
 		delete_link_remaps();
 	}
 
-	if (!ret && opts.lazy_pages)
+	/*
+	 * The lazy transfer below only ends once the destination has restored
+	 * and drained the pages, and the destination cannot restore until the
+	 * image stream is closed. Every image is written by now, so dismiss
+	 * the streamer before serving rather than after.
+	 */
+	if (!ret && opts.lazy_pages) {
+		if (opts.stream)
+			img_streamer_finish();
 		ret = cr_lazy_mem_dump();
+	}
 
 	if (arch_set_thread_regs(root_item, true) < 0)
 		return -1;
@@ -1972,7 +1995,7 @@ static int cr_dump_finish(int ret)
 			 * must roll back their devices as well.
 			 */
 			unsuspend_lsm();
-			network_unlock();
+			dump_network_unlock();
 			delete_link_remaps();
 			ret = plugin_ret;
 			plugin_ret = run_plugins_all(DUMP_FINISH, ret);
@@ -2097,6 +2120,7 @@ int cr_dump_tasks(pid_t pid)
 	if (collect_pstree_ids())
 		goto err;
 
+	network_locked = true;
 	if (network_lock())
 		goto err;
 

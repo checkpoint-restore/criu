@@ -148,7 +148,7 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 	}
 
 	if (ptrace(PTRACE_GETREGSET, pid, NT_ARM_GCS, &gcs_iov) < 0) {
-		pr_warn("gcs: Failed to get GCS for %d\n", pid);
+		pr_info("gcs: GCS state not available for %d\n", pid);
 	} else {
 		ext_regs->gcs = gcs;
 		compel_set_task_gcs_regs(pid, ext_regs);

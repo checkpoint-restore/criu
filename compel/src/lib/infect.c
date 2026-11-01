@@ -127,9 +127,10 @@ int compel_interrupt_task(int pid)
 		/*
 		 * ptrace API doesn't allow to distinguish
 		 * attaching to zombie from other errors.
-		 * All errors will be handled in compel_wait_task().
+		 * All errors will be handled in compel_wait_task()
+		 * or by the caller.
 		 */
-		pr_warn("Unable to interrupt task: %d (%s)\n", pid, strerror(errno));
+		pr_info("Unable to seize task %d: %s\n", pid, strerror(errno));
 		return ret;
 	}
 
@@ -144,7 +145,7 @@ int compel_interrupt_task(int pid)
 	 */
 	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 	if (ret < 0) {
-		pr_warn("SEIZE %d: can't interrupt task: %s\n", pid, strerror(errno));
+		pr_pwarn("SEIZE %d: can't interrupt task", pid);
 		if (ptrace(PTRACE_DETACH, pid, NULL, NULL))
 			pr_perror("Unable to detach from %d", pid);
 	}
@@ -251,8 +252,17 @@ try_again:
 	}
 
 	ret2 = get_status(pid, ss, data);
-	if (ret2)
+	if (ret2) {
+		/*
+		 * The task has exited, and wait4() above has just reaped
+		 * it, so there is no status to read. Tell the caller the
+		 * task is gone, as it may need to know that the exit has
+		 * been consumed here.
+		 */
+		if (ret == pid && (WIFEXITED(status) || WIFSIGNALED(status)))
+			return -ESRCH;
 		goto err;
+	}
 
 	if (ret < 0 || WIFEXITED(status) || WIFSIGNALED(status)) {
 		if (ss->state != 'Z') {
@@ -303,8 +313,8 @@ try_again:
 		goto try_again;
 	}
 
-	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_TRACESYSGOOD)) {
-		pr_perror("Unable to set PTRACE_O_TRACESYSGOOD for %d", pid);
+	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, COMPEL_PTRACE_OPTIONS)) {
+		pr_perror("Unable to set ptrace options for %d", pid);
 		return -1;
 	}
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+import contextlib
 import glob
+import io
 import os
 import random
 import tempfile
@@ -328,7 +330,7 @@ def test_unknown_compression_mode():
                 inventory_image["entries"][0]["compress"] = compression_mode
                 write_image(directory, "inventory.img", inventory_image)
                 before = image_bytes(directory)
-                assert run_transform(command, directory) == 1
+                expect_failure(command, directory)
                 assert image_bytes(directory) == before
                 assert not glob.glob(os.path.join(directory, ".*.crit-*"))
 
@@ -339,6 +341,14 @@ def run_transform(command, directory):
             {"dir": directory, "in_place": True, "acceleration": 1}
         )
     return crit_main.decompress_cmd({"dir": directory, "in_place": True})
+
+
+def expect_failure(command, directory):
+    # Check the expected error message rather than let it into the test output.
+    stderr = io.StringIO()
+    with contextlib.redirect_stderr(stderr):
+        assert run_transform(command, directory) == 1
+    assert "Error: failed to %s checkpoint" % command in stderr.getvalue()
 
 
 def test_zero_block_granularity():
@@ -366,7 +376,7 @@ def test_zero_block_granularity():
         )
         before = image_bytes(directory)
 
-        assert run_transform("decompress", directory) == 1
+        expect_failure("decompress", directory)
         assert image_bytes(directory) == before
         assert not glob.glob(os.path.join(directory, ".*.crit-*"))
 
@@ -381,7 +391,7 @@ def test_unsupported_image_version():
                 write_image(directory, "inventory.img", inventory_image)
                 before = image_bytes(directory)
 
-                assert run_transform(command, directory) == 1
+                expect_failure(command, directory)
                 assert image_bytes(directory) == before
                 assert not glob.glob(os.path.join(directory, ".*.crit-*"))
 
@@ -395,7 +405,7 @@ def test_compression_requires_v1_2_inventory():
             write_image(directory, "inventory.img", inventory_image)
             before = image_bytes(directory)
 
-            assert run_transform(command, directory) == 1
+            expect_failure(command, directory)
             assert image_bytes(directory) == before
             assert not glob.glob(os.path.join(directory, ".*.crit-*"))
 
@@ -423,12 +433,7 @@ def test_symlink_rejection():
         os.symlink("inventory.real", inventory_path)
         with open(inventory_target, "rb") as inventory_file:
             before = inventory_file.read()
-        assert (
-            crit_main.compress_cmd(
-                {"dir": directory, "in_place": True, "acceleration": 1}
-            )
-            == 1
-        )
+        expect_failure("compress", directory)
         assert os.path.islink(inventory_path)
         with open(inventory_target, "rb") as inventory_file:
             assert inventory_file.read() == before

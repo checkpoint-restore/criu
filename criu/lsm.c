@@ -140,6 +140,8 @@ static int selinux_get_sockcreate_label(pid_t pid, char **output)
 	if (!f)
 		return -1;
 
+	/* Clear stale errors because fscanf() may leave errno unchanged. */
+	errno = 0;
 	ret = fscanf(f, "%ms", output);
 	if (ret == -1 && errno != 0) {
 		pr_perror("Unable to parse /proc/%d/attr/sockcreate", pid);

@@ -405,11 +405,40 @@ static int cuda_process_checkpoint_action(int pid, const char *action, unsigned 
 	return launch_cuda_checkpoint(args, action, pid, msg_buf, buf_size);
 }
 
-static int interrupt_restore_thread(int pid, int restore_tid, k_rtsigset_t *restore_sigset)
+/*
+ * If the thread stopped due to creating a new task (FORK/VFORK/CLONE),
+ * identify and detach the newly created child so it can resume or exit
+ * independently, and return true to indicate the event was handled.
+ */
+static bool detach_traced_event_child(int restore_tid, int status)
 {
-	struct cuda_wait wait;
-	sigset_t blocked, saved;
+	unsigned int event = (unsigned int)status >> 16;
+	unsigned long new_tid = 0;
+	pid_t w;
+
+	if (!WIFSTOPPED(status))
+		return false;
+
+	if (event != PTRACE_EVENT_FORK &&
+	    event != PTRACE_EVENT_VFORK &&
+	    event != PTRACE_EVENT_CLONE)
+		return false;
+
+	if (!ptrace(PTRACE_GETEVENTMSG, restore_tid, NULL, &new_tid) && new_tid) {
+		w = waitpid((pid_t)new_tid, &status, __WALL);
+		if (w == (pid_t)new_tid && WIFSTOPPED(status) &&
+		    ptrace(PTRACE_DETACH, (pid_t)new_tid, NULL, 0))
+			pr_perror("Unable to detach traced child %lu of restore tid %d",
+				  new_tid, restore_tid);
+	}
+	return true;
+}
+
+static int interrupt_restore_thread(int pid, int restore_tid)
+{
 	int status = restore_thread_status;
+	sigset_t blocked, saved;
+	struct cuda_wait wait;
 	int ret = -1;
 
 	running_restore_tid = 0;
@@ -448,14 +477,10 @@ static int interrupt_restore_thread(int pid, int restore_tid, k_rtsigset_t *rest
 		pr_err("CUDA restore tid %d stopped unexpectedly with signal %d\n", restore_tid, WSTOPSIG(status));
 		ret = -1;
 	}
-	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD)) {
-		pr_perror("Failed to set ptrace options on interrupt for restore tid %d", restore_tid);
+	if (criu_restore_thread(restore_tid))
 		ret = -1;
-	}
-	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*restore_sigset), restore_sigset)) {
-		pr_perror("Unable to restore original sigmask to restore tid %d", restore_tid);
+	if (detach_traced_event_child(restore_tid, status))
 		ret = -1;
-	}
 out:
 	if (sigprocmask(SIG_SETMASK, &saved, NULL)) {
 		pr_perror("Cannot restore signal mask after stopping CUDA restore tid %d", restore_tid);
@@ -466,60 +491,29 @@ out:
 	return ret;
 }
 
-static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
+static int resume_restore_thread(int restore_tid)
 {
-	const unsigned long ptrace_options = PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD;
-	k_rtsigset_t block;
-	bool options_cleared = false;
-	bool sigmask_changed = false;
+	int ret;
 
 	if (backend_failed && !dump_rollback) {
 		pr_err("Cannot resume CUDA restore tid %d after a helper failure\n", restore_tid);
 		return -1;
 	}
-	if (ptrace(PTRACE_GETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset)) {
-		int err = -errno;
-
+	ret = criu_resume_thread(restore_tid);
+	if (ret) {
 		/* Rollback reports a task that CRIU did not seize. */
-		if (err == -ESRCH && dump_rollback)
-			return err;
-		pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
+		if (ret == -ESRCH && dump_rollback)
+			return ret;
+		if (ret == -ESRCH) {
+			errno = -ret;
+			pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
+		}
 		return -1;
-	}
-
-	ksigfillset(&block);
-	ksigdelset(&block, SIGTRAP);
-
-	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(block), &block)) {
-		pr_perror("Failed to block signals on restore tid %d", restore_tid);
-		return -1;
-	}
-	sigmask_changed = true;
-
-	/* Clear PTRACE_O_SUSPEND_SECCOMP when resuming the restore thread. */
-	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, 0)) {
-		pr_perror("Could not clear ptrace options on restore tid %d", restore_tid);
-		goto err_restore;
-	}
-	options_cleared = true;
-
-	if (ptrace(PTRACE_CONT, restore_tid, NULL, 0)) {
-		pr_perror("Could not resume cuda restore tid %d", restore_tid);
-		goto err_restore;
 	}
 
 	running_restore_tid = restore_tid;
 	restore_thread_status = -1;
 	return 0;
-
-err_restore:
-	if (options_cleared && ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, ptrace_options))
-		pr_perror("Unable to restore ptrace options for CUDA restore tid %d", restore_tid);
-	if (sigmask_changed &&
-	    ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset))
-		pr_perror("Unable to restore signal mask for CUDA restore tid %d", restore_tid);
-
-	return -1;
 }
 
 static int cuda_cli_checkpoint_devices(int pid)
@@ -531,7 +525,6 @@ static int cuda_cli_checkpoint_devices(int pid)
 	int int_ret;
 	int ret = 0;
 	int status;
-	k_rtsigset_t save_sigset;
 	struct pid_info *task_info;
 
 	tid_result = get_cuda_restore_tid(pid, &restore_tid);
@@ -570,7 +563,7 @@ static int cuda_cli_checkpoint_devices(int pid)
 	/* We need to resume the checkpoint thread to prepare the mappings for
 	 * checkpointing
 	 */
-	if (resume_restore_thread(restore_tid, &save_sigset)) {
+	if (resume_restore_thread(restore_tid)) {
 		return -1;
 	}
 
@@ -586,14 +579,16 @@ static int cuda_cli_checkpoint_devices(int pid)
 		/* The restore thread must be running while cuda-checkpoint asks the
 		 * driver for the state reached by the failed action.
 		 */
-		observed_task_state = get_cuda_state(pid);
-		if (observed_task_state != CUDA_TASK_UNKNOWN)
-			task_info->current_task_state = observed_task_state;
-		else
-			pr_err("Unable to determine CUDA state after checkpoint failure for pid %d\n", pid);
+		if (cuda_pid_usable(pid)) {
+			observed_task_state = get_cuda_state(pid);
+			if (observed_task_state != CUDA_TASK_UNKNOWN)
+				task_info->current_task_state = observed_task_state;
+			else
+				pr_err("Unable to determine CUDA state after checkpoint failure for pid %d\n", pid);
+		}
 	}
 
-	int_ret = interrupt_restore_thread(pid, restore_tid, &save_sigset);
+	int_ret = interrupt_restore_thread(pid, restore_tid);
 	if (!ret)
 		ret = int_ret;
 
@@ -678,7 +673,6 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	int status;
 	int ret = 0;
 	int int_ret;
-	k_rtsigset_t save_sigset;
 	bool seized = true;
 
 	if (!cuda_pid_usable(pid)) {
@@ -721,7 +715,7 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 	/* wakeup the restore thread so we can handle the restore for this pid,
 	 * rseq_cs has to be restored before execution
 	 */
-	ret = resume_restore_thread(restore_tid, &save_sigset);
+	ret = resume_restore_thread(restore_tid);
 	if (ret == -ESRCH) {
 		/* PAUSE_DEVICES locked the task, but CRIU failed to seize it.
 		 * Its restore thread is still running and needs no ptrace.
@@ -761,11 +755,13 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 			pr_err("RESUME_DEVICES RESTORE failed with %s\n", msg_buf);
 			ret = -1;
 
-			observed_task_state = get_cuda_state(pid);
-			if (observed_task_state != CUDA_TASK_UNKNOWN)
-				current_task_state = observed_task_state;
-			else
-				pr_err("Unable to determine CUDA state after restore failure for pid %d\n", pid);
+			if (cuda_pid_usable(pid)) {
+				observed_task_state = get_cuda_state(pid);
+				if (observed_task_state != CUDA_TASK_UNKNOWN)
+					current_task_state = observed_task_state;
+				else
+					pr_err("Unable to determine CUDA state after restore failure for pid %d\n", pid);
+			}
 		} else {
 			current_task_state = CUDA_TASK_LOCKED;
 		}
@@ -780,11 +776,13 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 				pr_err("RESUME_DEVICES UNLOCK failed with %s\n", msg_buf);
 				ret = -1;
 
-				observed_task_state = get_cuda_state(pid);
-				if (observed_task_state != CUDA_TASK_UNKNOWN)
-					current_task_state = observed_task_state;
-				else
-					pr_err("Unable to determine CUDA state after unlock failure for pid %d\n", pid);
+				if (cuda_pid_usable(pid)) {
+					observed_task_state = get_cuda_state(pid);
+					if (observed_task_state != CUDA_TASK_UNKNOWN)
+						current_task_state = observed_task_state;
+					else
+						pr_err("Unable to determine CUDA state after unlock failure for pid %d\n", pid);
+				}
 			} else {
 				current_task_state = CUDA_TASK_RUNNING;
 			}
@@ -803,7 +801,7 @@ static int resume_device(int pid, cuda_task_state_t current_task_state,
 interrupt:
 	if (!seized)
 		return ret;
-	int_ret = interrupt_restore_thread(pid, restore_tid, &save_sigset);
+	int_ret = interrupt_restore_thread(pid, restore_tid);
 
 	return ret != 0 ? ret : int_ret;
 }

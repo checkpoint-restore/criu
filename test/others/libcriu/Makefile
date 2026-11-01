@@ -11,6 +11,7 @@ TESTS += test_pre_dump
 TESTS += test_check
 TESTS += test_feature_check
 TESTS += test_lazy_pages
+TESTS += test_tls
 
 # Install libcriu (headers and library) into a local staging directory so
 # that nothing from the non-test part of the repo is referenced directly

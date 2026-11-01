@@ -200,11 +200,7 @@ def build_dump_finish_failure_plugins(work):
     directory = work / "dump-finish-failure-plugins"
     directory.mkdir()
     shutil.copy2(ROOT / "plugins/cuda/cuda_plugin.so", directory)
-    includes = [f"-iquote{ROOT / path}" for path in ("include", "criu/include")]
-    subprocess.run(["cc", "-g", "-Wall", "-Werror", "-shared", "-nostartfiles", "-fPIC", *includes,
-                    str(MOCK / "dump-finish-failure.c"),
-                    "-o", str(directory / "dump_finish_failure.so")],
-                   check=True, timeout=30)
+    shutil.copy2(MOCK / "dump_finish_failure.so", directory)
     return directory
 
 
@@ -315,6 +311,52 @@ def test_freezing_timeout(work):
                 assert not Path(f"/proc/{worker}").exists(), f"CUDA helper {worker} leaked"
 
 
+def test_untraced_clone(work):
+    binary = MOCK / "untraced-clone-target"
+    for backend, library in (("Driver API", MOCK), ("cuda-checkpoint CLI", MOCK / "unsupported")):
+        for mode in ("child", "thread"):
+            directory = work / f"untraced-clone-{library.name}-{mode}"
+            directory.mkdir()
+            ready = directory / "ready.pid"
+            trigger = directory / "clone.trigger"
+            clone_pid_file = directory / "clone.pid"
+            process = subprocess.Popen([str(binary), mode, str(ready), str(trigger), str(clone_pid_file)],
+                                       stdin=subprocess.DEVNULL,
+                                       stdout=subprocess.DEVNULL,
+                                       stderr=subprocess.DEVNULL)
+            try:
+                deadline = time.monotonic() + 5
+                while not ready.exists() or not ready.read_text().strip():
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("untraced clone target did not start")
+                    time.sleep(0.01)
+                log = run_criu(directory, "dump", pid=process.pid, library=library,
+                               expected_success=False,
+                               CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR="untraced-clone",
+                               CRIU_CUDA_MOCK_FAULT_TRIGGER=str(trigger),
+                               CRIU_CUDA_MOCK_CLONE_PID=str(clone_pid_file),
+                               CRIU_CUDA_MOCK_STATE_FILE=str(directory / "state"))
+                assert f"selected {backend} backend" in log, log
+                assert clone_pid_file.exists(), log
+                cloned_id = int(clone_pid_file.read_text().strip())
+                assert f"Uncollected {mode} {cloned_id} found in task {process.pid}" in log, log
+                assert f"resuming devices on pid {process.pid}" in log
+                assert "Unable to restore CUDA state" not in log
+                assert "Dumping FAILED" in log
+                assert process.poll() is None
+                assert_untraced(process.pid)
+                assert Path(f"/proc/{cloned_id}").exists()
+                if library != MOCK:
+                    assert (directory / "state").read_text().strip() == "running"
+            finally:
+                if clone_pid_file.exists() and clone_pid_file.read_text().strip():
+                    with contextlib.suppress(ProcessLookupError):
+                        os.kill(int(clone_pid_file.read_text().strip()), signal.SIGKILL)
+                with contextlib.suppress(ProcessLookupError):
+                    os.kill(process.pid, signal.SIGKILL)
+                process.wait(timeout=5)
+
+
 if __name__ == "__main__":
     if not __debug__:
         raise SystemExit("these checks use assert; run without python -O")
@@ -327,4 +369,5 @@ if __name__ == "__main__":
         test_post_dump_failure(work)
         test_foreground_restore(work)
         test_freezing_timeout(work)
+        test_untraced_clone(work)
     print("CUDA backend error regression tests PASS")

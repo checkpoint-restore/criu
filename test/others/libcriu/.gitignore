@@ -8,6 +8,7 @@ test_pre_dump
 test_check
 test_feature_check
 test_lazy_pages
+test_tls
 output/
 .install/
 libcriu.so.*

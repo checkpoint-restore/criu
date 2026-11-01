@@ -14,7 +14,6 @@
 
 #include <dlfcn.h>
 #include <limits.h>
-#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdatomic.h>
@@ -362,24 +361,6 @@ static int unlock_cuda_process(int pid)
 	return 0;
 }
 
-static int restore_thread_settings(int restore_tid, k_rtsigset_t *restore_sigset)
-{
-	const unsigned long ptrace_options = PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD;
-	int ret = 0;
-
-	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, ptrace_options)) {
-		pr_perror("Failed to set ptrace options on interrupt for restore tid %d", restore_tid);
-		ret = -1;
-	}
-
-	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*restore_sigset), restore_sigset)) {
-		pr_perror("Unable to restore original sigmask to restore tid %d", restore_tid);
-		ret = -1;
-	}
-
-	return ret;
-}
-
 static void log_restore_thread_status(int pid, int restore_tid, int status)
 {
 	siginfo_t info;
@@ -406,54 +387,23 @@ static void log_restore_thread_status(int pid, int restore_tid, int status)
 	}
 }
 
-static int resume_restore_thread(int restore_tid, k_rtsigset_t *save_sigset)
+static int resume_restore_thread(int restore_tid)
 {
-	const unsigned long ptrace_options = PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD;
-	k_rtsigset_t block;
-	bool options_cleared = false;
-	bool sigmask_changed = false;
+	int ret;
 
-	if (ptrace(PTRACE_GETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset)) {
-		int err = -errno;
-
+	ret = criu_resume_thread(restore_tid);
+	if (ret) {
 		/* Rollback reports a task that CRIU did not seize. */
-		if (err == -ESRCH && dump_rollback)
-			return err;
-		pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
+		if (ret == -ESRCH && dump_rollback)
+			return ret;
+		if (ret == -ESRCH) {
+			errno = -ret;
+			pr_perror("Failed to get current sigmask for restore tid %d", restore_tid);
+		}
 		return -1;
-	}
-
-	ksigfillset(&block);
-	ksigdelset(&block, SIGTRAP);
-
-	if (ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(block), &block)) {
-		pr_perror("Failed to block signals on restore tid %d", restore_tid);
-		return -1;
-	}
-	sigmask_changed = true;
-
-	/* Clear PTRACE_O_SUSPEND_SECCOMP when resuming the restore thread. */
-	if (ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, 0)) {
-		pr_perror("Could not clear ptrace options on restore tid %d", restore_tid);
-		goto unwind;
-	}
-	options_cleared = true;
-
-	if (ptrace(PTRACE_CONT, restore_tid, NULL, 0)) {
-		pr_perror("Could not resume cuda restore tid %d", restore_tid);
-		goto unwind;
 	}
 
 	return 0;
-
-unwind:
-	if (options_cleared && ptrace(PTRACE_SETOPTIONS, restore_tid, NULL, ptrace_options))
-		pr_perror("Unable to restore ptrace options for CUDA restore tid %d", restore_tid);
-	if (sigmask_changed &&
-	    ptrace(PTRACE_SETSIGMASK, restore_tid, sizeof(*save_sigset), save_sigset))
-		pr_perror("Unable to restore signal mask for CUDA restore tid %d", restore_tid);
-
-	return -1;
 }
 
 struct cuda_operation_work {
@@ -463,11 +413,7 @@ struct cuda_operation_work {
 	int restore_tid;
 	int exit_code;
 	atomic_bool done;
-	/* The worker could not send SIGSTOP; the tracer must stop the thread. */
-	atomic_bool notify_failed;
 };
-
-#define CUDA_OPERATION_POLL_MS 10
 
 static void *cuda_operation_worker(void *data)
 {
@@ -481,15 +427,36 @@ static void *cuda_operation_worker(void *data)
 	 * wake up the main thread's waitpid(). If the target already crashed
 	 * and exited, tgkill is a harmless no-op (ESRCH).
 	 */
-	if (syscall(SYS_tgkill, work->pid, work->restore_tid, SIGSTOP) < 0 && errno != ESRCH) {
+	if (syscall(SYS_tgkill, work->pid, work->restore_tid, SIGSTOP) < 0 && errno != ESRCH)
 		pr_perror("Unable to stop CUDA restore tid %d", work->restore_tid);
-		atomic_store(&work->notify_failed, true);
-	}
+
 	return NULL;
 }
 
+static void kill_traced_event_child(int restore_tid, int status)
+{
+	unsigned int event = (unsigned int)status >> 16;
+	unsigned long new_tid = 0;
+	int cstatus;
+	pid_t w;
+
+	if (!WIFSTOPPED(status))
+		return;
+	if (event != PTRACE_EVENT_FORK && event != PTRACE_EVENT_VFORK &&
+	    event != PTRACE_EVENT_CLONE)
+		return;
+	if (ptrace(PTRACE_GETEVENTMSG, restore_tid, NULL, &new_tid) || !new_tid)
+		return;
+	if (kill((pid_t)new_tid, SIGKILL) < 0 && errno != ESRCH)
+		pr_perror("Unable to kill traced child %lu of restore tid %d",
+			  new_tid, restore_tid);
+	do {
+		w = waitpid((pid_t)new_tid, &cstatus, __WALL);
+	} while (w < 0 && errno == EINTR);
+}
+
 /* Put a resumed restore thread back into a ptrace stop without a worker. */
-static int stop_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
+static int stop_restore_thread(int restore_tid)
 {
 	int status;
 	pid_t w;
@@ -506,7 +473,7 @@ static int stop_restore_thread(int restore_tid, k_rtsigset_t *restore_sigset)
 		return -1;
 	}
 
-	return restore_thread_settings(restore_tid, restore_sigset);
+	return criu_restore_thread(restore_tid);
 }
 
 static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), void *arg)
@@ -518,10 +485,7 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 		.restore_tid = restore_tid,
 		.exit_code = -1,
 		.done = false,
-		.notify_failed = false,
 	};
-	k_rtsigset_t restore_sigset;
-	bool interrupted = false;
 	bool stopped;
 	pthread_t worker;
 	int status = -1;
@@ -532,7 +496,7 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 		return -1;
 
 	atomic_store(&operation_aborted, false);
-	ret = resume_restore_thread(restore_tid, &restore_sigset);
+	ret = resume_restore_thread(restore_tid);
 	if (ret == -ESRCH) {
 		/* PAUSE_DEVICES locked the task, but CRIU failed to seize it.
 		 * Its restore thread is still running and needs no ptrace.
@@ -548,7 +512,7 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 		errno = ret;
 		pr_perror("Cannot create CUDA operation thread");
 		/* No Driver API call started, so the target can be stopped again. */
-		if (!stop_restore_thread(restore_tid, &restore_sigset))
+		if (!stop_restore_thread(restore_tid))
 			return -1;
 		mark_cuda_pid_failed(pid);
 		if (kill(pid, SIGKILL) < 0 && errno != ESRCH)
@@ -560,35 +524,24 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 	 * Wait for restore_tid. When the worker finishes the Driver API call,
 	 * it sets work.done and sends SIGSTOP to restore_tid, stopping it in
 	 * ptrace signal-delivery-stop. If restore_tid crashes or exits before
-	 * that, waitpid() reports the fault. Poll rather than block: if the
-	 * worker cannot send SIGSTOP, interrupt the thread from here.
+	 * that, waitpid() reports the fault.
 	 */
-	for (;;) {
-		w = waitpid(restore_tid, &status, __WALL | WNOHANG);
-		if (w < 0 && errno == EINTR)
-			continue;
-		if (w)
-			break;
-		if (!interrupted && atomic_load(&work.notify_failed)) {
-			if (ptrace(PTRACE_INTERRUPT, restore_tid, NULL, 0)) {
-				pr_perror("Could not interrupt CUDA restore tid %d", restore_tid);
-				w = -1;
-				break;
-			}
-			interrupted = true;
-		}
-		poll(NULL, 0, CUDA_OPERATION_POLL_MS);
-	}
-	stopped = w == restore_tid && WIFSTOPPED(status) &&
-		  (WSTOPSIG(status) == SIGSTOP ||
-		   (interrupted && (unsigned int)status >> 16 == PTRACE_EVENT_STOP));
+	do {
+		w = waitpid(restore_tid, &status, __WALL);
+	} while (w < 0 && errno == EINTR);
+
+	stopped = w == restore_tid && WIFSTOPPED(status) && WSTOPSIG(status) == SIGSTOP;
 	if (!stopped || !atomic_load(&work.done)) {
 		atomic_store(&operation_aborted, true);
 		mark_cuda_pid_failed(pid);
-		if (w == restore_tid)
+		if (w == restore_tid) {
 			log_restore_thread_status(pid, restore_tid, status);
-		else
+			if (WIFSTOPPED(status))
+				criu_restore_thread(restore_tid);
+			kill_traced_event_child(restore_tid, status);
+		} else {
 			pr_perror("Cannot wait for CUDA restore tid %d on pid %d", restore_tid, pid);
+		}
 
 		if (kill(pid, SIGKILL) < 0 && errno != ESRCH)
 			pr_perror("Unable to kill target pid %d", pid);
@@ -597,7 +550,7 @@ static int run_cuda_operation(int pid, int restore_tid, int (*run)(void *arg), v
 	}
 
 	pthread_join(worker, NULL);
-	if (restore_thread_settings(restore_tid, &restore_sigset)) {
+	if (criu_restore_thread(restore_tid)) {
 		mark_cuda_pid_failed(pid);
 		return -1;
 	}

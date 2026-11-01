@@ -362,7 +362,31 @@ static bool checkpoint_behavior(int pid, const char *behavior)
 		if (write(fd, "x", 1) != 1)
 			_exit(1);
 	}
-	fault = !strcmp(behavior, "fault") || !strcmp(behavior, "target-exit");
+	if (!strcmp(behavior, "untraced-clone")) {
+		const char *trigger = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
+		const char *done = getenv("CRIU_CUDA_MOCK_CLONE_PID");
+		FILE *file = trigger ? fopen(trigger, "w") : NULL;
+		int i;
+
+		if (!file || fclose(file) || !done)
+			_exit(1);
+		for (i = 0; i < 5000; i++) {
+			FILE *pid_file = fopen(done, "r");
+			int cloned = 0;
+
+			if (pid_file) {
+				int matched = fscanf(pid_file, "%d", &cloned);
+
+				fclose(pid_file);
+				if (matched == 1 && cloned > 0)
+					return false;
+			}
+			usleep(1000);
+		}
+		_exit(1);
+	}
+	fault = !strcmp(behavior, "fault") || !strcmp(behavior, "target-exit") ||
+		!strcmp(behavior, "fork");
 	if (fault) {
 		const char *path = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
 		FILE *file = path ? fopen(path, "w") : NULL;

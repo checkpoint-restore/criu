@@ -23,7 +23,7 @@
 
 int ptrace_suspend_seccomp(pid_t pid)
 {
-	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_SUSPEND_SECCOMP | PTRACE_O_TRACESYSGOOD) < 0) {
+	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_SUSPEND_SECCOMP | COMPEL_PTRACE_OPTIONS) < 0) {
 		pr_perror("suspending seccomp failed");
 		return -1;
 	}

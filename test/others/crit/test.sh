@@ -121,6 +121,7 @@ CRIT_TEST_DIR="${BASE_DIR}/test/others/crit"
 COMPRESSION_IMAGE_HELPER="${CRIT_TEST_DIR}/compression_image_helpers.py"
 CRIT_TRANSACTION_TESTS="${CRIT_TEST_DIR}/crit_transaction_tests.py"
 CRIT_COMPRESSION_TESTS="${CRIT_TEST_DIR}/crit_compression_tests.py"
+LEGACY_IMAGE_HELPER="${CRIT_TEST_DIR}/legacy_image_helpers.py"
 
 function dump_test_process {
 	# Dump compress_pages02 (covers 8 mapping types: anonymous,
@@ -657,11 +658,30 @@ function run_test_compress {
 	echo "=== compress/decompress: ALL PASS ==="
 }
 
+function run_test_legacy {
+	echo "=== legacy images tests ==="
+
+	# CRIU < 4.2 stores the page count of pagemap entries in
+	# compat_nr_pages only. Convert a copy of the images to this
+	# format, and check that crit x rss reads the same pages.
+	echo "  -- Test 1: legacy pagemap page count"
+	mkdir -p legacy-pagemap/
+	cp "${images_list[@]}" legacy-pagemap/
+	PYTHONPATH="${BASE_DIR}/lib" python3 "$LEGACY_IMAGE_HELPER" \
+		make-legacy-pagemap legacy-pagemap/ || exit 1
+
+	${CRIT} x ./ rss > rss-current.txt || exit 1
+	${CRIT} x legacy-pagemap/ rss > rss-legacy.txt || exit 1
+	diff -u rss-current.txt rss-legacy.txt || exit 1
+	echo "     PASS"
+}
+
 ${CRIT} --version
 
 gen_imgs
 run_test1
 run_test2
+run_test_legacy
 
 # Skip compress/decompress tests if lz4 or CRIU compression is unavailable
 if PYTHONPATH="${BASE_DIR}/lib" python3 "$COMPRESSION_IMAGE_HELPER" \

@@ -848,7 +848,7 @@ err:
 static int dump_one_shmem(struct shmem_info *si)
 {
 	int fd, ret = -1;
-	void *addr;
+	void *addr = MAP_FAILED;
 	unsigned long cur, remaining;
 
 	pr_info("Dumping shared memory %ld\n", si->shmid);
@@ -901,8 +901,9 @@ static int dump_one_shmem(struct shmem_info *si)
 
 	ret = do_dump_one_shmem(fd, addr, si);
 
-	munmap(addr, si->size);
 errc:
+	if (addr != MAP_FAILED)
+		munmap(addr, si->size);
 	if (fd >= 0)
 		close(fd);
 err:

@@ -11,6 +11,11 @@ source ../../env.sh
 
 LOG="page-server-options.$$.log"
 
+# Use ports below the default ephemeral range (32768-60999): a port from that
+# range may be taken by an outgoing connection (even one in TIME-WAIT), and
+# the page server then fails to bind.
+PORT=12321
+
 function cleanup {
 	rm -f "$LOG"
 }
@@ -19,6 +24,10 @@ trap cleanup EXIT
 
 function fail {
 	echo "FAIL: $*"
+	if [ -s "$LOG" ]; then
+		echo "--- $LOG ---"
+		cat "$LOG"
+	fi
 	exit 1
 }
 
@@ -30,7 +39,7 @@ function check_rejected {
 	rm -f "$LOG"
 	set +e
 	timeout --signal=KILL 5 "${CRIU}" page-server --no-default-config \
-		-D . -o "$LOG" --port 54321 "$@"
+		-D . -o "$LOG" --port "$PORT" "$@"
 	status=$?
 	set -e
 
@@ -49,7 +58,7 @@ function check_invalid_block {
 	set +e
 	timeout --foreground --kill-after=1s 5s \
 		"${CRIU}" page-server --no-default-config -D . \
-		--port 54321 --compress-block="$value" > "$LOG" 2>&1
+		--port "$PORT" --compress-block="$value" > "$LOG" 2>&1
 	status=$?
 	set -e
 
@@ -67,7 +76,7 @@ function check_invalid_threads {
 	rm -f "$LOG"
 	set +e
 	timeout --foreground --kill-after=1s 5s \
-		"${CRIU}" page-server --no-default-config -D . --port 54321 \
+		"${CRIU}" page-server --no-default-config -D . --port "$PORT" \
 		--decompress-threads="$value" > "$LOG" 2>&1
 	status=$?
 	set -e
@@ -112,7 +121,7 @@ check_invalid_block -64K
 check_invalid_block 18446744073709551616K
 check_invalid_threads ""
 # Check both special values: 0 selects automatic concurrency and 1, the default, is serial per request.
-check_valid_threads 0 54322
-check_valid_threads 1 54323
+check_valid_threads 0 $((PORT + 1))
+check_valid_threads 1 $((PORT + 2))
 
 echo "Test PASSED"

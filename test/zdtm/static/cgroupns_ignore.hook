@@ -15,7 +15,7 @@ trap 'umount "${tname}"; rmdir "${tname}"' EXIT
 
 echo "Cleaning $tname"
 
-rmdir "$tname/test" || true
+[ ! -d "$tname/test" ] || rmdir "$tname/test" || true
 
 echo "Left there is:"
 ls "$tname"

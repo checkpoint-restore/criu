@@ -28,6 +28,7 @@ struct sk_opt sk_opts_v4[] = {
 	{ SOL_IP, IP_PKTINFO, IP_OPT_VAL },
 	{ SOL_IP, IP_TTL, 32 },
 	{ SOL_IP, IP_TOS, IPTOS_TOS(IPTOS_THROUGHPUT) },
+	{ SOL_IP, IP_RECVTOS, IP_OPT_VAL },
 };
 
 #ifndef IPV6_FREEBIND
@@ -37,6 +38,7 @@ struct sk_opt sk_opts_v4[] = {
 struct sk_opt sk_opts_v6[] = {
 	{ SOL_IPV6, IPV6_FREEBIND, IP_OPT_VAL },
 	{ SOL_IPV6, IPV6_RECVPKTINFO, IP_OPT_VAL },
+	{ SOL_IP, IP_RECVTOS, IP_OPT_VAL },
 };
 
 struct sk_conf {
@@ -68,6 +70,14 @@ int main(int argc, char **argv)
 				  sk_confs[i].protocol);
 			goto close;
 		}
+
+		if (sk_confs[i].domain == AF_INET6 && sk_confs[i].type == SOCK_DGRAM) {
+			val = 0;
+			if (setsockopt(sk_confs[i].sk, SOL_IPV6, IPV6_V6ONLY, &val, sizeof(val)) == -1) {
+				pr_perror("setsockopt(IPV6_V6ONLY) failed");
+				goto close;
+			}
+		}
 	}
 
 	for (i = 0; i < ARRAY_SIZE(sk_confs); i++) {
@@ -75,6 +85,11 @@ int main(int argc, char **argv)
 		n_opts = sk_confs[i].domain == AF_INET ? ARRAY_SIZE(sk_opts_v4) : ARRAY_SIZE(sk_opts_v6);
 
 		for (j = 0; j < n_opts; j++) {
+			/* IPv6 raw sockets reject SOL_IP options. */
+			if (sk_confs[i].domain == AF_INET6 && sk_confs[i].type == SOCK_RAW &&
+			    opts[j].level == SOL_IP)
+				continue;
+
 			val = opts[j].val;
 			if (setsockopt(sk_confs[i].sk, opts[j].level, opts[j].opt, &val, sizeof(int)) == -1) {
 				pr_perror("setsockopt(%d, %d) failed", opts[j].level, opts[j].opt);
@@ -91,6 +106,10 @@ int main(int argc, char **argv)
 		n_opts = sk_confs[i].domain == AF_INET ? ARRAY_SIZE(sk_opts_v4) : ARRAY_SIZE(sk_opts_v6);
 
 		for (j = 0; j < n_opts; j++) {
+			if (sk_confs[i].domain == AF_INET6 && sk_confs[i].type == SOCK_RAW &&
+			    opts[j].level == SOL_IP)
+				continue;
+
 			len = sizeof(int);
 			if (getsockopt(sk_confs[i].sk, opts[j].level, opts[j].opt, &val, &len) == -1) {
 				pr_perror("getsockopt(%d, %d) failed", opts[j].level, opts[j].opt);

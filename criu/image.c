@@ -724,18 +724,41 @@ static int img_write_magic(struct cr_img *img, int oflags, int type)
 struct openat_args {
 	char path[PATH_MAX];
 	int flags;
-	int err;
 	int mode;
 };
 
 static int userns_openat(void *arg, int dfd, int pid)
 {
 	struct openat_args *pa = (struct openat_args *)arg;
+
+	return openat(dfd, pa->path, pa->flags, pa->mode);
+}
+
+/* Open an image via usernsd, i.e. with the root user namespace credentials. */
+static int userns_open_image(int dfd, const char *path, int flags)
+{
+	struct openat_args pa = {
+		.flags = flags,
+		.mode = CR_FD_PERM,
+	};
+
+	snprintf(pa.path, PATH_MAX, "%s", path);
+	return userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
+}
+
+/*
+ * Open a file in the images directory, falling back to usernsd if we
+ * are in the restored user namespace and have no access to it.
+ */
+static int img_openat(int dfd, const char *path, int flags)
+{
 	int ret;
 
-	ret = openat(dfd, pa->path, pa->flags, pa->mode);
-	if (ret < 0)
-		pa->err = errno;
+	ret = openat(dfd, path, flags, CR_FD_PERM);
+	if (ret < 0 && errno == EACCES && root_ns_mask & CLONE_NEWUSER) {
+		pr_debug("Retrying to open %s via usernsd\n", path);
+		ret = userns_open_image(dfd, path, flags);
+	}
 
 	return ret;
 }
@@ -755,17 +778,9 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 		 * restore, that may require proper capabilities, so we ask
 		 * usernsd to do it for us
 		 */
-		struct openat_args pa = {
-			.flags = flags,
-			.err = 0,
-			.mode = CR_FD_PERM,
-		};
-		snprintf(pa.path, PATH_MAX, "%s", path);
-		ret = userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
-		if (ret < 0)
-			errno = pa.err;
+		ret = userns_open_image(dfd, path, flags);
 	} else
-		ret = openat(dfd, path, flags, CR_FD_PERM);
+		ret = img_openat(dfd, path, flags);
 	if (ret < 0) {
 		if (!(flags & O_CREAT) && (errno == ENOENT || ret == -ENOENT)) {
 			pr_info("No %s image\n", path);
@@ -867,6 +882,8 @@ int image_dir_mode(void)
 	case CR_PRE_DUMP:
 		return O_DUMP;
 	case CR_RESTORE:
+		/* fallthrough */
+	case CR_LAZY_PAGES:
 		return O_RSTR;
 	default:
 		return -1;
@@ -933,16 +950,19 @@ void close_image_dir(void)
 
 int open_parent(int dfd, int *pfd)
 {
-	struct stat st;
+	int fd;
 
 	*pfd = -1;
 	/* Check if the parent symlink exists */
-	if (fstatat(dfd, CR_PARENT_LINK, &st, AT_SYMLINK_NOFOLLOW) && errno == ENOENT) {
+	fd = img_openat(dfd, CR_PARENT_LINK, O_PATH | O_NOFOLLOW);
+	if (fd < 0 && errno == ENOENT) {
 		pr_debug("No parent images directory provided\n");
 		return 0;
 	}
+	if (fd >= 0)
+		close(fd);
 
-	*pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+	*pfd = img_openat(dfd, CR_PARENT_LINK, O_RDONLY);
 	if (*pfd < 0) {
 		pr_perror("Can't open parent path");
 		return -1;
@@ -967,16 +987,25 @@ void up_page_ids_base(void)
 	page_ids += 0x10000;
 }
 
+int read_pages_image_id(struct cr_img *pmi, u32 *id)
+{
+	PagemapHead *h;
+
+	if (pb_read_one(pmi, &h, PB_PAGEMAP_HEAD) < 0)
+		return -1;
+	*id = h->pages_id;
+	pagemap_head__free_unpacked(h, NULL);
+
+	return 0;
+}
+
 struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi, u32 *id)
 {
 	unsigned long mode = flags & ~O_FORCE_LOCAL;
 
 	if (mode == O_RDONLY || mode == O_RDWR) {
-		PagemapHead *h;
-		if (pb_read_one(pmi, &h, PB_PAGEMAP_HEAD) < 0)
+		if (read_pages_image_id(pmi, id) < 0)
 			return NULL;
-		*id = h->pages_id;
-		pagemap_head__free_unpacked(h, NULL);
 	} else {
 		PagemapHead h = PAGEMAP_HEAD__INIT;
 		*id = h.pages_id = page_ids++;

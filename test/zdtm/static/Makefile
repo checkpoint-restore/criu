@@ -427,6 +427,8 @@ TST_DIR		=				\
 		overmount_fifo			\
 		overmount_sock			\
 		tempfs				\
+		tempfs_xattr			\
+		tempfs_acl			\
 		tempfs_overmounted		\
 		tempfs_overmounted01		\
 		tempfs_ro			\
@@ -453,6 +455,7 @@ TST_DIR		=				\
 		cgroup_ignore			\
 		cgroup_stray			\
 		cgroup_yard			\
+		cgroup_newroot			\
 		cgroup_threads			\
 		unlink_fstat04			\
 		unlink_fstat041			\
@@ -685,7 +688,7 @@ socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV6
 socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV4V6
 socket-tcp-closed-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK
 socket-tcp-skip-in-flight:	CFLAGS += -D ZDTM_IPV4V6
-socket6-icmp:		CFLAGS += -DZDTM_IPV6
+socket6_icmp:		CFLAGS += -DZDTM_IPV6
 sock_ip_opts01:		CFLAGS += -DZDTM_VAL_ZERO
 sock_tcp_opts01:	CFLAGS += -DZDTM_VAL_ZERO
 tun_ns:			CFLAGS += -DTUN_NS

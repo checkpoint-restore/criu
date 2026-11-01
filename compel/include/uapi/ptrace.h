@@ -97,6 +97,9 @@ struct __ptrace_rseq_configuration {
 #define PTRACE_ARCH_PRCTL 30 /* From asm/ptrace-abi.h. */
 #endif
 
+#define COMPEL_PTRACE_OPTIONS \
+	(PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK)
+
 extern int ptrace_suspend_seccomp(pid_t pid);
 
 extern int __must_check ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);

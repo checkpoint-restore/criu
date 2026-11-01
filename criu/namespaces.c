@@ -1330,7 +1330,7 @@ static int usernsd(int sk)
 		struct unsc_msg um;
 		static char msg[MAX_UNSFD_MSG_SIZE];
 		uns_call_t call;
-		int flags, fd, ret;
+		int flags, fd, ret, err;
 		pid_t pid;
 
 		unsc_msg_init(&um, &call, &flags, msg, sizeof(msg), 0, NULL);
@@ -1351,6 +1351,7 @@ static int usernsd(int sk)
 		 */
 
 		ret = call(msg, fd, pid);
+		err = errno;
 
 		if (fd >= 0)
 			close(fd);
@@ -1373,10 +1374,13 @@ static int usernsd(int sk)
 			continue;
 		}
 
-		if (flags & UNS_FDOUT)
+		if (flags & UNS_FDOUT) {
 			fd = ret;
-		else
+			/* Send the callback's errno back in case it failed. */
+			ret = fd < 0 ? err : 0;
+		} else {
 			fd = -1;
+		}
 
 		unsc_msg_init(&um, &call, &ret, NULL, 0, fd, NULL);
 		if (sendmsg(sk, &um.h, 0) <= 0) {
@@ -1397,6 +1401,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 
 	if (unlikely(arg_size > MAX_UNSFD_MSG_SIZE)) {
 		pr_err("uns: message size exceeded\n");
+		errno = EMSGSIZE;
 		return -1;
 	}
 
@@ -1406,6 +1411,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 	sk = get_service_fd(USERNSD_SK);
 	if (sk < 0) {
 		pr_err("Cannot get USERNSD_SK fd\n");
+		errno = EBADF;
 		return -1;
 	}
 	pr_debug("uns: calling %s (%d, %x)\n", func_name, fd, flags);
@@ -1427,9 +1433,8 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 		 */
 		BUG_ON(flags & UNS_FDOUT);
 
-	/* Send the request */
-
-	unsc_msg_init(&um, &call, &flags, arg, arg_size, fd, NULL);
+	/* Send the request; the kernel adds our creds as SO_PASSCRED is set. */
+	unsc_msg_init_nocreds(&um, &call, &flags, arg, arg_size, fd);
 	ret = sendmsg(sk, &um.h, 0);
 	if (ret <= 0) {
 		pr_perror("uns: send req error");
@@ -1447,6 +1452,9 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 	unsc_msg_init(&um, &call, &res, NULL, 0, 0, NULL);
 	ret = recvmsg(sk, &um.h, 0);
 	if (ret <= 0) {
+		/* EOF means usernsd has exited. */
+		if (ret == 0)
+			errno = ECONNRESET;
 		pr_perror("uns: recv resp error");
 		ret = -1;
 		goto out;
@@ -1454,10 +1462,14 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 
 	/* Decode the result and return */
 
-	if (flags & UNS_FDOUT)
+	if (flags & UNS_FDOUT) {
 		unsc_msg_pid_fd(&um, NULL, &ret);
-	else
+		/* No fd: the callback failed, and res is its errno. */
+		if (ret < 0)
+			errno = res;
+	} else {
 		ret = res;
+	}
 out:
 	if (!async)
 		mutex_unlock(&task_entries->userns_sync_lock);

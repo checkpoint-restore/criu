@@ -26,12 +26,14 @@
 
 #include <compel/infect.h>
 #include <compel/log.h>
+#include <compel/ptrace.h>
 
 #include "cr_options.h"
 #include "cuda_device_map.h"
 #include "cuda_plugin.h"
 #include "pid.h"
 #include "plugin.h"
+#include "seize.h"
 
 struct cr_options opts;
 unsigned int cuda_plugin_timeout;
@@ -46,6 +48,8 @@ static pid_t other_child;
 static volatile sig_atomic_t other_status = -1;
 static int target_pipe[2];
 static volatile sig_atomic_t criu_timed_out;
+static pid_t resumed_tid;
+static k_rtsigset_t resumed_sigset;
 
 static void other_sigchld(int signal, siginfo_t *info, void *context)
 {
@@ -127,6 +131,45 @@ int cuda_plugin_add_inventory(void)
 	return 0;
 }
 
+int criu_resume_thread(pid_t tid)
+{
+	bool sigmask_changed = false;
+	k_rtsigset_t block;
+
+	resumed_tid = 0;
+	if (ptrace(PTRACE_GETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset)) {
+		if (errno == ESRCH)
+			return -ESRCH;
+		return -1;
+	}
+	ksigfillset(&block);
+	ksigdelset(&block, SIGTRAP);
+	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(block), &block))
+		return -1;
+	sigmask_changed = true;
+	if (ptrace(PTRACE_SETOPTIONS, tid, NULL, COMPEL_PTRACE_OPTIONS))
+		goto unwind;
+	if (ptrace(PTRACE_CONT, tid, NULL, 0))
+		goto unwind;
+	resumed_tid = tid;
+	return 0;
+
+unwind:
+	if (sigmask_changed)
+		ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset);
+	return -1;
+}
+
+int criu_restore_thread(pid_t tid)
+{
+	if (resumed_tid != tid)
+		return -1;
+	resumed_tid = 0;
+	if (ptrace(PTRACE_SETSIGMASK, tid, sizeof(resumed_sigset), &resumed_sigset))
+		return -1;
+	return 0;
+}
+
 bool alarm_timeouted(void)
 {
 	return criu_timed_out;
@@ -197,30 +240,11 @@ long __wrap_ptrace(int request, ...)
 	return syscall(SYS_ptrace, request, pid, addr, data);
 }
 
-long __real_syscall(long number, ...);
-
-/* Let a test make the worker's SIGSTOP notification fail. */
-long __wrap_syscall(long number, ...)
-{
-	long args[6];
-	va_list list;
-	int i;
-
-	va_start(list, number);
-	for (i = 0; i < 6; i++)
-		args[i] = va_arg(list, long);
-	va_end(list);
-	if (number == SYS_tgkill && args[2] == SIGSTOP && getenv("CRIU_CUDA_TEST_TGKILL_EPERM")) {
-		errno = EPERM;
-		return -1;
-	}
-	return __real_syscall(number, args[0], args[1], args[2], args[3], args[4], args[5]);
-}
-
 struct target_args {
 	const char *trigger;
 	int ready;
 	bool exit_thread;
+	bool fork_child;
 };
 
 static void *target_thread(void *data)
@@ -236,6 +260,12 @@ static void *target_thread(void *data)
 		if (access(args->trigger, F_OK) == 0) {
 			if (args->exit_thread)
 				syscall(SYS_exit, 77);
+			if (args->fork_child) {
+				if (fork() == 0)
+					_exit(0);
+				for (;;)
+					pause();
+			}
 			*invalid = 1;
 		}
 		nanosleep(&delay, NULL);
@@ -243,7 +273,7 @@ static void *target_thread(void *data)
 	return NULL;
 }
 
-static pid_t start_target(const char *trigger, bool threaded, bool exit_thread, pid_t *tid)
+static pid_t start_target(const char *trigger, bool threaded, bool exit_thread, bool fork_child, pid_t *tid)
 {
 	int ready[2];
 	pid_t pid;
@@ -253,7 +283,12 @@ static pid_t start_target(const char *trigger, bool threaded, bool exit_thread, 
 	assert(pid >= 0);
 	if (!pid) {
 		const struct rlimit no_core = { 0, 0 };
-		struct target_args args = { .trigger = trigger, .ready = ready[1], .exit_thread = exit_thread };
+		struct target_args args = {
+			.trigger = trigger,
+			.ready = ready[1],
+			.exit_thread = exit_thread,
+			.fork_child = fork_child,
+		};
 		pthread_t thread;
 
 		close(ready[0]);
@@ -346,12 +381,31 @@ static void check_log(const char *expected)
 	free(text);
 }
 
+static void check_no_log(const char *unexpected)
+{
+	char *text;
+	long size;
+
+	assert(fseek(log_file, 0, SEEK_END) == 0);
+	size = ftell(log_file);
+	assert(size >= 0);
+	text = malloc(size + 1);
+	assert(text);
+	rewind(log_file);
+	assert(fread(text, 1, size, log_file) == (size_t)size);
+	text[size] = '\0';
+	if (strstr(text, unexpected)) {
+		fprintf(stderr, "Expected log not to contain '%s':\n%s", unexpected, text);
+		abort();
+	}
+	free(text);
+}
+
 static void run_case(const char *directory, const char *behavior,
 		     const struct cuda_plugin_backend *backend)
 {
 	char marker[512], trigger[512], mapping[512], log_path[512], state_path[512];
 	bool success = !strcmp(behavior, "success") || !strcmp(behavior, "unrelated") ||
-		       !strcmp(behavior, "notify-eperm") ||
 		       !strncmp(behavior, "delayed-success", strlen("delayed-success"));
 	bool helper_error = !strcmp(behavior, "exit");
 	bool completed = success || !strcmp(behavior, "api-error") || helper_error;
@@ -395,9 +449,6 @@ static void run_case(const char *directory, const char *behavior,
 	assert(unsetenv("CRIU_CUDA_MOCK_RESTORE_BEHAVIOR") == 0);
 	assert(unsetenv("CRIU_CUDA_MOCK_INIT_FAULT") == 0);
 	assert(unsetenv("CRIU_CUDA_MOCK_RESTORE_TID") == 0);
-	assert(unsetenv("CRIU_CUDA_TEST_TGKILL_EPERM") == 0);
-	if (!strcmp(behavior, "notify-eperm"))
-		assert(setenv("CRIU_CUDA_TEST_TGKILL_EPERM", "1", 1) == 0);
 	if (restore_fault || init_fault)
 		assert(setenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR", "success", 1) == 0);
 	if (restore_fault)
@@ -429,7 +480,8 @@ static void run_case(const char *directory, const char *behavior,
 	assert(pipe(target_pipe) == 0);
 	snprintf(value, sizeof(value), "%d", target_pipe[0]);
 	assert(setenv("CRIU_CUDA_MOCK_TARGET_PIPE", value, 1) == 0);
-	pid = start_target(trigger, driver, !strcmp(behavior, "target-exit"), &tid);
+	pid = start_target(trigger, driver, !strcmp(behavior, "target-exit"),
+			   !strcmp(behavior, "fork"), &tid);
 	target_pid = pid;
 	if (driver) {
 		assert(pid != tid);
@@ -545,14 +597,14 @@ static void run_case(const char *directory, const char *behavior,
 				     "GPU-02000000-0000-0000-0000-000000000000\n"));
 		assert(fgetc(file) == EOF);
 		fclose(file);
-		if (!strcmp(behavior, "notify-eperm"))
-			check_log("Unable to stop CUDA restore tid");
 	} else if (!completed) {
 		if (stop_timeout) {
 			check_log("stop CUDA restore thread");
 			check_log("timed out");
 		} else if (driver) {
 			check_log("failed during Driver API operation");
+			if (!strcmp(behavior, "fork"))
+				check_log("stopped by signal 5");
 		} else if (!strcmp(behavior, "fault") || !strcmp(behavior, "late-fault")) {
 			/* The in-call fault was already consumed by the CLI monitor. */
 			assert(interrupts == (unsigned int)!strcmp(behavior, "late-fault"));
@@ -562,6 +614,9 @@ static void run_case(const char *directory, const char *behavior,
 			} else {
 				check_log("stopped unexpectedly with signal 11");
 			}
+		} else if (!strcmp(behavior, "fork")) {
+			assert(interrupts == 0);
+			check_log("stopped by signal 5");
 		} else if (!strcmp(behavior, "hang") || !strcmp(behavior, "init-hang") || delayed) {
 			check_log("timed out");
 		} else if (freezing) {
@@ -573,6 +628,8 @@ static void run_case(const char *directory, const char *behavior,
 		} else {
 			check_log("unexpectedly signaled with 9");
 		}
+		if (!driver)
+			check_no_log("Cannot run cuda-checkpoint get-state");
 	}
 	before_cleanup = file_size(marker);
 	ret = backend->dump_finish(success ? 0 : -1);
@@ -587,12 +644,13 @@ static void run_case(const char *directory, const char *behavior,
 	/* The Driver API backend kills failed targets; reap their exit events. */
 	if (strcmp(behavior, "target-kill") && (!driver || completed))
 		assert(kill(pid, SIGKILL) == 0);
-	if (driver && !target_dead) {
+	if (driver && strcmp(behavior, "target-exit") && strcmp(behavior, "target-kill")) {
 		assert(waitpid(tid, &status, __WALL) == tid);
 		assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL);
 	}
 	assert(waitpid(pid, &status, __WALL) == pid);
 	assert(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL);
+	assert(waitpid(-1, &status, __WALL | WNOHANG) == -1 && errno == ECHILD);
 
 	close(target_pipe[0]);
 	fclose(log_file);
@@ -657,7 +715,7 @@ static void run_unseized_rollback(const char *directory, const struct cuda_plugi
 	reset_mock_environment(directory, "unseized", marker, sizeof(marker));
 	assert(snprintf(trigger, sizeof(trigger), "%s/unseized.fault", directory) < (int)sizeof(trigger));
 	assert(pipe(target_pipe) == 0);
-	pid = start_target(trigger, false, false, &tid);
+	pid = start_target(trigger, false, false, false, &tid);
 	close(target_pipe[0]);
 
 	assert(backend->init(CR_PLUGIN_STAGE__DUMP) == 0);
@@ -686,10 +744,10 @@ static void run_sibling_rollback(const char *directory, const struct cuda_plugin
 	assert(snprintf(trigger_b, sizeof(trigger_b), "%s/sibling-b.fault", directory) <
 	       (int)sizeof(trigger_b));
 	assert(pipe(target_pipe) == 0);
-	pid_b = start_target(trigger_b, false, false, &tid);
+	pid_b = start_target(trigger_b, false, false, false, &tid);
 	close(target_pipe[0]);
 	assert(pipe(target_pipe) == 0);
-	pid_a = start_target(trigger_a, false, false, &tid);
+	pid_a = start_target(trigger_a, false, false, false, &tid);
 	snprintf(value, sizeof(value), "%d", target_pipe[0]);
 	assert(setenv("CRIU_CUDA_MOCK_TARGET_PIPE", value, 1) == 0);
 	snprintf(value, sizeof(value), "%d", pid_a);
@@ -768,10 +826,10 @@ int main(int argc, char **argv)
 {
 	const char *tmpdir = getenv("TMPDIR") ?: "/tmp";
 	char directory[PATH_MAX];
-	const char *driver_cases[] = { "success", "api-error", "fault", "trap", "blocked-fault",
+	const char *driver_cases[] = { "success", "api-error", "fault", "fork", "trap", "blocked-fault",
 				       "target-exit", "target-kill", "restore-fault", "init-fault",
-				       "unrelated", "notify-eperm", NULL };
-	const char *cli_cases[] = { "success", "api-error", "fault", "late-fault", "late-group-stop",
+				       "unrelated", NULL };
+	const char *cli_cases[] = { "success", "api-error", "fault", "fork", "late-fault", "late-group-stop",
 				    "hang", "criu-timeout", "criu-timeout-finite", "signal", "exit",
 				    "delayed-success", "delayed-timeout", "delayed-success-closed-output",
 				    "delayed-timeout-closed-output", "stop-timeout", "stop-timeout-finite", NULL };

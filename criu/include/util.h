@@ -41,8 +41,13 @@
 struct vma_area;
 struct list_head;
 
+/* Size of the buffer vma_opt_str() writes the VMA area names into. */
+#define VMA_OPT_LEN 128
+
 extern int service_fd_rlim_cur;
 
+/* Render the VMA area names of @vma_area into the @opt buffer. */
+extern void vma_opt_str(const struct vma_area *vma_area, char *opt);
 extern void pr_vma(const struct vma_area *vma_area);
 
 #define pr_info_vma(vma_area) pr_vma(vma_area)

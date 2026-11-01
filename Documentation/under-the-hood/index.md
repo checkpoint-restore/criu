@@ -38,6 +38,7 @@ This directory contains technical documentation detailing the internal implement
 * [Mount V2](mount-v2.md): Modern mount restoration using `open_tree` and `move_mount`.
 * [Mounts V2 Virtuozzo](mounts-v2-virtuozzo.md): Extensions for Virtuozzo-specific mount features.
 * [Filesystem Peculiarities](filesystems-pecularities.md): Handling `/dev`, `/proc`, `sysfs`, etc.
+* [Saving and restoring tmpfs content](tmpfs-content.md).
 * [IRM](irmap.md): Inode-to-path mapping (irmap).
 * [KCMP Trees](kcmp-trees.md): Using `kcmp` to deduplicate shared resources.
 * [Validate Files on Restore](validate-files-on-restore.md): Ensuring file consistency.
@@ -71,6 +72,8 @@ This directory contains technical documentation detailing the internal implement
 * [Image Security & State Restoration](security/image-security.md): Security
   boundaries, privilege risks, and operational recommendations for handling
   CRIU images.
+* [Workload Security Considerations](security/workload-security.md): Advice on
+  how to run workloads safely to prevent security vulnerabilities during C/R.
 * [AppArmor](apparmor.md): Handling AppArmor profiles during dump and restore.
 
 ## Kernel Features
