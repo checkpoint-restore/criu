@@ -201,6 +201,7 @@ TST_NOFILE	:=				\
 		unhashed_proc			\
 		cow00				\
 		cow02				\
+		cow03				\
 		child_opened_proc		\
 		posix_timers			\
 		sigpending			\
