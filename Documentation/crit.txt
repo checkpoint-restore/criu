@@ -14,9 +14,9 @@ SYNOPSIS
 
 *crit* 'info' [-h] in
 
-*crit* 'x' [-h] dir {ps,fds,mems}
+*crit* 'x' [-h] dir {ps,fds,mems,rss}
 
-*crit* 'show' [-h] in
+*crit* 'show' [-h] [--nopl] in
 
 *crit* 'compress' [-h] [--in-place] [--acceleration N] dir
 
@@ -86,6 +86,10 @@ Optional Arguments
 *--acceleration* 'N'::
     Set the LZ4 acceleration level used by *compress*. Higher values
     trade compression ratio for speed.
+
+*--nopl*::
+    Do not show the entry payload, for images that have one. This option
+    is accepted by *show*.
 
 SEE ALSO
 --------
