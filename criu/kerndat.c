@@ -1499,65 +1499,20 @@ static void kerndat_has_pidfd_open(void)
 
 static int kerndat_has_pidfd_getfd(void)
 {
-	int ret;
-	int fds[2];
-	int val_a, val_b;
-	int pidfd, stolen_fd;
+	kdat.has_pidfd_getfd = false;
 
-	ret = 0;
-
-	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fds)) {
-		pr_perror("Can't open unix socket pair");
-		ret = -1;
-		goto out;
+	if (syscall(SYS_pidfd_getfd, -1, -1, 0) != -1) {
+		pr_err("pidfd_getfd succeeded unexpectedly\n");
+		return -1;
 	}
 
-	val_a = 1984;
-	if (write(fds[0], &val_a, sizeof(val_a)) != sizeof(val_a)) {
-		pr_perror("Can't write to socket");
-		ret = -1;
-		goto close_pair;
-	}
-
-	pidfd = syscall(SYS_pidfd_open, getpid(), 0);
-	if (pidfd == -1) {
-		pr_warn("Can't get pidfd\n");
-		/*
-		 * If pidfd_open is not supported then pidfd_getfd
-		 * will not be supported as well.
-		 */
-		kdat.has_pidfd_getfd = false;
-		goto close_pair;
-	}
-
-	stolen_fd = syscall(SYS_pidfd_getfd, pidfd, fds[1], 0);
-	if (stolen_fd == -1) {
-		kdat.has_pidfd_getfd = false;
-		goto close_all;
-	}
-
-	if (read(fds[1], &val_b, sizeof(val_b)) != sizeof(val_b)) {
-		pr_perror("Can't read from socket");
-		ret = -1;
-		goto close_all;
-	}
-
-	if (val_b == val_a) {
+	if (errno == EBADF) {
 		kdat.has_pidfd_getfd = true;
-	} else {
-		/* If val_b != val_a, something unexpected happened. */
-		pr_err("Unexpected value read from socket\n");
-		ret = -1;
+		return 0;
 	}
 
-close_all:
-	close_safe(&stolen_fd);
-	close_safe(&pidfd);
-close_pair:
-	close(fds[0]);
-	close(fds[1]);
-out:
-	return ret;
+	pr_debug("pidfd_getfd isn't supported (errno %d)\n", errno);
+	return 0;
 }
 
 int kerndat_has_nspid(void)
