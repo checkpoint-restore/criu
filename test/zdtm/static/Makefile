@@ -151,6 +151,8 @@ TST_NOFILE	:=				\
 		sock_opts02			\
 		sock_ip_opts00			\
 		sock_ip_opts01			\
+		sock_recvttl			\
+		sock_recvttl_zero		\
 		sock_tcp_opts00			\
 		sock_tcp_opts01			\
 		sock_uid				\
@@ -692,6 +694,7 @@ socket-tcp-closed-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK
 socket-tcp-skip-in-flight:	CFLAGS += -D ZDTM_IPV4V6
 socket6_icmp:		CFLAGS += -DZDTM_IPV6
 sock_ip_opts01:		CFLAGS += -DZDTM_VAL_ZERO
+sock_recvttl_zero:	CFLAGS += -DZDTM_VAL_ZERO
 sock_tcp_opts01:	CFLAGS += -DZDTM_VAL_ZERO
 tun_ns:			CFLAGS += -DTUN_NS
 mnt_ext_manual:		CFLAGS += -D ZDTM_EXTMAP_MANUAL
