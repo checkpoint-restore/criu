@@ -1,0 +1,1 @@
+{'flavor': 'ns uns', 'flags': 'suid', 'opts': '--ext-mount-map auto --enable-external-masters'}
