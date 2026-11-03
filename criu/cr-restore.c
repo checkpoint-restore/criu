@@ -3006,12 +3006,20 @@ out:
  */
 static bool cpu_affinity_compatible(int pid)
 {
-	cpu_set_t restore_mask;
+	unsigned int nwords = cpu_affinity_nwords();
+	cpu_set_t *restore_mask;
+	size_t restore_size;
 	unsigned int i;
 
-	CPU_ZERO(&restore_mask);
-	if (sched_getaffinity(0, sizeof(restore_mask), &restore_mask) < 0) {
-		pr_pwarn("Can't get restore cpu affinity, skipping cpu affinity restore");
+	restore_size = (size_t)nwords * sizeof(uint64_t);
+	restore_mask = xmalloc(restore_size);
+	if (!restore_mask)
+		return false;
+
+	memzero(restore_mask, restore_size);
+	if (sched_getaffinity(0, restore_size, restore_mask) < 0) {
+		pr_warn("Can't get restore cpu affinity, skipping cpu affinity restore\n");
+		xfree(restore_mask);
 		return false;
 	}
 
@@ -3025,20 +3033,22 @@ static bool cpu_affinity_compatible(int pid)
 		for (w = 0; w < ac->n_cpumask; w++) {
 			uint64_t img_word = ac->cpumask[w];
 			size_t off = w * sizeof(uint64_t);
-			size_t copy_sz = sizeof(uint64_t);
 			uint64_t restore_word = 0;
 
-			if (off >= sizeof(restore_mask))
-				break;
-			if (off + copy_sz > sizeof(restore_mask))
-				copy_sz = sizeof(restore_mask) - off;
-			memcpy(&restore_word, (char *)&restore_mask + off, copy_sz);
+			if (off < restore_size) {
+				size_t copy_sz = restore_size - off;
+
+				if (copy_sz > sizeof(uint64_t))
+					copy_sz = sizeof(uint64_t);
+				memcpy(&restore_word, (char *)restore_mask + off, copy_sz);
+			}
 
 			if (img_word & ~restore_word) {
 				pr_warn("CPU topology mismatch: thread %d in process %d "
 					"has affinity to CPUs not available on restore host, "
 					"skipping cpu affinity restore\n",
 					i, pid);
+				xfree(restore_mask);
 				return false;
 			}
 		}
@@ -3049,8 +3059,8 @@ static bool cpu_affinity_compatible(int pid)
 
 static int prepare_cpu_affinity(int pid, struct task_restore_args *ta, CoreEntry *core)
 {
+	unsigned int img_nwords, rca_cpus, i;
 	struct rst_cpu_affinity *rca;
-	unsigned int nr_cpus, i;
 	size_t sz;
 
 	/*
@@ -3060,12 +3070,12 @@ static int prepare_cpu_affinity(int pid, struct task_restore_args *ta, CoreEntry
 	 */
 	if (!core->thread_core->cpu_affinity) {
 		pr_info("No cpu affinity in image, skipping\n");
-		nr_cpus = 0;
+		img_nwords = 0;
 		goto alloc_rca;
 	}
 
-	nr_cpus = core->thread_core->cpu_affinity->n_cpumask;
-	if (nr_cpus == 0) {
+	img_nwords = core->thread_core->cpu_affinity->n_cpumask;
+	if (img_nwords == 0) {
 		pr_info("Empty cpu affinity, skipping\n");
 		goto alloc_rca;
 	}
@@ -3079,9 +3089,9 @@ static int prepare_cpu_affinity(int pid, struct task_restore_args *ta, CoreEntry
 	for (i = 0; i < current->nr_threads; i++) {
 		ThreadCpuAffinityEntry *ac = current->core[i]->thread_core->cpu_affinity;
 
-		if (!ac || ac->n_cpumask != nr_cpus) {
+		if (!ac || ac->n_cpumask != img_nwords) {
 			pr_warn("Thread %d cpu affinity mask length (%zu) differs from leader (%u), skipping restore\n",
-				i, ac ? ac->n_cpumask : 0, nr_cpus);
+				i, ac ? ac->n_cpumask : 0, img_nwords);
 			goto alloc_rca;
 		}
 	}
@@ -3096,19 +3106,23 @@ static int prepare_cpu_affinity(int pid, struct task_restore_args *ta, CoreEntry
 	if (!cpu_affinity_compatible(pid))
 		goto alloc_rca;
 
+	rca_cpus = cpu_affinity_nwords();
+
 	ta->cpu_affinity = (struct rst_cpu_affinity *)rst_mem_align_cpos(RM_PRIVATE);
-	sz = sizeof(struct rst_cpu_affinity) + nr_cpus * sizeof(uint64_t) * current->nr_threads;
+	sz = sizeof(struct rst_cpu_affinity) + rca_cpus * sizeof(uint64_t) * current->nr_threads;
 	rca = rst_mem_alloc(sz, RM_PRIVATE);
 	if (!rca)
 		return -1;
 
-	rca->nr_cpus = nr_cpus;
+	rca->nr_cpus = rca_cpus;
+	memzero(rca->cpumasks, rca_cpus * sizeof(uint64_t) * current->nr_threads);
 
 	for (i = 0; i < current->nr_threads; i++) {
 		ThreadCpuAffinityEntry *ac = current->core[i]->thread_core->cpu_affinity;
-		uint64_t *dst = &rca->cpumasks[i * nr_cpus];
+		uint64_t *dst = &rca->cpumasks[i * rca_cpus];
+		unsigned int copy_words = min(img_nwords, rca_cpus);
 
-		memcpy(dst, ac->cpumask, nr_cpus * sizeof(uint64_t));
+		memcpy(dst, ac->cpumask, copy_words * sizeof(uint64_t));
 	}
 
 	return 0;

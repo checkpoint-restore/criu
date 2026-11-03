@@ -216,20 +216,15 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 	 * a transient error does not abort the whole dump.
 	 */
 	if (tc->cpu_affinity) {
-		cpu_set_t cpumask;
+		size_t sz = (size_t)tc->cpu_affinity->n_cpumask * sizeof(uint64_t);
 
-		CPU_ZERO(&cpumask);
-		ret = sched_getaffinity(pid, sizeof(cpumask), &cpumask);
-		if (ret < 0) {
+		memzero(tc->cpu_affinity->cpumask, sz);
+		if (sched_getaffinity(pid, sz, (cpu_set_t *)tc->cpu_affinity->cpumask) < 0) {
 			pr_pwarn("Can't get sched affinity for %d", pid);
 			tc->cpu_affinity->n_cpumask = 0;
 		} else {
-			size_t sz = tc->cpu_affinity->n_cpumask * sizeof(uint64_t);
-			if (sz > sizeof(cpumask))
-				sz = sizeof(cpumask);
-			memcpy(tc->cpu_affinity->cpumask, &cpumask, sz);
 			pr_info("\tdumping allowed cpus for %d (n=%zu)\n", pid,
-				tc->cpu_affinity->n_cpumask);
+				(size_t)tc->cpu_affinity->n_cpumask);
 		}
 	}
 
