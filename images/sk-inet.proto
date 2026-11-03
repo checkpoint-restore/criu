@@ -23,6 +23,7 @@ message ip_opts_entry {
 	optional uint32			tos		= 6;
 	optional uint32			ttl		= 7;
 	optional bool			recvtos		= 8;
+	optional bool			recvttl		= 10;
 }
 
 message inet_sk_entry {
