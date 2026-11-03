@@ -35,10 +35,16 @@ img_dir="$(find "$img_root" -type f -name 'core-*.img' 2>/dev/null \
 criu_root="$(cd "$hook_dir/../../.." && pwd)"
 crit_py="env PYTHONPATH=$criu_root/lib:$criu_root/crit python3 -m crit"
 
-# Pick a CPU index that is guaranteed not to exist on the restore
-# host: nproc gives the number of online CPUs, so bit nproc is always
-# beyond the last valid CPU (CPUs are numbered 0..nproc-1).
-bad_cpu=$(nproc)
+# Pick a CPU index that is guaranteed not to be available on the restore
+# host: one past the highest CPU in the process's affinity.  This is the
+# same set cpu_affinity_compatible() compares against
+# (sched_getaffinity(0)), so the image mask can never be a subset of it.
+# nproc is not used because it may report online CPUs and ignore the
+# affinity/cgroup cpuset.
+allowed=$(sed -n 's/^Cpus_allowed_list:[[:space:]]*//p' /proc/self/status)
+[ -n "$allowed" ] || { echo "no Cpus_allowed_list" >&2; exit 1; }
+last=$(printf '%s\n' "$allowed" | tr ',' '\n' | tail -n 1)
+bad_cpu=$(( ${last#*-} + 1 ))
 
 for core in "$img_dir"/core-*.img; do
 	[ -e "$core" ] || continue
