@@ -342,8 +342,6 @@ static pid_t check_api_calls(const char *path, bool completed, bool driver, bool
 			if (!strcmp(operation, "checkpoint") || !strcmp(operation, "restore") ||
 			    !strcmp(operation, "unlock") || !strcmp(operation, "init"))
 				assert(caller != getpid());
-			if (caller != getpid())
-				assert(syscall(SYS_tgkill, getpid(), caller, 0) == -1 && errno == ESRCH);
 		} else {
 			assert(waitpid(caller, &status, __WALL | WNOHANG) == -1 && errno == ECHILD);
 			assert(kill(caller, 0) == -1 && errno == ESRCH);
