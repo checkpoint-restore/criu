@@ -383,6 +383,7 @@ TST_FILE	=				\
 		file_shared			\
 		file_append			\
 		cow01				\
+		cow03				\
 		fdt_shared			\
 		sockets00			\
 		sockets00-seqpacket		\
