@@ -469,6 +469,26 @@ mount -t cgroup -o devices,freezer none devices,freezer
     synchronous. The option can also be set through a configuration file
     (*decompress-threads 0*).
 
+*--premap-threads* 'N'::
+    During *restore*, map the private memory areas of a task in the restore
+    task itself and populate them before the task is handed to the PIE
+    restorer, instead of reading page contents from inside the restorer.
+    With 'N' greater than 1 the page reads are drained by 'N' concurrent
+    threads, each handling an independent record of at most 256 MiB, so a
+    single large mapping is filled in parallel. This removes the single-reader
+    limit of a large process (one thread at roughly 2 GB/s) when the image
+    sits on fast storage. The default of 0 keeps the existing behaviour.
+    The option only engages for plain, uncompressed images without a parent
+    image chain; other images fall back to the usual path.
+
+*--premap-hugepage*::
+    Together with *--premap-threads*, align every premapped private memory
+    area of 2 MiB or more to a 2 MiB boundary that keeps the phase of its
+    final address, and advise *MADV_HUGEPAGE* on it, so the kernel backs it
+    with transparent huge pages while it is populated and keeps them through
+    the final move into place. This raises the speed at which a device driver
+    or the task itself can later read the memory back.
+
 *--timeout* 'number'::
     Set a time limit in seconds for collecting tasks during the
     dump operation. The timeout is 10 seconds by default.
