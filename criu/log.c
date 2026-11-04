@@ -376,6 +376,14 @@ static void vprint_on_level(unsigned int loglevel, const char *format, va_list p
 		 * make sure all messages are written to the early_log_buffer.
 		 */
 		if (!init_done) {
+			if (loglevel == LOG_ERROR) {
+				va_list tmp;
+
+				va_copy(tmp, params);
+				vsnprintf(buf, sizeof(buf), format, tmp);
+				va_end(tmp);
+				log_note_err(buf);
+			}
 			early_vprint(format, loglevel, params);
 			return;
 		}
@@ -405,7 +413,6 @@ static void vprint_on_level(unsigned int loglevel, const char *format, va_list p
 		off += ret;
 	}
 
-	/* This is missing for messages in the early_log_buffer. */
 	if (loglevel == LOG_ERROR)
 		log_note_err(buf + prefix);
 
