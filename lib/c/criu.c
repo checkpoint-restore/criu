@@ -617,7 +617,12 @@ int criu_local_add_unix_sk(criu_opts *opts, unsigned int inode)
 	/*if user disabled ext_unix_sk and try to add unixsk inode after that*/
 	if (opts->rpc->has_ext_unix_sk && !opts->rpc->ext_unix_sk) {
 		if (opts->rpc->n_unix_sk_ino > 0) {
+			size_t i;
+
+			for (i = 0; i < opts->rpc->n_unix_sk_ino; i++)
+				free(opts->rpc->unix_sk_ino[i]);
 			free(opts->rpc->unix_sk_ino);
+			opts->rpc->unix_sk_ino = NULL;
 			opts->rpc->n_unix_sk_ino = 0;
 		}
 		return -1;
