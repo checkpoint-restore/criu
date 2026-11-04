@@ -105,6 +105,13 @@ static int parse_criu_mode(int argc, char **argv, int *optind)
 	return -1;
 }
 
+/* A static binary cannot load plugins from a directory. */
+#ifndef CONFIG_STATIC
+#define LIBDIR_HELP "  -L|--libdir           path to a plugin directory (by default " CR_PLUGIN_DEFAULT ")\n"
+#else
+#define LIBDIR_HELP ""
+#endif
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int ret = -1;
@@ -444,7 +451,7 @@ usage:
 	       "  --action-script FILE  add an external action script\n"
 	       "  -j|--" OPT_SHELL_JOB "        allow one to dump and restore shell jobs\n"
 	       "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"
-	       "  -L|--libdir           path to a plugin directory (by default " CR_PLUGIN_DEFAULT ")\n"
+	       LIBDIR_HELP
 	       "  --plugin-option=P.N[=V] pass an option to a plugin\n"
 	       "  --timeout NUM         a timeout (in seconds) on collecting tasks during dump\n"
 	       "                        (default 10 seconds)\n"

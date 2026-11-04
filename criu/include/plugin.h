@@ -11,6 +11,7 @@
 
 void cr_plugin_fini(int stage, int err);
 int cr_plugin_init(int stage);
+int cr_plugin_show_builtin(void);
 int cr_plugin_options_init(void);
 void cr_plugin_default_options_parsed(void);
 int cr_plugin_option_add_arg(const char *arg);

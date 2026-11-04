@@ -65,12 +65,25 @@ criu/pie/%: pie ;
 
 #
 # CRIU executable
+
+# Export the plugin API to .so plugins; a static binary cannot load them.
+ifneq ($(STATIC),1)
+PLUGIN_LDFLAGS := -rdynamic
+endif
+
 PROGRAM-BUILTINS	+= criu/pie/pie.lib.a
 PROGRAM-BUILTINS	+= images/built-in.o
 PROGRAM-BUILTINS	+= $(obj)/built-in.o
 PROGRAM-BUILTINS	+= $(ARCH-LIB)
 PROGRAM-BUILTINS	+= soccr/libsoccr.a
 PROGRAM-BUILTINS	+= $(COMPEL_LIBS)
+
+# Plugins built into a static binary, see `make static`.
+PROGRAM-BUILTINS	+= $(foreach p,$(PLUGINS),plugins/$(p)/builtin.o)
+
+# Plugins include CRIU headers, some of which are generated.
+plugins/%/builtin.o: $(obj)/built-in.o .FORCE
+	$(Q) $(MAKE) -C plugins/$* builtin.o
 
 $(obj)/built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) all
@@ -85,7 +98,7 @@ $(obj)/%: pie
 
 $(obj)/criu: $(PROGRAM-BUILTINS)
 	$(call msg-link, $@)
-	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) $(LIBS) $(WRAPFLAGS) $(GMONLDOPT) -rdynamic -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) $(LIBS) $(WRAPFLAGS) $(GMONLDOPT) $(PLUGIN_LDFLAGS) -o $@
 
 UNIT-BUILTINS		+= $(obj)/util.o
 UNIT-BUILTINS		+= $(obj)/bfd.o
@@ -107,7 +120,7 @@ $(obj)/unittest/built-in.o: .FORCE
 
 $(obj)/unittest/unittest: $(UNIT-BUILTINS)
 	$(call msg-link, $@)
-	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) $(LIBS) $(WRAPFLAGS) -rdynamic -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) $(LIBS) $(WRAPFLAGS) $(PLUGIN_LDFLAGS) -o $@
 
 unittest: $(obj)/unittest/unittest
 	$(Q) $(obj)/unittest/$@
