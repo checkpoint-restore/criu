@@ -771,6 +771,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "compress-block", required_argument, 0, 1103 },
 		{ "decompress-threads", required_argument, 0, 1104 },
 		{ "plugin-option", required_argument, 0, 1105 },
+		{ "raw-restore-workers", required_argument, 0, 1106 },
 		{},
 	};
 
@@ -1164,6 +1165,17 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			if (parse_image_io_mode(&opts, optarg))
 				return 2;
 			break;
+		case 1106: {
+			char *end;
+			unsigned long workers;
+
+			errno = 0;
+			workers = strtoul(optarg, &end, 10);
+			if (errno || !*optarg || *end || workers < 1 || workers > 16)
+				goto bad_arg;
+			opts.raw_restore_workers = workers;
+			break;
+		}
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -1224,6 +1236,19 @@ int check_stream_conflicts(void)
 
 int check_options(void)
 {
+	if (opts.raw_restore_workers) {
+#ifndef CONFIG_X86_64
+		pr_err("--raw-restore-workers requires x86-64\n");
+		return 1;
+#endif
+		if (opts.mode != CR_RESTORE || opts.image_io_mode != IMAGE_IO_DIRECT ||
+		    opts.lazy_pages || opts.stream || opts.auto_dedup || opts.use_page_server ||
+		    opts.addr || opts.ps_socket != -1) {
+			pr_err("--raw-restore-workers requires an eager local direct-I/O restore without auto-dedup\n");
+			return 1;
+		}
+	}
+
 	/*
 	 * --compress-acceleration (CLI) or compress_acceleration (RPC) on
 	 * their own imply block compression. Resolve that here rather

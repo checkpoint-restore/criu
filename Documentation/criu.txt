@@ -860,6 +860,16 @@ The 'mode' may be one of the following:
                 filesystem does not support O_DIRECT, *criu* falls back to
                 buffered I/O.
 
+*--raw-restore-workers* 'N'::
+    Restore delayed, uncompressed page ranges using 1 to 16 positioned-read
+    workers, including the calling task. Requires x86-64, clone3, and
+    *--image-io-mode direct*. Disabled by default. Reads bypass the host page
+    cache; no explicit prefault pass is performed. Streaming, lazy restore,
+    page-server restore and auto-dedup are not supported with this option.
+    Unsupported delayed page layouts or filesystems fail rather than silently falling
+    back to a different reader. Temporary CLONE_VM helpers are reaped before
+    releasing their stacks or allowing saved tasks to claim their PIDs.
+
 *--skip-file-rwx-check*::
     Skip checking file permissions (r/w/x for u/g/o) on restore.
 
