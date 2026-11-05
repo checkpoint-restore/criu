@@ -36,7 +36,16 @@ check_criu() {
 }
 
 cleanup() {
-	kill -INT "${PROC_PID}" > /dev/null 2>&1
+	# Background tasks ignore SIGINT, so use SIGKILL. The task is gone
+	# if the restore has failed, so do not let kill fail the cleanup.
+	kill -KILL "${PROC_PID}" > /dev/null 2>&1 || true
+	# The original task is our child, while the restored one is not, so
+	# wait for either one to release the file on the overlay.
+	wait "${PROC_PID}" 2>/dev/null || true
+	for _ in $(seq 50); do
+		kill -0 "${PROC_PID}" 2>/dev/null || break
+		sleep 0.1
+	done
 	umount z
 	cd "${ORIG_WD}"
 	rm -rf overlay_test
