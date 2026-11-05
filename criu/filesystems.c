@@ -315,10 +315,9 @@ static int write_binfmt_misc_entry(int mnt_fd, char *buf, BinfmtMiscEntry *bme)
 		}
 	}
 
+	ret = 0;
 close:
 	close(fd);
-
-	ret = 0;
 out:
 	return ret;
 }
