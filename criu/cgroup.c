@@ -45,6 +45,8 @@ struct cg_set {
 	struct list_head l;
 	unsigned int n_ctls;
 	struct list_head ctls;
+	/* The cgroups of the set are to be dumped, see collect_cgroups() */
+	bool collect;
 };
 
 static LIST_HEAD(cg_sets);
@@ -115,8 +117,6 @@ static bool cg_set_compare(struct cg_set *set, struct list_head *ctls, int what)
 	}
 }
 
-static int collect_cgroups(struct list_head *ctls);
-
 static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bool collect)
 {
 	struct cg_set *cs;
@@ -135,6 +135,7 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bo
 		INIT_LIST_HEAD(&cs->ctls);
 		list_splice_init(ctls, &cs->ctls);
 		cs->n_ctls = n_ctls;
+		cs->collect = collect;
 		list_add_tail(&cs->l, &cg_sets);
 		n_sets++;
 
@@ -143,14 +144,6 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bo
 
 			list_for_each_entry(ctl, &cs->ctls, l)
 				pr_debug("    `- [%s] -> [%s] [%u]\n", ctl->name, ctl->path, ctl->cgns_prefix);
-		}
-
-		if (collect && collect_cgroups(&cs->ctls)) {
-			list_del(&cs->l);
-			n_sets--;
-			put_ctls(&cs->ctls);
-			xfree(cs);
-			return NULL;
 		}
 	}
 
@@ -828,15 +821,81 @@ static int collect_cgroup(struct cg_ctl *cc)
 	return 0;
 }
 
-static int collect_cgroups(struct list_head *ctls)
-{
+struct cg_walk {
 	struct cg_ctl *cc;
+	unsigned int depth;
+	unsigned int idx;
+};
 
-	list_for_each_entry(cc, ctls, l)
-		if (collect_cgroup(cc))
-			return -1;
+static unsigned int cg_path_depth(const char *path)
+{
+	unsigned int depth = 0;
 
-	return 0;
+	for (; *path; path++)
+		if (*path == '/' && path[1])
+			depth++;
+
+	return depth;
+}
+
+static int cg_walk_cmp(const void *a, const void *b)
+{
+	const struct cg_walk *wa = a, *wb = b;
+
+	if (wa->depth != wb->depth)
+		return wa->depth < wb->depth ? -1 : 1;
+
+	return wa->idx < wb->idx ? -1 : wa->idx > wb->idx;
+}
+
+/*
+ * Collect the cgroups of all the sets of the dumped tasks. This is done
+ * once all the sets are known, from the topmost cgroups down, so that a
+ * cgroup is collected before the ones below it, whatever the order of
+ * the tasks is. Otherwise, a cgroup collected after one below it would
+ * become its sibling, rather than its parent, in the image, so on restore
+ * the latter would be created first, along with the former, which would
+ * then exist (a conflict in the strict mode, or no properties restored in
+ * the soft one).
+ */
+static int collect_cgroups(void)
+{
+	struct cg_walk *walks;
+	struct cg_set *cs;
+	struct cg_ctl *cc;
+	unsigned int i, n = 0;
+	int ret = 0;
+
+	list_for_each_entry(cs, &cg_sets, l)
+		if (cs->collect)
+			list_for_each_entry(cc, &cs->ctls, l)
+				n++;
+	if (!n)
+		return 0;
+
+	walks = xmalloc(n * sizeof(*walks));
+	if (!walks)
+		return -1;
+
+	i = 0;
+	list_for_each_entry(cs, &cg_sets, l) {
+		if (!cs->collect)
+			continue;
+		list_for_each_entry(cc, &cs->ctls, l) {
+			walks[i].cc = cc;
+			walks[i].depth = cg_path_depth(cc->path);
+			walks[i].idx = i;
+			i++;
+		}
+	}
+
+	qsort(walks, n, sizeof(*walks), cg_walk_cmp);
+
+	for (i = 0; i < n && !ret; i++)
+		ret = collect_cgroup(walks[i].cc);
+
+	xfree(walks);
+	return ret;
 }
 
 int dump_thread_cgroup(const struct pstree_item *item, u32 *cg_id, struct parasite_dump_cgroup_args *args, int id)
@@ -1171,6 +1230,9 @@ int dump_cgroups(void)
 		pr_info("All tasks in criu's cgroups. Nothing to dump.\n");
 		return 0;
 	}
+
+	if (collect_cgroups())
+		return -1;
 
 	if (dump_sets(&cg))
 		return -1;
