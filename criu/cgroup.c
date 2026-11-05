@@ -736,98 +736,105 @@ static int open_cgroupfs(struct cg_ctl *cc)
 	return fd;
 }
 
+/* Collect the cgroups of a dumped task for the controller of @cc. */
+static int collect_cgroup(struct cg_ctl *cc)
+{
+	char path[PATH_MAX], *root;
+	struct cg_controller *cg;
+	struct cg_root_opt *o;
+	int ret, fd = -1;
+
+	current_controller = NULL;
+
+	/* We should get all the "real" (i.e. not name=systemd type)
+	 * controller from parse_cgroups(), so find that controller if
+	 * it exists. */
+	list_for_each_entry(cg, &cgroups, l) {
+		if (cgroup_contains(cg->controllers, cg->n_controllers, cc->name, NULL)) {
+			current_controller = cg;
+			break;
+		}
+	}
+
+	if (!current_controller) {
+		/* only allow "fake" controllers to be created this way */
+		if (!strstartswith(cc->name, namestr)) {
+			pr_err("controller %s not found\n", cc->name);
+			return -1;
+		} else {
+			struct cg_controller *nc;
+
+			nc = new_controller(cc->name);
+			if (!nc)
+				return -1;
+			list_add_tail(&nc->l, &cg->l);
+			n_cgroups++;
+			current_controller = nc;
+		}
+	}
+
+	if (!opts.manage_cgroups)
+		return 0;
+
+	if (opts.cgroup_yard) {
+		char dir_path[PATH_MAX];
+		int off;
+
+		off = snprintf(dir_path, PATH_MAX, "%s/", opts.cgroup_yard);
+		if (strstartswith(cc->name, namestr))
+			snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name + strlen(namestr));
+		else if (cc->name[0] == 0)
+			snprintf(dir_path + off, PATH_MAX - off, "unified");
+		else
+			snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name);
+
+		fd = open(dir_path, O_RDONLY | O_DIRECTORY, 0);
+		if (fd < 0) {
+			pr_perror("couldn't open %s", dir_path);
+			return -1;
+		}
+	} else {
+		fd = open_cgroupfs(cc);
+		if (fd < 0)
+			return -1;
+	}
+
+	path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
+
+	root = cc->path;
+	if (opts.new_global_cg_root)
+		root = opts.new_global_cg_root;
+
+	list_for_each_entry(o, &opts.new_cgroup_roots, node) {
+		if (!strcmp(cc->name, o->controller))
+			root = o->newroot;
+	}
+
+	snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", root);
+
+	ret = ftw(path, add_cgroup, 4);
+
+	if (ret < 0)
+		pr_perror("failed walking %s for empty cgroups", path);
+
+	close_safe(&fd);
+
+	if (ret < 0)
+		return ret;
+
+	if (opts.freeze_cgroup && !strcmp(cc->name, "freezer") && add_freezer_state(current_controller))
+		return -1;
+
+	return 0;
+}
+
 static int collect_cgroups(struct list_head *ctls)
 {
 	struct cg_ctl *cc;
-	int ret = 0;
-	int fd = -1;
 
-	list_for_each_entry(cc, ctls, l) {
-		char path[PATH_MAX], *root;
-		struct cg_controller *cg;
-		struct cg_root_opt *o;
-
-		current_controller = NULL;
-
-		/* We should get all the "real" (i.e. not name=systemd type)
-		 * controller from parse_cgroups(), so find that controller if
-		 * it exists. */
-		list_for_each_entry(cg, &cgroups, l) {
-			if (cgroup_contains(cg->controllers, cg->n_controllers, cc->name, NULL)) {
-				current_controller = cg;
-				break;
-			}
-		}
-
-		if (!current_controller) {
-			/* only allow "fake" controllers to be created this way */
-			if (!strstartswith(cc->name, namestr)) {
-				pr_err("controller %s not found\n", cc->name);
-				return -1;
-			} else {
-				struct cg_controller *nc;
-
-				nc = new_controller(cc->name);
-				if (!nc)
-					return -1;
-				list_add_tail(&nc->l, &cg->l);
-				n_cgroups++;
-				current_controller = nc;
-			}
-		}
-
-		if (!opts.manage_cgroups)
-			continue;
-
-		if (opts.cgroup_yard) {
-			char dir_path[PATH_MAX];
-			int off;
-
-			off = snprintf(dir_path, PATH_MAX, "%s/", opts.cgroup_yard);
-			if (strstartswith(cc->name, namestr))
-				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name + strlen(namestr));
-			else if (cc->name[0] == 0)
-				snprintf(dir_path + off, PATH_MAX - off, "unified");
-			else
-				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name);
-
-			fd = open(dir_path, O_RDONLY | O_DIRECTORY, 0);
-			if (fd < 0) {
-				pr_perror("couldn't open %s", dir_path);
-				return -1;
-			}
-		} else {
-			fd = open_cgroupfs(cc);
-			if (fd < 0)
-				return -1;
-		}
-
-		path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
-
-		root = cc->path;
-		if (opts.new_global_cg_root)
-			root = opts.new_global_cg_root;
-
-		list_for_each_entry(o, &opts.new_cgroup_roots, node) {
-			if (!strcmp(cc->name, o->controller))
-				root = o->newroot;
-		}
-
-		snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", root);
-
-		ret = ftw(path, add_cgroup, 4);
-
-		if (ret < 0)
-			pr_perror("failed walking %s for empty cgroups", path);
-
-		close_safe(&fd);
-
-		if (ret < 0)
-			return ret;
-
-		if (opts.freeze_cgroup && !strcmp(cc->name, "freezer") && add_freezer_state(current_controller))
+	list_for_each_entry(cc, ctls, l)
+		if (collect_cgroup(cc))
 			return -1;
-	}
 
 	return 0;
 }
