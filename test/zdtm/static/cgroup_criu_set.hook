@@ -1,0 +1,15 @@
+#!/bin/bash
+
+[ "$1" == "--clean" ] || exit 0
+
+# On a failure, the test may not get to its own cleanup. A leftover cgroup
+# keeps the named hierarchy alive, so remove it here, once the test is gone.
+
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup none "$tname" -o "none,name=zdtmtst"
+
+echo "Cleaning $tname"
+[ ! -d "$tname/subcg_criu_set" ] || rmdir "$tname/subcg_criu_set" || true
+
+umount "$tname"
+rmdir "$tname"
