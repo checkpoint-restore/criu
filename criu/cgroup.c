@@ -2499,6 +2499,79 @@ static int rewrite_cgroup_roots(CgroupEntry *cge)
 	return 0;
 }
 
+/*
+ * The set criu was in on dump is not dumped, as the tasks in it are expected
+ * to inherit the cgroups criu is in on restore. It is so for the root task,
+ * but a task in that set whose parent is not (or such a thread) has to be
+ * moved there, so make up the set from the cgroups criu is in now, with the
+ * same controllers as the dumped sets have.
+ */
+static int add_criu_rst_set(void)
+{
+	CgSetEntry *se, **sets, *ref;
+	struct cg_ctl *ctl;
+	LIST_HEAD(ctls);
+	unsigned int n_ctls = 0;
+	int i, ret = -1;
+
+	if (!root_cg_set || !n_sets || find_rst_set_by_id(root_cg_set))
+		return 0;
+
+	if (parse_thread_cgroup(getpid(), getpid(), NULL, &ctls, &n_ctls))
+		return -1;
+
+	se = xmalloc(sizeof(*se));
+	if (!se)
+		goto out;
+	cg_set_entry__init(se);
+	se->id = root_cg_set;
+
+	ref = rst_sets[0];
+	se->ctls = xzalloc(ref->n_ctls * sizeof(*se->ctls));
+	if (!se->ctls)
+		goto err;
+
+	for (i = 0; i < ref->n_ctls; i++) {
+		CgMemberEntry *ce;
+		bool found = false;
+
+		list_for_each_entry(ctl, &ctls, l) {
+			if (!strcmp(ctl->name, ref->ctls[i]->name)) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			pr_err("No %s cgroup found for criu\n", ref->ctls[i]->name);
+			goto err;
+		}
+
+		ce = xmalloc(sizeof(*ce));
+		if (!ce)
+			goto err;
+		cg_member_entry__init(ce);
+		se->ctls[se->n_ctls++] = ce;
+		ce->name = xstrdup(ctl->name);
+		ce->path = xstrdup(ctl->path);
+		if (!ce->name || !ce->path)
+			goto err;
+	}
+
+	sets = xrealloc(rst_sets, (n_sets + 1) * sizeof(*sets));
+	if (!sets)
+		goto err;
+	rst_sets = sets;
+	rst_sets[n_sets++] = se;
+	pr_info("Made up set %d criu was in on dump from its current cgroups\n", se->id);
+	ret = 0;
+out:
+	put_ctls(&ctls);
+	return ret;
+err:
+	cg_set_entry__free_unpacked(se, NULL);
+	goto out;
+}
+
 int prepare_cgroup(void)
 {
 	int ret;
@@ -2530,7 +2603,9 @@ int prepare_cgroup(void)
 		 * set of controllers. This is checked during dump
 		 * with cg_set_compare(CGCMP_ISSUB) call.
 		 */
-		ret = prepare_cgroup_sfd(ce);
+		ret = add_criu_rst_set();
+		if (!ret)
+			ret = prepare_cgroup_sfd(ce);
 		if (!ret)
 			ret = prepare_cgroup_thread_sfd();
 	} else {
