@@ -18,8 +18,10 @@ function title_print {
 
 function stop_server {
 	title_print "Shutdown service server"
-	kill -SIGTERM $(cat build/pidfile)
-	unlink build/pidfile
+	# The server may be gone already, e.g. if it has crashed, and its
+	# logs are all the more needed then, so go on to print them.
+	kill -SIGTERM "$(cat build/pidfile)" || echo "The service server is not running"
+	rm -f build/pidfile
 	if [ "${FAIL}" == "1" ]; then
 		for i in build/output*; do
 			echo "File: $i"
