@@ -325,6 +325,24 @@ static off_t file_size(const char *path)
 	return status.st_size;
 }
 
+/*
+ * pthread_join() returns once the kernel clears the thread's tid in
+ * mm_release(), which happens before the exiting thread is released.
+ * Until then, tgkill() can still find it, so wait for it to go away.
+ */
+static bool thread_gone(pid_t tid)
+{
+	int retries;
+
+	for (retries = 0; retries < 1000; retries++) {
+		if (syscall(SYS_tgkill, getpid(), tid, 0) == -1 && errno == ESRCH)
+			return true;
+		usleep(1000);
+	}
+
+	return false;
+}
+
 static pid_t check_api_calls(const char *path, bool completed, bool driver, bool restore_fault, bool helper_error)
 {
 	FILE *file = fopen(path, "r");
@@ -343,7 +361,7 @@ static pid_t check_api_calls(const char *path, bool completed, bool driver, bool
 			    !strcmp(operation, "unlock") || !strcmp(operation, "init"))
 				assert(caller != getpid());
 			if (caller != getpid())
-				assert(syscall(SYS_tgkill, getpid(), caller, 0) == -1 && errno == ESRCH);
+				assert(thread_gone(caller));
 		} else {
 			assert(waitpid(caller, &status, __WALL | WNOHANG) == -1 && errno == ECHILD);
 			assert(kill(caller, 0) == -1 && errno == ESRCH);
