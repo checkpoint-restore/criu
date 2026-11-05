@@ -11,14 +11,19 @@ rmtree() {
 }
 
 tname=$(mktemp -d cgclean.XXXXXX)
+trap 'rmdir "$tname"' EXIT
+
+# A failure to remove a cgroup (e.g. a busy one) is reported, but only
+# once the hierarchy is unmounted.
+ret=0
 
 mount -t cgroup none "$tname" -o none,name=zdtmtst
-rmtree "$tname/cgroup_newroot"
-rmtree "$tname/newroot"
+rmtree "$tname/cgroup_newroot" || ret=1
+rmtree "$tname/newroot" || ret=1
 umount "$tname"
 
 mount -t cgroup none "$tname" -o none,name=zdtmtst.defaultroot
-rmtree "$tname/cgroup_newroot"
+rmtree "$tname/cgroup_newroot" || ret=1
 umount "$tname"
 
-rmdir "$tname"
+exit $ret

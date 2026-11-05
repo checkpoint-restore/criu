@@ -4,7 +4,11 @@
 
 set -e
 
+# A failure to remove a cgroup (e.g. a busy one) is reported, but only
+# once the hierarchy is unmounted.
 rmroots() {
+	local ret=0
+
 	echo "Cleaning $tname ($1)"
 
 	mount -t cgroup none $tname -o "$1"
@@ -14,19 +18,19 @@ rmroots() {
 		# sort by line length
 		for i in `find $d -type d | awk '{print length, $0}' | sort -rn | cut -d " " -f2-`; do
 			echo $i
-			rmdir $i
+			rmdir $i || ret=1
 		done
 	done
 
 	echo "Left there is:"
 	ls "$tname"
 	umount "$tname"
+	return $ret
 }
 
 tname=$(mktemp -d cgclean.XXXXXX)
+trap 'rmdir "$tname"' EXIT
 
 for ctl in $(cat /proc/self/cgroup | cut -d: -f2); do
 	rmroots "$ctl"
 done
-
-rmdir $tname
