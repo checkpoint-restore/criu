@@ -1,0 +1,7 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API', 'mapping': True},
+ 'renv': {'CRIU_CUDA_MOCK_UUID_OFFSET': '64', 'CRIU_CUDA_MOCK_DEVICE_MAP_MARKER': '{test}.map'},
+ 'ropts': '--plugin-option=cuda_plugin.device-map=auto'}

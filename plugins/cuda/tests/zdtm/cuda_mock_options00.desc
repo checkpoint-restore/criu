@@ -1,0 +1,9 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'env': {'CRIU_CUDA_MOCK_DRIVER_VERSION_ERROR': '1'},
+ 'opts': '--plugin-option=cuda_plugin.backend=driver-api '
+         '--plugin-option=unrelated_plugin.option=value --plugin-option=cuda_plugin.unknown=value '
+         '--plugin-option=cuda_plugin.back --plugin-option=cuda_plugin.backend=cuda-checkpoint '
+         '--plugin-option=cuda_plugin.back=driver-api --plugin-option=cuda_plugin.timeout=0',
+ 'cuda_mock': {'backend': 'cuda-checkpoint CLI', 'no_driver': True}}

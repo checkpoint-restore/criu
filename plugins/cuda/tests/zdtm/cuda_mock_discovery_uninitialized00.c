@@ -1,0 +1,1 @@
+../../../../test/zdtm/static/busyloop00.c

@@ -1,0 +1,6 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API', 'restore_backend': 'cuda-checkpoint CLI'},
+ 'renv': {'CRIU_CUDA_MOCK_DRIVER_VERSION': '12000'}}

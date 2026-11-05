@@ -262,7 +262,7 @@ int cuda_plugin_add_inventory(void)
 	if (cuda_tasks_handled)
 		return 0;
 
-	if (add_inventory_plugin(CR_PLUGIN_DESC.name)) {
+	if (fault_injected(FI_PLUGIN_CUDA_INVENTORY) || add_inventory_plugin(CR_PLUGIN_DESC.name)) {
 		pr_err("Failed to add CUDA plugin to inventory image\n");
 		return -1;
 	}
@@ -276,19 +276,35 @@ int cuda_plugin_add_inventory(void)
 
 static int cuda_plugin_pause_devices(int pid)
 {
+	int ret;
+
 	if (!active_backend)
 		return -ENOTSUP;
 
-	return active_backend->pause_devices(pid);
+	ret = active_backend->pause_devices(pid);
+	if (!ret && fault_injected(FI_PLUGIN_CUDA_PAUSE)) {
+		pr_info("fault: CUDA pause completed for pid %d\n", pid);
+		return -1;
+	}
+
+	return ret;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__PAUSE_DEVICES, cuda_plugin_pause_devices)
 
 static int cuda_plugin_checkpoint_devices(int pid)
 {
+	int ret;
+
 	if (!active_backend)
 		return -ENOTSUP;
 
-	return active_backend->checkpoint_devices(pid);
+	ret = active_backend->checkpoint_devices(pid);
+	if (!ret && fault_injected(FI_PLUGIN_CUDA_CHECKPOINT)) {
+		pr_info("fault: CUDA checkpoint completed for pid %d\n", pid);
+		return -1;
+	}
+
+	return ret;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, cuda_plugin_checkpoint_devices);
 
@@ -353,7 +369,11 @@ static int cuda_plugin_init(int stage)
 			return 0;
 	}
 
-	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) && !is_cuda_device_available()) {
+	/* A descriptor-selected CUDA fault replaces the force-enable fault. */
+	if (!fault_injected(FI_PLUGIN_CUDA_FORCE_ENABLE) &&
+	    !fault_injected(FI_PLUGIN_CUDA_CHECKPOINT) &&
+	    !fault_injected(FI_PLUGIN_CUDA_INVENTORY) &&
+	    !fault_injected(FI_PLUGIN_CUDA_PAUSE) && !is_cuda_device_available()) {
 		if (device_map_option) {
 			pr_err("cuda_plugin.device-map requires an available CUDA device\n");
 			ret = -ENODEV;

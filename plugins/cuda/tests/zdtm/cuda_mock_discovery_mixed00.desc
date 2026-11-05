@@ -1,0 +1,6 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'env': {'CRIU_CUDA_MOCK_CPU_PID': '{pid}'},
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API', 'no_cli': True}}

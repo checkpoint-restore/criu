@@ -1,0 +1,10 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda crfail',
+ 'opts': '--plugin-option=cuda_plugin.backend=cuda-checkpoint',
+ 'cuda_mock': {'backend': 'cuda-checkpoint CLI',
+               'restore_backend': False,
+               'allow_cli_probe': True,
+               'error': 'cuda-checkpoint with --device-map support is unavailable'},
+ 'renv': {'CRIU_CUDA_MOCK_NO_DEVICE_MAP': '1'},
+ 'ropts': '--plugin-option=cuda_plugin.device-map=auto'}

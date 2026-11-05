@@ -12,6 +12,10 @@ enum faults {
 	FI_POST_RESTORE,
 	FI_RESTORE_LATE,
 	FI_RESTORE_ATTACH,
+	/* Keep plugin faults separate from the sequential core faults. */
+	FI_PLUGIN_CUDA_CHECKPOINT = 100,
+	FI_PLUGIN_CUDA_INVENTORY = 101,
+	FI_PLUGIN_CUDA_PAUSE = 102,
 	/* not fatal */
 	FI_VDSO_TRAMPOLINES = 127,
 	FI_CHECK_OPEN_HANDLE = 128,

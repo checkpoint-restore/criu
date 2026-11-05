@@ -1,0 +1,8 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API', 'rollback': True, 'error': 'failed: CUDA_ERROR_MOCK'},
+ 'denv': {'CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION': '1',
+          'CRIU_CUDA_MOCK_ONCE': '{test}.once'},
+ 'retry': 'dump'}

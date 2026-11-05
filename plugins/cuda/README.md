@@ -211,20 +211,50 @@ recommended to blacklist `CLONE_UNTRACED` using seccomp filters.
 
 # Testing
 
-The CPU-only regression tests exercise both backends with mock CUDA APIs and
-real ptrace stops, including separate restore threads in multithreaded targets,
-Driver API worker completion and target termination after faults, unrelated
-child events, unlimited and finite CLI waits, helper exits, bounded CLI
-post-call stop waits, and rollback:
+Run the CPU-only CUDA plugin regression tests:
 
 ```
-make cuda_plugin
-make -C test/cuda-checkpoint test
-sudo python3 test/cuda-checkpoint/backend-errors.py
+sudo make -C plugins/cuda test
 ```
 
-Real CUDA workloads are still needed to validate GPU checkpoint/restore and
-measure backend performance.
+The tests live in `plugins/cuda/tests`. They cover backend selection,
+checkpoint/restore, rollback, helper failures, timeouts, device mapping,
+and foreground restore without a GPU. The ZDTM cases use existing workloads
+and the fault-and-retry flow through a separate `cuda` test set. To run only
+those cases:
+
+```
+sudo ./test/zdtm.py --set cuda run -a --mocked-cuda-checkpoint
+```
+
+The mock backends live in `plugins/cuda/tests/mock`. They save per-process
+state between CRIU invocations so the fault hooks can check rollback before
+ZDTM retries. ZDTM also checks rollback after locking a process that
+CRIU has not seized.
+ZDTM supplies the common marker and state paths for the `mockcuda` flag;
+descriptors only need to set the controls specific to each case.
+The descriptors use `env`, `denv`, and `renv` for common, dump, and restore
+CRIU environment variables. The `opts`, `dopts`, and `ropts` arguments
+and environment values can use `{test}` for the test path and `{pid}` for
+the workload PID; a `None` environment value removes a variable. Hooks receive
+the current image directory through `ZDTM_CRIU_IMG_DIR`. `retry: 'dump'` or
+`retry: 'restore'` requires the first command to fail and retries it after
+the `--fault` hook, using the same flow as `--fault` injection.
+
+Device-map parser and malformed-image checks, foreground restore, and
+failures that kill the target and cannot retry the same process tree use
+the standalone tests in the same directory. These include target faults during
+CUDA initialization and device restore in the late restore hook. The plugin's
+`test` target runs these checks as well.
+
+Invalid CUDA plugin options are checked by the configuration tests when the
+CUDA plugin is built. These checks do not require a GPU or CUDA mocks:
+
+```
+sudo make -C test/others/config-file run
+```
+
+Real CUDA workloads are required to validate GPU checkpoint/restore.
 
 # Known Limitations
 * Currently GPU memory contents are brought into main system memory and CRIU

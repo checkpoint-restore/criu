@@ -1,0 +1,9 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda crfail',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API',
+               'error': 'Post dump script passed with',
+               'failure_state': 'checkpointed'},
+ 'dopts': '--action-script {test}.hook',
+ 'denv': {'CRIU_CUDA_MOCK_ONCE': '{test}.once', 'CRIU_CUDA_MOCK_RESTORE_ERROR': '1'}}

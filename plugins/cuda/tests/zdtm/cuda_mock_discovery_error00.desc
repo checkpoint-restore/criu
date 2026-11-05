@@ -1,0 +1,9 @@
+{'flavor': 'h',
+ 'arch': 'x86_64',
+ 'flags': 'suid mockcuda crfail',
+ 'opts': '',
+ 'cuda_mock': {'backend': 'Driver API',
+               'state_required': False,
+               'no_cli': True,
+               'error': 'cuCheckpointProcessGetRestoreThreadId'},
+ 'denv': {'CRIU_CUDA_MOCK_TID_ERROR': '999'}}

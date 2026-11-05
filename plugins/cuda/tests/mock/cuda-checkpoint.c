@@ -1,0 +1,269 @@
+/* The mocked version of cuda-checkpoint. */
+#include <getopt.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+
+#include "mock.h"
+
+static int record_value(const char *environment, const char *value)
+{
+	const char *path = getenv(environment);
+	FILE *file;
+
+	if (!path)
+		return 0;
+
+	file = fopen(path, "a");
+	if (!file) {
+		perror("Unable to open CUDA CLI value marker");
+		return -1;
+	}
+	fprintf(file, "%s\n", value);
+	fclose(file);
+	return 0;
+}
+
+/* Keep one state per task when a test tracks several tasks. */
+static const char *state_path(int pid)
+{
+	static char path[4096];
+	const char *base = getenv("CRIU_CUDA_MOCK_STATE_FILE");
+
+	if (!base)
+		return NULL;
+	snprintf(path, sizeof(path), "%s.%d", base, pid);
+	return path;
+}
+
+static const char *read_state(int pid)
+{
+	static char state[32];
+	const char *path = state_path(pid);
+	FILE *file;
+	size_t length;
+
+	if (!path)
+		return "running";
+
+	file = fopen(path, "r");
+	if (!file || !fgets(state, sizeof(state), file)) {
+		if (file)
+			fclose(file);
+		return "running";
+	}
+	fclose(file);
+	length = strcspn(state, "\r\n");
+	state[length] = '\0';
+	return state;
+}
+
+static int write_state(int pid, const char *state)
+{
+	const char *path = state_path(pid);
+	FILE *file;
+
+	if (!path)
+		return 0;
+
+	file = fopen(path, "w");
+	if (!file) {
+		perror("Unable to open CUDA CLI state file");
+		return -1;
+	}
+	fprintf(file, "%s\n", state);
+	fclose(file);
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	const char *marker;
+	const char *action = NULL;
+	const char *operation = "help";
+	FILE *marker_file;
+	int c, pid = 0, get_state = 0;
+
+	marker = getenv("CRIU_CUDA_MOCK_CLI_MARKER");
+	if (marker) {
+		marker_file = fopen(marker, "a");
+		if (!marker_file) {
+			perror("Unable to open CUDA CLI marker");
+			return 1;
+		}
+		fputs("invoked\n", marker_file);
+		fclose(marker_file);
+	}
+
+	if (getenv("CRIU_CUDA_MOCK_CLI_FAIL"))
+		return 1;
+
+	while (1) {
+		int option_index = 0;
+		static struct option long_options[] = {
+			{ "pid", required_argument, 0, 'p' },
+			{ "get-state", no_argument, 0, 's' },
+			{ "get-restore-tid", no_argument, 0, 'g' },
+			{ "action", required_argument, 0, 'a' },
+			{ "timeout", required_argument, 0, 't' },
+			{ "device-map", required_argument, 0, 'm' },
+			{ "help", no_argument, 0, 'h' },
+			{ 0, 0, 0, 0 }
+		};
+
+		c = getopt_long(argc, argv, "p:ga:ht:m:",
+				long_options, &option_index);
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 'p':
+			pid = atoi(optarg);
+			if (!get_state)
+				printf("%s\n", optarg);
+			break;
+		case 'g':
+			operation = "get-tid";
+			break;
+		case 't':
+			break;
+		case 'a':
+			action = optarg;
+			operation = optarg;
+			break;
+		case 'm':
+			if (record_value("CRIU_CUDA_MOCK_DEVICE_MAP_MARKER", optarg))
+				return 1;
+			break;
+		case 's':
+			operation = "get-state";
+			get_state = 1;
+			break;
+		case 'h':
+			printf("--action - execute an action\n");
+			if (!getenv("CRIU_CUDA_MOCK_NO_DEVICE_MAP"))
+				printf("--device-map - remap CUDA GPUs\n");
+			break;
+
+		default:
+			fprintf(stderr, "getopt returned character code 0%o ??\n", c);
+			return 1;
+		}
+	}
+
+	if (optind < argc) {
+		fprintf(stderr, "non-option ARGV-elements: ");
+		while (optind < argc)
+			fprintf(stderr, "%s ", argv[optind++]);
+		fprintf(stderr, "\n");
+		return 1;
+	}
+
+	/* The state depends on --pid, which follows --get-state. */
+	if (get_state)
+		printf("%s\n", read_state(pid));
+
+	marker = getenv("CRIU_CUDA_MOCK_API_MARKER");
+	if (marker) {
+		marker_file = fopen(marker, "a");
+		if (!marker_file)
+			return 1;
+		fprintf(marker_file, "%s %d %ld\n", operation, pid, (long)getpid());
+		if (fclose(marker_file))
+			return 1;
+	}
+	if (action) {
+		const char *behavior = getenv("CRIU_CUDA_MOCK_CHECKPOINT_BEHAVIOR");
+		const char *lock_hang = getenv("CRIU_CUDA_MOCK_LOCK_HANG");
+
+		if (!strcmp(action, "lock") && lock_hang && mock_failure()) {
+			if (!strncmp(lock_hang, "locked", strlen("locked")) && write_state(pid, "locked"))
+				return 1;
+			if (strstr(lock_hang, "closed-output")) {
+				close(STDOUT_FILENO);
+				close(STDERR_FILENO);
+			}
+			for (;;)
+				pause();
+		}
+		if (!strcmp(action, "checkpoint") && behavior && mock_failure()) {
+			if (!strcmp(behavior, "exit"))
+				return 77;
+			if (!strcmp(behavior, "signal"))
+				raise(SIGKILL);
+			if (!strcmp(behavior, "delay") || !strcmp(behavior, "delay-closed-output")) {
+				const struct timespec delay = { .tv_sec = 1, .tv_nsec = 200000000 };
+
+				if (!strcmp(behavior, "delay-closed-output")) {
+					fflush(stdout);
+					close(STDOUT_FILENO);
+					close(STDERR_FILENO);
+				}
+				nanosleep(&delay, NULL);
+			}
+			if (!strcmp(behavior, "untraced-clone")) {
+				const char *trigger = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
+				const char *done = getenv("CRIU_CUDA_MOCK_CLONE_PID");
+				const struct timespec poll = { .tv_nsec = 1000000 };
+				FILE *file = trigger ? fopen(trigger, "w") : NULL;
+				int i;
+
+				if (!file || fclose(file) || !done)
+					return 1;
+				for (i = 0; i < 5000; i++) {
+					FILE *pid_file = fopen(done, "r");
+					int cloned = 0;
+
+					if (pid_file) {
+						int matched = fscanf(pid_file, "%d", &cloned);
+
+						fclose(pid_file);
+						if (matched == 1 && cloned > 0)
+							break;
+					}
+					nanosleep(&poll, NULL);
+				}
+				if (i == 5000)
+					return 1;
+			}
+			if (!strcmp(behavior, "fork")) {
+				const char *trigger = getenv("CRIU_CUDA_MOCK_FAULT_TRIGGER");
+				FILE *file = trigger ? fopen(trigger, "w") : NULL;
+
+				if (!file || fclose(file))
+					return 1;
+			}
+			if (!strcmp(behavior, "hang") || !strcmp(behavior, "hang-closed-output") ||
+			    !strcmp(behavior, "fork")) {
+				if (!strcmp(behavior, "hang-closed-output")) {
+					close(STDOUT_FILENO);
+					close(STDERR_FILENO);
+				}
+				for (;;)
+					pause();
+			}
+		}
+		if ((!strcmp(action, "restore") && getenv("CRIU_CUDA_MOCK_RESTORE_ERROR")) ||
+		    (!strcmp(action, "unlock") && getenv("CRIU_CUDA_MOCK_UNLOCK_ERROR"))) {
+			fprintf(stderr, "Injected CUDA %s failure\n", action);
+			return 1;
+		}
+		if (!strcmp(action, "lock") || !strcmp(action, "restore")) {
+			if (write_state(pid, "locked"))
+				return 1;
+		} else if (!strcmp(action, "checkpoint")) {
+			if (write_state(pid, "checkpointed"))
+				return 1;
+			if (getenv("CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION") && mock_failure())
+				return 1;
+		} else if (!strcmp(action, "unlock")) {
+			if (write_state(pid, "running"))
+				return 1;
+		}
+	}
+
+	return 0;
+}
