@@ -8,13 +8,18 @@ const char *test_doc = "Restore with precreated veth devices.";
 const char *test_author = "Andrei Vagin <avagin@gmail.com>";
 
 #define IF_NAME "zdtmvthc0"
+#define IF_ADDR "192.168.124.124/32"
 
+/*
+ * The hook moves the device into our netns first, and only then adds
+ * an address to it, so wait for the address, not just the device.
+ */
 static bool wait_for_veth(void)
 {
 	int i;
 
 	for (i = 0; i < 10; i++) {
-		if (system("ip addr list dev " IF_NAME) == 0)
+		if (system("ip addr list dev " IF_NAME " | grep -qF 'inet " IF_ADDR " '") == 0)
 			return true;
 
 		sleep(1);
