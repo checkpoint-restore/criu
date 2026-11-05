@@ -2,7 +2,8 @@
 
 set -eu
 
-CRIU=../../../criu/criu
+# setup_mount() changes the current directory, so make the path absolute.
+CRIU=$(readlink -f ../../../criu/criu)
 
 setup() {
 	setup_mount
