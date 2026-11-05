@@ -2062,7 +2062,9 @@ static void reap_zombies(void)
 static int restore_root_task(struct pstree_item *init)
 {
 	int ret, fd, mnt_ns_fd = -1;
+	int pid_ns_fd = -1;
 	int root_seized = 0;
+	struct ns_id *pid_ns = NULL;
 	struct pstree_item *item;
 	pid_t *pids = NULL;
 
@@ -2095,6 +2097,9 @@ static int restore_root_task(struct pstree_item *init)
 	if (prepare_namespace_before_tasks())
 		return -1;
 
+	if (init->ids)
+		pid_ns = lookup_ns_by_id(init->ids->pid_ns_id, &pid_ns_desc);
+
 	if (vpid(init) == INIT_PID) {
 		if (!(root_ns_mask & CLONE_NEWPID)) {
 			pr_err("This process tree can only be restored "
@@ -2104,22 +2109,42 @@ static int restore_root_task(struct pstree_item *init)
 			return -1;
 		}
 	} else if (root_ns_mask & CLONE_NEWPID) {
-		struct ns_id *ns;
 		/*
 		 * Restoring into an existing PID namespace. This disables
 		 * the check to require a PID 1 when restoring a process
 		 * which used to be in a PID namespace.
 		 */
-		ns = lookup_ns_by_id(init->ids->pid_ns_id, &pid_ns_desc);
-		if (!ns || !ns->ext_key) {
+		if (!pid_ns || !pid_ns->ext_key) {
 			pr_err("Can't restore pid namespace without the process init\n");
 			return -1;
 		}
 	}
 
+	if (pid_ns && pid_ns->ext_key) {
+		pid_ns_fd = __open_proc(PROC_SELF, ENOENT, O_RDONLY, "ns/pid_for_children");
+		if (pid_ns_fd < 0 && errno == ENOENT)
+			pid_ns_fd = open_proc(PROC_SELF, "ns/pid");
+		if (pid_ns_fd < 0)
+			goto out;
+	}
+
 	__restore_switch_stage_nw(CR_STATE_ROOT_TASK);
 
 	ret = fork_with_pid(init);
+	if (pid_ns_fd >= 0) {
+		int saved_errno = errno;
+
+		/*
+		 * The root inherits its external PID namespace; the master must
+		 * regain its own namespace for later helpers and plugin threads.
+		 */
+		if (restore_ns(pid_ns_fd, &pid_ns_desc)) {
+			if (ret < 0)
+				goto out;
+			goto out_kill;
+		}
+		errno = saved_errno;
+	}
 	if (ret < 0)
 		goto out;
 
