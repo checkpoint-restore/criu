@@ -1,6 +1,8 @@
 #ifndef __CR_CGROUP_H__
 #define __CR_CGROUP_H__
 
+#include <stdbool.h>
+
 #include "int.h"
 #include "images/core.pb-c.h"
 
@@ -38,6 +40,9 @@ struct cgroup_dir {
 	mode_t mode;
 	uid_t uid;
 	gid_t gid;
+
+	/* Not owned by the dumped tasks, see cgroup_dir_entry.external */
+	bool external;
 
 	struct list_head properties;
 	unsigned int n_properties;
