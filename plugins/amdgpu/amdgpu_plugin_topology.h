@@ -92,6 +92,8 @@ struct id_map {
 };
 
 struct device_maps {
+	unsigned int mapped_cnt;
+
 	struct list_head cpu_maps; /* CPUs are mapped using node_id */
 	struct list_head gpu_maps;
 
