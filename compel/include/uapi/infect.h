@@ -65,6 +65,15 @@ extern int __must_check compel_cure_remote(struct parasite_ctl *ctl);
 extern int __must_check compel_cure_local(struct parasite_ctl *ctl);
 extern int __must_check compel_cure(struct parasite_ctl *ctl);
 
+/*
+ * Infection may raise some of the victim's rlimits (RLIMIT_NOFILE for the
+ * parasite's descriptors, RLIMIT_FSIZE for its log writes); curing restores
+ * them. While one is raised this returns true and the limit the task had
+ * before, which is the one to record in a checkpoint.
+ */
+struct rlimit;
+extern bool compel_orig_rlimit(struct parasite_ctl *ctl, int resource, struct rlimit *lim);
+
 #define PARASITE_ARG_SIZE_MIN (1 << 12)
 
 #define compel_parasite_args(ctl, type)                             \
