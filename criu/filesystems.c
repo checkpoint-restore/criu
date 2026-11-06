@@ -766,6 +766,19 @@ static struct fstype fstypes[] = {
 		.restore = tmpfs_restore,
 	},
 	{
+		/*
+		 * Like tmpfs, ramfs keeps its content in memory only, so it is
+		 * archived and restored the same way. systemd mounts one, read
+		 * only and nosymfollow, for each unit's credentials under
+		 * /run/credentials once the container's init has a
+		 * CREDENTIALS_DIRECTORY.
+		 */
+		.name = "ramfs",
+		.code = FSTYPE__RAMFS,
+		.dump = tmpfs_dump,
+		.restore = tmpfs_restore,
+	},
+	{
 		.name = "devpts",
 		.parse = devpts_parse,
 		.code = FSTYPE__DEVPTS,
