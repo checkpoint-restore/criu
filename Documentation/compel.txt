@@ -50,6 +50,14 @@ Positional Arguments
 
 OPTIONS
 --------
+*-c*, *--compat*::
+    Print the flags for building parasite code for a 32-bit (compat) task.
+    This option is used by *cflags* and *ldflags*.
+
+*-s*, *--static*::
+    Print the static library instead of the shared one. This option is used
+    by *libs*, and is required when *compel* runs from its source tree.
+
 *-f*, *--file* 'FILE'::
     Path to the binary file, 'FILE', which *compel* must turn into a header
 
