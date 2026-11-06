@@ -45,6 +45,8 @@ struct cg_set {
 	struct list_head l;
 	unsigned int n_ctls;
 	struct list_head ctls;
+	/* The cgroups of the set are to be dumped, see collect_cgroups() */
+	bool collect;
 };
 
 static LIST_HEAD(cg_sets);
@@ -115,7 +117,7 @@ static bool cg_set_compare(struct cg_set *set, struct list_head *ctls, int what)
 	}
 }
 
-static int collect_cgroups(struct list_head *ctls);
+bool is_special_property(const char *prop);
 
 static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bool collect)
 {
@@ -135,6 +137,7 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bo
 		INIT_LIST_HEAD(&cs->ctls);
 		list_splice_init(ctls, &cs->ctls);
 		cs->n_ctls = n_ctls;
+		cs->collect = collect;
 		list_add_tail(&cs->l, &cg_sets);
 		n_sets++;
 
@@ -143,14 +146,6 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bo
 
 			list_for_each_entry(ctl, &cs->ctls, l)
 				pr_debug("    `- [%s] -> [%s] [%u]\n", ctl->name, ctl->path, ctl->cgns_prefix);
-		}
-
-		if (collect && collect_cgroups(&cs->ctls)) {
-			list_del(&cs->l);
-			n_sets--;
-			put_ctls(&cs->ctls);
-			xfree(cs);
-			return NULL;
 		}
 	}
 
@@ -385,6 +380,15 @@ static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd, const 
 	struct cgroup_prop *prop;
 
 	for (j = 0; cgp && j < cgp->nr_props; j++) {
+		/*
+		 * The special properties are only restored for the cgroups
+		 * created on restore, and are needed for them to be usable,
+		 * e.g. cpuset.cpus and cpuset.mems, so dump just these for
+		 * an external cgroup, which is otherwise left as is.
+		 */
+		if (ncd->external && !is_special_property(cgp->props[j]))
+			continue;
+
 		if (snprintf(buf, PATH_MAX, "%s/%s", fpath, cgp->props[j]) >= PATH_MAX) {
 			pr_err("snprintf output was truncated\n");
 			return -1;
@@ -474,6 +478,20 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd, stru
 	return 0;
 }
 
+/*
+ * The cgroup criu is in, for the controller being collected, or NULL if
+ * the whole subtree being walked is owned by the dumped tasks, i.e. the
+ * cgroup root is given explicitly. See get_criu_cg_path().
+ */
+static const char *criu_cg_path;
+/*
+ * The cgroup the walk is started from (a path inside the cgroupfs),
+ * which is to be collected anyway.
+ */
+static const char *walk_root;
+/* The cgroup being added is external, see add_external_parents(). */
+static bool add_external;
+
 static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 {
 	struct cgroup_dir *ncd = NULL, *match;
@@ -501,7 +519,19 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 		if (!ncd->path)
 			goto out;
 
+		ncd->external = add_external || (criu_cg_path && !strcmp(ncd->path, criu_cg_path));
+
 		mtype = find_dir(ncd->path, &current_controller->heads, &match);
+
+		/*
+		 * Skip the cgroups below an external one, as they are not
+		 * owned by the dumped tasks either, unless some dumped task
+		 * is in there, so the walk is started from there.
+		 */
+		if (!add_external && mtype == PARENT_MATCH && match->external && strcmp(ncd->path, walk_root)) {
+			exit_code = 0;
+			goto out;
+		}
 
 		switch (mtype) {
 		/* ignore co-mounted cgroups and already dumped cgroups */
@@ -542,6 +572,28 @@ out:
 		xfree(ncd->path);
 	xfree(ncd);
 	return exit_code;
+}
+
+/*
+ * Find the cgroup criu is in for the controller. Such a cgroup is not owned
+ * by the dumped tasks, even if some of them are in it: at least criu is
+ * there too, and so may be anything else. So it is dumped as an external
+ * one: with no properties but the special ones (see dump_cg_props_array())
+ * and none of the cgroups below it, or else they would be overwritten on
+ * restore (or make it fail in the strict mode, as it exists).
+ */
+static const char *get_criu_cg_path(struct cg_ctl *cc)
+{
+	struct cg_ctl *c;
+
+	if (!criu_cgset)
+		return NULL;
+
+	list_for_each_entry(c, &criu_cgset->ctls, l)
+		if (!strcmp(c->name, cc->name))
+			return c->path;
+
+	return NULL;
 }
 
 static int add_freezer_state(struct cg_controller *controller)
@@ -736,100 +788,240 @@ static int open_cgroupfs(struct cg_ctl *cc)
 	return fd;
 }
 
-static int collect_cgroups(struct list_head *ctls)
+/* Add the cgroup at @path alone, as an external one if @external. */
+static int add_cgroup_dir(const char *path, bool external)
 {
-	struct cg_ctl *cc;
-	int ret = 0;
-	int fd = -1;
+	struct stat st;
+	int ret;
 
-	list_for_each_entry(cc, ctls, l) {
-		char path[PATH_MAX], *root;
-		struct cg_controller *cg;
-		struct cg_root_opt *o;
+	if (stat(path, &st) < 0) {
+		pr_perror("failed to stat %s", path);
+		return -1;
+	}
 
-		current_controller = NULL;
+	add_external = external;
+	ret = add_cgroup(path, &st, FTW_D);
+	add_external = false;
 
-		/* We should get all the "real" (i.e. not name=systemd type)
-		 * controller from parse_cgroups(), so find that controller if
-		 * it exists. */
-		list_for_each_entry(cg, &cgroups, l) {
-			if (cgroup_contains(cg->controllers, cg->n_controllers, cc->name, NULL)) {
-				current_controller = cg;
-				break;
-			}
-		}
+	return ret;
+}
 
-		if (!current_controller) {
-			/* only allow "fake" controllers to be created this way */
-			if (!strstartswith(cc->name, namestr)) {
-				pr_err("controller %s not found\n", cc->name);
-				return -1;
-			} else {
-				struct cg_controller *nc;
+/*
+ * The cgroups below an external one are not collected, except for the
+ * ones some dumped task is in, see add_cgroup(). The cgroups in between
+ * are not owned by the dumped tasks either, but are still needed in the
+ * image, or else they are created on restore with the default permissions
+ * rather than the dumped ones (e.g. of a delegated subtree), and with none
+ * of the special properties. So add them as external ones, too. The ones some dumped task is in are
+ * already collected by now, as the cgroups are collected from the
+ * topmost ones down, see collect_cgroups().
+ *
+ * @path is the cgroup the walk is to be started from, as in add_cgroup().
+ */
+static int add_external_parents(char *path)
+{
+	char *root = path + path_pref_len, *p;
+	struct cgroup_dir *match;
+	int ret;
 
-				nc = new_controller(cc->name);
-				if (!nc)
-					return -1;
-				list_add_tail(&nc->l, &cg->l);
-				n_cgroups++;
-				current_controller = nc;
-			}
-		}
+	if (find_dir(root, &current_controller->heads, &match) != PARENT_MATCH || !match->external)
+		return 0;
 
-		if (!opts.manage_cgroups)
-			continue;
-
-		if (opts.cgroup_yard) {
-			char dir_path[PATH_MAX];
-			int off;
-
-			off = snprintf(dir_path, PATH_MAX, "%s/", opts.cgroup_yard);
-			if (strstartswith(cc->name, namestr))
-				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name + strlen(namestr));
-			else if (cc->name[0] == 0)
-				snprintf(dir_path + off, PATH_MAX - off, "unified");
-			else
-				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name);
-
-			fd = open(dir_path, O_RDONLY | O_DIRECTORY, 0);
-			if (fd < 0) {
-				pr_perror("couldn't open %s", dir_path);
-				return -1;
-			}
-		} else {
-			fd = open_cgroupfs(cc);
-			if (fd < 0)
-				return -1;
-		}
-
-		path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
-
-		root = cc->path;
-		if (opts.new_global_cg_root)
-			root = opts.new_global_cg_root;
-
-		list_for_each_entry(o, &opts.new_cgroup_roots, node) {
-			if (!strcmp(cc->name, o->controller))
-				root = o->newroot;
-		}
-
-		snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", root);
-
-		ret = ftw(path, add_cgroup, 4);
-
+	/* Each '/' after the external cgroup ends a cgroup in between. */
+	for (p = root + strlen(match->path); (p = strchr(p + 1, '/'));) {
+		*p = '\0';
+		pr_info("%s is below an external cgroup, dumping it as external\n", path);
+		ret = add_cgroup_dir(path, true);
+		*p = '/';
 		if (ret < 0)
-			pr_perror("failed walking %s for empty cgroups", path);
-
-		close_safe(&fd);
-
-		if (ret < 0)
-			return ret;
-
-		if (opts.freeze_cgroup && !strcmp(cc->name, "freezer") && add_freezer_state(current_controller))
 			return -1;
 	}
 
 	return 0;
+}
+
+/* Collect the cgroups of a dumped task for the controller of @cc. */
+static int collect_cgroup(struct cg_ctl *cc)
+{
+	char path[PATH_MAX], *root;
+	struct cg_controller *cg;
+	struct cg_root_opt *o;
+	int ret, fd = -1;
+
+	current_controller = NULL;
+
+	/* We should get all the "real" (i.e. not name=systemd type)
+	 * controller from parse_cgroups(), so find that controller if
+	 * it exists. */
+	list_for_each_entry(cg, &cgroups, l) {
+		if (cgroup_contains(cg->controllers, cg->n_controllers, cc->name, NULL)) {
+			current_controller = cg;
+			break;
+		}
+	}
+
+	if (!current_controller) {
+		/* only allow "fake" controllers to be created this way */
+		if (!strstartswith(cc->name, namestr)) {
+			pr_err("controller %s not found\n", cc->name);
+			return -1;
+		} else {
+			struct cg_controller *nc;
+
+			nc = new_controller(cc->name);
+			if (!nc)
+				return -1;
+			list_add_tail(&nc->l, &cg->l);
+			n_cgroups++;
+			current_controller = nc;
+		}
+	}
+
+	if (!opts.manage_cgroups)
+		return 0;
+
+	if (opts.cgroup_yard) {
+		char dir_path[PATH_MAX];
+		int off;
+
+		off = snprintf(dir_path, PATH_MAX, "%s/", opts.cgroup_yard);
+		if (strstartswith(cc->name, namestr))
+			snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name + strlen(namestr));
+		else if (cc->name[0] == 0)
+			snprintf(dir_path + off, PATH_MAX - off, "unified");
+		else
+			snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name);
+
+		fd = open(dir_path, O_RDONLY | O_DIRECTORY, 0);
+		if (fd < 0) {
+			pr_perror("couldn't open %s", dir_path);
+			return -1;
+		}
+	} else {
+		fd = open_cgroupfs(cc);
+		if (fd < 0)
+			return -1;
+	}
+
+	path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
+
+	root = cc->path;
+	if (opts.new_global_cg_root)
+		root = opts.new_global_cg_root;
+
+	list_for_each_entry(o, &opts.new_cgroup_roots, node) {
+		if (!strcmp(cc->name, o->controller))
+			root = o->newroot;
+	}
+
+	snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", root);
+
+	/*
+	 * An explicitly given cgroup root means the whole subtree
+	 * belongs to the dumped tasks, criu's cgroup included.
+	 */
+	criu_cg_path = root == cc->path ? get_criu_cg_path(cc) : NULL;
+	walk_root = root;
+
+	if (add_external_parents(path) < 0) {
+		ret = -1;
+	} else if (criu_cg_path && !strcmp(cc->path, criu_cg_path)) {
+		/* None of the cgroups below are to be dumped. */
+		pr_info("%s is criu's cgroup, dumping it as external\n", path);
+		ret = add_cgroup_dir(path, false);
+	} else {
+		ret = ftw(path, add_cgroup, 4);
+		if (ret < 0)
+			pr_perror("failed walking %s for empty cgroups", path);
+	}
+	criu_cg_path = walk_root = NULL;
+
+	close_safe(&fd);
+
+	if (ret < 0)
+		return ret;
+
+	if (opts.freeze_cgroup && !strcmp(cc->name, "freezer") && add_freezer_state(current_controller))
+		return -1;
+
+	return 0;
+}
+
+struct cg_walk {
+	struct cg_ctl *cc;
+	unsigned int depth;
+	unsigned int idx;
+};
+
+static unsigned int cg_path_depth(const char *path)
+{
+	unsigned int depth = 0;
+
+	for (; *path; path++)
+		if (*path == '/' && path[1])
+			depth++;
+
+	return depth;
+}
+
+static int cg_walk_cmp(const void *a, const void *b)
+{
+	const struct cg_walk *wa = a, *wb = b;
+
+	if (wa->depth != wb->depth)
+		return wa->depth < wb->depth ? -1 : 1;
+
+	return wa->idx < wb->idx ? -1 : wa->idx > wb->idx;
+}
+
+/*
+ * Collect the cgroups of all the sets of the dumped tasks. This is done
+ * once all the sets are known, from the topmost cgroups down, so that a
+ * cgroup is collected before the ones below it, whatever the order of
+ * the tasks is. Otherwise, a cgroup collected after one below it would
+ * become its sibling, rather than its parent, in the image, so on restore
+ * the latter would be created first, along with the former, which would
+ * then exist (a conflict in the strict mode, or no properties restored in
+ * the soft one).
+ */
+static int collect_cgroups(void)
+{
+	struct cg_walk *walks;
+	struct cg_set *cs;
+	struct cg_ctl *cc;
+	unsigned int i, n = 0;
+	int ret = 0;
+
+	list_for_each_entry(cs, &cg_sets, l)
+		if (cs->collect)
+			list_for_each_entry(cc, &cs->ctls, l)
+				n++;
+	if (!n)
+		return 0;
+
+	walks = xmalloc(n * sizeof(*walks));
+	if (!walks)
+		return -1;
+
+	i = 0;
+	list_for_each_entry(cs, &cg_sets, l) {
+		if (!cs->collect)
+			continue;
+		list_for_each_entry(cc, &cs->ctls, l) {
+			walks[i].cc = cc;
+			walks[i].depth = cg_path_depth(cc->path);
+			walks[i].idx = i;
+			i++;
+		}
+	}
+
+	qsort(walks, n, sizeof(*walks), cg_walk_cmp);
+
+	for (i = 0; i < n && !ret; i++)
+		ret = collect_cgroup(walks[i].cc);
+
+	xfree(walks);
+	return ret;
 }
 
 int dump_thread_cgroup(const struct pstree_item *item, u32 *cg_id, struct parasite_dump_cgroup_args *args, int id)
@@ -973,6 +1165,11 @@ static int dump_cg_dirs(struct list_head *dirs, size_t n_dirs, CgroupDirEntry **
 		cde->dir_perms->mode = cur->mode;
 		cde->dir_perms->uid = cur->uid;
 		cde->dir_perms->gid = cur->gid;
+
+		if (cur->external) {
+			cde->has_external = true;
+			cde->external = true;
+		}
 
 		cde->dir_name = cur->path + poff;
 		if (poff != 1)		 /* parent isn't "/" */
@@ -1164,6 +1361,9 @@ int dump_cgroups(void)
 		pr_info("All tasks in criu's cgroups. Nothing to dump.\n");
 		return 0;
 	}
+
+	if (collect_cgroups())
+		return -1;
 
 	if (dump_sets(&cg))
 		return -1;
@@ -2012,6 +2212,17 @@ static int prepare_dir_perms(int cg, char *path, CgroupPerms *perms)
 	return ret;
 }
 
+static void drop_cgroup_dir_props(CgroupDirEntry *e)
+{
+	size_t i;
+
+	for (i = 0; i < e->n_properties; i++)
+		cgroup_prop_entry__free_unpacked(e->properties[i], NULL);
+	xfree(e->properties);
+	e->properties = NULL;
+	e->n_properties = 0;
+}
+
 static int prepare_cgroup_dirs(char **cnames, int n_cnames, char *paux, size_t paux_size, size_t off,
 			       CgroupDirEntry **ents, size_t n_ents)
 {
@@ -2052,6 +2263,10 @@ static int prepare_cgroup_dirs(char **cnames, int n_cnames, char *paux, size_t p
 					return -1;
 				}
 			}
+		} else if (e->external) {
+			/* Not ours, so neither a conflict nor to be changed. */
+			pr_info("Using existing external cgroup dir %s as is\n", paux);
+			drop_cgroup_dir_props(e);
 		} else {
 			pr_info("Determined cgroup dir %s already exist\n", paux);
 
@@ -2062,13 +2277,7 @@ static int prepare_cgroup_dirs(char **cnames, int n_cnames, char *paux, size_t p
 
 			if (opts.manage_cgroups & (CG_MODE_SOFT | CG_MODE_NONE)) {
 				pr_info("Skip restoring properties on cgroup dir %s\n", paux);
-				if (e->n_properties > 0) {
-					for (j = 0; j < e->n_properties; j++)
-						cgroup_prop_entry__free_unpacked(e->properties[j], NULL);
-					xfree(e->properties);
-					e->properties = NULL;
-					e->n_properties = 0;
-				}
+				drop_cgroup_dir_props(e);
 			}
 
 			if (!(opts.manage_cgroups & CG_MODE_NONE) && prepare_dir_perms(cg, paux, e->dir_perms) < 0)
