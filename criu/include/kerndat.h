@@ -96,6 +96,13 @@ struct kerndat_s {
 	u64 statmount_supported_mask;
 	bool has_statmount;
 	bool has_statmount_by_fd;
+	/*
+	 * PMD-mapped THP size, zero when the kernel has no THP. Keep the
+	 * field last. An old binary reads a newer cache file by the old
+	 * struct size and ignores the tail bytes. A new binary rejects a
+	 * smaller old cache file and rebuilds it.
+	 */
+	unsigned long thp_pmd_size;
 };
 
 extern struct kerndat_s kdat;
