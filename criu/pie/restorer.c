@@ -37,6 +37,7 @@
 #include "image.h"
 #include "sk-inet.h"
 #include "vma.h"
+#include "hugetlb.h"
 #include "uffd.h"
 #include "sched.h"
 
@@ -1236,6 +1237,12 @@ static int vma_remap(VmaEntry *vma_entry, int uffd)
 		 */
 
 		unsigned long addr;
+		unsigned long alignment = vma_entry_pagesize(vma_entry);
+		unsigned long reserve, base;
+
+		if (!alignment || len > ULONG_MAX - (alignment - PAGE_SIZE))
+			return -1;
+		reserve = len + alignment - PAGE_SIZE;
 
 		/* Map guard page (step 2) */
 		tmp = sys_mmap((void *)guard, PAGE_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
@@ -1245,11 +1252,17 @@ static int vma_remap(VmaEntry *vma_entry, int uffd)
 		}
 
 		/* Move src to non-overlapping place (step 3) */
-		addr = sys_mmap(NULL, len, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-		if (IS_ERR((void *)addr)) {
-			pr_err("Unable to reserve memory (%lx)\n", addr);
+		base = sys_mmap(NULL, reserve, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+		if (IS_ERR((void *)base)) {
+			pr_err("Unable to reserve memory (%lx)\n", base);
 			return -1;
 		}
+		addr = ALIGN(base, alignment);
+		if (addr > base && sys_munmap((void *)base, addr - base))
+			return -1;
+		if (base + reserve > addr + len &&
+		    sys_munmap((void *)(addr + len), base + reserve - addr - len))
+			return -1;
 
 		tmp = sys_mremap(src, len, len, MREMAP_MAYMOVE | MREMAP_FIXED, addr);
 		if (tmp != addr) {
@@ -1532,6 +1545,26 @@ static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len, v
 		return -1;
 	}
 
+	return 0;
+}
+
+static int unmap_premap_gaps(struct task_restore_args *args)
+{
+	unsigned long end = args->premmapped_addr;
+	int i;
+
+	for (i = 0; i < args->vmas_n; i++) {
+		VmaEntry *vma = &args->vmas[i];
+		unsigned long start;
+
+		if (!vma_entry_is(vma, VMA_PREMMAPED))
+			continue;
+		start = vma_premmaped_start(vma);
+		if (vma->flags & MAP_HUGETLB && start > end)
+			if (sys_munmap((void *)end, start - end))
+				return -1;
+		end = start + vma_entry_len(vma);
+	}
 	return 0;
 }
 
@@ -2396,6 +2429,8 @@ __visible long __export_restore_task(struct task_restore_args *args)
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len, bootstrap_start, bootstrap_len,
 			   args->task_size))
+		goto core_restore_end;
+	if (unmap_premap_gaps(args))
 		goto core_restore_end;
 
 	/* Map vdso that wasn't parked */
