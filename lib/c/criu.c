@@ -920,28 +920,38 @@ void criu_set_cpu_cap(unsigned int cap)
 
 int criu_local_set_exec_cmd(criu_opts *opts, int argc, char *argv[])
 {
+	char **cmd = NULL;
 	int i;
 
-	opts->rpc->n_exec_cmd = argc;
-	opts->rpc->exec_cmd = malloc((argc) * sizeof(char *));
+	if (argc < 0 || (argc > 0 && !argv))
+		return -EINVAL;
 
-	if (opts->rpc->exec_cmd) {
-		for (i = 0; i < argc; i++) {
-			opts->rpc->exec_cmd[i] = strdup(argv[i]);
-			if (!opts->rpc->exec_cmd[i]) {
-				while (i > 0)
-					free(opts->rpc->exec_cmd[i--]);
-				free(opts->rpc->exec_cmd);
-				opts->rpc->n_exec_cmd = 0;
-				opts->rpc->exec_cmd = NULL;
-				goto out;
-			}
-		}
-		return 0;
+	if (argc > 0) {
+		cmd = malloc(argc * sizeof(*cmd));
+		if (!cmd)
+			return -ENOMEM;
 	}
 
-out:
-	return -ENOMEM;
+	for (i = 0; i < argc; i++) {
+		cmd[i] = strdup(argv[i]);
+		if (!cmd[i]) {
+			while (i-- > 0)
+				free(cmd[i]);
+			free(cmd);
+			return -ENOMEM;
+		}
+	}
+
+	if (opts->rpc->exec_cmd) {
+		for (i = 0; i < opts->rpc->n_exec_cmd; i++)
+			free(opts->rpc->exec_cmd[i]);
+		free(opts->rpc->exec_cmd);
+	}
+
+	opts->rpc->exec_cmd = cmd;
+	opts->rpc->n_exec_cmd = (size_t)argc;
+
+	return 0;
 }
 
 int criu_set_exec_cmd(int argc, char *argv[])
