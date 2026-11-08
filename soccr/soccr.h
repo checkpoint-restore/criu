@@ -190,6 +190,11 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned fl
 union libsoccr_addr *libsoccr_get_addr(struct libsoccr_sk *sk, int self, unsigned flags);
 
 /*
+ * Returns the socket descriptor that was passed to libsoccr_pause().
+ */
+int libsoccr_get_fd(struct libsoccr_sk *sk);
+
+/*
  * RESTORING calls
  *
  * The restoring of a socket is like below

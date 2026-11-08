@@ -438,11 +438,48 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned fl
 #define GET_SA_FLAGS (SOCCR_MEM_EXCL)
 union libsoccr_addr *libsoccr_get_addr(struct libsoccr_sk *sk, int self, unsigned flags)
 {
+	union libsoccr_addr **p, *ret;
+	unsigned fl = self ? SK_FLAG_FREE_SA : SK_FLAG_FREE_DA;
+	socklen_t len = sizeof(*ret);
+	int err;
+
 	if (flags & ~GET_SA_FLAGS)
 		return NULL;
 
-	/* FIXME -- implemented in CRIU, makes sense to have it here too */
-	return NULL;
+	p = self ? &sk->src_addr : &sk->dst_addr;
+	if (!*p) {
+		ret = calloc(1, sizeof(*ret));
+		if (!ret) {
+			loge("Unable to allocate memory\n");
+			return NULL;
+		}
+
+		if (self)
+			err = getsockname(sk->fd, &ret->sa, &len);
+		else
+			err = getpeername(sk->fd, &ret->sa, &len);
+		if (err < 0) {
+			logerr("Can't get socket address");
+			free(ret);
+			return NULL;
+		}
+
+		*p = ret;
+		sk->flags |= fl;
+	}
+
+	ret = *p;
+	if (flags & SOCCR_MEM_EXCL) {
+		*p = NULL;
+		sk->flags &= ~fl;
+	}
+
+	return ret;
+}
+
+int libsoccr_get_fd(struct libsoccr_sk *sk)
+{
+	return sk->fd;
 }
 
 static int set_queue_seq(struct libsoccr_sk *sk, int queue, __u32 seq)
