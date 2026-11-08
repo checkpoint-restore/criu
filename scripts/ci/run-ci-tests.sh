@@ -333,7 +333,9 @@ run_non_shardable_tests() {
 		make -C test/others/shell-job/ run
 	fi
 	make -C test/others/criu-ns/ run
+	make -C test/others/cgroupns-root/ run
 	make -C test/others/skip-file-rwx-check/ run
+	make -C test/others/cgroup-external/ run
 	make -C test/others/rpc/ run
 
 	./test/zdtm.py run -t zdtm/static/env00 --sibling
