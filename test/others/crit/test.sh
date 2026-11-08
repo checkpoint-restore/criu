@@ -121,6 +121,7 @@ CRIT_TEST_DIR="${BASE_DIR}/test/others/crit"
 COMPRESSION_IMAGE_HELPER="${CRIT_TEST_DIR}/compression_image_helpers.py"
 CRIT_TRANSACTION_TESTS="${CRIT_TEST_DIR}/crit_transaction_tests.py"
 CRIT_COMPRESSION_TESTS="${CRIT_TEST_DIR}/crit_compression_tests.py"
+CRIT_PYCRIU_TESTS="${CRIT_TEST_DIR}/crit_pycriu_tests.py"
 
 function dump_test_process {
 	# Dump compress_pages02 (covers 8 mapping types: anonymous,
@@ -361,6 +362,11 @@ function test_commit_transactions {
 function test_compress_regressions {
 	PYTHONPATH="${BASE_DIR}/lib:${BASE_DIR}/crit" \
 		python3 "$CRIT_COMPRESSION_TESTS"
+}
+
+function run_test_pycriu {
+	PYTHONPATH="${BASE_DIR}/lib:${BASE_DIR}/crit" \
+		python3 "$CRIT_PYCRIU_TESTS" -v
 }
 
 function run_test_compress {
@@ -662,6 +668,7 @@ ${CRIT} --version
 gen_imgs
 run_test1
 run_test2
+run_test_pycriu
 
 # Skip compress/decompress tests if lz4 or CRIU compression is unavailable
 if PYTHONPATH="${BASE_DIR}/lib" python3 "$COMPRESSION_IMAGE_HELPER" \
