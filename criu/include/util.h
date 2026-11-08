@@ -291,6 +291,7 @@ void fd_set_nonblocking(int fd, bool on);
 
 const char *ns_to_string(unsigned int ns);
 
+int xatol_base(const char *string, long *number, int base);
 int xatol(const char *string, long *number);
 int xatoi(const char *string, int *number);
 

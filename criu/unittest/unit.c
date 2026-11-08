@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
+#include <limits.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sched.h>
@@ -11,6 +12,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "string.h"
 #include "criu-log.h"
 #include "bfd.h"
 #include "compression.h"
@@ -336,6 +338,261 @@ static void test_bwrite(void)
 	close(fd);
 	free(buf);
 	free(read_buf);
+}
+
+static void test_strlcpy(void)
+{
+	char buf[16];
+	size_t ret;
+
+	/*
+	 * 1. Normal copy within capacity:
+	 * Returns source length, NUL-terminates, and does not zero-pad
+	 * bytes past the NUL terminator.
+	 */
+	memset(buf, 'x', sizeof(buf));
+	ret = __strlcpy(buf, "hello", sizeof(buf));
+	assert(ret == 5);
+	assert(!strcmp(buf, "hello"));
+	assert(buf[6] == 'x');
+
+	/*
+	 * 2. Boundary condition: size == strlen(src) + 1
+	 * Exactly fits src plus the NUL terminator without truncation,
+	 * leaving the byte at index == size untouched.
+	 */
+	memset(buf, 'x', sizeof(buf));
+	ret = __strlcpy(buf, "hello", 6);
+	assert(ret == 5);
+	assert(!strcmp(buf, "hello"));
+	assert(buf[6] == 'x');
+
+	/*
+	 * 3. Truncation return values:
+	 * Returns O(N) source length, while buffer holds size - 1 characters
+	 * plus a NUL terminator. Truncation is indicated by ret >= size.
+	 */
+	memset(buf, 'x', sizeof(buf));
+	ret = __strlcpy(buf, "hello world", 6);
+	assert(ret == 11);
+	assert(ret >= 6); /* Truncation detected */
+	assert(!strcmp(buf, "hello"));
+	assert(buf[6] == 'x');
+
+	memset(buf, 'x', sizeof(buf));
+	ret = __strlcpy(buf, "hello", 3);
+	assert(ret == 5);
+	assert(ret >= 3); /* Truncation detected */
+	assert(!strcmp(buf, "he"));
+	assert(buf[3] == 'x');
+
+	/* Single-byte buffer (size = 1): empty string, returns full length */
+	memset(buf, 'x', sizeof(buf));
+	ret = __strlcpy(buf, "hello", 1);
+	assert(ret == 5);
+	assert(buf[0] == '\0');
+	assert(buf[1] == 'x');
+
+	/*
+	 * 4. Zero-length destination buffer safety (size = 0):
+	 * Destination buffer must not be touched or written to at all,
+	 * but returns the full source length.
+	 */
+	memset(buf, 'x', sizeof(buf));
+	ret = __strlcpy(buf, "hello", 0);
+	assert(ret == 5);
+	assert(buf[0] == 'x');
+	assert(__strlcpy(NULL, "hello", 0) == 5);
+
+	/* Empty source string */
+	memset(buf, 'x', sizeof(buf));
+	ret = __strlcpy(buf, "", sizeof(buf));
+	assert(ret == 0);
+	assert(buf[0] == '\0');
+	assert(buf[1] == 'x');
+}
+
+static void test_strlcat(void)
+{
+	char buf[16];
+	size_t ret;
+
+	/*
+	 * 1. Append within capacity:
+	 * Returns strlen(dest) + strlen(src) and NUL-terminates.
+	 */
+	memset(buf, 'x', sizeof(buf));
+	strcpy(buf, "foo");
+	ret = __strlcat(buf, "bar", sizeof(buf));
+	assert(ret == 6);
+	assert(!strcmp(buf, "foobar"));
+	assert(buf[7] == 'x');
+
+	/*
+	 * 2. Boundary condition: count == strlen(dest) + strlen(src) + 1
+	 * Exactly fits appended string with NUL terminator.
+	 */
+	memset(buf, 'x', sizeof(buf));
+	strcpy(buf, "foo");
+	ret = __strlcat(buf, "bar", 7);
+	assert(ret == 6);
+	assert(!strcmp(buf, "foobar"));
+	assert(buf[7] == 'x');
+
+	/* Boundary condition: count == strlen(dest) + 1 (0 bytes of src fit) */
+	memset(buf, 'x', sizeof(buf));
+	strcpy(buf, "foo");
+	ret = __strlcat(buf, "bar", 4);
+	assert(ret == 6);
+	assert(!strcmp(buf, "foo"));
+	assert(buf[4] == 'x');
+
+	/*
+	 * 3. Truncation return values:
+	 * Returns total untruncated length (dsize + len), while buffer
+	 * holds as much as fits plus a NUL terminator. Truncation is
+	 * indicated by ret >= count.
+	 */
+	memset(buf, 'x', sizeof(buf));
+	strcpy(buf, "hello ");
+	ret = __strlcat(buf, "world!", 8);
+	assert(ret == 12);
+	assert(ret >= 8); /* Truncation detected */
+	assert(!strcmp(buf, "hello w"));
+	assert(buf[8] == 'x');
+
+	/*
+	 * 4. Appending empty string leaves destination unchanged
+	 */
+	strcpy(buf, "foo");
+	ret = __strlcat(buf, "", sizeof(buf));
+	assert(ret == 3);
+	assert(!strcmp(buf, "foo"));
+
+	/*
+	 * 5. Appending to an empty destination behaves like a copy
+	 */
+	memset(buf, 'x', sizeof(buf));
+	buf[0] = '\0';
+	ret = __strlcat(buf, "bar", sizeof(buf));
+	assert(ret == 3);
+	assert(!strcmp(buf, "bar"));
+}
+
+static void test_xatol_base(void)
+{
+	long val = 0;
+
+	/* Decimal base 10 */
+	assert(xatol_base("42", &val, 10) == 0 && val == 42);
+	assert(xatol_base("+42", &val, 10) == 0 && val == 42);
+	assert(xatol_base("-42", &val, 10) == 0 && val == -42);
+	assert(xatol_base("0", &val, 10) == 0 && val == 0);
+
+	/* Hexadecimal base 16 */
+	assert(xatol_base("2a", &val, 16) == 0 && val == 42);
+	assert(xatol_base("2A", &val, 16) == 0 && val == 42);
+	assert(xatol_base("0x2a", &val, 16) == 0 && val == 42);
+	assert(xatol_base("ff", &val, 16) == 0 && val == 255);
+	assert(xatol_base("-1a", &val, 16) == 0 && val == -26);
+
+	/* Octal base 8 */
+	assert(xatol_base("52", &val, 8) == 0 && val == 42);
+	assert(xatol_base("77", &val, 8) == 0 && val == 63);
+	assert(xatol_base("077", &val, 8) == 0 && val == 63);
+
+	/* Binary base 2 */
+	assert(xatol_base("101010", &val, 2) == 0 && val == 42);
+	assert(xatol_base("1111", &val, 2) == 0 && val == 15);
+
+	/* Auto-detected base 0 */
+	assert(xatol_base("0x10", &val, 0) == 0 && val == 16);
+	assert(xatol_base("010", &val, 0) == 0 && val == 8);
+	assert(xatol_base("10", &val, 0) == 0 && val == 10);
+
+	/* Invalid digits for the given base leave output untouched */
+	val = 777;
+	assert(xatol_base("18", &val, 8) == -EINVAL && val == 777);
+	assert(xatol_base("2", &val, 2) == -EINVAL && val == 777);
+	assert(xatol_base("1g", &val, 16) == -EINVAL && val == 777);
+}
+
+static void test_xatol_xatoi(void)
+{
+	long l = 0;
+	int i = 0;
+	char big[64];
+
+	/*
+	 * 1. Number parsing with standard base 10 conversion
+	 */
+	assert(xatol("42", &l) == 0 && l == 42);
+	assert(xatol("+42", &l) == 0 && l == 42);
+	assert(xatol("-7", &l) == 0 && l == -7);
+	assert(xatol("0", &l) == 0 && l == 0);
+
+	/*
+	 * 2. Invalid formatting rejection ("12x", "0x10", empty string)
+	 * Output parameter must remain untouched on error.
+	 */
+	l = 999;
+	assert(xatol("", &l) == -EINVAL && l == 999);
+	assert(xatol("12x", &l) == -EINVAL && l == 999);
+	assert(xatol("0x10", &l) == -EINVAL && l == 999);
+	assert(xatol("abc", &l) == -EINVAL && l == 999);
+	assert(xatol(" ", &l) == -EINVAL && l == 999);
+	assert(xatol("12 34", &l) == -EINVAL && l == 999);
+	assert(xatol("12\t", &l) == -EINVAL && l == 999);
+	assert(xatol("+", &l) == -EINVAL && l == 999);
+	assert(xatol("-", &l) == -EINVAL && l == 999);
+
+	/*
+	 * 3. Integer overflow/underflow handling (LONG_MAX, LONG_MIN)
+	 */
+	snprintf(big, sizeof(big), "%lld", (long long)LONG_MAX);
+	assert(xatol(big, &l) == 0 && l == LONG_MAX);
+
+	snprintf(big, sizeof(big), "%lld", (long long)LONG_MIN);
+	assert(xatol(big, &l) == 0 && l == LONG_MIN);
+
+	/* Overflow beyond LONG_MAX */
+	snprintf(big, sizeof(big), "%lld0", (long long)LONG_MAX);
+	assert(xatol(big, &l) == -EINVAL);
+	assert(xatol("99999999999999999999999999999999", &l) == -EINVAL);
+
+	/* Underflow beyond LONG_MIN */
+	snprintf(big, sizeof(big), "-%lld0", (long long)LONG_MAX);
+	assert(xatol(big, &l) == -EINVAL);
+	assert(xatol("-99999999999999999999999999999999", &l) == -EINVAL);
+
+	/*
+	 * 4. xatoi bounds clamping and INT_MAX / INT_MIN handling
+	 */
+	assert(xatoi("123", &i) == 0 && i == 123);
+	assert(xatoi("-123", &i) == 0 && i == -123);
+	assert(xatoi("0", &i) == 0 && i == 0);
+
+	snprintf(big, sizeof(big), "%d", INT_MAX);
+	assert(xatoi(big, &i) == 0 && i == INT_MAX);
+
+	snprintf(big, sizeof(big), "%d", INT_MIN);
+	assert(xatoi(big, &i) == 0 && i == INT_MIN);
+
+	/* Value valid as long but out of int range -> -ERANGE */
+	if (sizeof(long) > sizeof(int)) {
+		i = 555;
+		snprintf(big, sizeof(big), "%lld", (long long)INT_MAX + 1);
+		assert(xatoi(big, &i) == -ERANGE && i == 555);
+
+		snprintf(big, sizeof(big), "%lld", (long long)INT_MIN - 1);
+		assert(xatoi(big, &i) == -ERANGE && i == 555);
+	}
+
+	/* Invalid formatting propagation in xatoi */
+	i = 555;
+	assert(xatoi("12x", &i) == -EINVAL && i == 555);
+	assert(xatoi("0x10", &i) == -EINVAL && i == 555);
+	assert(xatoi("", &i) == -EINVAL && i == 555);
 }
 
 #ifdef CONFIG_LZ4
@@ -680,6 +937,10 @@ int main(int argc, char *argv[], char *envp[])
 
 	test_bfd();
 	test_bwrite();
+	test_strlcpy();
+	test_strlcat();
+	test_xatol_base();
+	test_xatol_xatoi();
 	test_pagemap_offset_alignment();
 	test_plugin_dispatch_all();
 	test_plugin_options();

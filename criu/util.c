@@ -56,7 +56,7 @@
 #include "compel/infect-util.h"
 #include <compel/plugins/std/syscall-codes.h>
 
-static int xatol_base(const char *string, long *number, int base)
+int xatol_base(const char *string, long *number, int base)
 {
 	char *endptr;
 	long nr;
