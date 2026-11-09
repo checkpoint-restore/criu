@@ -257,6 +257,7 @@ void criu_local_free_opts(criu_opts *opts)
 	free(opts->rpc->parent_img);
 	free(opts->rpc->root);
 	free(opts->rpc->freeze_cgroup);
+	free(opts->rpc->images_dir);
 	free(opts->rpc->log_file);
 	free(opts->rpc->lsm_profile);
 	free(opts->rpc->lsm_mount_context);
@@ -359,6 +360,22 @@ void criu_local_set_images_dir_fd(criu_opts *opts, int fd)
 void criu_set_images_dir_fd(int fd)
 {
 	criu_local_set_images_dir_fd(global_opts, fd);
+}
+
+int criu_local_set_images_dir(criu_opts *opts, const char *dir)
+{
+	int ret;
+
+	ret = set_opts_string(&opts->rpc->images_dir, dir);
+	if (!ret)
+		opts->rpc->images_dir_fd = -1;
+
+	return ret;
+}
+
+int criu_set_images_dir(const char *dir)
+{
+	return criu_local_set_images_dir(global_opts, dir);
 }
 
 int criu_local_set_parent_images(criu_opts *opts, const char *path)
