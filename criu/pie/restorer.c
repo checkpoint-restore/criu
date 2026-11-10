@@ -492,12 +492,45 @@ static void restore_sched_info(struct rst_sched_param *p)
 	sys_sched_setscheduler(0, p->policy, &param);
 }
 
+/*
+ * The restorer still opens files (the LSM label) and appends to the log
+ * after the rlimits are applied, so RLIMIT_NOFILE and RLIMIT_FSIZE are
+ * left as inherited from CRIU until restore_rlims_late(): a task that has
+ * used up its descriptor slots would fail those opens with EMFILE, and a
+ * write past RLIMIT_FSIZE queues SIGXFSZ, which kills the task on
+ * sigreturn. Setting them late needs no privilege: they are lowered, or
+ * raised within what CRIU itself may use.
+ */
+static bool rlim_restored_late(int r)
+{
+	return r == RLIMIT_NOFILE || r == RLIMIT_FSIZE;
+}
+
 static void restore_rlims(struct task_restore_args *ta)
 {
 	int r;
 
 	for (r = 0; r < ta->rlims_n; r++) {
 		struct krlimit krlim;
+
+		if (rlim_restored_late(r))
+			continue;
+
+		krlim.rlim_cur = ta->rlims[r].rlim_cur;
+		krlim.rlim_max = ta->rlims[r].rlim_max;
+		sys_setrlimit(r, &krlim);
+	}
+}
+
+static void restore_rlims_late(struct task_restore_args *ta)
+{
+	int r;
+
+	for (r = 0; r < ta->rlims_n; r++) {
+		struct krlimit krlim;
+
+		if (!rlim_restored_late(r))
+			continue;
 
 		krlim.rlim_cur = ta->rlims[r].rlim_cur;
 		krlim.rlim_max = ta->rlims[r].rlim_max;
@@ -2880,6 +2913,12 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		sys_setitimer(ITIMER_PROF, &args->itimers[2], NULL);
 
 	restore_posix_timers(args);
+
+	/*
+	 * Every thread is past the last stage barrier and none opens or
+	 * logs any more; thread_fini() closes the log and unmaps args.
+	 */
+	restore_rlims_late(args);
 
 	thread_fini();
 

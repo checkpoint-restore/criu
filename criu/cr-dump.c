@@ -377,16 +377,23 @@ static inline rlim_t encode_rlim(rlim_t val)
 	return val == RLIM_INFINITY ? -1 : val;
 }
 
-static int dump_task_rlimits(int pid, TaskRlimitsEntry *rls)
+static int dump_task_rlimits(struct parasite_ctl *ctl, int pid, TaskRlimitsEntry *rls)
 {
 	int res;
 
 	for (res = 0; res < rls->n_rlimits; res++) {
 		struct rlimit64 lim;
+		struct rlimit orig;
 
 		if (syscall(__NR_prlimit64, pid, res, NULL, &lim)) {
 			pr_perror("Can't get rlimit %d", res);
 			return -1;
+		}
+
+		/* The parasite may have raised it; record the task's own limit */
+		if (compel_orig_rlimit(ctl, res, &orig)) {
+			lim.rlim_cur = orig.rlim_cur;
+			lim.rlim_max = orig.rlim_max;
 		}
 
 		rls->rlimits[res]->cur = encode_rlim(lim.rlim_cur);
@@ -807,7 +814,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl, struct pstree_item *item
 	if (ret)
 		goto err;
 
-	ret = dump_task_rlimits(pid, core->tc->rlimits);
+	ret = dump_task_rlimits(ctl, pid, core->tc->rlimits);
 	if (ret)
 		goto err;
 
