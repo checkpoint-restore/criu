@@ -28,7 +28,7 @@ mnt_info_t *get_cwd_mnt_info(void)
 {
 	int mnt_id, parent_mnt_id;
 	unsigned int kmaj, kmin;
-	char str[1024], *cwd;
+	char *str = NULL, *cwd;
 	int ret;
 	FILE *f;
 
@@ -38,7 +38,7 @@ mnt_info_t *get_cwd_mnt_info(void)
 	char root[PATH_MAX];
 
 	char *fsname = NULL;
-	size_t len = 0, best_len = 0;
+	size_t str_len = 0, len = 0, best_len = 0;
 
 	f = fopen("/proc/self/mountinfo", "r");
 	if (!f)
@@ -52,7 +52,7 @@ mnt_info_t *get_cwd_mnt_info(void)
 	if (!m)
 		goto err;
 
-	while (fgets(str, sizeof(str), f)) {
+	while (getline(&str, &str_len, f) != -1) {
 		char *hyphen = strchr(str, '-');
 		ret = sscanf(str, "%i %i %u:%u %4095s %4095s", &mnt_id, &parent_mnt_id, &kmaj, &kmin, root, mountpoint);
 		if (ret != 6 || !hyphen)
@@ -82,6 +82,7 @@ mnt_info_t *get_cwd_mnt_info(void)
 	}
 
 out:
+	free(str);
 	free(cwd);
 	fclose(f);
 
