@@ -290,6 +290,7 @@ void criu_local_set_weak_sysctls(criu_opts *opts, bool val);
 void criu_local_set_evasive_devices(criu_opts *opts, bool evasive_devices);
 void criu_local_set_shell_job(criu_opts *opts, bool shell_job);
 void criu_local_set_skip_file_rwx_check(criu_opts *opts, bool skip_file_rwx_check);
+void criu_local_set_unprivileged(criu_opts *opts, bool unprivileged);
 void criu_local_set_orphan_pts_master(criu_opts *opts, bool orphan_pts_master);
 void criu_local_set_file_locks(criu_opts *opts, bool file_locks);
 void criu_local_set_track_mem(criu_opts *opts, bool track_mem);
