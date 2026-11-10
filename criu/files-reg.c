@@ -2616,9 +2616,9 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base, struct cr_img *i
 	rfi->rfe = pb_msg(base, RegFileEntry);
 	/* change "/foo" into "foo" and "/" into "." */
 	if (rfi->rfe->name[1] == '\0')
-		rfi->path = dot;
+		rfi_set_path(rfi, dot);
 	else
-		rfi->path = rfi->rfe->name + 1;
+		rfi_set_path(rfi, rfi->rfe->name + 1);
 	rfi->remap = NULL;
 	rfi->size_mode_checked = false;
 

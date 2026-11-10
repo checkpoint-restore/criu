@@ -24,8 +24,17 @@ struct reg_file_info {
 	struct file_remap *remap;
 	bool size_mode_checked;
 	bool is_dir;
-	char *path;
+	/*
+	 * Shared between restoring tasks, so it must not be reassigned
+	 * once the rfi is visible to other tasks.
+	 */
+	char *const path;
 };
+
+static inline void rfi_set_path(struct reg_file_info *rfi, char *path)
+{
+	*(char **)&rfi->path = path;
+}
 
 extern int open_reg_by_id(u32 id);
 extern int open_reg_fd(struct file_desc *);
