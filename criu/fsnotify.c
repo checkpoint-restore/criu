@@ -408,6 +408,29 @@ out:
 	return fd;
 }
 
+#define FILEID_KERNFS 0xfe
+
+/*
+ * show_mark_fhandle() omits the handle of a mark when it cannot take
+ * s_umount of the mark's superblock shared. cgroup2 has one superblock for
+ * the whole node, so any cgroup2 mount, e.g. in a container, can do that.
+ * A kernfs handle is FILEID_KERNFS with the node id, which is the inode
+ * number where ino_t is 64-bit: rebuild it as the kernel would print it.
+ */
+static bool rebuild_kernfs_fhandle(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)
+{
+	struct mount_info *mi = lookup_mnt_sdev(s_dev);
+
+	if (!mi || mi->fstype->code != FSTYPE__CGROUP2 || sizeof(i_ino) < sizeof(u64))
+		return false;
+
+	f_handle->bytes = sizeof(u64);
+	f_handle->type = FILEID_KERNFS;
+	f_handle->handle[0] = i_ino;
+	pr_debug("\tRebuilt the kernfs handle of 0x%x:0x%lx\n", s_dev, i_ino);
+	return true;
+}
+
 int check_open_handle(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)
 {
 	char *path, *irmap_path;
@@ -415,6 +438,11 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle
 
 	if (fault_injected(FI_CHECK_OPEN_HANDLE))
 		goto fault;
+
+	if (!f_handle->bytes && !rebuild_kernfs_fhandle(s_dev, i_ino, f_handle)) {
+		pr_warn("\tNo handle for 0x%x:0x%lx in fdinfo\n", s_dev, i_ino);
+		goto fault;
+	}
 
 	/*
 	 * Always try to fetch watchee path first. There are several reasons:
