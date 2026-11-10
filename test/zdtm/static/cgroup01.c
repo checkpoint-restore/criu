@@ -18,7 +18,8 @@ static const char *empty = "empty";
 int main(int argc, char **argv)
 {
 	int cgfd, l, ret = 1, i;
-	char aux[1024], paux[1024];
+	char aux[1024], paux[1024], *buf = NULL;
+	size_t buf_len = 0;
 	FILE *cgf;
 	struct stat st;
 
@@ -72,14 +73,14 @@ int main(int argc, char **argv)
 		goto out_rs;
 	}
 
-	while (fgets(paux, sizeof(paux), cgf)) {
+	while (getline(&buf, &buf_len, cgf) != -1) {
 		char *s;
 
-		s = strstr(paux, cgname);
+		s = strstr(buf, cgname);
 		if (!s)
 			continue;
 
-		sscanf(paux, "%*d %*d %*d:%*d %*s %1023s", aux);
+		sscanf(buf, "%*d %*d %*d:%*d %*s %1023s", aux);
 		test_msg("found cgroup at %s\n", aux);
 
 		for (i = 0; i < 2; i++) {
@@ -106,6 +107,7 @@ int main(int argc, char **argv)
 	fail("empty cgroup not found!");
 
 out_close:
+	free(buf);
 	fclose(cgf);
 out_rs:
 	umount(dirname);

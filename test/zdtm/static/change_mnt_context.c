@@ -13,7 +13,8 @@ char *new_context = "context=\"system_u:object_r:container_file_t:s0:c204,c495\"
 int main(int argc, char **argv)
 {
 	char *dname = "/tmp/change_mount_context.XXXXXX";
-	char line[1024];
+	char *line = NULL;
+	size_t line_len = 0;
 	char opts[1024];
 	int ret = -1;
 	FILE *mi;
@@ -35,7 +36,7 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	while (fgets(line, sizeof(line), mi)) {
+	while (getline(&line, &line_len, mi) != -1) {
 		int result;
 		char *pos;
 
@@ -60,6 +61,7 @@ int main(int argc, char **argv)
 	if (ret == 0)
 		pass();
 out:
+	free(line);
 	umount(dname);
 	return ret;
 }

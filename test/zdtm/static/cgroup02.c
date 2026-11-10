@@ -94,7 +94,8 @@ int main(int argc, char **argv)
 {
 	FILE *cgf;
 	bool found_zdtmtstroot = false, found_newroot = false;
-	char paux[1024];
+	char paux[1024], *buf = NULL;
+	size_t buf_len = 0;
 	int ret = -1;
 	int fd;
 
@@ -133,16 +134,16 @@ int main(int argc, char **argv)
 		goto out_umount;
 	}
 
-	while (fgets(paux, sizeof(paux), cgf)) {
+	while (getline(&buf, &buf_len, cgf) != -1) {
 		char *s;
 
-		s = strstr(paux, cgname);
-		if (s && test_exists(paux, "prefix")) {
+		s = strstr(buf, cgname);
+		if (s && test_exists(buf, "prefix")) {
 			found_zdtmtstroot = true;
 		}
 
-		s = strstr(paux, cgname2);
-		if (s && test_exists(paux, "newroot")) {
+		s = strstr(buf, cgname2);
+		if (s && test_exists(buf, "newroot")) {
 			found_newroot = true;
 		}
 	}
@@ -161,6 +162,7 @@ int main(int argc, char **argv)
 	ret = 0;
 
 out_close:
+	free(buf);
 	fclose(cgf);
 out_umount:
 	sprintf(paux, "%s/%s", dirname, cgname);
