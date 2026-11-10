@@ -2050,7 +2050,7 @@ out:
  * retried.
  */
 
-static int rfi_remap(struct reg_file_info *rfi, int *level)
+static int rfi_remap(struct reg_file_info *rfi, char *rfi_path, int *level)
 {
 	struct mount_info *mi, *rmi, *tmi;
 	char _path[PATH_MAX], *path = _path;
@@ -2060,7 +2060,7 @@ static int rfi_remap(struct reg_file_info *rfi, int *level)
 	if (rfi->rfe->mnt_id == -1) {
 		/* Know nothing about mountpoints */
 		mntns_root = mntns_get_root_by_mnt_id(-1);
-		path = rfi->path;
+		path = rfi_path;
 		rpath = rfi->remap->rpath;
 		goto out_root;
 	}
@@ -2072,7 +2072,7 @@ static int rfi_remap(struct reg_file_info *rfi, int *level)
 	if (rfi->rfe->mnt_id == rfi->remap->rmnt_id) {
 		/* Both links on the same mount point */
 		tmi = mi;
-		path = rfi->path;
+		path = rfi_path;
 		rpath = rfi->remap->rpath;
 		goto out;
 	}
@@ -2093,7 +2093,7 @@ static int rfi_remap(struct reg_file_info *rfi, int *level)
 	BUG_ON(tmi->s_dev != mi->s_dev);
 
 	/* Calculate paths on the device (root mount) */
-	convert_path_from_another_mp(rfi->path, path, sizeof(_path), mi, tmi);
+	convert_path_from_another_mp(rfi_path, path, sizeof(_path), mi, tmi);
 	convert_path_from_another_mp(rfi->remap->rpath, rpath, sizeof(_rpath), rmi, tmi);
 
 out:
@@ -2190,19 +2190,26 @@ static bool validate_file(const int fd, const struct stat *fd_status, const stru
 	return true;
 }
 
-int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_file_info *, void *), void *arg)
+int open_path(struct file_desc *d,
+	      int (*open_cb)(int mntns_root, struct reg_file_info *,
+			     const char *, void *),
+	      void *arg)
 {
 	int tmp = -1, mntns_root, level = 0;
 	struct reg_file_info *rfi;
-	char *orig_path = NULL;
-	char path[PATH_MAX];
+	char _path[PATH_MAX], *path = _path;
 	int inh_fd = -1;
 	int ret;
 
 	if (inherited_fd(d, &tmp))
 		return tmp;
 
+	/*
+	 * The rfi is shared between restoring tasks, so work on a local copy
+	 * of the path instead of changing rfi->path.
+	 */
 	rfi = container_of(d, struct reg_file_info, d);
+	__strlcpy(_path, rfi->path, sizeof(_path));
 
 	if (rfi->rfe->ext) {
 		tmp = inherit_fd_lookup_id(rfi->rfe->name);
@@ -2213,9 +2220,7 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 			 * descriptors can be used here.
 			 */
 			mntns_root = open_pid_proc(getpid());
-			snprintf(path, sizeof(path), "fd/%d", tmp);
-			orig_path = rfi->path;
-			rfi->path = path;
+			snprintf(_path, sizeof(_path), "fd/%d", tmp);
 			goto ext;
 		}
 		pr_warn("External file %s has no --inherit-fd mapping on restore\n", rfi->rfe->name);
@@ -2233,10 +2238,9 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 			 * FIXME Can't make directory under new name.
 			 * Will have to open it under the ghost one :(
 			 */
-			orig_path = rfi->path;
-			rfi->path = rfi->remap->rpath;
-		} else if ((ret = rfi_remap(rfi, &level)) == 1) {
-			static char tmp_path[PATH_MAX];
+			path = rfi->remap->rpath;
+		} else if ((ret = rfi_remap(rfi, path, &level)) == 1) {
+			size_t len = strlen(_path);
 
 			/*
 			 * The file whose name we're trying to create
@@ -2248,26 +2252,29 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 			 * its silly-rename doesn't care, why should we?
 			 */
 
-			orig_path = rfi->path;
-			rfi->path = tmp_path;
-			snprintf(tmp_path, sizeof(tmp_path), "%s.cr_link", orig_path);
-			pr_debug("Fake %s -> %s link\n", rfi->remap->rpath, rfi->path);
+			if (snprintf(_path + len, sizeof(_path) - len,
+				     ".cr_link") >= sizeof(_path) - len) {
+				pr_err("Fake link name for %s is too long\n",
+				       rfi->path);
+				goto err;
+			}
+			pr_debug("Fake %s -> %s link\n", rfi->remap->rpath, path);
 
-			if (rfi_remap(rfi, &level)) {
+			if (rfi_remap(rfi, path, &level)) {
 				pr_perror("Can't create even fake link!");
 				goto err;
 			}
 		} else if (ret < 0) {
-			pr_perror("Can't link %s -> %s", rfi->remap->rpath, rfi->path);
+			pr_perror("Can't link %s -> %s", rfi->remap->rpath, path);
 			goto err;
 		}
 	}
 
 	mntns_root = mntns_get_root_by_mnt_id(rfi->rfe->mnt_id);
 ext:
-	tmp = open_cb(mntns_root, rfi, arg);
+	tmp = open_cb(mntns_root, rfi, path, arg);
 	if (tmp < 0) {
-		pr_perror("Can't open file %s", rfi->path);
+		pr_perror("Can't open file %s", path);
 		close_safe(&inh_fd);
 		goto err;
 	}
@@ -2302,9 +2309,9 @@ ext:
 		}
 
 		/*
-		 * This is only visible in the current process, so
-		 * change w/o locks. Other tasks sharing the same
-		 * file will get one via unix sockets.
+		 * The rfi is shared between restoring tasks, so this
+		 * is seen by all of them. Setting it w/o locks is fine:
+		 * at worst another task checks the same file again.
 		 */
 		rfi->size_mode_checked = true;
 	}
@@ -2316,19 +2323,17 @@ ext:
 			if (mi && try_remount_writable(mi, true))
 				goto err;
 
-			pr_debug("Unlink: %d:%s\n", rfi->rfe->mnt_id, rfi->path);
-			if (unlinkat(mntns_root, rfi->path, 0)) {
+			pr_debug("Unlink: %d:%s\n", rfi->rfe->mnt_id, path);
+			if (unlinkat(mntns_root, path, 0)) {
 				pr_perror("Failed to unlink the remap file");
 				goto err;
 			}
-			if (rm_parent_dirs(mntns_root, rfi->path, level))
+			if (rm_parent_dirs(mntns_root, path, level))
 				goto err;
 		}
 
 		mutex_unlock(remap_open_lock);
 	}
-	if (orig_path)
-		rfi->path = orig_path;
 
 	if (restore_fown(tmp, rfi->rfe->fown)) {
 		close(tmp);
@@ -2343,7 +2348,8 @@ err:
 	return -1;
 }
 
-int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi,
+			     const char *path, void *arg)
 {
 	u32 flags = *(u32 *)arg;
 	int fd;
@@ -2351,25 +2357,28 @@ int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *ar
 	/* unnamed temporary files are restored as ghost files */
 	flags &= ~O_TMPFILE;
 
-	fd = openat(ns_root_fd, rfi->path, flags);
+	fd = openat(ns_root_fd, path, flags);
 	if (fd < 0) {
-		pr_perror("Can't open file %s on restore", rfi->path);
+		pr_perror("Can't open file %s on restore", path);
 		return fd;
 	}
 
 	return fd;
 }
 
-static int do_open_reg_noseek(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+static int do_open_reg_noseek(int ns_root_fd, struct reg_file_info *rfi,
+			      const char *path, void *arg)
 {
-	return do_open_reg_noseek_flags(ns_root_fd, rfi, &rfi->rfe->flags);
+	return do_open_reg_noseek_flags(ns_root_fd, rfi, path,
+					&rfi->rfe->flags);
 }
 
-static int do_open_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+static int do_open_reg(int ns_root_fd, struct reg_file_info *rfi,
+		       const char *path, void *arg)
 {
 	int fd;
 
-	fd = do_open_reg_noseek(ns_root_fd, rfi, arg);
+	fd = do_open_reg_noseek(ns_root_fd, rfi, path, arg);
 	if (fd < 0)
 		return fd;
 

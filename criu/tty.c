@@ -549,11 +549,12 @@ static void pty_free_fake_reg(struct reg_file_info **r)
 	}
 }
 
-static int do_open_tty_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+static int do_open_tty_reg(int ns_root_fd, struct reg_file_info *rfi,
+			   const char *path, void *arg)
 {
 	int fd;
 
-	fd = do_open_reg_noseek_flags(ns_root_fd, rfi, arg);
+	fd = do_open_reg_noseek_flags(ns_root_fd, rfi, path, arg);
 	if (fd >= 0) {
 		/*
 		 * Peers might have different modes set
