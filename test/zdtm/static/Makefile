@@ -91,6 +91,7 @@ TST_NOFILE	:=				\
 		vdso02				\
 		vdso-proxy			\
 		utsname				\
+		prctl_name00			\
 		pstree				\
 		sockets01			\
 		sockets01-seqpacket		\
@@ -668,6 +669,7 @@ seccomp_filter_tsync:	LDLIBS += -pthread
 seccomp_filter_threads:	LDLIBS += -pthread
 timerslack_ns:		LDLIBS += -pthread
 personality00:		LDLIBS += -pthread
+prctl_name00:		LDLIBS += -pthread
 shm:			CFLAGS += -DNEW_IPC_NS
 msgque:			CFLAGS += -DNEW_IPC_NS
 sem:			CFLAGS += -DNEW_IPC_NS
