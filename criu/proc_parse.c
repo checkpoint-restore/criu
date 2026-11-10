@@ -1845,7 +1845,7 @@ static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 /* The kernel may omit the handle of a mark, see check_open_handle() */
 static void parse_mark_fhandle(char *tok, bool present, FhEntry *fh)
 {
-	if (present) {
+	if (present && !fault_injected(FI_FDINFO_NO_FHANDLE)) {
 		parse_fhandle_encoded(tok, fh);
 		return;
 	}

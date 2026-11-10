@@ -68,3 +68,7 @@ echo "zdtm/static/vfork00: criu dump crash detected as expected"
 
 # Check the case when /sys/fs/cgroup isn't the root cgroupv2 mount.
 ./test/zdtm.py run -t zdtm/static/cgroupns -t zdtm/static/cgroupv2_00 --fault 139 || fail
+
+# 140 drops the fhandle of every mark: a cgroup2 watch gets it rebuilt
+./test/zdtm.py run -t zdtm/static/inotify_cgroup2 --fault 140 -f h,ns || fail
+./test/zdtm.py run -t zdtm/static/inotify_cgroup2 --fault 140 --pre 2 -f h,ns || fail
