@@ -1842,6 +1842,19 @@ static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 	}
 }
 
+/* The kernel may omit the handle of a mark, see check_open_handle() */
+static void parse_mark_fhandle(char *tok, bool present, FhEntry *fh)
+{
+	if (present) {
+		parse_fhandle_encoded(tok, fh);
+		return;
+	}
+
+	fh->bytes = 0;
+	fh->type = 0;
+	memzero(fh->handle, pb_repeated_size(fh, handle));
+}
+
 static int parse_timerfd(struct bfd *f, char *str, TimerfdEntry *tfy)
 {
 	/*
@@ -2165,12 +2178,12 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				     "fhandle-bytes:%x fhandle-type:%x f_handle: %n",
 				     &me->ie->i_ino, &me->s_dev, &me->mflags, &me->mask, &me->ignored_mask,
 				     &me->ie->f_handle->bytes, &me->ie->f_handle->type, &hoff);
-			if (ret != 7 || hoff == 0) {
+			if ((ret != 7 || hoff == 0) && ret != 5) {
 				xfree(ob);
 				goto parse_err;
 			}
 
-			parse_fhandle_encoded(str + hoff, me->ie->f_handle);
+			parse_mark_fhandle(str + hoff, ret == 7, me->ie->f_handle);
 			me->type = MARK_TYPE__INODE;
 
 			i = fe->n_mark++;
@@ -2224,7 +2237,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 			void *buf, *ob;
 			InotifyFileEntry *ie = arg;
 			InotifyWdEntry *ify;
-			int hoff, i;
+			int hoff = 0, i;
 
 			if (type != FD_TYPES__INOTIFY)
 				goto parse_err;
@@ -2248,12 +2261,12 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				     "f_handle: %n",
 				     &ify->wd, &ify->i_ino, &ify->s_dev, &ify->mask, &ify->ignored_mask,
 				     &ify->f_handle->bytes, &ify->f_handle->type, &hoff);
-			if (ret != 7) {
+			if (ret != 7 && ret != 5) {
 				xfree(ob);
 				goto parse_err;
 			}
 
-			parse_fhandle_encoded(str + hoff, ify->f_handle);
+			parse_mark_fhandle(str + hoff, ret == 7, ify->f_handle);
 
 			i = ie->n_wd++;
 			if (xrealloc_safe(&ie->wd, ie->n_wd * sizeof(InotifyWdEntry *))) {
