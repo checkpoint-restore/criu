@@ -444,6 +444,7 @@ TST_DIR		=				\
 		inotify01			\
 		inotify02			\
 		inotify04			\
+		inotify_cgroup2			\
 		cgroup00			\
 		rmdir_open			\
 		cgroup01			\
