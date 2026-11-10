@@ -120,8 +120,11 @@ void criu_local_free_opts(criu_opts *opts)
 
 	if (!opts)
 		return;
-	if (!opts->rpc)
+	if (!opts->rpc) {
+		criu_free_service(opts);
+		free(opts);
 		return;
+	}
 
 	if (opts->rpc->exec_cmd) {
 		for (i = 0; i < opts->rpc->n_exec_cmd; i++) {
@@ -2161,7 +2164,7 @@ int criu_local_join_ns_add(criu_opts *opts, const char *ns, const char *ns_file,
 	}
 
 	if (!ns_file) {
-		fprintf(stderr, "ns parameter for join_ns is not specified");
+		fprintf(stderr, "ns_file parameter for join_ns is not specified");
 		goto err;
 	}
 
