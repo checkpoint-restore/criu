@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-dnf install -y \
+dnf install -y --allowerasing \
 	asciidoc \
 	binutils \
 	elfutils-libelf-devel \
