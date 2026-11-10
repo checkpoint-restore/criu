@@ -145,6 +145,8 @@ fedora-non-root-setup() {
 	"${CRIU_DIR}"/contrib/dependencies/dnf-packages.sh
 	# Disable sssd to avoid zdtm test failures in pty04 due to sssd socket
 	systemctl mask sssd
+	# Fedora 45 no longer ships the drop-in that cleared this
+	sysctl -w kernel.yama.ptrace_scope=0
 	# The rpc test cases are running as user #1000
 	adduser -u 1000 test
 	# The user-namespace test (unshare --map-auto) needs subordinate
@@ -165,10 +167,9 @@ fedora-non-root-test() {
 	# create output files without this.
 	chmod -R a+rwX .
 
-	# Setting the capability should be the only line needed to run
-	# as non-root on Fedora.  In other environments either set
-	# /proc/sys/kernel/yama/ptrace_scope to 0 or grant
-	# cap_sys_ptrace to criu.
+	# This and kernel.yama.ptrace_scope, set in the setup step, are
+	# what running as non-root needs. Granting cap_sys_ptrace to criu
+	# is the alternative to the sysctl.
 	setcap cap_checkpoint_restore+eip criu/criu
 
 	# Run it once as non-root.
