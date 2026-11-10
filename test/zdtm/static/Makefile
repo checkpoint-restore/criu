@@ -91,6 +91,7 @@ TST_NOFILE	:=				\
 		vdso02				\
 		vdso-proxy			\
 		utsname				\
+		prctl_name00			\
 		pstree				\
 		sockets01			\
 		sockets01-seqpacket		\
