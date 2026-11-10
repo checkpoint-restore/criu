@@ -369,25 +369,37 @@ int pipe_read_dest_init(struct pipe_read_dest *prd)
 {
 	int ret;
 
+	prd->p[0] = -1;
+	prd->p[1] = -1;
+	prd->sink_fd = -1;
+
 	if (pipe(prd->p)) {
 		pr_perror("Cannot create pipe for reading from page-pipe");
 		return -1;
 	}
 
 	ret = fcntl(prd->p[0], F_SETPIPE_SZ, PIPE_MAX_SIZE * PAGE_SIZE);
-	if (ret < 0)
-		return -1;
+	if (ret < 0) {
+		pr_perror("Cannot set pipe size for reading from page-pipe");
+		goto err;
+	}
 
 	prd->sink_fd = open("/dev/null", O_WRONLY);
 	if (prd->sink_fd < 0) {
 		pr_perror("Cannot open sink for reading from page-pipe");
-		return -1;
+		goto err;
 	}
 
 	ret = fcntl(prd->p[0], F_GETPIPE_SZ, 0);
 	pr_debug("Created tee pipe size %d\n", ret);
 
 	return 0;
+
+err:
+	close_safe(&prd->sink_fd);
+	close_safe(&prd->p[0]);
+	close_safe(&prd->p[1]);
+	return -1;
 }
 
 int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned long addr, unsigned long int *nr_pages,
@@ -411,7 +423,7 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned lo
 
 	if (!(ppb->flags & ppb_flags)) {
 		pr_err("PPB flags mismatch: %x %x\n", ppb_flags, ppb->flags);
-		return false;
+		return -1;
 	}
 
 	/* clamp the request if it passes the end of iovec */
