@@ -508,8 +508,9 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int subty
 
 	if ((subtype == TTY_SUBTYPE_MASTER && tty_is_master(info)) ||
 	    (subtype == TTY_SUBTYPE_SLAVE && !tty_is_master(info))) {
-		new->path = xstrdup(orig->path);
-		new->rfe->name = &new->path[1];
+		new->rfe->name = xstrdup(orig->rfe->name);
+		BUG_ON(!new->rfe->name);
+		new->path = &new->rfe->name[1];
 	} else {
 		char *pos = strrchr(orig->rfe->name, '/');
 		size_t len = strlen(orig->rfe->name) + 1;
