@@ -34,7 +34,8 @@ struct shared *sh;
 
 int pid_mntinfo_get_shid(char *pid, char *source)
 {
-	char path[PATH_MAX], line[BUF_SIZE];
+	char path[PATH_MAX], *line = NULL;
+	size_t line_len = 0;
 	FILE *mountinfo;
 	char *hyphen, *shared;
 	int ret = -1;
@@ -46,7 +47,7 @@ int pid_mntinfo_get_shid(char *pid, char *source)
 		return ret;
 	}
 
-	while (fgets(line, sizeof(line), mountinfo)) {
+	while (getline(&line, &line_len, mountinfo) != -1) {
 		hyphen = strchr(line, '-');
 		if (!hyphen) {
 			pr_perror("no hyphen in mountinfo");
@@ -66,6 +67,7 @@ int pid_mntinfo_get_shid(char *pid, char *source)
 		break;
 	}
 
+	free(line);
 	fclose(mountinfo);
 	return ret;
 }

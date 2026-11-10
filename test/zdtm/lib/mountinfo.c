@@ -65,11 +65,10 @@ static void mountinfo_zdtm_free_all(struct mntns_zdtm *mntns)
 		mountinfo_zdtm_free(mountinfo);
 }
 
-#define BUF_SIZE 4096
-char buf[BUF_SIZE];
-
 int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 {
+	char *buf = NULL;
+	size_t buf_len = 0;
 	FILE *f;
 	int ret;
 
@@ -81,7 +80,7 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 		return -1;
 	}
 
-	while (fgets(buf, BUF_SIZE, f)) {
+	while (getline(&buf, &buf_len, f) != -1) {
 		struct mountinfo_zdtm *new;
 		unsigned int kmaj, kmin;
 		char *str, *hyphen, *shared, *master;
@@ -125,10 +124,12 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 		}
 	}
 
+	free(buf);
 	fclose(f);
 	return 0;
 free:
 	mountinfo_zdtm_free_all(mntns);
+	free(buf);
 	fclose(f);
 	return -1;
 }
