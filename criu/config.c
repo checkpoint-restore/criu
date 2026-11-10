@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
@@ -52,6 +53,7 @@ int parse_statement(int i, char *line, char **configuration)
 {
 	cleanup_free char *input = NULL;
 	int offset = 0, len = 0;
+	bool quoted = false;
 	char *tmp_string;
 
 	/*
@@ -120,6 +122,8 @@ int parse_statement(int i, char *line, char **configuration)
 		bool found_second_quote = false;
 		char *quote_start;
 		int quote_offset;
+
+		quoted = true;
 
 		/* Move by one to skip the leading quote. */
 		offset++;
@@ -230,6 +234,16 @@ int parse_statement(int i, char *line, char **configuration)
 	}
 
 out:
+	/*
+	 * A quoted value is taken as it is. It may contain spaces and '#',
+	 * and anything following it on the line was already checked while
+	 * the closing quote was located. The checks below index
+	 * configuration[i] with an offset into the whole line, which is
+	 * only meaningful for an unquoted value.
+	 */
+	if (quoted)
+		return i + 1;
+
 	/* Remove potential comments at the end */
 	if ((tmp_string = strstr(configuration[i], "#")) || (tmp_string = strstr(configuration[i], " #")))
 		tmp_string[0] = 0;

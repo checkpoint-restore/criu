@@ -368,7 +368,6 @@ static void test_compression(void)
 	page[0] = 0x42;
 	assert(page_is_all_zero(page) == false);
 
-
 	for (int a = 0; a < 3; a++) {
 		int accel = accels[a];
 		int cs;
@@ -713,6 +712,22 @@ int main(int argc, char *argv[], char *envp[])
 	assert(i == 2);
 	assert(!strcmp(configuration[0], "--dsfa"));
 	assert(!strcmp(configuration[1], "aaaaa \"bbbbbb\""));
+
+	/* A quoted value keeps its spaces and its '#'. */
+	i = parse_statement(0, "work-dir \"/tmp/with spaces\"\n", configuration);
+	assert(i == 2);
+	assert(!strcmp(configuration[0], "--work-dir"));
+	assert(!strcmp(configuration[1], "/tmp/with spaces"));
+
+	i = parse_statement(0, "log-file \"/tmp/i#j.log\"\n", configuration);
+	assert(i == 2);
+	assert(!strcmp(configuration[0], "--log-file"));
+	assert(!strcmp(configuration[1], "/tmp/i#j.log"));
+
+	i = parse_statement(0, "work-dir \"/tmp/a b\" #comment\n", configuration);
+	assert(i == 2);
+	assert(!strcmp(configuration[0], "--work-dir"));
+	assert(!strcmp(configuration[1], "/tmp/a b"));
 
 	i = parse_statement(0, "verbosity 4\n", configuration);
 	assert(i == 2);
