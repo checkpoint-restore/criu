@@ -1604,36 +1604,36 @@ int cr_fsmount(int fd, unsigned int flags, unsigned int attr_flags)
 
 void fsfd_dump_messages(int fd)
 {
-        char buf[4096];
-        int err, n;
+	char buf[4096];
+	int err, n;
 
-        err = errno;
+	err = errno;
 
-        for (;;) {
-                n = read(fd, buf, sizeof(buf) - 1);
-                if (n < 0) {
+	for (;;) {
+		n = read(fd, buf, sizeof(buf) - 1);
+		if (n < 0) {
 			if (errno != ENODATA)
 				pr_perror("Unable to read from fs descriptor");
-                        break;
+			break;
 		}
 		buf[n] = 0;
 
-                switch (buf[0]) {
-                case 'w':
-                        pr_warn("%s\n", buf);
-                        break;
-                case 'i':
-                        pr_info("%s\n", buf);
-                        break;
-                case 'e':
+		switch (buf[0]) {
+		case 'w':
+			pr_warn("%s\n", buf);
+			break;
+		case 'i':
+			pr_info("%s\n", buf);
+			break;
+		case 'e':
 			/* fallthrough */
 		default:
-                        pr_err("%s\n", buf);
-                        break;
-                }
-        }
+			pr_err("%s\n", buf);
+			break;
+		}
+	}
 
-        errno = err;
+	errno = err;
 }
 
 int mount_detached_fs(const char *fsname)
