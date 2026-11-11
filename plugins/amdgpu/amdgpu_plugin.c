@@ -33,6 +33,7 @@
 #include "criu-log.h"
 #include "files.h"
 #include "pstree.h"
+#include "namespaces.h"
 #include "sockets.h"
 #include "rst-malloc.h"
 
@@ -389,6 +390,15 @@ int amdgpu_plugin_init(int stage)
 	if (stage == CR_PLUGIN_STAGE__RESTORE) {
 		if (has_children(root_item)) {
 			pr_info("Parallel restore disabled\n");
+			parallel_disabled = true;
+		} else if (root_ns_mask & CLONE_NEWNS) {
+			/*
+			 * The parallel restore thread lives until RESUME_DEVICES_LATE,
+			 * but before then criu enters the restored mount namespace to
+			 * clean ghost files, and setns() refuses CLONE_NEWNS to a
+			 * multi-threaded process.
+			 */
+			pr_info("Parallel restore disabled: restoring a mount namespace\n");
 			parallel_disabled = true;
 		} else {
 			if (install_parallel_sock() < 0) {
@@ -1167,14 +1177,29 @@ int amdgpu_restore_init(void)
 {
 	int num_handles = 0;
 	struct dirent *dir;
+	int dfd;
 	DIR *d;
 
 	if (shared_memory)
 		return 0;
 
-	d = opendir(".");
-	if (!d)
+	/*
+	 * List the images directory, not the working directory. They differ
+	 * when criu runs with a separate work dir (-W, or work_dir_fd over
+	 * RPC); listing "." then finds no images, no shared memory is set up,
+	 * and store_dmabuf_fd() later locks a NULL mutex.
+	 */
+	dfd = dup(criu_get_image_dir());
+	if (dfd < 0) {
+		pr_perror("Failed to duplicate the images directory fd");
 		return -1;
+	}
+	d = fdopendir(dfd);
+	if (!d) {
+		pr_perror("Failed to open the images directory");
+		close(dfd);
+		return -1;
+	}
 
 	while ((dir = readdir(d)) != NULL) {
 		unsigned char *buf;
@@ -1347,11 +1372,18 @@ static int save_bos(int id, int fd, struct kfd_ioctl_criu_args *args, struct kfd
 	}
 
 	for (int i = 0; i < e->num_of_gpus; i++) {
+		struct kfd_criu_device_bucket *device_buckets = (struct kfd_criu_device_bucket *)args->devices;
 		struct tp_node *dev;
 		int ret_thread = 0;
 
-		dev = sys_get_node_by_index(&src_topology, i);
+		/*
+		 * Dump the process's own GPUs. criu can see more GPUs than the
+		 * process, for example when it dumps a container from outside,
+		 * so the i-th GPU of the topology need not be the process's.
+		 */
+		dev = sys_get_node_by_gpu_id(&src_topology, device_buckets[i].actual_gpu_id);
 		if (!dev) {
+			pr_err("Failed to find node with gpu_id:0x%04x\n", device_buckets[i].actual_gpu_id);
 			ret = -ENODEV;
 			goto exit;
 		}
