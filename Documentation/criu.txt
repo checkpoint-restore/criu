@@ -610,7 +610,7 @@ The 'resource' argument can be one of the following:
 +
     - **tty[**__rdev__**:**__dev__**]**
     - **pipe:[**__inode__**]**
-    - **socket:[**__inode__*]*
+    - **socket:[**__inode__**]**
     - **file[**__mnt_id__**:**__inode__**]**
     - 'path/to/file'
 
@@ -681,7 +681,7 @@ usually need to be escaped from shell.
     *--join-ns net:12345* or *--join-ns net:/foo/bar*). Currently supported
     values for **NS** are: *ipc*, *net*, *time*, *user*, and *uts*.
     This option doesn't support joining a PID namespace, however, this is
-    possible using *--external* and *--inheritfd*. 'EXTRA_OPTS' is optional
+    possible using *--external* and *--inherit-fd*. 'EXTRA_OPTS' is optional
     and can be used to specify UID and GID for user namespace (e.g.,
     *--join-ns user:PID,UID,GID*).
 
@@ -896,7 +896,7 @@ A missing Category 1 feature causes *criu* to print "Does not look good."
 and its exit code is non-zero.
 
 Missing Category 2 and 3 features cause *criu* to print "Looks good but
-..." and its exit code is be non-zero.
+..." and its exit code is non-zero.
 
 Without any options, *criu check* checks Category 1 features. This
 behavior can be changed by using the following options:
@@ -969,7 +969,7 @@ Launches *criu* in page server mode.
 
 *--tls-key* 'file'::
     Specifies a path to a file that contains TLS private key. The 'file' must
-    be in PEM format. When this option is not the default location
+    be in PEM format. When this option is not specified, the default location
     ('/etc/pki/criu/private/key.pem') will be used.
 
 *--tls*::
@@ -1018,11 +1018,11 @@ obtaining the references from a parent pagemap image.
 
 cpuinfo dump
 ~~~~~~~~~~~~
-Fetches current CPU features and write them into an image file.
+Fetches current CPU features and writes them into an image file.
 
 cpuinfo check
 ~~~~~~~~~~~~~
-Fetches current CPU features (i.e. CPU the *criu* is running on) and test if
+Fetches current CPU features (i.e. CPU the *criu* is running on) and tests if
 they are compatible with the ones present in an image file.
 
 
@@ -1090,7 +1090,7 @@ should only be used carefully.*
 NON-ROOT
 --------
 *criu* can be used as non-root with either the *CAP_SYS_ADMIN* capability
-or with the *CAP_CHECKPOINT_RESTORE* capability introduces in Linux kernel 5.9.
+or with the *CAP_CHECKPOINT_RESTORE* capability introduced in Linux kernel 5.9.
 *CAP_CHECKPOINT_RESTORE* is the minimum that is required.
 
 *criu* also needs either *CAP_SYS_PTRACE* or a value of 0 in
