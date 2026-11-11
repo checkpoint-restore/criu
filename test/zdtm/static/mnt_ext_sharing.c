@@ -48,13 +48,13 @@ int pid_mntinfo_get_shid(char *pid, char *source)
 	}
 
 	while (getline(&line, &line_len, mountinfo) != -1) {
-		hyphen = strchr(line, '-');
+		hyphen = strstr(line, " - ");
 		if (!hyphen) {
 			pr_perror("no hyphen in mountinfo");
 			break;
 		}
 
-		if (!strstr(hyphen + 1, source))
+		if (!strstr(hyphen + 3, source))
 			continue;
 
 		shared = strstr(line, "shared:");
