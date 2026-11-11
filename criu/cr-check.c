@@ -1898,6 +1898,7 @@ static struct feature_list feature_list[] = {
 	{ "timer_cr_ids", check_timer_cr_ids },
 	{ "overlayfs_maps", check_overlayfs_maps },
 	{ "pagemap_scan_guard_pages", check_pagemap_scan_guard_pages },
+	{ "statmount_by_fd", check_statmount_by_fd },
 	{ "binfmt_misc_sandboxing", check_binfmt_misc_sandboxing },
 	{ "compress", check_compress },
 	{ "encryption", check_encryption },
