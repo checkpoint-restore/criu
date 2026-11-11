@@ -9,7 +9,6 @@
 #include "common/config.h"
 #include "types.h"
 #include "int.h"
-#include "types.h"
 #include "common/compiler.h"
 #include <compel/asm/fpu.h>
 #include "common/lock.h"
