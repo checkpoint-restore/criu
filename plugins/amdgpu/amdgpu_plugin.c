@@ -33,6 +33,7 @@
 #include "criu-log.h"
 #include "files.h"
 #include "pstree.h"
+#include "namespaces.h"
 #include "sockets.h"
 #include "rst-malloc.h"
 
@@ -389,6 +390,15 @@ int amdgpu_plugin_init(int stage)
 	if (stage == CR_PLUGIN_STAGE__RESTORE) {
 		if (has_children(root_item)) {
 			pr_info("Parallel restore disabled\n");
+			parallel_disabled = true;
+		} else if (root_ns_mask & CLONE_NEWNS) {
+			/*
+			 * The parallel restore thread lives until RESUME_DEVICES_LATE,
+			 * but before then criu enters the restored mount namespace to
+			 * clean ghost files, and setns() refuses CLONE_NEWNS to a
+			 * multi-threaded process.
+			 */
+			pr_info("Parallel restore disabled: restoring a mount namespace\n");
 			parallel_disabled = true;
 		} else {
 			if (install_parallel_sock() < 0) {
