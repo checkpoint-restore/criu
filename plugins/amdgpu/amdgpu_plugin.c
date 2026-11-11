@@ -1362,11 +1362,18 @@ static int save_bos(int id, int fd, struct kfd_ioctl_criu_args *args, struct kfd
 	}
 
 	for (int i = 0; i < e->num_of_gpus; i++) {
+		struct kfd_criu_device_bucket *device_buckets = (struct kfd_criu_device_bucket *)args->devices;
 		struct tp_node *dev;
 		int ret_thread = 0;
 
-		dev = sys_get_node_by_index(&src_topology, i);
+		/*
+		 * Dump the process's own GPUs. criu can see more GPUs than the
+		 * process, for example when it dumps a container from outside,
+		 * so the i-th GPU of the topology need not be the process's.
+		 */
+		dev = sys_get_node_by_gpu_id(&src_topology, device_buckets[i].actual_gpu_id);
 		if (!dev) {
+			pr_err("Failed to find node with gpu_id:0x%04x\n", device_buckets[i].actual_gpu_id);
 			ret = -ENODEV;
 			goto exit;
 		}
