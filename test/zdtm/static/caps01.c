@@ -3,10 +3,17 @@
 #include <sys/types.h>
 #include <sys/prctl.h>
 #include <linux/capability.h>
+#ifdef AMBIENT_SECUREBITS
+#include <linux/securebits.h>
+#endif
 
 #include "zdtmtst.h"
 
+#ifdef AMBIENT_SECUREBITS
+const char *test_doc = "Preserve ambient capabilities with NO_CAP_AMBIENT_RAISE";
+#else
 const char *test_doc = "Check that CapAmb are preserved";
+#endif
 const char *test_author = "Liu Chao <liuchao173@huawei.com>";
 
 struct cap_hdr {
@@ -38,7 +45,7 @@ int main(int argc, char **argv)
 	task_waiter_t t;
 	int pid, result_pipe[2];
 	unsigned int amb[_LINUX_CAPABILITY_U32S_3];
-	unsigned int amb_2[_LINUX_CAPABILITY_U32S_3];
+	unsigned int amb_2[_LINUX_CAPABILITY_U32S_3] = { 0 };
 	char res = 'x';
 	FILE *f;
 
@@ -64,6 +71,11 @@ int main(int argc, char **argv)
 	pid = test_fork();
 	if (pid == 0) {
 		int b, i, ret;
+#ifdef AMBIENT_SECUREBITS
+		int securebits;
+		unsigned int bnd[_LINUX_CAPABILITY_U32S_3] = { 0 };
+		struct cap_data saved[_LINUX_CAPABILITY_U32S_3], restored[_LINUX_CAPABILITY_U32S_3];
+#endif
 		struct cap_hdr hdr;
 		struct cap_data data[_LINUX_CAPABILITY_U32S_3];
 
@@ -104,8 +116,78 @@ int main(int argc, char **argv)
 			}
 		}
 
+#ifdef AMBIENT_SECUREBITS
+		securebits = prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
+		if (securebits < 0) {
+			pr_perror("Unable to read securebits");
+			return -1;
+		}
+		securebits |= AMBIENT_SECUREBITS;
+		if (prctl(PR_SET_SECUREBITS, securebits, 0, 0, 0)) {
+			pr_perror("Unable to forbid ambient raises");
+			return -1;
+		}
+#endif
+
+#ifdef AMBIENT_SECUREBITS
+		for (b = 0; b < _LINUX_CAPABILITY_U32S_3; b++) {
+			saved[b] = data[b];
+			for (i = 0; i < 32 && b * 32 + i <= cap_last_cap; i++) {
+				ret = prctl(PR_CAPBSET_READ, b * 32 + i, 0, 0, 0);
+				if (ret < 0) {
+					pr_perror("Unable to read bounding set");
+					return -1;
+				}
+				bnd[b] |= (unsigned int)ret << i;
+			}
+		}
+#endif
+
 		task_waiter_complete_current(&t);
 		task_waiter_wait4(&t, getppid());
+
+#ifdef AMBIENT_SECUREBITS
+		if (capget(&hdr, restored) < 0) {
+			pr_perror("Unable to read restored capabilities");
+			goto bad;
+		}
+		for (b = 0; b < _LINUX_CAPABILITY_U32S_3; b++) {
+			if (restored[b].prm != saved[b].prm || restored[b].eff != saved[b].eff ||
+			    restored[b].inh != saved[b].inh) {
+				fail("P/E/I capabilities changed after restore");
+				goto bad;
+			}
+			for (i = 0; i < 32 && b * 32 + i <= cap_last_cap; i++) {
+				ret = prctl(PR_CAPBSET_READ, b * 32 + i, 0, 0, 0);
+				if (ret < 0 || (unsigned int)ret != ((bnd[b] >> i) & 1U)) {
+					fail("Bounding set changed after restore");
+					goto bad;
+				}
+			}
+		}
+		if (prctl(PR_GET_SECUREBITS, 0, 0, 0, 0) != securebits) {
+			fail("Securebits changed after restore");
+			goto bad;
+		}
+		errno = 0;
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, CAP_CHOWN, 0, 0) != -1 || errno != EPERM) {
+			fail("Ambient raises are not forbidden after restore");
+			goto bad;
+		}
+#if AMBIENT_SECUREBITS & SECBIT_NO_CAP_AMBIENT_RAISE_LOCKED
+		errno = 0;
+		if (prctl(PR_SET_SECUREBITS, securebits & ~SECBIT_NO_CAP_AMBIENT_RAISE, 0, 0, 0) != -1 ||
+		    errno != EPERM) {
+			fail("Ambient securebit lock was not preserved");
+			goto bad;
+		}
+#else
+		if (prctl(PR_SET_SECUREBITS, securebits & ~SECBIT_NO_CAP_AMBIENT_RAISE, 0, 0, 0)) {
+			fail("Unlocked ambient securebit cannot be cleared");
+			goto bad;
+		}
+#endif
+#endif
 
 		for (b = 0; b < _LINUX_CAPABILITY_U32S_3; b++) {
 			amb_2[b] = 0;
