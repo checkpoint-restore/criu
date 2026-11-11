@@ -1167,14 +1167,29 @@ int amdgpu_restore_init(void)
 {
 	int num_handles = 0;
 	struct dirent *dir;
+	int dfd;
 	DIR *d;
 
 	if (shared_memory)
 		return 0;
 
-	d = opendir(".");
-	if (!d)
+	/*
+	 * List the images directory, not the working directory. They differ
+	 * when criu runs with a separate work dir (-W, or work_dir_fd over
+	 * RPC); listing "." then finds no images, no shared memory is set up,
+	 * and store_dmabuf_fd() later locks a NULL mutex.
+	 */
+	dfd = dup(criu_get_image_dir());
+	if (dfd < 0) {
+		pr_perror("Failed to duplicate the images directory fd");
 		return -1;
+	}
+	d = fdopendir(dfd);
+	if (!d) {
+		pr_perror("Failed to open the images directory");
+		close(dfd);
+		return -1;
+	}
 
 	while ((dir = readdir(d)) != NULL) {
 		unsigned char *buf;
