@@ -769,6 +769,28 @@ int main(int argc, char *argv[], char *envp[])
 	i = parse_statement(0, "a b c d e f g h i\n", configuration);
 	assert(i == -1);
 
+	/* The example from the CONFIGURATION FILES section of criu(8) */
+	i = parse_statement(0, "work-dir \"/home/USERNAME/criu/my \\\"work\\\" directory\"\n", configuration);
+	assert(i == 2);
+	assert(!strcmp(configuration[0], "--work-dir"));
+	assert(!strcmp(configuration[1], "/home/USERNAME/criu/my \"work\" directory"));
+
+	i = parse_statement(0, "log-file \"/tmp/a#b.log\" # comment\n", configuration);
+	assert(i == 2);
+	assert(!strcmp(configuration[0], "--log-file"));
+	assert(!strcmp(configuration[1], "/tmp/a#b.log"));
+
+	i = parse_statement(0, "log-file\t\"/tmp/with spaces.log\"\n", configuration);
+	assert(i == 2);
+	assert(!strcmp(configuration[0], "--log-file"));
+	assert(!strcmp(configuration[1], "/tmp/with spaces.log"));
+
+	i = parse_statement(0, "log-file \"/tmp/a.log\"\tno-comment\n", configuration);
+	assert(i == -1);
+
+	i = parse_statement(0, "log-file \"/tmp/a.log\"no-comment\n", configuration);
+	assert(i == -1);
+
 	/* get_relative_path */
 	/* different kinds of representation of "/" */
 	assert(!strcmp(get_relative_path("/", "/"), ""));
