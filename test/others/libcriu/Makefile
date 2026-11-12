@@ -6,6 +6,7 @@ TESTS += test_notify
 TESTS += test_rpc_config
 TESTS += test_iters
 TESTS += test_errno
+TESTS += test_opts_reuse
 TESTS += test_join_ns
 TESTS += test_pre_dump
 TESTS += test_check
@@ -45,6 +46,10 @@ $(1): $(1).o lib.o
 endef
 
 $(foreach t, $(TESTS), $(eval $(call genb, $(t))))
+
+# dlsym lives in libdl on glibc < 2.34
+test_opts_reuse: LDFLAGS += -ldl
+
 
 %.o: %.c | $(CRIU_INCLUDE)
 	$(CC) -c $< $(CFLAGS) -o $@ -Werror
