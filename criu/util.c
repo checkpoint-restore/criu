@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <limits.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/sendfile.h>
@@ -2264,4 +2265,65 @@ int set_opts_cap_eff(void)
 		memcpy(&opts.cap_eff[i], &cap_data[i].effective, sizeof(u32));
 
 	return 0;
+}
+
+/*
+ * Number of 64-bit words needed to store a CPU affinity mask that is large
+ * enough for the kernel's cpumask_size(). Falls back to the traditional
+ * fixed-size cpu_set_t on error.
+ */
+static unsigned int cpu_affinity_probe_nwords(void)
+{
+	cpu_set_t *affinity;
+	size_t affinity_size;
+	size_t nr_cpus = CPU_SETSIZE;
+	unsigned int nwords;
+	long conf;
+	int affinity_errno;
+
+	conf = sysconf(_SC_NPROCESSORS_CONF);
+	if (conf > (long)nr_cpus)
+		nr_cpus = (size_t)conf;
+
+	for (;;) {
+		affinity = CPU_ALLOC(nr_cpus);
+		if (!affinity) {
+			pr_warn("Unable to allocate a CPU affinity mask\n");
+			goto fallback;
+		}
+		affinity_size = CPU_ALLOC_SIZE(nr_cpus);
+		CPU_ZERO_S(affinity_size, affinity);
+		if (sched_getaffinity(0, affinity_size, affinity) == 0) {
+			nwords = DIV_ROUND_UP(affinity_size, sizeof(uint64_t));
+			CPU_FREE(affinity);
+			goto found;
+		}
+		affinity_errno = errno;
+		CPU_FREE(affinity);
+		if (affinity_errno != EINVAL) {
+			pr_warn("Unable to read the CPU affinity mask: %s\n",
+				strerror(affinity_errno));
+			goto fallback;
+		}
+		if (nr_cpus > UINT_MAX / 2) {
+			pr_warn("CPU affinity mask is too large\n");
+			goto fallback;
+		}
+		nr_cpus *= 2;
+	}
+
+fallback:
+	nwords = sizeof(cpu_set_t) / sizeof(uint64_t);
+found:
+	return nwords;
+}
+
+unsigned int cpu_affinity_nwords(void)
+{
+	static unsigned int nwords;
+
+	if (!nwords)
+		nwords = cpu_affinity_probe_nwords();
+
+	return nwords;
 }

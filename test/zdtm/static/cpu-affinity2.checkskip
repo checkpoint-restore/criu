@@ -1,0 +1,21 @@
+#!/bin/sh
+# Needs at least 2 usable CPUs.
+# Use Cpus_allowed_list instead of nproc for cgroup compatibility.
+list=$(sed -n 's/^Cpus_allowed_list:[[:space:]]*//p' /proc/self/status)
+[ -n "$list" ] || exit 1
+
+n=0
+old_ifs=$IFS
+IFS=,
+for r in $list; do
+	a=${r%-*}
+	b=${r#*-}
+	if [ "$a" = "$b" ]; then
+		n=$((n + 1))
+	else
+		n=$((n + b - a + 1))
+	fi
+done
+IFS=$old_ifs
+
+[ "$n" -ge 2 ] || exit 1

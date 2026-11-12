@@ -209,6 +209,25 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 	tc->has_sched_nice = true;
 	tc->sched_nice = ret;
 
+	/*
+	 * Dump CPU affinity. Failure here is not fatal: the restored
+	 * process will simply inherit the default affinity, which is
+	 * acceptable for most workloads. We warn and continue so that
+	 * a transient error does not abort the whole dump.
+	 */
+	if (tc->cpu_affinity) {
+		size_t sz = (size_t)tc->cpu_affinity->n_cpumask * sizeof(uint64_t);
+
+		memzero(tc->cpu_affinity->cpumask, sz);
+		if (sched_getaffinity(pid, sz, (cpu_set_t *)tc->cpu_affinity->cpumask) < 0) {
+			pr_pwarn("Can't get sched affinity for %d", pid);
+			tc->cpu_affinity->n_cpumask = 0;
+		} else {
+			pr_info("\tdumping allowed cpus for %d (n=%zu)\n", pid,
+				(size_t)tc->cpu_affinity->n_cpumask);
+		}
+	}
+
 	return 0;
 }
 

@@ -49,6 +49,7 @@ __NR_sys_timer_settime		110	sys_timer_settime	(kernel_timer_t timer_id, int flag
 __NR_sys_timer_delete		111	sys_timer_delete	(kernel_timer_t timer_id)
 __NR_clock_gettime		113	sys_clock_gettime	(clockid_t which_clock, struct timespec *tp)
 __NR_sched_setscheduler		119	sys_sched_setscheduler	(int pid, int policy, struct sched_param *p)
+__NR_sched_setaffinity		122	sys_sched_setaffinity	(int pid, size_t cpusetsize, const void *mask)
 __NR_restart_syscall		128	sys_restart_syscall	(void)
 __NR_kill			129	sys_kill		(long pid, int sig)
 __NR_sigaltstack		132	sys_sigaltstack		(const void *uss, void *uoss)

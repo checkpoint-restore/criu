@@ -413,6 +413,8 @@ extern char *get_legacy_iptables_bin(bool ipv6, bool restore);
 
 extern int set_opts_cap_eff(void);
 
+extern unsigned int cpu_affinity_nwords(void);
+
 extern ssize_t read_all(int fd, void *buf, size_t size);
 extern ssize_t write_all(int fd, const void *buf, size_t size);
 
