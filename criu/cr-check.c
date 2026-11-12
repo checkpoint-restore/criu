@@ -959,14 +959,15 @@ static int check_clone_parent_vs_pid(void)
 static int check_autofs_pipe_ino(void)
 {
 	FILE *f;
-	char str[1024];
+	char *str = NULL;
+	size_t str_len = 0;
 	int ret = -ENOENT;
 
 	f = fopen_proc(PROC_SELF, "mountinfo");
 	if (!f)
 		return -1;
 
-	while (fgets(str, sizeof(str), f)) {
+	while (getline(&str, &str_len, f) != -1) {
 		if (strstr(str, " autofs ")) {
 			if (strstr(str, "pipe_ino="))
 				ret = 0;
@@ -978,6 +979,7 @@ static int check_autofs_pipe_ino(void)
 		}
 	}
 
+	free(str);
 	fclose(f);
 	return ret;
 }

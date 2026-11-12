@@ -53,11 +53,11 @@ mnt_info_t *get_cwd_mnt_info(void)
 		goto err;
 
 	while (getline(&str, &str_len, f) != -1) {
-		char *hyphen = strchr(str, '-');
+		char *hyphen = strstr(str, " - ");
 		ret = sscanf(str, "%i %i %u:%u %4095s %4095s", &mnt_id, &parent_mnt_id, &kmaj, &kmin, root, mountpoint);
 		if (ret != 6 || !hyphen)
 			goto err;
-		ret = sscanf(hyphen + 1, " %ms", &fsname);
+		ret = sscanf(hyphen + 3, "%ms", &fsname);
 		if (ret != 1)
 			goto err;
 

@@ -330,19 +330,15 @@ static int parse_options(char *options, AutofsEntry *entry, long *pipe_ino)
 static int autofs_revisit_options(struct mount_info *pm)
 {
 	FILE *f;
-	char *buf;
-	int ret = -ENOMEM;
-
-	buf = xmalloc(1024);
-	if (!buf) {
-		return -ENOMEM;
-	}
+	char *buf = NULL;
+	size_t buf_len = 0;
+	int ret;
 
 	f = fopen_proc(getpid(), "mountinfo");
 	if (!f)
-		goto free_str;
+		return -1;
 
-	while (fgets(buf, 1024, f)) {
+	while (getline(&buf, &buf_len, f) != -1) {
 		int mnt_id = -1;
 		char *str = buf;
 		char *token;
@@ -376,7 +372,6 @@ static int autofs_revisit_options(struct mount_info *pm)
 
 close_proc:
 	fclose(f);
-free_str:
 	free(buf);
 	return ret;
 }
