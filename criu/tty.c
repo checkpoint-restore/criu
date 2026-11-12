@@ -470,7 +470,7 @@ static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
 	r->rfe->id = tfe->id;
 	r->rfe->flags = tfe->flags;
 	r->rfe->fown = tfe->fown;
-	r->path = &r->rfe->name[1];
+	rfi_set_path(r, &r->rfe->name[1]);
 
 	return &r->d;
 }
@@ -508,8 +508,9 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int subty
 
 	if ((subtype == TTY_SUBTYPE_MASTER && tty_is_master(info)) ||
 	    (subtype == TTY_SUBTYPE_SLAVE && !tty_is_master(info))) {
-		new->path = xstrdup(orig->path);
-		new->rfe->name = &new->path[1];
+		new->rfe->name = xstrdup(orig->rfe->name);
+		BUG_ON(!new->rfe->name);
+		rfi_set_path(new, &new->rfe->name[1]);
 	} else {
 		char *pos = strrchr(orig->rfe->name, '/');
 		size_t len = strlen(orig->rfe->name) + 1;
@@ -530,7 +531,7 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int subty
 		}
 
 		new->rfe->name = inverted_path;
-		new->path = &inverted_path[1];
+		rfi_set_path(new, &inverted_path[1]);
 	}
 
 	return new;
@@ -548,11 +549,12 @@ static void pty_free_fake_reg(struct reg_file_info **r)
 	}
 }
 
-static int do_open_tty_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+static int do_open_tty_reg(int ns_root_fd, struct reg_file_info *rfi,
+			   const char *path, void *arg)
 {
 	int fd;
 
-	fd = do_open_reg_noseek_flags(ns_root_fd, rfi, arg);
+	fd = do_open_reg_noseek_flags(ns_root_fd, rfi, path, arg);
 	if (fd >= 0) {
 		/*
 		 * Peers might have different modes set

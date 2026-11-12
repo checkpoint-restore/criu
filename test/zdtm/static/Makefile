@@ -380,6 +380,7 @@ TST_FILE	=				\
 		unlink_mmap00			\
 		unlink_mmap01			\
 		unlink_mmap02			\
+		unlink_mmap03			\
 		file_shared			\
 		file_append			\
 		cow01				\
@@ -654,6 +655,7 @@ socket_aio:		LDLIBS += -lrt -pthread
 uptime_grow:		LDLIBS += -lrt -pthread
 unlink_largefile:	CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 inotify_system_nodel:	CFLAGS += -DNO_DEL
+unlink_mmap03:		CFLAGS += -DZDTM_UNLINK_MMAP_TASKS
 pthread00:		LDLIBS += -pthread
 pthread00-pac:		CFLAGS += ${PAC_CFLAGS}
 pthread00-pac:		LDLIBS += -pthread
