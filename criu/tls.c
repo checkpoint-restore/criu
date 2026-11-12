@@ -166,7 +166,7 @@ ssize_t tls_recv(void *buf, size_t len, int flags)
  */
 int tls_recv_data_to_fd(int fd, unsigned long len)
 {
-	gnutls_packet_t packet;
+	gnutls_packet_t packet = NULL;
 
 	while (len > 0) {
 		ssize_t ret, w;
@@ -190,9 +190,12 @@ int tls_recv_data_to_fd(int fd, unsigned long len)
 			}
 		}
 		len -= pdata.size;
+		gnutls_packet_deinit(packet);
+		packet = NULL;
 	}
 err:
-	gnutls_packet_deinit(packet);
+	if (packet)
+		gnutls_packet_deinit(packet);
 	return (len > 0);
 }
 
