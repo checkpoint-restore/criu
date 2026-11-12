@@ -600,7 +600,12 @@ int criu_local_add_unix_sk(criu_opts *opts, unsigned int inode)
 	/*if user disabled ext_unix_sk and try to add unixsk inode after that*/
 	if (opts->rpc->has_ext_unix_sk && !opts->rpc->ext_unix_sk) {
 		if (opts->rpc->n_unix_sk_ino > 0) {
+			int i;
+
+			for (i = 0; i < opts->rpc->n_unix_sk_ino; i++)
+				free(opts->rpc->unix_sk_ino[i]);
 			free(opts->rpc->unix_sk_ino);
+			opts->rpc->unix_sk_ino = NULL;
 			opts->rpc->n_unix_sk_ino = 0;
 		}
 		return -1;
@@ -921,27 +926,31 @@ void criu_set_cpu_cap(unsigned int cap)
 int criu_local_set_exec_cmd(criu_opts *opts, int argc, char *argv[])
 {
 	int i;
+	char **exec_cmd;
 
-	opts->rpc->n_exec_cmd = argc;
-	opts->rpc->exec_cmd = malloc((argc) * sizeof(char *));
+	exec_cmd = malloc(argc * sizeof(char *));
+	if (!exec_cmd)
+		return -ENOMEM;
 
-	if (opts->rpc->exec_cmd) {
-		for (i = 0; i < argc; i++) {
-			opts->rpc->exec_cmd[i] = strdup(argv[i]);
-			if (!opts->rpc->exec_cmd[i]) {
-				while (i > 0)
-					free(opts->rpc->exec_cmd[i--]);
-				free(opts->rpc->exec_cmd);
-				opts->rpc->n_exec_cmd = 0;
-				opts->rpc->exec_cmd = NULL;
-				goto out;
-			}
+	for (i = 0; i < argc; i++) {
+		exec_cmd[i] = strdup(argv[i]);
+		if (!exec_cmd[i]) {
+			while (i > 0)
+				free(exec_cmd[--i]);
+			free(exec_cmd);
+			return -ENOMEM;
 		}
-		return 0;
 	}
 
-out:
-	return -ENOMEM;
+	if (opts->rpc->exec_cmd) {
+		for (i = 0; i < opts->rpc->n_exec_cmd; i++)
+			free(opts->rpc->exec_cmd[i]);
+		free(opts->rpc->exec_cmd);
+	}
+
+	opts->rpc->exec_cmd = exec_cmd;
+	opts->rpc->n_exec_cmd = argc;
+	return 0;
 }
 
 int criu_set_exec_cmd(int argc, char *argv[])
@@ -1369,17 +1378,25 @@ int criu_add_plugin_option(const char *option)
 
 int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port)
 {
-	opts->rpc->ps = malloc(sizeof(CriuPageServerInfo));
-	if (!opts->rpc->ps)
-		return -ENOMEM;
+	int ret;
+	bool newly_allocated = false;
 
-	criu_page_server_info__init(opts->rpc->ps);
+	if (!opts->rpc->ps) {
+		opts->rpc->ps = malloc(sizeof(CriuPageServerInfo));
+		if (!opts->rpc->ps)
+			return -ENOMEM;
 
-	opts->rpc->ps->address = strdup(address);
-	if (!opts->rpc->ps->address) {
-		free(opts->rpc->ps);
-		opts->rpc->ps = NULL;
-		return -ENOMEM;
+		criu_page_server_info__init(opts->rpc->ps);
+		newly_allocated = true;
+	}
+
+	ret = set_opts_string(&opts->rpc->ps->address, address);
+	if (ret) {
+		if (newly_allocated) {
+			free(opts->rpc->ps);
+			opts->rpc->ps = NULL;
+		}
+		return ret;
 	}
 
 	opts->rpc->ps->has_port = true;
