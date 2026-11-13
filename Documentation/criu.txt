@@ -168,6 +168,15 @@ not compatible with *--external* *dev*.
             This hook is used only in the RPC mode. The notification reply
             contains file ids to be added to external file list (may be empty).
 
++
+When restoring into an external PID namespace, the
+*setup-namespaces*, *post-setup-namespaces*, *post-restore*,
+*network-unlock*, *pre-resume*, and *post-resume* scripts start in
+the PID namespace of the coordinating *criu* process. Scripts
+that need the restored task's PID namespace must enter it
+explicitly. *CRTOOLS_INIT_PID* gives the PID of the restored root
+task in CRIU's PID namespace.
+
 *--unprivileged*::
     This option tells *criu* to accept the limitations when running
     as non-root. Running as non-root requires *criu* at least to have
