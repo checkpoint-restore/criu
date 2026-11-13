@@ -1078,7 +1078,7 @@ out:
 	return ret;
 }
 
-static int check_tcp_halt_closed(void)
+static int check_tcp_half_closed(void)
 {
 	if (!kdat.has_tcp_half_closed) {
 		pr_err("TCP_REPAIR can't be enabled for half-closed sockets\n");
@@ -1714,7 +1714,7 @@ int cr_check(void)
 		ret |= check_clone_parent_vs_pid();
 		ret |= check_cgroupns();
 		ret |= check_tcp_window();
-		ret |= check_tcp_halt_closed();
+		ret |= check_tcp_half_closed();
 		ret |= check_userns();
 		ret |= check_loginuid();
 		ret |= check_can_map_vdso();
@@ -1867,7 +1867,7 @@ static struct feature_list feature_list[] = {
 	{ "loginuid", check_loginuid },
 	{ "cgroupns", check_cgroupns },
 	{ "autofs", check_autofs },
-	{ "tcp_half_closed", check_tcp_halt_closed },
+	{ "tcp_half_closed", check_tcp_half_closed },
 	{ "compat_cr", check_compat_cr },
 	{ "uffd", check_uffd },
 	{ "uffd-noncoop", check_uffd_noncoop },
