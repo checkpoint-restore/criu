@@ -24,6 +24,7 @@ TST_NOFILE	:=				\
 		arm-neon00			\
 		futex				\
 		futex-rl			\
+		robust_futex			\
 		mmx00				\
 		sse00				\
 		sse20				\
@@ -648,6 +649,8 @@ futex:			CFLAGS += -pthread
 futex:			LDFLAGS += -pthread
 futex-rl:		CFLAGS += -pthread
 futex-rl:		LDFLAGS += -pthread
+robust_futex:		CFLAGS += -pthread
+robust_futex:		LDFLAGS += -pthread
 jobctl00:		LDLIBS += -lutil
 socket_listen:		LDLIBS += -lrt -pthread
 socket_aio:		LDLIBS += -lrt -pthread
