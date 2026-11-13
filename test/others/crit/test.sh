@@ -33,7 +33,7 @@ function gen_imgs {
 	fi
 
 	images_list=(./*.img)
-	if [ "${#images_list[@]}" -eq 0 ]; then
+	if [ ! -f "${images_list[0]}" ]; then
 		echo "Failed to generate images"
 		exit 1
 	fi
