@@ -32,6 +32,26 @@ CRIU includes architecture-specific assembly wrappers (`RUN_CLONE3_RESTORE_FN`) 
 *   **Automatic Selection**: CRIU automatically detects the presence of `clone3()` and `set_tid` support during the [Kerndat](kerndat.md) phase. If the modern interface is available, it is prioritized.
 *   **Thread Restoration**: Individual threads are restored using the same mechanisms, ensuring that their TIDs match the original state.
 
+## External PID namespaces and action scripts
+
+When restoring into an external PID namespace, CRIU selects that namespace
+for subsequent forks and creates the restored root task there. It then
+resets the namespace for subsequent forks to the coordinating CRIU
+process's own PID namespace. The restored task stays in the external
+namespace, while CRIU can create helpers and plugin threads in its own
+namespace.
+
+The `setup-namespaces`, `post-setup-namespaces`, `post-restore`,
+`network-unlock`, `pre-resume`, and `post-resume` action scripts therefore
+start in CRIU's PID namespace. Scripts that need to run a command in the
+restored task's PID namespace must enter it explicitly. The
+`CRTOOLS_INIT_PID` environment variable gives the PID of the restored root
+task in CRIU's PID namespace, so a script can use:
+
+```sh
+nsenter --target "$CRTOOLS_INIT_PID" --pid -- command
+```
+
 ## See also
 * [Checkpoint/Restore Architecture](checkpointrestore.md)
 * [Kerndat](kerndat.md)
