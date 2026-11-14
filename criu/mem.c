@@ -761,6 +761,33 @@ int parasite_dump_pages_seized(struct pstree_item *item, struct vm_area_list *vm
 	return ret;
 }
 
+/*
+ * THP advice for a VMA that is filled before the restorer runs. Lazy restore
+ * is left alone. A lazy VMA can hold eager pages too, and a huge page faulted
+ * in for one of them would populate the lazy pages around it.
+ */
+static int premap_thp_advice(struct vma_area *vma)
+{
+	if (opts.lazy_pages)
+		return 0;
+	return vma_entry_thp_advice(vma->e);
+}
+
+/*
+ * A premapped VMA reaches its real address with mremap(), and mremap() keeps a
+ * huge page PMD-mapped only when the source and the destination have the same
+ * offset within a PMD. Return the room needed to premap a VMA that wants huge
+ * pages at such an offset.
+ */
+static unsigned long premap_thp_pad(struct vma_area *vma)
+{
+	if (!kdat.thp_pmd_size || premap_thp_advice(vma) != MADV_HUGEPAGE)
+		return 0;
+	if (vma_area_len(vma) < kdat.thp_pmd_size)
+		return 0;
+	return kdat.thp_pmd_size;
+}
+
 int prepare_mm_pid(struct pstree_item *i)
 {
 	pid_t pid = vpid(i);
@@ -817,6 +844,7 @@ int prepare_mm_pid(struct pstree_item *i)
 			ri->vmas.rst_priv_size += vma_area_len(vma);
 			if (vma_has_guard_gap_hidden(vma))
 				ri->vmas.rst_priv_size += PAGE_SIZE;
+			ri->vmas.rst_priv_size += premap_thp_pad(vma);
 		}
 
 		pr_info("vma 0x%" PRIx64 " 0x%" PRIx64 "\n", vma->e->start, vma->e->end);
@@ -868,6 +896,13 @@ static inline bool check_cow_vmas(struct vma_area *vma, struct vma_area *pvma)
 	/* ... both be accountable, since COW VMAs may carry restored pages */
 	if (vma_area_is(vma, VMA_AREA_NOT_ACCOUNTABLE) ||
 	    vma_area_is(pvma, VMA_AREA_NOT_ACCOUNTABLE))
+		return false;
+
+	/*
+	 * COW premapping can reuse the parent's existing pages.
+	 * Different THP advice requires independent premapping.
+	 */
+	if (premap_thp_advice(vma) != premap_thp_advice(pvma))
 		return false;
 
 	pr_debug("Found two COW VMAs @0x%" PRIx64 "-0x%" PRIx64 "\n", vma->e->start, pvma->e->end);
@@ -945,9 +980,9 @@ void prepare_cow_vmas(void)
 /* Map a private vma, if it is not mapped by a parent yet */
 static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void **tgt_addr)
 {
-	int ret;
+	int ret, advice;
 	void *addr;
-	unsigned long nr_pages, size;
+	unsigned long nr_pages, size, pad;
 
 	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 	vma->page_bitmap = xzalloc(BITS_TO_LONGS(nr_pages) * sizeof(long));
@@ -955,13 +990,36 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		return -1;
 
 	/*
+	 * Determine THP padding from the original VMA,
+	 * before modifying its boundaries.
+	 */
+	pad = premap_thp_pad(vma);
+
+	/*
 	 * A grow-down VMA has a guard page, which protect a VMA below it.
-	 * So one more page is mapped here to restore content of the first page
+	 * So one more page is mapped here to restore content of the first page.
 	 */
 	if (vma_has_guard_gap_hidden(vma))
 		vma->e->start -= PAGE_SIZE;
 
+	/*
+	 * Calculate the actual mapping size, including the guard.
+	 */
 	size = vma_entry_len(vma->e);
+
+	if (pad) {
+		unsigned long skip = (vma->e->start - (unsigned long)*tgt_addr) & (pad - 1);
+
+		/*
+		 * The skipped room is unmapped like the unused tail of the
+		 * premapped area. Otherwise it would stay in the restored task.
+		 */
+		if (skip && munmap(*tgt_addr, skip)) {
+			pr_perror("Unable to unmap %p(%lx)", *tgt_addr, skip);
+			return -1;
+		}
+		*tgt_addr += skip;
+	}
 
 	if (!vma_inherited(vma)) {
 		int flag = 0;
@@ -1006,6 +1064,18 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		}
 		if (addr == MAP_FAILED) {
 			pr_perror("Unable to map ANON_VMA");
+			return -1;
+		}
+
+		/*
+		 * Keep MAP_LOCKED unchanged. It may populate pages during mmap(),
+		 * before THP advice is applied, so huge-page backing cannot be
+		 * guaranteed for these mappings. Delaying memory locking is
+		 * outside the scope of this change.
+		 */
+		advice = premap_thp_advice(vma);
+		if (advice && madvise(addr, size, advice)) {
+			pr_perror("Unable to apply THP advice %d to %p(%lx)", advice, addr, size);
 			return -1;
 		}
 	} else {
@@ -1492,28 +1562,33 @@ out:
 	return exit_code;
 }
 
-static int maybe_disable_thp(struct pstree_item *t, struct page_read *pr)
+static int setup_restore_thp_state(struct pstree_item *t, struct page_read *pr)
 {
-	/*
-	 * There is no need to disable it if the page read doesn't
-	 * have parent. In this case VMA will be empty until
-	 * userfaultfd_register, so there would be no pages to
-	 * collapse. And, once we register the VMA with uffd,
-	 * khugepaged will skip it.
-	 */
-	if (!(opts.lazy_pages && page_read_has_parent(pr)))
-		return 0;
+	bool saved_disabled = rsti(t)->mm->has_thp_disabled && rsti(t)->mm->thp_disabled;
+	bool lazy_guard = opts.lazy_pages && page_read_has_parent(pr);
+	bool disabled = saved_disabled || lazy_guard;
 
-	if (!kdat.has_thp_disable)
+	/*
+	 * Lazy restore with parent images needs THP disabled
+	 * temporarily to prevent premature huge-page collapse.
+	 * Without a usable has_thp_disable the prctl() may still
+	 * work. Warn and try it.
+	 */
+	if (!kdat.has_thp_disable) {
+		if (!lazy_guard)
+			return 0;
 		pr_warn("Disabling transparent huge pages. "
 			"It may affect performance!\n");
+	}
 
 	/*
-	 * temporarily disable THP to avoid collapse of pages
-	 * in the areas that will be monitored by uffd
+	 * Apply the saved process-wide THP state before
+	 * premapping and populating memory. The prctl() call
+	 * must run for every task. It clears the state of a
+	 * previous task restored in the same process.
 	 */
-	if (prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0)) {
-		pr_perror("Cannot disable THP");
+	if (prctl(PR_SET_THP_DISABLE, disabled, 0, 0, 0)) {
+		pr_perror("Cannot disable THP_DISABLE=%d", disabled);
 		return -1;
 	}
 
@@ -1551,7 +1626,7 @@ int prepare_mappings(struct pstree_item *t)
 	if (ret <= 0)
 		return -1;
 
-	if (maybe_disable_thp(t, &pr))
+	if (setup_restore_thp_state(t, &pr))
 		return -1;
 
 	pr.advance(&pr); /* shift to the 1st iovec */

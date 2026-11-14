@@ -970,14 +970,16 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 	if ((vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED)) && !(vma_entry->status & VMA_NO_PROT_WRITE))
 		prot |= PROT_WRITE;
 
-	/* TODO: Drop MAP_LOCKED bit and restore it after reading memory.
+	/*
+	 * Keep MAP_LOCKED unchanged. It may populate pages during mmap(),
+	 * before THP advice is applied, so preservation of huge-page
+	 * backing cannot be guaranteed for these mappings.
 	 *
-	 * Code below tries to limit memory usage by running fallocate()
-	 * after each preadv() to avoid doubling memory usage (once in
-	 * image files, once in process). Unfortunately, MAP_LOCKED defeats
-	 * that mechanism as it causes the process to be charged for memory
-	 * immediately upon mmap, not later upon preadv().
+	 * MAP_LOCKED may also undermine the fallocate-after-preadv memory
+	 * limiting by charging memory before the contents are read.
+	 * Delaying memory locking is outside the scope of this change.
 	 */
+
 	pr_debug("\tmmap(%" PRIx64 " -> %" PRIx64 ", %x %x %d)\n", vma_entry->start, vma_entry->end, prot, flags,
 		 (int)vma_entry->fd);
 	/*
@@ -1514,6 +1516,10 @@ static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len, v
 		s1 = bootstrap_len;
 	}
 
+	if (s1 > (unsigned long)p2 - (unsigned long)p1) {
+		pr_err("Premapped and bootstrap intervals overlap\n");
+		return -1;
+	}
 	ret = sys_munmap(NULL, p1 - NULL);
 	if (ret) {
 		pr_err("Unable to unmap (%p-%p): %d\n", NULL, p1, ret);
@@ -2471,6 +2477,27 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		if (va != vma_entry->start) {
 			pr_err("Can't restore %" PRIx64 " mapping with %lx\n", vma_entry->start, va);
 			goto core_restore_end;
+		}
+
+		/*
+		 * Apply THP advice before the contents are read in below, so
+		 * pages are faulted in at the size the task asked for. The
+		 * madvise() bits restored at the end come too late for that.
+		 * Lazy restore is left alone. A lazy VMA can hold eager pages
+		 * too, and a huge page faulted in for one of them would
+		 * populate the lazy pages around it.
+		 */
+		if (args->uffd < 0 && vma_entry_is(vma_entry, VMA_AREA_REGULAR)) {
+			int advice = vma_entry_thp_advice(vma_entry);
+
+			if (advice) {
+				ret = sys_madvise(va, vma_entry_len(vma_entry), advice);
+				if (ret) {
+					pr_err("madvise(%lx, %" PRIu64 ", %d) failed with %ld\n", va,
+					       vma_entry_len(vma_entry), advice, ret);
+					goto core_restore_end;
+				}
+			}
 		}
 	}
 
