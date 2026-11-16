@@ -4,8 +4,12 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <stdint.h>
+#include <signal.h>
 
 #include "zdtmtst.h"
+#include "zdtm_pidfd.h"
 
 const char *test_doc = "Check C/R of pidfds that point to dead processes\n";
 const char *test_author = "Bhavik Sachdev <b.sachdev1904@gmail.com>";
@@ -98,6 +102,7 @@ int main(int argc, char* argv[])
 	int child, ret, gchild, p[2], status;
 	int cpidfd[2], gpidfd[2];
 	struct statx stats[2];
+	int exit_code, has_exit_info;
 
 	test_init(argc, argv);
 
@@ -206,8 +211,50 @@ int main(int argc, char* argv[])
 		goto fail_close;
 	}
 
+	/*
+	 * The two dead pids died differently -- the child exited with 0, the
+	 * grandchild was killed -- and on kernels that can report it, that has
+	 * to survive C/R: restore must not lump them onto one stand-in process
+	 * nor dispose of the stand-ins its own way.
+	 */
+	has_exit_info = zdtm_pidfd_query_exit(cpidfd[0], &exit_code) > 0;
+	if (has_exit_info) {
+		if (!WIFEXITED(exit_code) || WEXITSTATUS(exit_code) != 0) {
+			fail("Expected child pidfd to report exit(0), got %#x", exit_code);
+			goto fail_close;
+		}
+
+		if (zdtm_pidfd_query_exit(gpidfd[0], &exit_code) <= 0 ||
+		    !WIFSIGNALED(exit_code) || WTERMSIG(exit_code) != SIGKILL) {
+			fail("Expected grandchild pidfd to report SIGKILL, got %#x", exit_code);
+			goto fail_close;
+		}
+	}
+
 	test_daemon();
 	test_waitsig();
+
+	if (has_exit_info) {
+		if (zdtm_pidfd_query_exit(cpidfd[0], &exit_code) <= 0) {
+			fail("No exit info on the restored child pidfd");
+			goto fail_close;
+		}
+
+		if (!WIFEXITED(exit_code) || WEXITSTATUS(exit_code) != 0) {
+			fail("Expected restored child pidfd to report exit(0), got %#x", exit_code);
+			goto fail_close;
+		}
+
+		if (zdtm_pidfd_query_exit(gpidfd[0], &exit_code) <= 0) {
+			fail("No exit info on the restored grandchild pidfd");
+			goto fail_close;
+		}
+
+		if (!WIFSIGNALED(exit_code) || WTERMSIG(exit_code) != SIGKILL) {
+			fail("Expected restored grandchild pidfd to report SIGKILL, got %#x", exit_code);
+			goto fail_close;
+		}
+	}
 
 	ret = compare_pidfds(cpidfd);
 	if (ret) {

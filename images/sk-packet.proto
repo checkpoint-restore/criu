@@ -2,6 +2,8 @@
 
 syntax = "proto2";
 
+import "pidfs.proto";
+
 message scm_entry {
 	required uint32			type		= 1;
 	repeated uint32			rights		= 2;
@@ -20,4 +22,10 @@ message sk_packet_entry {
 	// optional bytes		addr	= 3;
 	repeated scm_entry	scm		= 4;
 	optional sk_ucred_entry	ucred	= 128;
+	// pidfs state of the struct pid the kernel attached to this skb, set
+	// only when that process was already dead at dump time. Its presence
+	// means ucred.pid is 0: a dump host pid of a reaped process carries no
+	// meaning, and restore substitutes a stand-in process for it, so that
+	// a receiver with SO_PASSPIDFD still mints a pidfd of a dead process.
+	optional pidfs_attr_entry dead_pid	= 129;
 }
