@@ -242,6 +242,7 @@ void criu_local_free_opts(criu_opts *opts)
 			}
 			free(opts->rpc->join_ns[i]);
 		}
+		free(opts->rpc->join_ns);
 	}
 	opts->rpc->n_join_ns = 0;
 
