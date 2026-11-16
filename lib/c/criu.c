@@ -2189,7 +2189,7 @@ int criu_local_join_ns_add(criu_opts *opts, const char *ns, const char *ns_file,
 	JoinNamespace **join_ns_arr, *join_ns = NULL;
 
 	if (!ns) {
-		fprintf(stderr, "ns parameter for join_ns is not specified");
+		fprintf(stderr, "ns parameter for join_ns is not specified\n");
 		goto err;
 	}
 
@@ -2200,7 +2200,7 @@ int criu_local_join_ns_add(criu_opts *opts, const char *ns, const char *ns_file,
 	}
 
 	if (!ns_file) {
-		fprintf(stderr, "ns parameter for join_ns is not specified");
+		fprintf(stderr, "ns_file parameter for join_ns is not specified\n");
 		goto err;
 	}
 
