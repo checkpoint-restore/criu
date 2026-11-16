@@ -2213,7 +2213,13 @@ int amdgpu_plugin_resume_devices_late(int target_pid)
 	args.pid = target_pid;
 	args.op = KFD_CRIU_OP_RESUME;
 	pr_info("Calling IOCTL to start notifiers and queues\n");
-	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_OP, &args) == -1) {
+	/*
+	 * Call RESUME exactly once. The kernel frees its saved SVM state when
+	 * RESUME fails, so repeating it (as kmtIoctl does on EINTR/EAGAIN) can
+	 * never succeed: older kernels double free that state, newer ones
+	 * report success with the SVM ranges never re-applied.
+	 */
+	if (ioctl(fd, AMDKFD_IOC_CRIU_OP, &args) == -1) {
 		if (errno == ESRCH) {
 			pr_info("Pid %d has no kfd process info\n", target_pid);
 			exit_code = -ENOTSUP;
