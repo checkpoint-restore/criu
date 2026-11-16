@@ -129,29 +129,27 @@ static void free_e(CriuRenderNode *e)
 	xfree(e);
 }
 
+/*
+ * Character major number of all DRM devices on Linux
+ * (Documentation/admin-guide/devices.txt). libdrm does not export it.
+ */
+#define DRM_MAJOR 226
+
 int amdgpu_plugin_drm_handle_device_vma(int fd, const struct stat *st)
 {
-	char path[PATH_MAX];
-	struct stat drm;
-	int ret = 0;
-
-	snprintf(path, sizeof(path), AMDGPU_DRM_DEVICE, DRM_FIRST_RENDER_NODE);
-	ret = stat(path, &drm);
-	if (ret) {
-		pr_err("Error in getting stat for: %s\n", path);
-		return -errno;
-	}
-
-	if ((major(st->st_rdev) != major(drm.st_rdev)) ||
-		(minor(st->st_rdev) < minor(drm.st_rdev)) ||
-		(minor(st->st_rdev) > DRM_LAST_RENDER_NODE)) {
+	/*
+	 * Only check that this is a DRM render node. Don't stat renderD128:
+	 * a container may only have been given other GPUs' render nodes.
+	 */
+	if (major(st->st_rdev) != DRM_MAJOR ||
+	    minor(st->st_rdev) < DRM_FIRST_RENDER_NODE ||
+	    minor(st->st_rdev) > DRM_LAST_RENDER_NODE) {
 		pr_err("Can't handle VMA mapping of input device\n");
 		return -ENOTSUP;
 	}
 
-	pr_debug("AMD DRI(maj,min) = %d:%d VMA Device FD(maj,min) = %d:%d\n",
-			 major(drm.st_rdev), minor(drm.st_rdev),
-			 major(st->st_rdev), minor(st->st_rdev));
+	pr_debug("AMD DRI VMA Device FD(maj,min) = %d:%d\n",
+		 major(st->st_rdev), minor(st->st_rdev));
 
 	return 0;
 }
