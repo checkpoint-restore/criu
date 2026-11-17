@@ -1483,53 +1483,87 @@ static int unregister_libc_rseq(struct rst_rseq_param *rseq)
  * This function unmaps all VMAs, which don't belong to
  * the restored process or the restorer.
  *
- * The restorer memory is two regions -- area with restorer, its stack
- * and arguments and the one with private vmas of the tasks we restore
- * (a.k.a. premmaped area):
+ * The restorer memory is up to two regions -- area with restorer, its stack
+ * and arguments and, when non-empty, the one with private vmas of the tasks
+ * we restore (a.k.a. premmaped area):
  *
  * 0                       task_size
  * +----+====+----+====+---+
  *
- * Thus to unmap old memory we have to do 3 unmaps:
+ * Thus to unmap old memory we have to do up to 3 unmaps:
  * [ 0 -- 1st area start ]
  * [ 1st end -- 2nd start ]
- * [ 2nd start -- task_size ]
+ * [ 2nd end -- task_size ]
  */
 static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len, void *bootstrap_start,
 			  unsigned long bootstrap_len, unsigned long task_size)
 {
-	unsigned long s1, s2;
-	void *p1, *p2;
+	unsigned long p1, p2, s1, s2;
 	int ret;
 
+	if (!premmapped_len) {
+		p1 = (unsigned long)bootstrap_start;
+		p2 = p1 + bootstrap_len;
+
+		if (p1 > 0) {
+			ret = sys_munmap(NULL, p1);
+			if (ret) {
+				pr_err("Unable to unmap (%p-%p): %d\n", NULL, (void *)p1, ret);
+				return -1;
+			}
+		}
+
+		if (p2 < task_size) {
+			ret = sys_munmap((void *)p2, task_size - p2);
+			if (ret) {
+				pr_err("Unable to unmap (%p-%p): %d\n", (void *)p2, (void *)task_size, ret);
+				return -1;
+			}
+		}
+
+		return 0;
+	}
+
 	if (premmapped_addr < bootstrap_start) {
-		p1 = premmapped_addr;
+		p1 = (unsigned long)premmapped_addr;
 		s1 = premmapped_len;
-		p2 = bootstrap_start;
+		p2 = (unsigned long)bootstrap_start;
 		s2 = bootstrap_len;
 	} else {
-		p2 = premmapped_addr;
-		s2 = premmapped_len;
-		p1 = bootstrap_start;
+		p1 = (unsigned long)bootstrap_start;
 		s1 = bootstrap_len;
+		p2 = (unsigned long)premmapped_addr;
+		s2 = premmapped_len;
 	}
 
-	ret = sys_munmap(NULL, p1 - NULL);
-	if (ret) {
-		pr_err("Unable to unmap (%p-%p): %d\n", NULL, p1, ret);
+	if (p1 + s1 > p2) {
+		pr_err("Premapped %p(%lx) and bootstrap %p(%lx) areas overlap\n",
+		       premmapped_addr, premmapped_len, bootstrap_start, bootstrap_len);
 		return -1;
 	}
 
-	ret = sys_munmap(p1 + s1, p2 - (p1 + s1));
-	if (ret) {
-		pr_err("Unable to unmap (%p-%p): %d\n", p1 + s1, p2, ret);
-		return -1;
+	if (p1 > 0) {
+		ret = sys_munmap(NULL, p1);
+		if (ret) {
+			pr_err("Unable to unmap (%p-%p): %d\n", NULL, (void *)p1, ret);
+			return -1;
+		}
 	}
 
-	ret = sys_munmap(p2 + s2, task_size - (unsigned long)(p2 + s2));
-	if (ret) {
-		pr_err("Unable to unmap (%p-%p): %d\n", p2 + s2, (void *)task_size, ret);
-		return -1;
+	if (p2 > p1 + s1) {
+		ret = sys_munmap((void *)(p1 + s1), p2 - (p1 + s1));
+		if (ret) {
+			pr_err("Unable to unmap (%p-%p): %d\n", (void *)(p1 + s1), (void *)p2, ret);
+			return -1;
+		}
+	}
+
+	if (p2 + s2 < task_size) {
+		ret = sys_munmap((void *)(p2 + s2), task_size - (p2 + s2));
+		if (ret) {
+			pr_err("Unable to unmap (%p-%p): %d\n", (void *)(p2 + s2), (void *)task_size, ret);
+			return -1;
+		}
 	}
 
 	return 0;
