@@ -1585,6 +1585,8 @@ int prepare_mappings(struct pstree_item *t)
 		if (ret < 0)
 			pr_perror("Unable to unmap %p(%lx)", addr, tail);
 		rsti(t)->premmapped_len = old_premmapped_len;
+		if (!rsti(t)->premmapped_len)
+			rsti(t)->premmapped_addr = NULL;
 		pr_info("Shrunk premap area to %p(%lx)\n", rsti(t)->premmapped_addr, rsti(t)->premmapped_len);
 	}
 
