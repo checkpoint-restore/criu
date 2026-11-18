@@ -9,6 +9,7 @@
 
 #include "zdtmtst.h"
 #include "fs.h"
+#include "mountinfo.h"
 
 #ifndef LOCK_MAND
 #define LOCK_MAND 32
@@ -28,7 +29,7 @@ char file0[PATH_MAX];
 char file1[PATH_MAX];
 char file2[PATH_MAX];
 unsigned long inodes[3];
-static mnt_info_t *m;
+static struct mountinfo_zdtm *m;
 dev_t dev;
 
 static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
@@ -47,7 +48,7 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 	fstat(*fd_0, &buf);
 	inodes[0] = buf.st_ino;
 
-	if (!strcmp(m->fsname, "btrfs"))
+	if (!strcmp(m->fstype, "btrfs"))
 		dev = m->s_dev;
 	else
 		dev = buf.st_dev;
@@ -88,7 +89,7 @@ static int check_file_lock(int fd, char *expected_type, char *expected_option, u
 	unsigned long i_no;
 	int maj, min;
 
-	test_msg("check_file_lock: (fsname %s) expecting fd %d type %s option %s dev %u ino %lu\n", m->fsname, fd,
+	test_msg("check_file_lock: (fsname %s) expecting fd %d type %s option %s dev %u ino %lu\n", m->fstype, fd,
 		 expected_type, expected_option, expected_dev, expected_ino);
 
 	snprintf(path, sizeof(path), "/proc/self/fdinfo/%d", fd);
@@ -114,7 +115,7 @@ static int check_file_lock(int fd, char *expected_type, char *expected_option, u
 			break;
 		}
 
-		if (!strcmp(m->fsname, "btrfs")) {
+		if (!strcmp(m->fstype, "btrfs")) {
 			if (MKKDEV(major(maj), minor(min)) != expected_dev)
 				continue;
 		} else {
@@ -151,7 +152,7 @@ int main(int argc, char **argv)
 		pr_perror("Can't fetch mountinfo");
 		return -1;
 	}
-	if (!strcmp(m->fsname, "btrfs"))
+	if (!strcmp(m->fstype, "btrfs"))
 		m->s_dev = kdev_to_odev(m->s_dev);
 
 	if (open_all_files(&fd_0, &fd_1, &fd_2))
@@ -180,6 +181,7 @@ int main(int argc, char **argv)
 	unlink(file0);
 	unlink(file1);
 	unlink(file2);
+	mountinfo_zdtm_free(m);
 
 	return ret;
 }
