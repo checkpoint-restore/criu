@@ -140,12 +140,16 @@ function run_chain {
 	local name="$1"
 	local predump_compress="$2"
 	local dump_compress="$3"
+	local legacy_parent="${4:-}"
 	local imgdir="dump-$name"
 	local parent_version=2
 	local final_version
 
 	validate_compression_mode "$name" "pre-dump" "$predump_compress"
 	validate_compression_mode "$name" "final dump" "$dump_compress"
+	if [ -n "$legacy_parent" ] && [ "$predump_compress" != "plain" ]; then
+		fail "$name: legacy parents cannot be compressed"
+	fi
 
 	if [ "$predump_compress" != "plain" ]; then
 		parent_version=3
@@ -165,6 +169,12 @@ function run_chain {
 		"$imgdir/1/" "" "$predump_compress" "$parent_version"
 	toggle_test_page "$imgdir/1/" "$imgdir/toggle-address" \
 		|| fail "$name: unable to modify workload"
+
+	if [ -n "$legacy_parent" ]; then
+		# Make pre-dump 1 look like one from older CRIU (img_version 0).
+		run_image_tool legacy-inventory "$imgdir/1/" \
+			|| fail "$name: unable to rewrite parent inventory"
+	fi
 
 	create_checkpoint_layer "$name" "pre-dump 2" pre-dump \
 		"$imgdir/2/" "../1/" "$predump_compress" "$parent_version"
@@ -186,5 +196,7 @@ run_chain "plain-parents-block-4k-final" plain block-4k
 run_chain "block-4k-parents-plain-final" block-4k plain
 run_chain "plain-parents-block-64k-final" plain block-64k
 run_chain "block-64k-parents-plain-final" block-64k plain
+run_chain "legacy-parent-plain-final" plain plain legacy
+run_chain "legacy-parent-block-4k-final" plain block-4k legacy
 
 echo "Test PASSED"

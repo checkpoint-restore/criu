@@ -52,6 +52,26 @@ def inventory_compression(directory, mode, version):
     return 0
 
 
+def legacy_inventory(directory):
+    path = os.path.join(directory, "inventory.img")
+    with open(path, "rb") as image:
+        img = pycriu.images.load(image)
+
+    inventory = img["entries"][0]
+    if int(inventory.get("compress", 0)) != COMPRESS_OFF:
+        print("FAIL: %s is compressed, cannot make it a legacy image" % path)
+        return 1
+
+    inventory["img_version"] = 0
+    inventory.pop("compress", None)
+    inventory.pop("compress_block_size", None)
+
+    with open(path, "wb") as image:
+        pycriu.images.dump(img, image)
+
+    return 0
+
+
 def present_payload(directory, pid):
     path = os.path.join(directory, "pagemap-%s.img" % pid)
     with open(path, "rb") as image:
@@ -108,6 +128,9 @@ def main():
     )
     inventory.add_argument("version", type=int)
 
+    legacy = subparsers.add_parser("legacy-inventory")
+    legacy.add_argument("directory")
+
     payload = subparsers.add_parser("present-payload")
     payload.add_argument("directory")
     payload.add_argument("pid")
@@ -122,6 +145,8 @@ def main():
         parser.error("a command is required")
     if args.command == "inventory-compression":
         return inventory_compression(args.directory, args.mode, args.version)
+    if args.command == "legacy-inventory":
+        return legacy_inventory(args.directory)
     if args.command == "present-payload":
         return present_payload(args.directory, args.pid)
     return toggle_page(args.directory, args.pid, args.address_file)

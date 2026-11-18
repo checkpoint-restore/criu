@@ -448,6 +448,7 @@ int get_parent_inventory(InventoryEntry **parent_ie)
 	}
 
 	switch (ie->img_version) {
+	case 0:
 	case CRTOOLS_IMAGES_V1:
 	case CRTOOLS_IMAGES_V1_1:
 	case CRTOOLS_IMAGES_V1_2:
