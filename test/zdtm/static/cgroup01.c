@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include "zdtmtst.h"
+#include "mountinfo.h"
 
 const char *test_doc = "Check that empty cgroups are preserved";
 const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
@@ -19,7 +20,8 @@ int main(int argc, char **argv)
 {
 	int cgfd, l, ret = 1, i;
 	char aux[1024], paux[1024];
-	FILE *cgf;
+	struct mountinfo_zdtm *mi;
+	MNTNS_ZDTM(mntns);
 	struct stat st;
 
 	test_init(argc, argv);
@@ -66,24 +68,19 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	cgf = fopen("/proc/self/mountinfo", "r");
-	if (cgf == NULL) {
-		fail("No mountinfo file");
+	if (mntns_parse_mountinfo(&mntns)) {
+		fail("Can't parse mountinfo");
 		goto out_rs;
 	}
 
-	while (fgets(paux, sizeof(paux), cgf)) {
-		char *s;
-
-		s = strstr(paux, cgname);
-		if (!s)
+	list_for_each_entry(mi, &mntns.mountinfo_list, list) {
+		if (!strstr(mi->super_opts, cgname))
 			continue;
 
-		sscanf(paux, "%*d %*d %*d:%*d %*s %1023s", aux);
-		test_msg("found cgroup at %s\n", aux);
+		test_msg("found cgroup at %s\n", mi->mountpoint);
 
 		for (i = 0; i < 2; i++) {
-			ssprintf(paux, "%s/%s/%s.%d", aux, subname, empty, i);
+			ssprintf(paux, "%s/%s/%s.%d", mi->mountpoint, subname, empty, i);
 
 			if (stat(paux, &st)) {
 				fail("couldn't stat %s", paux);
@@ -106,7 +103,7 @@ int main(int argc, char **argv)
 	fail("empty cgroup not found!");
 
 out_close:
-	fclose(cgf);
+	mntns_free_all(&mntns);
 out_rs:
 	umount(dirname);
 out_rd:

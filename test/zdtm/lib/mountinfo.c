@@ -49,7 +49,7 @@ static struct mountinfo_zdtm *mountinfo_zdtm_alloc(struct mntns_zdtm *mntns)
 	return new;
 }
 
-static void mountinfo_zdtm_free(struct mountinfo_zdtm *mountinfo)
+void mountinfo_zdtm_free(struct mountinfo_zdtm *mountinfo)
 {
 	list_del(&mountinfo->list);
 	xfree(mountinfo->mountpoint);
