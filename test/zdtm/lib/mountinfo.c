@@ -93,7 +93,14 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 			goto free;
 		}
 
-		ret = sscanf(buf, "%i %i %u:%u %ms %ms %*s %n", &new->mnt_id, &new->parent_mnt_id, &kmaj, &kmin,
+		hyphen = strstr(buf, " - ");
+		if (!hyphen) {
+			pr_err("Failed to find \" - \" in mountinfo line \"%s\"\n", buf);
+			goto free;
+		}
+		*hyphen++ = '\0';
+
+		ret = sscanf(buf, "%i %i %u:%u %ms %ms %*s%n", &new->mnt_id, &new->parent_mnt_id, &kmaj, &kmin,
 			     &new->root, &new->mountpoint, &n);
 		if (ret != 6) {
 			pr_err("Failed to parse mountinfo line \"%s\"\n", buf);
@@ -103,14 +110,8 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 		cure_path(new->mountpoint);
 		new->s_dev = MKKDEV(kmaj, kmin);
 
+		/* Optional fields, possibly empty */
 		str = buf + n;
-		hyphen = strstr(buf, " - ");
-		if (!hyphen) {
-			pr_err("Failed to find \" - \" in mountinfo line \"%s\"\n", buf);
-			goto free;
-		}
-		*hyphen++ = '\0';
-
 		shared = strstr(str, "shared:");
 		if (shared)
 			new->shared_id = atoi(shared + 7);
