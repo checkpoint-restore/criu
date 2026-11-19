@@ -137,18 +137,19 @@ def explore_ps(opts):
         pss[ps.pid] = ps
 
     # Build tree
-    psr = None
+    roots = []
     for pid in pss:
         p = pss[pid]
-        if p.ppid == 0:
-            psr = p
+        if p.ppid == 0 or p.ppid not in pss:
+            roots.append(p)
             continue
 
         pp = pss[p.ppid]
         pp.kids.append(p)
 
     print("%7s%7s%7s   %s" % ('PID', 'PGID', 'SID', 'COMM'))
-    show_ps(psr, opts)
+    for r in roots:
+        show_ps(r, opts)
 
 
 files_img = None
@@ -183,8 +184,11 @@ def ftype_find_in_image(opts, ft, fid, img):
             return None
 
     if ft['img'] is None:
-        with dinf(opts, img) as f:
-            ft['img'] = pycriu.images.load(f)['entries']
+        try:
+            with dinf(opts, img) as f:
+                ft['img'] = pycriu.images.load(f)['entries']
+        except FileNotFoundError:
+            ft['img'] = []
     for f in ft['img']:
         if f['id'] == fid:
             return f
@@ -252,28 +256,39 @@ def explore_fds(opts):
         ps_img = pycriu.images.load(f)
     for p in ps_img['entries']:
         pid = get_task_id(p, 'pid')
-        with dinf(opts, 'ids-%s.img' % pid) as f:
-            idi = pycriu.images.load(f)
+        try:
+            with dinf(opts, 'ids-%s.img' % pid) as f:
+                idi = pycriu.images.load(f)
+        except FileNotFoundError:
+            print("%d\t(dead / zombie)" % pid)
+            continue
+
         fdt = idi['entries'][0]['files_id']
-        with dinf(opts, 'fdinfo-%d.img' % fdt) as f:
-            fdi = pycriu.images.load(f)
+        try:
+            with dinf(opts, 'fdinfo-%d.img' % fdt) as f:
+                fdi = pycriu.images.load(f)
+        except FileNotFoundError:
+            fdi = {'entries': []}
 
         print("%d" % pid)
         for fd in fdi['entries']:
             print("\t%7d: %s" % (fd['fd'], get_file_str(opts, fd)))
 
-        with dinf(opts, 'fs-%d.img' % pid) as f:
-            fdi = pycriu.images.load(f)['entries'][0]
-        print("\t%7s: %s" %
-              ('cwd', get_file_str(opts, {
-                  'type': 'REG',
-                  'id': fdi['cwd_id']
-              })))
-        print("\t%7s: %s" %
-              ('root', get_file_str(opts, {
-                  'type': 'REG',
-                  'id': fdi['root_id']
-              })))
+        try:
+            with dinf(opts, 'fs-%d.img' % pid) as f:
+                fdi = pycriu.images.load(f)['entries'][0]
+            print("\t%7s: %s" %
+                  ('cwd', get_file_str(opts, {
+                      'type': 'REG',
+                      'id': fdi['cwd_id']
+                  })))
+            print("\t%7s: %s" %
+                  ('root', get_file_str(opts, {
+                      'type': 'REG',
+                      'id': fdi['root_id']
+                  })))
+        except FileNotFoundError:
+            pass
 
 
 class vma_id:
@@ -297,8 +312,12 @@ def explore_mems(opts):
     vids = vma_id()
     for p in ps_img['entries']:
         pid = get_task_id(p, 'pid')
-        with dinf(opts, 'mm-%d.img' % pid) as f:
-            mmi = pycriu.images.load(f)['entries'][0]
+        try:
+            with dinf(opts, 'mm-%d.img' % pid) as f:
+                mmi = pycriu.images.load(f)['entries'][0]
+        except FileNotFoundError:
+            print("%d\t(dead / zombie)" % pid)
+            continue
 
         print("%d" % pid)
         print("\t%-36s    %s" % ('exe',
@@ -310,7 +329,7 @@ def explore_mems(opts):
         for vma in mmi['vmas']:
             st = vma['status']
             if st & (1 << 10):
-                fn = ' ' + 'ips[%lx]' % vids.get(vma['shmid'])
+                fn = ' ' + 'ipc[%lx]' % vids.get(vma['shmid'])
             elif st & (1 << 8):
                 fn = ' ' + 'shmem[%lx]' % vids.get(vma['shmid'])
             elif st & (1 << 11):
@@ -330,6 +349,20 @@ def explore_mems(opts):
                 fn = ' [vsyscall]'
             elif st & (1 << 3):
                 fn = ' [vdso]'
+            elif st & (1 << 5):
+                fn = ' [heap]'
+            elif st & (1 << 12):
+                fn = ' [vvar]'
+            elif st & (1 << 13):
+                fn = ' [aio]'
+            elif st & (1 << 14):
+                fn = ' [memfd]'
+            elif st & (1 << 15):
+                fn = ' [shstk]'
+            elif st & (1 << 16):
+                fn = ' [guard]'
+            elif st & (1 << 17):
+                fn = ' [uprobes]'
             elif vma['flags'] & 0x0100:  # growsdown
                 fn = ' [stack?]'
             else:
@@ -347,14 +380,19 @@ def explore_mems(opts):
 
 
 def explore_rss(opts):
+    page_shift = PAGE_SIZE.bit_length() - 1
     with dinf(opts, 'pstree.img') as f:
         ps_img = pycriu.images.load(f)
     for p in ps_img['entries']:
         pid = get_task_id(p, 'pid')
-        with dinf(opts, 'mm-%d.img' % pid) as f:
-            vmas = pycriu.images.load(f)['entries'][0]['vmas']
-        with dinf(opts, 'pagemap-%d.img' % pid) as f:
-            pms = pycriu.images.load(f)['entries']
+        try:
+            with dinf(opts, 'mm-%d.img' % pid) as f:
+                vmas = pycriu.images.load(f)['entries'][0]['vmas']
+            with dinf(opts, 'pagemap-%d.img' % pid) as f:
+                pms = pycriu.images.load(f)['entries']
+        except FileNotFoundError:
+            print("%d\t(dead / zombie)" % pid)
+            continue
 
         print("%d" % pid)
         vmi = 0
@@ -364,7 +402,7 @@ def explore_rss(opts):
             while vmi < len(vmas) and vmas[vmi]['end'] <= pm['vaddr']:
                 vmi += 1
 
-            pme = pm['vaddr'] + (pm['nr_pages'] << 12)
+            pme = pm['vaddr'] + (pm['nr_pages'] << page_shift)
             vstr = ''
             while vmi < len(vmas) and vmas[vmi]['start'] < pme:
                 vma = vmas[vmi]
@@ -373,7 +411,7 @@ def explore_rss(opts):
                 else:
                     vstr += ' %08lx / %-8d' % (
                         vma['start'],
-                        (vma['end'] - vma['start']) >> 12)
+                        (vma['end'] - vma['start']) >> page_shift)
                     if vma['status'] & ((1 << 6) | (1 << 7)):
                         vstr += ' ' + get_file_str(opts, {
                             'type': 'REG',
