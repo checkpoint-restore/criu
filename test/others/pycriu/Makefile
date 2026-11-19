@@ -15,6 +15,7 @@ STATUS_FD := 200
 
 run:
 	"$(PYTHON)" test_socket_cleanup.py
+	"$(PYTHON)" test_inherit_stdio.py
 	$(MAKE) start
 	cleanup() { $(MAKE) --no-print-directory stop || true; }
 	trap cleanup EXIT INT TERM
