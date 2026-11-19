@@ -12,6 +12,7 @@ TESTS += test_check
 TESTS += test_feature_check
 TESTS += test_lazy_pages
 TESTS += test_tls
+TESTS += test_opts_reuse
 
 # Install libcriu (headers and library) into a local staging directory so
 # that nothing from the non-test part of the repo is referenced directly
@@ -44,7 +45,12 @@ $(1): $(1).o lib.o
 	$(CC) $$^ $(LDFLAGS) -o $$@
 endef
 
-$(foreach t, $(TESTS), $(eval $(call genb, $(t))))
+$(foreach t, $(filter-out test_opts_reuse,$(TESTS)), $(eval $(call genb, $(t))))
+
+# Link libcriu statically so --wrap sees its allocator calls.
+test_opts_reuse: test_opts_reuse.o
+	$(CC) $^ -L$(CRIU_LIB) -Wl,-Bstatic -lcriu -Wl,-Bdynamic -lprotobuf-c \
+		-Wl,--wrap=malloc,--wrap=strdup,--wrap=free $(if $(GCOV),-lgcov) -o $@
 
 %.o: %.c | $(CRIU_INCLUDE)
 	$(CC) -c $< $(CFLAGS) -o $@ -Werror
