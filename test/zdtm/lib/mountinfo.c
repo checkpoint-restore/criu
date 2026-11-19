@@ -96,7 +96,7 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 		ret = sscanf(buf, "%i %i %u:%u %ms %ms %*s %n", &new->mnt_id, &new->parent_mnt_id, &kmaj, &kmin,
 			     &new->root, &new->mountpoint, &n);
 		if (ret != 6) {
-			pr_perror("Failed to parse mountinfo line \"%s\"", buf);
+			pr_err("Failed to parse mountinfo line \"%s\"\n", buf);
 			goto free;
 		}
 		cure_path(new->root);
@@ -106,7 +106,7 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 		str = buf + n;
 		hyphen = strstr(buf, " - ");
 		if (!hyphen) {
-			pr_perror("Failed to find \" - \" in mountinfo line \"%s\"", buf);
+			pr_err("Failed to find \" - \" in mountinfo line \"%s\"\n", buf);
 			goto free;
 		}
 		*hyphen++ = '\0';
@@ -120,7 +120,7 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 
 		ret = sscanf(hyphen, "- %ms", &new->fstype);
 		if (ret != 1) {
-			pr_perror("Failed to parse fstype in mountinfo tail \"%s\"", hyphen);
+			pr_err("Failed to parse fstype in mountinfo tail \"%s\"\n", hyphen);
 			goto free;
 		}
 	}

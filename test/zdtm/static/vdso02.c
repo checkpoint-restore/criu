@@ -25,7 +25,7 @@ static int parse_vm_area(char *buf, struct vm_area *vma)
 	if (sscanf(buf, "%lx-%lx", &vma->start, &vma->end) == 2)
 		return 0;
 
-	pr_perror("Can't find VMA bounds");
+	pr_err("Can't find VMA bounds\n");
 	return -1;
 }
 

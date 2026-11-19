@@ -300,7 +300,7 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 		ret = sscanf(buf, "%lx-%lx", &start, &end);
 		if (ret != 2) {
 			ret = -1;
-			pr_perror("Can't find vDSO bounds");
+			pr_err("Can't find vDSO bounds\n");
 			goto err;
 		}
 

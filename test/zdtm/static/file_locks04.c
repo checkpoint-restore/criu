@@ -38,7 +38,7 @@ static int check_file_locks(pid_t child_pid, int fd, int child_fd)
 			     &fl_owner);
 
 		if (num < 4) {
-			pr_perror("Invalid lock info.");
+			pr_err("Invalid lock info\n");
 			break;
 		}
 
