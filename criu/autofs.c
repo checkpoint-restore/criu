@@ -1085,5 +1085,5 @@ free_info:
 umount:
 	if (umount(service_mountpoint(mi)) < 0)
 		pr_perror("Failed to umount %s", service_mountpoint(mi));
-	goto close_pipe;
+	goto free_opts;
 }
