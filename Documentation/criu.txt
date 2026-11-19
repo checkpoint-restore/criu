@@ -274,8 +274,10 @@ In other words, do not use it unless really needed.
     used to assign another PID namespace during restore with the help
     of *--inherit-fd*.
 
-*--freeze-cgroup*::
-   Use cgroup freezer to collect processes.
+*--freeze-cgroup* 'path'::
+    Use the cgroup freezer to collect the processes. 'path' is the freezer
+    cgroup directory of the container being dumped, i.e. the one that contains
+    'freezer.state' on cgroup v1 and 'cgroup.freeze' on cgroup v2.
 
 *--manage-cgroups*::
     Collect cgroups into the image thus they gonna be restored then.
