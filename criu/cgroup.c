@@ -856,6 +856,38 @@ int dump_thread_cgroup(const struct pstree_item *item, u32 *cg_id, struct parasi
 	if (parse_thread_cgroup(pid, tid, args, &ctls, &n_ctls))
 		return -1;
 
+	if (item && item != root_item) {
+		struct cg_ctl *root, *stray;
+
+		BUG_ON(!root_cgset);
+
+		/*
+		 * Copy the cgns prefix from the root cgset for each
+		 * controller. This is ok because we know that there is
+		 * only one cgroup namespace.
+		 *
+		 * Do it before looking for an existing set, as sets with
+		 * different cgns prefixes are not equal, and so otherwise
+		 * each of these tasks and threads would get a set of its
+		 * own, whatever cgroups it lives in.
+		 */
+		list_for_each_entry(root, &root_cgset->ctls, l) {
+			list_for_each_entry(stray, &ctls, l) {
+				if (strcmp(root->name, stray->name))
+					continue;
+
+				if (strlen(stray->path) < root->cgns_prefix) {
+					pr_err("cg %s shorter than path prefix %d?\n",
+					       stray->path, root->cgns_prefix);
+					put_ctls(&ctls);
+					return -1;
+				}
+
+				stray->cgns_prefix = root->cgns_prefix;
+			}
+		}
+	}
+
 	cs = get_cg_set(&ctls, n_ctls, item);
 	if (!cs)
 		return -1;
@@ -871,29 +903,7 @@ int dump_thread_cgroup(const struct pstree_item *item, u32 *cg_id, struct parasi
 				pr_info("Set %d is root one\n", cs->id);
 			}
 		} else {
-			struct cg_ctl *root, *stray;
-
-			BUG_ON(!root_cgset);
 			pr_info("Set %d is a stray\n", cs->id);
-
-			/* Copy the cgns prefix from the root cgset for each
-			 * controller. This is ok because we know that there is
-			 * only one cgroup namespace.
-			 */
-			list_for_each_entry(root, &root_cgset->ctls, l) {
-				list_for_each_entry(stray, &cs->ctls, l) {
-					if (strcmp(root->name, stray->name))
-						continue;
-
-					if (strlen(stray->path) < root->cgns_prefix) {
-						pr_err("cg %s shorter than path prefix %d?\n", stray->path,
-						       root->cgns_prefix);
-						return -1;
-					}
-
-					stray->cgns_prefix = root->cgns_prefix;
-				}
-			}
 		}
 	}
 
