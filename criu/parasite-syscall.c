@@ -54,6 +54,16 @@ unsigned long get_exec_start(struct vm_area_list *vmas)
 			continue;
 		if (!(vma_area->e->prot & PROT_EXEC))
 			continue;
+		/*
+		 * The syscall blob is poked into this area through ptrace. A shared
+		 * mapping cannot be copied on write: for a read-only file the poke
+		 * fails with EIO, and for a writable one the injected code would be
+		 * written through to the file or shared memory.
+		 * 32-bit Wine maps its NLS files shared and executable at low
+		 * addresses, so the first executable VMA is often such a mapping.
+		 */
+		if (vma_area->e->flags & MAP_SHARED)
+			continue;
 
 		len = vma_area_len(vma_area);
 		if (len < PARASITE_START_AREA_MIN) {

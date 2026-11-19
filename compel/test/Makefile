@@ -1,4 +1,4 @@
-all: fdspy infect rsys stack
+all: fdspy infect rsys shexec stack
 
 fdspy:
 	$(Q) $(MAKE) -C fdspy
@@ -14,6 +14,11 @@ rsys:
 	$(Q) $(MAKE) -C rsys
 	$(Q) $(MAKE) -C rsys run
 .PHONY: rsys
+
+shexec:
+	$(Q) $(MAKE) -C shexec
+	$(Q) $(MAKE) -C shexec run
+.PHONY: shexec
 
 stack:
 	$(Q) $(MAKE) -C stack
