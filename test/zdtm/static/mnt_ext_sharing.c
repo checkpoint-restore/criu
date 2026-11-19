@@ -6,6 +6,7 @@
 
 #include "zdtmtst.h"
 #include "lock.h"
+#include "mountinfo.h"
 
 const char *test_doc = "Check sharing vs external mounts vs mntns";
 const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
@@ -34,39 +35,27 @@ struct shared *sh;
 
 int pid_mntinfo_get_shid(char *pid, char *source)
 {
-	char path[PATH_MAX], line[BUF_SIZE];
-	FILE *mountinfo;
-	char *hyphen, *shared;
+	struct mountinfo_zdtm *mi;
+	MNTNS_ZDTM(mntns);
 	int ret = -1;
 
-	sprintf(path, "/proc/%s/mountinfo", pid);
-	mountinfo = fopen(path, "r");
-	if (!mountinfo) {
-		pr_perror("fopen");
+	if (mntns_parse_mountinfo_pid(&mntns, pid))
 		return ret;
-	}
 
-	while (fgets(line, sizeof(line), mountinfo)) {
-		hyphen = strchr(line, '-');
-		if (!hyphen) {
-			pr_perror("no hyphen in mountinfo");
-			break;
-		}
-
-		if (!strstr(hyphen + 1, source))
+	list_for_each_entry(mi, &mntns.mountinfo_list, list) {
+		if (strcmp(mi->source, source))
 			continue;
 
-		shared = strstr(line, "shared:");
-		if (!shared) {
+		if (!mi->shared_id) {
 			pr_err("no shared id\n");
 			break;
 		}
 
-		ret = atoi(shared + 7);
+		ret = mi->shared_id;
 		break;
 	}
 
-	fclose(mountinfo);
+	mntns_free_all(&mntns);
 	return ret;
 }
 

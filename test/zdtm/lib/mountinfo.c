@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include "mountinfo.h"
 #include "fs.h"
@@ -48,12 +49,14 @@ static struct mountinfo_zdtm *mountinfo_zdtm_alloc(struct mntns_zdtm *mntns)
 	return new;
 }
 
-static void mountinfo_zdtm_free(struct mountinfo_zdtm *mountinfo)
+void mountinfo_zdtm_free(struct mountinfo_zdtm *mountinfo)
 {
 	list_del(&mountinfo->list);
 	xfree(mountinfo->mountpoint);
 	xfree(mountinfo->root);
 	xfree(mountinfo->fstype);
+	xfree(mountinfo->source);
+	xfree(mountinfo->super_opts);
 	xfree(mountinfo);
 }
 
@@ -65,23 +68,23 @@ static void mountinfo_zdtm_free_all(struct mntns_zdtm *mntns)
 		mountinfo_zdtm_free(mountinfo);
 }
 
-#define BUF_SIZE 4096
-char buf[BUF_SIZE];
-
-int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
+int mntns_parse_mountinfo_pid(struct mntns_zdtm *mntns, const char *pid)
 {
+	char path[PATH_MAX], *buf = NULL;
+	size_t buf_len = 0;
 	FILE *f;
 	int ret;
 
 	INIT_LIST_HEAD(&mntns->mountinfo_list);
 
-	f = fopen("/proc/self/mountinfo", "r");
+	ssprintf(path, "/proc/%s/mountinfo", pid);
+	f = fopen(path, "r");
 	if (!f) {
 		pr_perror("Failed to open mountinfo");
 		return -1;
 	}
 
-	while (fgets(buf, BUF_SIZE, f)) {
+	while (getline(&buf, &buf_len, f) != -1) {
 		struct mountinfo_zdtm *new;
 		unsigned int kmaj, kmin;
 		char *str, *hyphen, *shared, *master;
@@ -118,19 +121,27 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 		if (master)
 			new->master_id = atoi(master + 7);
 
-		ret = sscanf(hyphen, "- %ms", &new->fstype);
-		if (ret != 1) {
-			pr_perror("Failed to parse fstype in mountinfo tail \"%s\"", hyphen);
+		ret = sscanf(hyphen, "- %ms %ms %ms", &new->fstype, &new->source, &new->super_opts);
+		if (ret != 3) {
+			pr_err("Failed to parse mountinfo tail \"%s\"\n", hyphen);
 			goto free;
 		}
+		cure_path(new->source);
 	}
 
+	free(buf);
 	fclose(f);
 	return 0;
 free:
 	mountinfo_zdtm_free_all(mntns);
+	free(buf);
 	fclose(f);
 	return -1;
+}
+
+int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
+{
+	return mntns_parse_mountinfo_pid(mntns, "self");
 }
 
 static struct mountinfo_topology *mountinfo_topology_alloc(struct mntns_zdtm *mntns, struct mountinfo_zdtm *mountinfo)
