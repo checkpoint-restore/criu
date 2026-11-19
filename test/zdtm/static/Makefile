@@ -259,6 +259,7 @@ TST_NOFILE	:=				\
 		loginuid			\
 		cgroupns			\
 		cgroupns_ignore			\
+		cgroupns_threads		\
 		helper_zombie_child		\
 		clone_fs			\
 		macvlan			\
@@ -777,6 +778,7 @@ thread_different_uid_gid:	LDLIBS += -pthread -lcap
 
 cgroup_threads:		LDFLAGS += -pthread
 cgroup_criu_set:	LDFLAGS += -pthread
+cgroupns_threads:	LDFLAGS += -pthread
 
 bpf_hash:		LDLIBS += -lbpf
 bpf_array:		LDLIBS += -lbpf

@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+
+import os
+import subprocess
+import sys
+import tempfile
+import time
+
+sys.path.append("../lib")
+
+import pycriu  # noqa: E402
+
+CGNAME = "zdtmtst"
+SUBNAME = "subcg_ns_threads"
+
+
+def check_sets(img_dir):
+    fname = os.path.join(img_dir, "cgroup.img")
+    if not os.access(fname, os.F_OK):
+        return 0
+
+    print("Checking cgroup sets in %s" % fname)
+    with open(fname, "rb") as f:
+        img = pycriu.images.load(f)
+
+    sets = {}
+    for entry in img["entries"]:
+        for s in entry.get("sets", []):
+            ctls = tuple((c["name"], c["path"], c.get("cgns_prefix", 0))
+                         for c in s.get("ctls", []))
+            sets.setdefault(ctls, []).append(s["id"])
+
+    ret = 0
+    for ctls, ids in sets.items():
+        if len(ids) > 1:
+            print("Sets %s are equal: %s" % (ids, list(ctls)))
+            ret = 1
+
+    return ret
+
+
+if sys.argv[1] == "--post-restore":
+    # Tasks and threads which live in the same cgroups have to share one
+    # cgroup set, so no two sets of an image may be equal.
+    path = os.getenv("ZDTM_IMG_DIR")
+    exit_code = 0
+    for d in sorted(os.listdir(path)):
+        exit_code |= check_sets(os.path.join(path, d))
+
+    sys.exit(exit_code)
+
+if sys.argv[1] == "--clean":
+    # The test can not remove the cgroup it is in itself, and on a failure it
+    # may not get to the cleanup at all. A leftover cgroup keeps the named
+    # hierarchy alive, so remove it here, once the test is gone.
+    tname = tempfile.mkdtemp()
+    subprocess.call(["mount", "-t", "cgroup", "none", tname,
+                     "-o", "none,name=" + CGNAME])
+
+    # On a failure, only the test's main process is waited for, and its child
+    # may still be exiting, so retry for a while on EBUSY.
+    cg = os.path.join(tname, SUBNAME)
+    for _ in range(50):
+        if not os.access(cg, os.F_OK):
+            break
+        try:
+            os.rmdir(cg)
+        except OSError:
+            time.sleep(0.1)
+
+    subprocess.call(["umount", tname])
+    os.rmdir(tname)
