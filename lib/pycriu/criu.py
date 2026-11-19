@@ -93,9 +93,10 @@ class _criu_comm_bin(_criu_comm):
     Communication class for binary.
     """
 
-    def __init__(self, bin_path):
+    def __init__(self, bin_path, inherit_stdio=False):
         self.comm_type = self.COMM_BIN
         self.comm = bin_path
+        self.inherit_stdio = inherit_stdio
         self.swrk = None
         self.daemon = None
 
@@ -114,9 +115,10 @@ class _criu_comm_bin(_criu_comm):
         if p == 0:
 
             def exec_criu():
-                os.close(0)
-                os.close(1)
-                os.close(2)
+                if not self.inherit_stdio:
+                    os.close(0)
+                    os.close(1)
+                    os.close(2)
 
                 css[0].send(struct.pack('i', os.getpid()))
                 os.execvp(self.comm,
@@ -265,11 +267,14 @@ class criu:
         """
         self._comm = _criu_comm_fd(fd)
 
-    def use_binary(self, bin_name):
+    def use_binary(self, bin_name, inherit_stdio=False):
         """
         Access criu by execing it using provided path to criu binary.
+        inherit_stdio -- give criu this process's stdin, stdout and stderr
+        instead of closing them, e.g. so that a shell job restores on the
+        terminal this process runs on.
         """
-        self._comm = _criu_comm_bin(bin_name)
+        self._comm = _criu_comm_bin(bin_name, inherit_stdio)
 
     def _send_req_and_recv_resp(self, req):
         """
