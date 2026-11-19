@@ -138,10 +138,26 @@ void std_log_set_gettimeofday(gettimeofday_t gtod)
 
 int std_gettimeofday(struct timeval *tv, struct timezone *tz)
 {
-	if (__std_gettimeofday != NULL)
-		return __std_gettimeofday(tv, tz);
+	/*
+	 * Both the syscall and the vDSO use longs here, which doesn't match
+	 * struct timeval on 32-bit arches built with 64-bit time_t.
+	 */
+	struct {
+		long tv_sec;
+		long tv_usec;
+	} ktv = {};
+	int ret;
 
-	return sys_gettimeofday(tv, tz);
+	if (__std_gettimeofday != NULL)
+		ret = __std_gettimeofday((void *)&ktv, tz);
+	else
+		ret = sys_gettimeofday((void *)&ktv, tz);
+
+	if (!ret && tv) {
+		tv->tv_sec = ktv.tv_sec;
+		tv->tv_usec = ktv.tv_usec;
+	}
+	return ret;
 }
 
 static void print_string(const char *msg, struct simple_buf *b)
