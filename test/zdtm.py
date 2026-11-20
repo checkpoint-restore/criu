@@ -2695,7 +2695,7 @@ def print_error(line):
 # are silently skipped and will not trigger "ERROR OVER" output.
 grep_errors_ignore = [
     # Commonly seen with ns/uns flavors; harmless but triggers ERROR OVER
-    r"Error: ipv[46]: [Aa]ddress already assigned\.",  # codespell:ignore ddress
+    r"Error: ipv[46]: (?i:address) already assigned\.",
 ]
 
 
