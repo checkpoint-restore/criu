@@ -27,9 +27,24 @@ cuda_plugin.so: $(PLUGIN_SRCS) $(PLUGIN_HEADERS)
 	$(call msg-gen, $@)
 	$(Q) $(CC) $(PLUGIN_CFLAGS) $(DEFINES) $(shell $(COMPEL) includes) $(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS) -ldl -lpthread
 
+# Built into a static criu binary by `make static PLUGINS=cuda`. All symbols
+# but the descriptor are made local, so they cannot clash with CRIU's or
+# those of other built-in plugins.
+BUILTIN_DESC := $(PLUGIN_NAME)_desc
+BUILTIN_CFLAGS := $(filter-out -shared -nostartfiles -fPIC,$(PLUGIN_CFLAGS))
+PKG_CONFIG ?= pkg-config
+OBJCOPY ?= objcopy
+
+builtin.o: $(PLUGIN_SRCS) $(PLUGIN_HEADERS)
+	$(call msg-gen, $@)
+	$(Q) $(CC) $(BUILTIN_CFLAGS) -r -nostdlib $(DEFINES) -DCR_PLUGIN_DESC=$(BUILTIN_DESC) \
+		$(shell $(COMPEL) includes) $(shell $(PKG_CONFIG) --cflags libprotobuf-c) \
+		$(PLUGIN_SRCS) -o $@ $(PLUGIN_INCLUDE)
+	$(Q) $(OBJCOPY) --keep-global-symbol=$(BUILTIN_DESC) $@
+
 clean:
 	$(call msg-clean, $@)
-	$(Q) $(RM) $(PLUGIN_SOBJ) cuda.pb-c.c cuda.pb-c.h
+	$(Q) $(RM) $(PLUGIN_SOBJ) builtin.o cuda.pb-c.c cuda.pb-c.h
 .PHONY: clean
 
 mrproper: clean
