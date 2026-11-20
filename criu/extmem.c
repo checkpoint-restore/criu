@@ -268,6 +268,31 @@ static char *get_images_dir(char *buf, size_t size)
 	return buf;
 }
 
+/*
+ * The provider replaces image and memory transport. Do not combine it with
+ * other transports: they would bypass the provider or fill provider-backed
+ * mappings behind its back.
+ */
+static int check_conflicting_opts(void)
+{
+	const char *opt = NULL;
+
+	if (opts.stream)
+		opt = "--stream";
+	else if (opts.lazy_pages)
+		opt = "--lazy-pages";
+	else if (opts.use_page_server)
+		opt = "--page-server";
+	else if (opts.auto_dedup && opts.mode == CR_RESTORE)
+		opt = "--auto-dedup";
+
+	if (opt) {
+		pr_err("External memory provider can't be used with %s\n", opt);
+		return -1;
+	}
+	return 0;
+}
+
 int extmem_init(void)
 {
 	ExtmemInit init = EXTMEM_INIT__INIT;
@@ -286,6 +311,11 @@ int extmem_init(void)
 	socket_fd = inherit_fd_take(EXTMEM_PROVIDER_KEY);
 	if (socket_fd < 0) {
 		ret = -ENOTSUP;
+		goto out;
+	}
+	if (check_conflicting_opts()) {
+		close(socket_fd);
+		ret = -EINVAL;
 		goto out;
 	}
 	if (install_service_fd(EXTMEM_PROVIDER_FD_OFF, socket_fd) < 0)

@@ -560,6 +560,25 @@ static void test_int_min_status(void)
 	test_vma_response(PROVIDER_INT_MIN_STATUS, -1, EIO);
 }
 
+static void test_conflicting_opts(void)
+{
+	int sockets[2];
+	char byte;
+
+	assert(socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sockets) == 0);
+	provider_fd = sockets[0];
+	provider_lookup_count = 0;
+
+	opts.lazy_pages = true;
+	assert(extmem_init() == -EINVAL);
+	assert(!extmem_is_active());
+	assert(get_service_fd(EXTMEM_PROVIDER_FD_OFF) == -1);
+	/* The provider must not see any request. */
+	assert(recv(sockets[1], &byte, sizeof(byte), MSG_DONTWAIT) == -1 && errno == EAGAIN);
+	close(sockets[0]);
+	close(sockets[1]);
+}
+
 static void run_test(void (*test)(void))
 {
 	pid_t pid = fork();
@@ -589,4 +608,5 @@ void test_extmem(void)
 	run_test(test_missing_fd);
 	run_test(test_error_fd);
 	run_test(test_int_min_status);
+	run_test(test_conflicting_opts);
 }
