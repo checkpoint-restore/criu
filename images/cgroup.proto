@@ -19,6 +19,13 @@ message cgroup_dir_entry {
 	repeated cgroup_dir_entry	children 	= 2;
 	repeated cgroup_prop_entry	properties	= 3;
 	optional cgroup_perms		dir_perms	= 4;
+	/*
+	 * The cgroup is not owned by the dumped tasks (it is the one criu
+	 * was in), so neither its descendants nor its properties, except for
+	 * the ones needed to create it, are dumped, and on restore it is used
+	 * as is, if it exists.
+	 */
+	optional bool			external	= 5;
 }
 
 message cg_controller_entry {
