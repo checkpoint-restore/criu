@@ -437,6 +437,8 @@ TST_DIR		=				\
 		tempfs_ro			\
 		tempfs_ro02			\
 		tempfs_subns			\
+		ramfs				\
+		ramfs_ro			\
 		mnt_ro_bind			\
 		mount_paths			\
 		bind-mount			\

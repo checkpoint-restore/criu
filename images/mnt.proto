@@ -32,6 +32,7 @@ enum fstype {
 	// NFS4			= 22;
 
 	CGROUP2			= 23;
+	RAMFS			= 24;
 };
 
 message mnt_entry {

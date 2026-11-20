@@ -1377,6 +1377,11 @@ static int parse_mnt_flags(char *opt, unsigned *flags)
 			"relatime",
 			MS_RELATIME,
 		},
+		{
+			/* Unknown options are skipped here, which silently dropped this one. */
+			"nosymfollow",
+			CRIU_MS_NOSYMFOLLOW,
+		},
 		{},
 	};
 

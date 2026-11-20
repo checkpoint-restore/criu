@@ -20,6 +20,13 @@ struct ns_id;
  */
 #define MS_MNT_KNOWN_FLAGS (MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_NOATIME | MS_NODIRATIME | MS_RELATIME | MS_RDONLY)
 
+/*
+ * MS_NOSYMFOLLOW (Linux 5.10) is an enum member in glibc's <sys/mount.h> and
+ * missing from older headers, so its value goes by a name of our own. Like the
+ * flags above, it is restored by a bind remount of the mount.
+ */
+#define CRIU_MS_NOSYMFOLLOW 256
+
 #define BINFMT_MISC_HOME "proc/sys/fs/binfmt_misc"
 
 #define HELPER_MNT_ID 0
