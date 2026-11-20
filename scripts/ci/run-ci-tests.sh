@@ -299,6 +299,8 @@ run_non_shardable_tests() {
 	./test/zdtm.py run "${LAZY_OPTS[@]}" --lazy-pages
 	./test/zdtm.py run "${LAZY_OPTS[@]}" --remote-lazy-pages
 	./test/zdtm.py run "${LAZY_OPTS[@]}" --remote-lazy-pages --tls
+	# Private memfd mappings are premapped before asyncd is started.
+	./test/zdtm.py run -t zdtm/static/shmemfd-priv --lazy-pages
 	if criu/criu check --feature compress; then
 		./test/zdtm.py run -t zdtm/static/maps00 --lazy-pages --compress
 		./test/zdtm.py run -t zdtm/static/compress_pages00 --remote-lazy-pages --compress
@@ -370,6 +372,7 @@ run_non_shardable_tests() {
 		./test/zdtm.py run -t zdtm/static/compress_pages00 --image-io-mode direct
 		./test/zdtm.py run -t zdtm/static/compress_pages00 --compress-acceleration 2
 		./test/zdtm.py run -t zdtm/static/compress_pages00 -t zdtm/static/compress_pages01 --rpc
+		./test/zdtm.py run -t zdtm/static/shmemfd-priv --compress
 
 		# Add parent-chain and dedup coverage for block compression.
 		./test/zdtm.py run -t zdtm/static/compress_pages_block00 --pre 2
