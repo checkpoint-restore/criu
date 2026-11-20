@@ -432,14 +432,17 @@ static int dump_ip_opts(int sk, int family, int type, int proto, IpOptsEntry *io
 	}
 
 	/* Non-raw IPv6 sockets also accept SOL_IP options for IPv4 traffic. */
-	if (family == AF_INET || type != SOCK_RAW)
+	if (family == AF_INET || type != SOCK_RAW) {
 		ret |= dump_opt(sk, SOL_IP, IP_RECVTOS, &ioe->recvtos);
+		ret |= dump_opt(sk, SOL_IP, IP_RECVTTL, &ioe->recvttl);
+	}
 
 	ioe->has_freebind = ioe->freebind;
 	ioe->has_pktinfo = !!ioe->pktinfo;
 	ioe->has_tos = !!ioe->tos;
 	ioe->has_ttl = !!ioe->ttl;
 	ioe->has_recvtos = !!ioe->recvtos;
+	ioe->has_recvttl = !!ioe->recvttl;
 
 	return ret;
 }
@@ -864,6 +867,8 @@ int restore_ip_opts(int sk, int family, int proto, IpOptsEntry *ioe)
 
 	if (ioe->has_recvtos)
 		ret |= restore_opt(sk, SOL_IP, IP_RECVTOS, &ioe->recvtos);
+	if (ioe->has_recvttl)
+		ret |= restore_opt(sk, SOL_IP, IP_RECVTTL, &ioe->recvttl);
 
 	if (ioe->raw)
 		ret |= restore_ip_raw_opts(sk, family, proto, ioe->raw);
