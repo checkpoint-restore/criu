@@ -1,0 +1,11 @@
+#!/bin/bash
+
+[ "$1" == "--pre-restore" ] || exit 0
+
+set -e
+
+dir="$(dirname "$0")/$(basename -s .hook "$0").test"
+
+# Replace a path component of the opened file with a symlink
+mv "$dir/dir" "$dir/dir.real"
+ln -s dir.real "$dir/dir"
