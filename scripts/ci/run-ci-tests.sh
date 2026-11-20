@@ -348,6 +348,10 @@ run_non_shardable_tests() {
 	./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --pre-dump-mode read
 
 	./test/zdtm.py run -t zdtm/static/maps04 --image-io-mode direct
+	if [ "$UNAME_M" = "x86_64" ]; then
+		make -C test/others/raw-restore-workers check CC="$CC"
+		./test/zdtm.py run -t zdtm/static/maps04 --image-io-mode direct --raw-restore-workers 4
+	fi
 	./test/zdtm.py run -t zdtm/static/maps00 --image-io-mode direct --rpc
 
 	if criu/criu check --feature compress; then
