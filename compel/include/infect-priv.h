@@ -2,6 +2,7 @@
 #define __COMPEL_INFECT_PRIV_H__
 
 #include <stdbool.h>
+#include <sys/resource.h>
 
 #define BUILTIN_SYSCALL_SIZE 8
 
@@ -40,6 +41,13 @@ struct parasite_ctl {
 	void *args;	   /* address for arguments */
 	unsigned long args_size;
 	int tsock; /* transport socket for transferring fds */
+
+	/* victim rlimits raised for the parasite, restored on cure */
+	struct parasite_rlimit {
+		int resource;
+		bool raised;
+		struct rlimit orig;
+	} rlim[2];
 
 	struct parasite_blob_desc pblob;
 };
