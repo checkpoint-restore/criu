@@ -1150,7 +1150,8 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 		pid = fork();
 		if (pid < 0) {
 			pr_perror("Can't fork ns dumper");
-			return -1;
+			ret = -1;
+			break;
 		}
 
 		if (pid == 0) {
@@ -1162,22 +1163,28 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 		nr++;
 	}
 
+	/*
+	 * Reap all dumpers, even if one of them fails, so that none of them
+	 * keeps writing images after the dump has been aborted.
+	 */
 	while (nr > 0) {
 		int status;
 
-		ret = waitpid(-1, &status, 0);
-		if (ret < 0) {
+		if (waitpid(-1, &status, 0) < 0) {
 			pr_perror("Can't wait ns dumper");
 			return -1;
 		}
 
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 			pr_err("Namespaces dumping finished with error %d\n", status);
-			return -1;
+			ret = -1;
 		}
 
 		nr--;
 	}
+
+	if (ret)
+		return -1;
 
 	pr_info("Namespaces dump complete\n");
 	return 0;
