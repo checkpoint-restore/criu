@@ -329,6 +329,11 @@ static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 			pr_perror("Can't send data");
 			return -1;
 		}
+		if (ret == 0) {
+			pr_err("Unexpected EOF in ghost file image: %zu bytes left at off %ld\n",
+			       len, (long)off);
+			return -1;
+		}
 
 		off += ret;
 		len -= ret;
