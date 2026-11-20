@@ -52,6 +52,25 @@ static inline int sys_open_tree(int dfd, const char *filename, unsigned int flag
 #define RESOLVE_NO_XDEV 0x01 /* Block mount-point crossings (includes bind-mounts). */
 #endif
 
+#ifndef MOUNT_ATTR_RDONLY
+#define MOUNT_ATTR_RDONLY 0x00000001 /* Mount read-only */
+#endif
+#ifndef MOUNT_ATTR_NOSUID
+#define MOUNT_ATTR_NOSUID 0x00000002 /* Ignore suid and sgid bits */
+#endif
+#ifndef MOUNT_ATTR_NODEV
+#define MOUNT_ATTR_NODEV 0x00000004 /* Disallow access to device special files */
+#endif
+#ifndef MOUNT_ATTR_NOEXEC
+#define MOUNT_ATTR_NOEXEC 0x00000008 /* Disallow program execution */
+#endif
+#ifndef MOUNT_ATTR_RELATIME
+#define MOUNT_ATTR_RELATIME 0x00000000 /* Update atime relative to mtime/ctime */
+#endif
+#ifndef MOUNT_ATTR_NODIRATIME
+#define MOUNT_ATTR_NODIRATIME 0x00000080 /* Do not update directory access times */
+#endif
+
 static inline long sys_openat2(int dirfd, const char *pathname, struct open_how *how, size_t size)
 {
 	return syscall(__NR_openat2, dirfd, pathname, how, size);
