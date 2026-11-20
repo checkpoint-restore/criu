@@ -6,7 +6,7 @@ import socket
 import struct
 import sys
 import time
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from unittest import mock
 
 # Add ../../../lib so we can import pycriu
@@ -29,6 +29,119 @@ def make_req(criu, keep_open):
 def fail(msg):
     print("FAIL: %s" % msg)
     return 1
+
+
+@contextmanager
+def blocked_worker():
+    client, server = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    release_r, release_w = os.pipe()
+    with client, server, os.fdopen(release_r, "rb") as release, os.fdopen(release_w, "wb") as finish:
+        pid = os.fork()
+        if pid == 0:
+            status = 1
+            try:
+                client.close()
+                finish.close()
+                server.send(pycriu.rpc.criu_resp(type=pycriu.rpc.CHECK,
+                                                 success=True).SerializeToString())
+                # Stay alive independently of the RPC socket until the
+                # parent closes the pipe.
+                release.read(1)
+                status = 0
+            finally:
+                os._exit(status)
+
+        release.close()
+        server.close()
+        criu = criu_class()
+        criu.sk = client
+        criu._comm.sk = client
+        criu._comm.swrk = pid
+        criu._comm.daemon = False
+        try:
+            yield criu, pid, finish
+        finally:
+            client.close()
+            finish.close()
+            try:
+                os.waitpid(pid, 0)
+            except ChildProcessError:
+                # A later RPC in the test has already reaped the worker.
+                pass
+
+
+def check_deferred_reaping(pid, finish):
+    finish.close()
+    # Observe exit without reaping, so the next RPC has to do it.
+    os.waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT)
+    client, server = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    with client, server:
+        next_criu = criu_class()
+        next_criu.use_fd(client.fileno())
+        server.send(pycriu.rpc.criu_resp(type=pycriu.rpc.CHECK,
+                                         success=True).SerializeToString())
+        next_criu._send_req_and_recv_resp(make_req(next_criu, False))
+    try:
+        os.waitpid(pid, os.WNOHANG)
+        return fail("later request left the worker unreaped")
+    except ChildProcessError:
+        return 0
+
+
+def test_binary_failures():
+    for error in (OSError(errno.EIO, "transport failed"), TimeoutError("request timed out"),
+                  KeyboardInterrupt(), SystemExit(42)):
+        with blocked_worker() as (criu, pid, finish):
+            transport = criu.sk
+            # Kill the test if cleanup starts waiting for this live worker.
+            signal.alarm(5)
+            try:
+                with mock.patch.object(socket.socket, "recv_into", side_effect=error):
+                    try:
+                        criu._send_req_and_recv_resp(make_req(criu, False))
+                        return fail("binary request failure did not raise")
+                    except CRIUExceptionInternal as caught:
+                        if not isinstance(error, Exception) or str(error) not in str(caught):
+                            return fail("binary request changed the transport error")
+                    except (KeyboardInterrupt, SystemExit) as caught:
+                        if caught is not error:
+                            return fail("binary request changed the cancellation exception")
+            finally:
+                signal.alarm(0)
+
+            if criu.sk is not None or criu._comm.sk is not None:
+                return fail("binary request failure kept the socket cached")
+            if transport.fileno() != -1 or criu._comm.swrk is not None:
+                return fail("binary request failure kept the transport or worker pid")
+            if os.waitpid(pid, os.WNOHANG) != (0, 0):
+                return fail("request failure terminated the worker")
+            if check_deferred_reaping(pid, finish):
+                return 1
+    return 0
+
+
+def test_interrupted_worker_wait():
+    for error in (KeyboardInterrupt(), SystemExit(42)):
+        with blocked_worker() as (criu, pid, finish):
+            waitpid = os.waitpid
+
+            def interrupted_wait(worker, options):
+                if worker == pid and options == 0:
+                    raise error
+                return waitpid(worker, options)
+
+            with mock.patch.object(os, "waitpid", side_effect=interrupted_wait):
+                try:
+                    criu._send_req_and_recv_resp(make_req(criu, False))
+                    return fail("interrupted worker wait did not raise")
+                except (KeyboardInterrupt, SystemExit) as caught:
+                    if caught is not error:
+                        return fail("worker wait changed the cancellation exception")
+            if criu._comm.swrk is not None:
+                return fail("interrupted worker wait left the pid cached")
+            if check_deferred_reaping(pid, finish):
+                return 1
+    return 0
 
 
 def main():
@@ -127,8 +240,8 @@ def main():
             transport = criu.sk
             disconnect = criu._comm.disconnect
 
-            def fail_disconnect():
-                disconnect()
+            def fail_disconnect(**kwargs):
+                disconnect(**kwargs)
                 raise OSError("cleanup failed")
 
             with mock.patch.object(socket.socket, "recv_into", side_effect=error):
@@ -148,6 +261,11 @@ def main():
                 return fail("request failure kept the socket cached")
             if transport.fileno() != -1:
                 return fail("request failure left the socket open")
+
+    if test_binary_failures():
+        return 1
+    if test_interrupted_worker_wait():
+        return 1
 
     # A successful response still wraps a failure to close its transport.
     client, server = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
@@ -197,6 +315,8 @@ def main():
     # A request to a binary that exits without serving reaps the child.
     criu = criu_class()
     criu.use_binary("/bin/true")
+    criu.sk = criu._comm.connect(False)
+    os.waitid(os.P_PID, criu._comm.swrk, os.WEXITED | os.WNOWAIT)
     try:
         criu._send_req_and_recv_resp(make_req(criu, False))
     except CRIUExceptionInternal:
