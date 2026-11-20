@@ -194,7 +194,7 @@ static int by_time(const struct dirent **de1, const struct dirent **de2)
 
 	snprintf(path, sizeof(path), "%s/%s", ns_path, (*de2)->d_name);
 	if (stat(path, &sb2) < 0) {
-		pr_perror("couldn't state %s", path);
+		pr_perror("couldn't stat %s", path);
 		sort_err = errno;
 		return 0;
 	}
