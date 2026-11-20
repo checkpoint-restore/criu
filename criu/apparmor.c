@@ -166,6 +166,7 @@ close:
 	close(fd);
 
 err:
+	xfree(cur->blob.data);
 	xfree(cur->name);
 	xfree(cur);
 	return -1;
