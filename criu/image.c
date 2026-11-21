@@ -897,6 +897,9 @@ int image_dir_mode(void)
 	}
 }
 
+#define CR_MAX_PARENT_DEPTH 32
+static int check_parent_cycle(int img_fd);
+
 /*
  * `mode` should be O_RSTR or O_DUMP depending on the intent.
  * This is used when opts.stream is enabled for picking the right streamer
@@ -925,14 +928,15 @@ int open_image_dir(const char *dir, int mode)
 	}
 
 	if (opts.img_parent) {
-		if (faccessat(fd, opts.img_parent, R_OK, 0)) {
-			pr_perror("Invalid parent image directory provided");
-			goto err;
-		}
-
 		ret = symlinkat(opts.img_parent, fd, CR_PARENT_LINK);
 		if (ret < 0 && errno != EEXIST) {
 			pr_perror("Can't link parent snapshot");
+			goto err;
+		}
+
+		if (check_parent_cycle(fd)) {
+			if (ret == 0)
+				unlinkat(fd, CR_PARENT_LINK, 0);
 			goto err;
 		}
 
@@ -973,6 +977,40 @@ int open_parent(int dfd, int *pfd)
 	if (*pfd < 0) {
 		pr_perror("Can't open parent path");
 		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Walk up the parent chain. If there is any cycle, it will loop and quickly hit CR_MAX_PARENT_DEPTH.
+ */
+static int check_parent_cycle(int img_fd)
+{
+	int cur_fd, next_fd, depth = 0;
+
+	cur_fd = img_fd;
+	while (1) {
+		if (++depth > CR_MAX_PARENT_DEPTH) {
+			pr_err("Parent images chain too deep (possible cycle)\n");
+			if (cur_fd != img_fd)
+				close(cur_fd);
+			return -1;
+		}
+
+		if (open_parent(cur_fd, &next_fd)) {
+			if (cur_fd != img_fd)
+				close(cur_fd);
+			return -1;
+		}
+
+		if (cur_fd != img_fd)
+			close(cur_fd);
+
+		if (next_fd < 0)
+			break;
+
+		cur_fd = next_fd;
 	}
 
 	return 0;
