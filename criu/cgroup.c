@@ -938,6 +938,7 @@ static int dump_cg_dir_props(struct list_head *props, size_t n_props, CgroupProp
 
 error:
 	while (i >= 0) {
+		xfree(cpe->perms);
 		xfree(cpe->name);
 		xfree(cpe->value);
 		--cpe;
