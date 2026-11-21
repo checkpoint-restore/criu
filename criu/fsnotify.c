@@ -955,8 +955,10 @@ static int open_inotify_fd(struct file_desc *d, int *new_fd)
 		pr_info("\t 0x%x wd for %#08x is restored\n", wd_info->iwe->wd, wd_info->iwe->id);
 	}
 
-	if (restore_fown(tmp, info->ife->fown))
+	if (restore_fown(tmp, info->ife->fown)) {
 		close_safe(&tmp);
+		return -1;
+	}
 
 	*new_fd = tmp;
 	return 0;
@@ -993,8 +995,10 @@ static int open_fanotify_fd(struct file_desc *d, int *new_fd)
 		}
 	}
 
-	if (restore_fown(ret, info->ffe->fown))
+	if (restore_fown(ret, info->ffe->fown)) {
 		close_safe(&ret);
+		return -1;
+	}
 
 	*new_fd = ret;
 	return 0;
