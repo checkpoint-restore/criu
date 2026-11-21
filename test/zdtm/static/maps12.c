@@ -28,13 +28,14 @@ uint8_t *map_base;
 struct {
 	unsigned int pages_num;
 	bool filemap;
+	bool exec;
 } vmas[] = {
-	{ 2, false },
-	{ 2, false },
-	{ 2, false },
-	{ 2, true },
-	{ 2, true },
-	{ 2, true },
+	{ 2, false, false },
+	{ 2, false, true }, /* RWX starting with a guard page, see #3297 */
+	{ 2, false, false },
+	{ 2, true, false },
+	{ 2, true, false },
+	{ 2, true, false },
 };
 
 struct {
@@ -105,11 +106,11 @@ static int setup_sigsegv_handler(void)
 	return 0;
 }
 
-static inline void *mmap_pages(void *addr_hint, unsigned int count, bool filemap)
+static inline void *mmap_pages(void *addr_hint, unsigned int count, bool filemap, bool exec)
 {
 	char *map;
 
-	map = mmap(addr_hint, count * PAGE_SIZE, PROT_WRITE | PROT_READ,
+	map = mmap(addr_hint, count * PAGE_SIZE, PROT_WRITE | PROT_READ | (exec ? PROT_EXEC : 0),
 		   MAP_PRIVATE | (filemap ? 0 : MAP_ANONYMOUS) | (addr_hint ? MAP_FIXED : 0),
 		   filemap ? fd : -1,
 		   filemap ? (off_t)((intptr_t)addr_hint - (intptr_t)map_base) : 0);
@@ -258,7 +259,7 @@ static int prepare_vmas(void)
 	shift = 0;
 	for (i = 0; i < ARRAY_SIZE(vmas); i++) {
 		map = mmap_pages(&map_base[shift * PAGE_SIZE],
-				 vmas[i].pages_num, vmas[i].filemap);
+				 vmas[i].pages_num, vmas[i].filemap, vmas[i].exec);
 		if (map == MAP_FAILED) {
 			pr_err("mmap of [%d,%d] pages failed\n",
 			       shift, shift + vmas[i].pages_num);
@@ -299,7 +300,7 @@ int main(int argc, char **argv)
 	}
 
 	/* let's find a large enough area in address space */
-	map_base = mmap_pages(NULL, pages_num, false);
+	map_base = mmap_pages(NULL, pages_num, false, false);
 	if (map_base == MAP_FAILED) {
 		pr_err("mmap of %d pages failed\n", pages_num);
 		return 1;
