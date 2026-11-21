@@ -18,8 +18,10 @@
 #include "pagemap.h"
 #include "cr_options.h"
 #include "plugin.h"
+#include "hugetlb.h"
 
 int parse_statement(int i, char *line, char **configuration);
+void test_extmem(void);
 
 cr_plugin_ctl_t cr_plugin_ctl;
 
@@ -670,6 +672,22 @@ static void test_block_compression(void)
 
 #endif
 
+static void test_vma_pagesize(void)
+{
+	VmaEntry vma = VMA_ENTRY__INIT;
+
+	vma.flags = MAP_PRIVATE | MAP_ANONYMOUS;
+	assert(vma_entry_pagesize(&vma) == PAGE_SIZE);
+	vma.flags |= MAP_HUGETLB | MAP_HUGETLB_2MB;
+	assert(vma_entry_pagesize(&vma) == (1UL << 21));
+	vma.flags = MAP_HUGETLB | MAP_HUGETLB_1GB;
+	assert(vma_entry_pagesize(&vma) == (1UL << 30));
+	vma.flags = MAP_HUGETLB;
+	assert(vma_entry_pagesize(&vma) == 0);
+	vma.flags = MAP_HUGETLB | (1U << MAP_HUGETLB_SHIFT);
+	assert(vma_entry_pagesize(&vma) == 0);
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	char **configuration;
@@ -683,6 +701,8 @@ int main(int argc, char *argv[], char *envp[])
 	test_pagemap_offset_alignment();
 	test_plugin_dispatch_all();
 	test_plugin_options();
+	test_extmem();
+	test_vma_pagesize();
 
 	i = parse_statement(0, "", configuration);
 	assert(i == 0);

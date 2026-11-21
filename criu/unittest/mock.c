@@ -4,9 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 
 #include "compel/infect-util.h"
+#include "servicefd.h"
 
 int add_external(char *key)
 {
@@ -78,24 +80,39 @@ int check_namespace_opts(void)
 	return 0;
 }
 
-int get_service_fd(int type)
+static int extmem_provider_fd = -1;
+
+int get_service_fd(enum sfd_type type)
 {
+	if (type == EXTMEM_PROVIDER_FD_OFF)
+		return extmem_provider_fd;
 	return -1;
 }
 
+int install_service_fd(enum sfd_type type, int fd)
+{
+	if (type != EXTMEM_PROVIDER_FD_OFF)
+		return 0;
+	extmem_provider_fd = fd;
+	return fd;
+}
+
+int close_service_fd(enum sfd_type type)
+{
+	if (type == EXTMEM_PROVIDER_FD_OFF && extmem_provider_fd >= 0) {
+		close(extmem_provider_fd);
+		extmem_provider_fd = -1;
+	}
+	return 0;
+}
+
+/* Shared, so that forked test processes see the same objects. */
 void *shmalloc(size_t bytes)
 {
-	return malloc(bytes);
-}
+	void *mem;
 
-int install_service_fd(int type, int fd)
-{
-	return 0;
-}
-
-int close_service_fd(int type)
-{
-	return 0;
+	mem = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	return mem == MAP_FAILED ? NULL : mem;
 }
 
 void compel_log_init(int log_fn, unsigned int level)

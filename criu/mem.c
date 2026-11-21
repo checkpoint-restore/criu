@@ -36,6 +36,8 @@
 #include "compel/infect-util.h"
 #include "pidfd-store.h"
 #include "compression.h"
+#include "extmem.h"
+#include "hugetlb.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -817,14 +819,14 @@ static unsigned long premap_thp_align(struct pstree_item *t, struct vma_area *vm
 }
 
 /*
- * The room reserved to align a premapped VMA. Both addresses are
- * page-aligned, so the skipped room is never larger than this.
+ * Premap explicit huge pages at their page size. Other mappings can
+ * preserve their offset within a THP-sized region.
  */
-static unsigned long premap_thp_pad(struct pstree_item *t, struct vma_area *vma)
+static unsigned long premap_align(struct pstree_item *t, struct vma_area *vma)
 {
-	unsigned long align = premap_thp_align(t, vma);
-
-	return align ? align - PAGE_SIZE : 0;
+	if (vma->e->flags & MAP_HUGETLB)
+		return vma_entry_pagesize(vma->e);
+	return premap_thp_align(t, vma);
 }
 
 int prepare_mm_pid(struct pstree_item *i)
@@ -1031,10 +1033,10 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		return -1;
 
 	/*
-	 * Determine THP alignment from the original VMA,
+	 * Determine alignment from the original VMA,
 	 * before modifying its boundaries.
 	 */
-	align = premap_thp_align(t, vma);
+	align = premap_align(t, vma);
 
 	/*
 	 * A grow-down VMA has a guard page, which protect a VMA below it.
@@ -1154,6 +1156,41 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 	return 0;
 }
 
+static bool provider_vma_eligible(struct vma_area *vma)
+{
+	return vma_area_is(vma, VMA_AREA_REGULAR | VMA_ANON_PRIVATE) &&
+	       !(vma->e->status & (VMA_FILE_PRIVATE | VMA_AREA_AIORING | VMA_EXT_PLUGIN |
+				   VMA_AREA_VDSO | VMA_AREA_VVAR | VMA_AREA_VSYSCALL | VMA_AREA_SHSTK)) &&
+	       !(vma->e->flags & (MAP_GROWSDOWN | MAP_DROPPABLE | MAP_LOCKED)) &&
+	       !(vma->e->madv & (1UL << MADV_WIPEONFORK)) && vma_entry_pagesize(vma->e);
+}
+
+static int premap_provider_vma(struct pstree_item *t, struct vma_area *vma, unsigned int vma_id, void **addr)
+{
+	unsigned long flags;
+	int fd = -1;
+	int ret;
+
+	/* CRIU maps the provider's FD at the VMA's original file offset. */
+	ret = extmem_get_vma(vpid(t), vma_id, vma->e->start, vma_entry_len(vma->e), vma->e->pgoff, &fd);
+	if (ret)
+		return ret;
+
+	flags = vma->e->flags;
+	vma->pvma = NULL;
+	vma->e->flags = (flags & ~MAP_ANONYMOUS) | MAP_PRIVATE;
+	vma->e->fd = fd;
+	ret = premap_private_vma(t, vma, addr);
+	close_safe(&fd);
+	vma->e->fd = -1;
+	vma->e->flags = flags;
+	if (ret)
+		return ret;
+
+	vma->provider_backed = true;
+	return 0;
+}
+
 static inline bool vma_force_premap(struct vma_area *vma, struct list_head *head)
 {
 	/*
@@ -1205,18 +1242,113 @@ static int task_size_check(pid_t pid, VmaEntry *entry)
 #endif
 }
 
+static int should_premap_vma(struct vma_area *vma, struct list_head *head, struct page_read *pr)
+{
+	int needs_premap = 0, has_lz4 = 0;
+	bool exceptional;
+
+	exceptional = (vma->e->flags & MAP_HUGETLB) ||
+		      (vma->e->status & VMA_EXT_PLUGIN);
+
+	/*
+	 * PIE cannot link against liblz4. Premap ordinary private VMAs which
+	 * contain an actual LZ4 block so their content is decoded by the
+	 * normal page reader before switching to PIE. Also premap large zero
+	 * runs through the compressed-page worker pool, and entries whose
+	 * raw/zero run count exceeds the direct-PIE bound. Short runs then
+	 * coalesce in-process, while long runs retain direct I/O. Uniform and
+	 * lightly fragmented ranges keep the faster delayed path.
+	 *
+	 * Hugetlb and plugin pagemaps may contain only raw or zero entries.
+	 * Reject LZ4 blocks and parent references before the destructive restore.
+	 */
+	/*
+	 * Inspect each layer's pagemap rather than trusting the top-level
+	 * inventory mode. Incremental chains may mix compressed and ordinary
+	 * entries, and PIE must never receive an encoded block even when the
+	 * final inventory reports compression as disabled.
+	 */
+	if (exceptional) {
+		has_lz4 = page_read_range_has_lz4(pr, vma->e->start, vma->e->end);
+		if (has_lz4 < 0)
+			return -1;
+	} else {
+		needs_premap = page_read_range_needs_premap(pr, vma->e->start, vma->e->end);
+		if (needs_premap < 0)
+			return -1;
+	}
+	if (exceptional) {
+		int has_parent = page_read_range_has_parent(pr, vma->e->start, vma->e->end);
+
+		if (has_parent < 0)
+			return -1;
+		if (has_parent) {
+			pr_err("Non-premapped VMA %#" PRIx64 "-%#" PRIx64
+			       " contains pages inherited from a parent image\n",
+			       vma->e->start, vma->e->end);
+			return -1;
+		}
+	}
+
+	if (vma->e->flags & MAP_HUGETLB) {
+		if (has_lz4) {
+			pr_err("Hugetlb VMA %#" PRIx64 "-%#" PRIx64
+			       " contains an LZ4 block\n",
+			       vma->e->start, vma->e->end);
+			return -1;
+		}
+		/*
+		 * Hugetlb VMAs are restored by the restorer. Only
+		 * provider-backed ones are premapped.
+		 */
+		return 0;
+	}
+
+	/* VMA offset may change due to plugin so we cannot premap */
+	if (vma->e->status & VMA_EXT_PLUGIN) {
+		if (has_lz4) {
+			pr_err("External-plugin VMA %#" PRIx64 "-%#" PRIx64
+			       " contains an LZ4 block\n",
+			       vma->e->start, vma->e->end);
+			return -1;
+		}
+		return 0;
+	}
+
+	if (vma->pvma == NULL && pr->pieok && !needs_premap && !vma_force_premap(vma, head)) {
+		/*
+		 * VMA in question is not shared with anyone. We'll
+		 * restore it with its contents in restorer.
+		 * Now let's check whether we need to map it with
+		 * PROT_WRITE or not.
+		 */
+		while (pr->pe) {
+			if (pr->pe->vaddr + pr->pe->nr_pages * PAGE_SIZE > vma->e->start) {
+				if (pr->pe->vaddr >= vma->e->end)
+					vma->e->status |= VMA_NO_PROT_WRITE;
+				break;
+			}
+			if (!pr->advance(pr))
+				break;
+		}
+
+		return 0;
+	}
+
+	return 1;
+}
+
 static int plan_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 			  struct page_read *pr, unsigned long *premap_size)
 {
-	struct vma_area *vma;
+	bool use_provider = extmem_is_active();
 	unsigned long pstart = 0;
+	struct vma_area *vma;
 	uint64_t size = 0;
 
 	list_for_each_entry(vma, &vmas->h, list) {
-		bool exceptional;
-		int has_lz4 = 0;
-		int has_parent = 0;
-		int needs_premap = 0;
+		unsigned long len, align, pad;
+		int ret;
 
 		if (vma_area_is(vma, VMA_AREA_GUARD))
 			continue;
@@ -1232,116 +1364,87 @@ static int plan_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
-		exceptional = (vma->e->flags & MAP_HUGETLB) ||
-			      (vma->e->status & VMA_EXT_PLUGIN);
 
 		/*
-		 * PIE cannot link against liblz4. Premap ordinary private VMAs which
-		 * contain an actual LZ4 block so their content is decoded by the
-		 * normal page reader before switching to PIE. Also premap large zero
-		 * runs through the compressed-page worker pool, and entries whose
-		 * raw/zero run count exceeds the direct-PIE bound. Short runs then
-		 * coalesce in-process, while long runs retain direct I/O. Uniform and
-		 * lightly fragmented ranges keep the faster delayed path.
-		 *
-		 * Hugetlb and external-plugin VMAs cannot use the generic premap
-		 * path.  The dump side therefore guarantees that their compressed
-		 * pagemap entries contain raw/zero blocks only.  Reject an image
-		 * which violates that invariant before the destructive restore.
+		 * Don't COW-remap the parent's VMA if it is provider-backed
+		 * (a fallback VMA must not inherit the provider's file
+		 * mapping) or if it is not premapped at all. The latter
+		 * happens to a middle task of a COW chain whose own parent
+		 * is provider-backed: this check clears its pvma, so it is
+		 * restored by the restorer and has nothing to remap.
 		 */
-		/*
-		 * Inspect each layer's pagemap rather than trusting the top-level
-		 * inventory mode. Incremental chains may mix compressed and ordinary
-		 * entries, and PIE must never receive an encoded block even when the
-		 * final inventory reports compression as disabled.
-		 */
-		if (exceptional) {
-			has_lz4 = page_read_range_has_lz4(pr, vma->e->start, vma->e->end);
-			if (has_lz4 < 0)
+		if (vma_inherited(vma) &&
+		    (vma->pvma->provider_backed || !vma_area_is(vma->pvma, VMA_PREMMAPED)))
+			vma->pvma = NULL;
+
+		/* Leave room to map a provider FD as soon as it arrives. */
+		if (!use_provider || !provider_vma_eligible(vma)) {
+			ret = should_premap_vma(vma, &vmas->h, pr);
+			if (ret < 0)
 				return -1;
-		} else {
-			needs_premap = page_read_range_needs_premap(pr, vma->e->start, vma->e->end);
-			if (needs_premap < 0)
-				return -1;
-		}
-		if (exceptional) {
-			has_parent = page_read_range_has_parent(pr, vma->e->start, vma->e->end);
-			if (has_parent < 0)
-				return -1;
-			if (has_parent) {
-				pr_err("Non-premapped VMA %#" PRIx64 "-%#" PRIx64
-				       " contains pages inherited from a parent image\n",
-				       vma->e->start, vma->e->end);
-				return -1;
-			}
+			if (!ret)
+				continue;
 		}
 
-		if (vma->e->flags & MAP_HUGETLB) {
-			if (has_lz4) {
-				pr_err("Hugetlb VMA %#" PRIx64 "-%#" PRIx64
-				       " contains an LZ4 block\n",
-				       vma->e->start, vma->e->end);
-				return -1;
-			}
-			continue;
-		}
-
-		/* VMA offset may change due to plugin so we cannot premap */
-		if (vma->e->status & VMA_EXT_PLUGIN) {
-			if (has_lz4) {
-				pr_err("External-plugin VMA %#" PRIx64 "-%#" PRIx64
-				       " contains an LZ4 block\n",
-				       vma->e->start, vma->e->end);
-				return -1;
-			}
-			continue;
-		}
-
-		if (vma->pvma == NULL && pr->pieok && !needs_premap && !vma_force_premap(vma, &vmas->h)) {
-			/*
-			 * VMA in question is not shared with anyone. We'll
-			 * restore it with its contents in restorer.
-			 * Now let's check whether we need to map it with
-			 * PROT_WRITE or not.
-			 */
-			do {
-				if (pr->pe->vaddr + pr->pe->nr_pages * PAGE_SIZE <= vma->e->start)
-					continue;
-				if (pr->pe->vaddr >= vma->e->end)
-					vma->e->status |= VMA_NO_PROT_WRITE;
-				break;
-			} while (pr->advance(pr));
-
-			continue;
-		}
-
-		size += vma_area_len(vma) + premap_thp_pad(t, vma);
+		len = vma_area_len(vma);
+		align = premap_align(t, vma);
+		pad = align ? align - PAGE_SIZE : 0;
 		if (vma_has_guard_gap_hidden(vma))
-			size += PAGE_SIZE;
+			pad += PAGE_SIZE;
+		if (len > kdat.task_size - size || pad > kdat.task_size - size - len) {
+			pr_err("Premap size exceeds task size %lx\n", kdat.task_size);
+			return -1;
+		}
 
+		size += (uint64_t)len + pad;
 		vma->should_premap = true;
-	}
-
-	if (size > kdat.task_size) {
-		pr_err("Premap size %" PRIu64 " exceeds task size %lx\n",
-		       size, kdat.task_size);
-		return -1;
 	}
 
 	*premap_size = size;
 	return 0;
 }
 
-static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, void **at)
+static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, void **at, struct page_read *pr)
 {
+	bool use_provider = extmem_is_active();
+	unsigned int vma_id = 0;
 	struct vma_area *vma;
 	int ret = 0;
+
+	/*
+	 * plan_priv_vmas() has already walked the page reader forward while
+	 * checking the VMAs the provider can't back. If the provider declines
+	 * a VMA, should_premap_vma() is called for it below and needs the
+	 * reader again. The reader only moves forward, so rewind it to the
+	 * first pagemap entry. VMAs are visited in ascending address order,
+	 * so one pass from the start is enough.
+	 */
+	if (use_provider) {
+		pr->reset(pr);
+		pr->advance(pr);
+	}
 
 	filemap_ctx_init(true);
 
 	list_for_each_entry(vma, &vmas->h, list) {
+		unsigned int current_vma_id = vma_id++;
+
 		if (!vma->should_premap)
 			continue;
+
+		if (use_provider && provider_vma_eligible(vma)) {
+			ret = premap_provider_vma(t, vma, current_vma_id, at);
+			if (!ret)
+				continue;
+			if (ret != -ENOTSUP)
+				break;
+
+			ret = should_premap_vma(vma, &vmas->h, pr);
+			if (ret < 0)
+				break;
+			if (!ret)
+				continue;
+		}
 
 		ret = premap_private_vma(t, vma, at);
 		if (ret < 0)
@@ -1369,6 +1472,7 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 	unsigned int nr_compared = 0;
 	unsigned int nr_enqueued = 0;
 	unsigned int nr_lazy = 0;
+	unsigned int nr_provider_pages = 0;
 	unsigned long va;
 	void *buf = NULL;
 	bool page_read_closed = false;
@@ -1428,6 +1532,21 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 			else if (unlikely(!vma_area_is_private(vma, kdat.task_size))) {
 				pr_err("Trying to restore page for non-private VMA\n");
 				goto err_addr;
+			}
+
+			if (vma->provider_backed) {
+				unsigned long len = min_t(unsigned long, (nr_pages - i) * PAGE_SIZE,
+							  vma->e->end - va);
+
+				if (pr->skip_pages(pr, len)) {
+					ret = -1;
+					goto err_read;
+				}
+				va += len;
+				len >>= PAGE_SHIFT;
+				nr_provider_pages += len;
+				i += len;
+				continue;
 			}
 
 			if (!vma_area_is(vma, VMA_PREMMAPED)) {
@@ -1598,6 +1717,7 @@ err_read:
 	pr_info("nr_dropped_pages:  %d\n", nr_dropped);
 	pr_info("nr_enqueued:       %d\n", nr_enqueued);
 	pr_info("nr_lazy:           %d\n", nr_lazy);
+	pr_info("nr_provider_pages: %d\n", nr_provider_pages);
 
 	exit_code = 0;
 	goto out;
@@ -1694,7 +1814,7 @@ int prepare_mappings(struct pstree_item *t)
 		rsti(t)->premmapped_addr = addr;
 		rsti(t)->premmapped_len = premap_size;
 
-		ret = premap_priv_vmas(t, vmas, &addr);
+		ret = premap_priv_vmas(t, vmas, &addr, &pr);
 		if (ret < 0)
 			goto err_close_pr;
 	} else {
@@ -1781,6 +1901,7 @@ int open_vmas(struct pstree_item *t)
 	int pid = vpid(t);
 	struct vma_area *vma;
 	struct vm_area_list *vmas = &rsti(t)->vmas;
+	int exit_code = -1;
 
 	filemap_ctx_init(false);
 
@@ -1793,7 +1914,7 @@ int open_vmas(struct pstree_item *t)
 
 		if (vma->vm_open(pid, vma)) {
 			pr_err("`- Can't open vma\n");
-			return -1;
+			goto out;
 		}
 
 		/*
@@ -1805,9 +1926,11 @@ int open_vmas(struct pstree_item *t)
 			vma->e->status |= VMA_CLOSE;
 	}
 
+	exit_code = 0;
+out:
 	filemap_ctx_fini();
 
-	return 0;
+	return exit_code;
 }
 
 static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)

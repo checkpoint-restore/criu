@@ -19,6 +19,7 @@
 #include "file-ids.h"
 #include "namespaces.h"
 #include "asyncd.h"
+#include "extmem.h"
 #include "shmem.h"
 #include "hugetlb.h"
 
@@ -264,6 +265,16 @@ static int memfd_open_inode_nocache(struct memfd_restore_inode *inode)
 	int flags;
 
 	mie = inode->mie;
+	ret = extmem_get_shared(mie->shmid, mie->size, &fd);
+	if (ret && ret != -ENOTSUP) {
+		pr_err("External memory provider failed to open memfd shmem 0x%x\n", mie->shmid);
+		goto err;
+	}
+	if (ret == 0) {
+		/* Apply saved seals after extmem_wait_ready(). */
+		inode->pending_seals = mie->seals;
+		goto set_permissions;
+	}
 	if (mie->seals == F_SEAL_SEAL) {
 		inode->pending_seals = 0;
 		flags = 0;
@@ -308,6 +319,7 @@ static int memfd_open_inode_nocache(struct memfd_restore_inode *inode)
 			goto err;
 	}
 
+set_permissions:
 	if (mie->has_mode)
 		ret = cr_fchperm(fd, mie->uid, mie->gid, mie->mode);
 	else

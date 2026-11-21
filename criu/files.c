@@ -1639,7 +1639,7 @@ void inherit_fd_log(void)
 	struct inherit_fd *inh;
 
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
-		pr_info("File %s will be restored from inherit fd %d\n", inh->inh_id, inh->inh_fd);
+		pr_info("File %s will use inherit fd %d\n", inh->inh_id, inh->inh_fd);
 	}
 }
 
@@ -1660,6 +1660,30 @@ int inherit_fd_move_to_fdstore(void)
 /*
  * Look up the inherit fd list by a file identifier.
  */
+/*
+ * Remove the inherit fd @id from the list and give it to the caller, which
+ * becomes its only owner. Returns -1 if there is no such inherit fd. Must be
+ * called before inherit_fd_move_to_fdstore().
+ */
+int inherit_fd_take(char *id)
+{
+	struct inherit_fd *inh, *tmp;
+	int fd;
+
+	list_for_each_entry_safe(inh, tmp, &opts.inherit_fds, inh_list) {
+		if (strcmp(inh->inh_id, id))
+			continue;
+
+		fd = inh->inh_fd;
+		list_del(&inh->inh_list);
+		xfree(inh->inh_id);
+		xfree(inh);
+		pr_debug("Took inherit fd %d for %s\n", fd, id);
+		return fd;
+	}
+	return -1;
+}
+
 int inherit_fd_lookup_id(char *id)
 {
 	int ret;

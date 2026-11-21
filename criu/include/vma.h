@@ -54,6 +54,7 @@ struct vma_area {
 			unsigned long *page_bitmap;   /* existent pages */
 			unsigned long premmaped_addr; /* restore only */
 			bool should_premap;
+			bool provider_backed; /* restore only */
 
 			/*
 			 * Some notes about pvma, page_bitmap and premmaped_addr bits

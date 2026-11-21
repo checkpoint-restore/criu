@@ -29,6 +29,7 @@
 #include "images/pagemap.pb-c.h"
 #include "namespaces.h"
 #include "asyncd.h"
+#include "extmem.h"
 
 #ifndef SEEK_DATA
 #define SEEK_DATA 3
@@ -574,6 +575,8 @@ static int open_shmem(int pid, struct vma_area *vma)
 	void *addr = MAP_FAILED;
 	int f = -1;
 	int flags, is_hugetlb, memfd_flag = 0;
+	bool provider_backed = false;
+	int provider_ret;
 
 	si = shmem_find(vi->shmid);
 	pr_info("Search for %#016" PRIx64 " shmem 0x%" PRIx64 " %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
@@ -606,7 +609,14 @@ static int open_shmem(int pid, struct vma_area *vma)
 		memfd_flag |= MFD_HUGETLB | size_flag;
 	}
 
-	if (kdat.has_memfd && (!is_hugetlb || kdat.has_memfd_hugetlb)) {
+	provider_ret = extmem_get_shared(si->shmid, si->size, &f);
+	if (provider_ret == 0) {
+		provider_backed = true;
+	} else if (provider_ret != -ENOTSUP) {
+		pr_err("External memory provider failed to open shmem 0x%lx\n", si->shmid);
+		goto err;
+	}
+	if (!provider_backed && kdat.has_memfd && (!is_hugetlb || kdat.has_memfd_hugetlb)) {
 		f = memfd_create("", memfd_flag);
 		if (f < 0) {
 			pr_perror("Unable to create memfd");
@@ -617,7 +627,7 @@ static int open_shmem(int pid, struct vma_area *vma)
 			goto err;
 		}
 		flags |= MAP_FILE;
-	} else
+	} else if (!provider_backed)
 		flags |= MAP_ANONYMOUS;
 
 	if (f == -1) {
@@ -644,25 +654,27 @@ static int open_shmem(int pid, struct vma_area *vma)
 	 * The restorer doesn't have snprintf.
 	 * Here is a good place to restore content
 	 */
-	if (opts.stream) {
-		/*
-		 * The async fill daemon reads content out-of-band, which is
-		 * incompatible with the single sequential pass of
-		 * criu-image-streamer, so fill inline when restoring from a
-		 * stream.
-		 */
-		if (restore_shmem_fd_content(f, si->shmid, si->size))
-			goto err;
-	} else {
-		struct async_restore_shmem_args async_args = {
-			.shmid = si->shmid,
-			.size = si->size,
-		};
+	if (!provider_backed) {
+		if (opts.stream) {
+			/*
+			 * The async fill daemon reads content out-of-band, which is
+			 * incompatible with the single sequential pass of
+			 * criu-image-streamer, so fill inline when restoring from a
+			 * stream.
+			 */
+			if (restore_shmem_fd_content(f, si->shmid, si->size))
+				goto err;
+		} else {
+			struct async_restore_shmem_args async_args = {
+				.shmid = si->shmid,
+				.size = si->size,
+			};
 
-		if (async_call(async_restore_shmem_content, 0,
-			       &async_args, sizeof(async_args), f)) {
-			pr_err("Can't offload shmem restore\n");
-			goto err;
+			if (async_call(async_restore_shmem_content, 0,
+				       &async_args, sizeof(async_args), f)) {
+				pr_err("Can't offload shmem restore\n");
+				goto err;
+			}
 		}
 	}
 

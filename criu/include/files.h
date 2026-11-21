@@ -184,6 +184,7 @@ extern int inherit_fd_add(int fd, char *key);
 extern void inherit_fd_log(void);
 extern int inherit_fd_move_to_fdstore(void);
 
+extern int inherit_fd_take(char *id);
 extern int inherit_fd_lookup_id(char *id);
 
 extern bool inherited_fd(struct file_desc *, int *fdp);

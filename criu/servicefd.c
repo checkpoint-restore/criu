@@ -44,6 +44,7 @@ const char *sfd_type_name(enum sfd_type type)
 		[SERVICE_FD_MIN] = __stringify_1(SERVICE_FD_MIN),
 		[LOG_FD_OFF] = __stringify_1(LOG_FD_OFF),
 		[IMG_FD_OFF] = __stringify_1(IMG_FD_OFF),
+		[EXTMEM_PROVIDER_FD_OFF] = __stringify_1(EXTMEM_PROVIDER_FD_OFF),
 		[PROC_FD_OFF] = __stringify_1(PROC_FD_OFF),
 		[PROC_PID_FD_OFF] = __stringify_1(PROC_PID_FD_OFF),
 		[PROC_SELF_FD_OFF] = __stringify_1(PROC_SELF_FD_OFF),
