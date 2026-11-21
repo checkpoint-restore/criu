@@ -48,7 +48,7 @@ static int set_opts_string(char **dst, const char *src)
 	return 0;
 }
 
-void criu_free_service(criu_opts *opts)
+static void criu_free_service(criu_opts *opts)
 {
 	switch (opts->service_comm) {
 	case CRIU_COMM_SK:
