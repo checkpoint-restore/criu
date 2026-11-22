@@ -1,1 +1,1 @@
-{'flavor': 'ns uns', 'opts': '--ghost-limit 1G'}
+{'flavor': 'ns uns', 'opts': '--ghost-limit 1G', 'flags': 'suid'}
