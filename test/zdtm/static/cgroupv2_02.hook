@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Unlike cgroupv2_00, leave the cgroup and its cgroup.subtree_control in
+# place on --pre-restore, so that the restore has to deal with a cgroup
+# that already has controllers enabled.
+[ "$1" == "--clean" ] || exit 0
+
+cgname="subcg02"
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup2 cgroup2 $tname
+
+echo "Cleaning $tname"
+echo "-cpuset" > "$tname/$cgname/cgroup.subtree_control"
+rmdir "$tname/$cgname"
+echo "-cpuset" > "$tname/cgroup.subtree_control"
+
+umount "$tname"
+rmdir "$tname"
