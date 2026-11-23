@@ -25,6 +25,7 @@
 
 #include "asm/parasite.h"
 #include "restorer.h"
+#include "pie-time.h"
 #include "infect-pie.h"
 
 /*
@@ -137,11 +138,11 @@ static int dump_itimers(struct parasite_dump_itimers_args *args)
 {
 	int ret;
 
-	ret = sys_getitimer(ITIMER_REAL, &args->real);
+	ret = cr_getitimer(ITIMER_REAL, &args->real);
 	if (!ret)
-		ret = sys_getitimer(ITIMER_VIRTUAL, &args->virt);
+		ret = cr_getitimer(ITIMER_VIRTUAL, &args->virt);
 	if (!ret)
-		ret = sys_getitimer(ITIMER_PROF, &args->prof);
+		ret = cr_getitimer(ITIMER_PROF, &args->prof);
 
 	if (ret)
 		pr_err("getitimer failed (%d)\n", ret);
@@ -155,7 +156,7 @@ static int dump_posix_timers(struct parasite_dump_posix_timers_args *args)
 	int ret = 0;
 
 	for (i = 0; i < args->timer_n; i++) {
-		ret = sys_timer_gettime(args->timer[i].it_id, &args->timer[i].val);
+		ret = cr_timer_gettime(args->timer[i].it_id, &args->timer[i].val);
 		if (ret < 0) {
 			pr_err("sys_timer_gettime failed (%d)\n", ret);
 			return ret;

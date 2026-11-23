@@ -44,6 +44,7 @@
 #include "common/lock.h"
 #include "common/page.h"
 #include "restorer.h"
+#include "pie-time.h"
 #include "aio.h"
 #include "seccomp.h"
 
@@ -1376,7 +1377,7 @@ static int timerfd_arm(struct task_restore_args *args)
 			 * accumulate tv_nsec and propagate any carry into tv_sec
 			 * to keep the itimerspec value normalized.
 			 */
-			if (sys_clock_gettime(t->clockid, &ts)) {
+			if (cr_clock_gettime(t->clockid, &ts)) {
 				pr_err("Can't get current time\n");
 				return -1;
 			}
@@ -1394,7 +1395,7 @@ static int timerfd_arm(struct task_restore_args *args)
 				 (unsigned long long)t->val.it_value.tv_nsec);
 		}
 
-		ret = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
+		ret = cr_timerfd_settime(t->fd, t->settime_flags, &t->val);
 		if (t->ticks)
 			ret |= sys_ioctl(t->fd, TFD_IOC_SET_TICKS, (unsigned long)&t->ticks);
 		if (ret) {
@@ -1499,7 +1500,7 @@ static void restore_posix_timers(struct task_restore_args *args)
 
 	for (i = 0; i < args->posix_timers_n; i++) {
 		rt = &args->posix_timers[i];
-		sys_timer_settime((kernel_timer_t)rt->spt.it_id, 0, &rt->val, NULL);
+		cr_timer_settime((kernel_timer_t)rt->spt.it_id, 0, &rt->val);
 	}
 }
 
@@ -3023,11 +3024,11 @@ __visible long __export_restore_task(struct task_restore_args *args)
 #define itimer_armed(args, i) (args->itimers[i].it_value.tv_sec || args->itimers[i].it_value.tv_usec)
 
 	if (itimer_armed(args, 0))
-		sys_setitimer(ITIMER_REAL, &args->itimers[0], NULL);
+		cr_setitimer(ITIMER_REAL, &args->itimers[0]);
 	if (itimer_armed(args, 1))
-		sys_setitimer(ITIMER_VIRTUAL, &args->itimers[1], NULL);
+		cr_setitimer(ITIMER_VIRTUAL, &args->itimers[1]);
 	if (itimer_armed(args, 2))
-		sys_setitimer(ITIMER_PROF, &args->itimers[2], NULL);
+		cr_setitimer(ITIMER_PROF, &args->itimers[2]);
 
 	restore_posix_timers(args);
 
