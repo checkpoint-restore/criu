@@ -1429,6 +1429,7 @@ static long get_file_dev_and_inode(void *addr, struct staty *stx)
 {
 	char buf[4096];
 	FILE *mapf;
+	int ret = -1;
 
 	mapf = fopen("/proc/self/maps", "r");
 	if (mapf == NULL) {
@@ -1444,18 +1445,21 @@ static long get_file_dev_and_inode(void *addr, struct staty *stx)
 		if (sscanf(buf, "%lx-%lx %*s %*s %x:%x %llu",
 			   &start, &end, &maj, &min, &ino) != 5) {
 			pr_perror("Unable to parse: %s", buf);
-			return -1;
+			goto out;
 		}
 		if (start == (unsigned long)addr) {
 			stx->stx_dev_major = maj;
 			stx->stx_dev_minor = min;
 			stx->stx_ino = ino;
-			return 0;
+			ret = 0;
+			goto out;
 		}
 	}
 
 	pr_err("Unable to find the mapping\n");
-	return -1;
+out:
+	fclose(mapf);
+	return ret;
 }
 
 static int ovl_mount(void)
