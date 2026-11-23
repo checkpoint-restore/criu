@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+
+import os
+import subprocess
+import sys
+import tempfile
+import time
+
+CGNAME = "zdtmtst"
+SUBNAME = "subcg_ns_threads"
+
+
+def check_sets(img_dir):
+    fname = os.path.join(img_dir, "cgroup.img")
+    if not os.access(fname, os.F_OK):
+        # A dump of the test writes this image: the test is not in the
+        # cgroups of criu, and it is not run unprivileged.
+        print("No %s for a dump" % fname)
+        return 1
+
+    print("Checking cgroup sets in %s" % fname)
+    with open(fname, "rb") as f:
+        img = pycriu.images.load(f)
+
+    sets = {}
+    for entry in img["entries"]:
+        for s in entry.get("sets", []):
+            ctls = tuple((c["name"], c["path"], c.get("cgns_prefix", 0))
+                         for c in s.get("ctls", []))
+            sets.setdefault(ctls, []).append(s["id"])
+
+    ret = 0
+    for ctls, ids in sets.items():
+        if len(ids) > 1:
+            print("Sets %s are equal: %s" % (ids, list(ctls)))
+            ret = 1
+
+    # Without a cgns prefix in the image, the check above proves nothing.
+    if not any(c[2] for ctls in sets for c in ctls):
+        print("No set has a cgns prefix")
+        ret = 1
+
+    return ret
+
+
+def cg_set(img_dir, pid):
+    with open(os.path.join(img_dir, "core-%d.img" % pid), "rb") as f:
+        return pycriu.images.load(f)["entries"][0]["thread_core"]["cg_set"]
+
+
+def check_threads(img_dir):
+    fname = os.path.join(img_dir, "pstree.img")
+    print("Checking cgroup sets of threads in %s" % fname)
+    with open(fname, "rb") as f:
+        img = pycriu.images.load(f)
+
+    ret = 0
+    for task in img["entries"]:
+        leader = cg_set(img_dir, task["pid"])
+        # The threads of a task include its leader.
+        for tid in task["threads"]:
+            if tid != task["pid"] and cg_set(img_dir, tid) != leader:
+                print("Thread %d of task %d is not in set %d of its leader"
+                      % (tid, task["pid"], leader))
+                ret = 1
+
+    return ret
+
+
+def check_tasks(pid):
+    print("Checking cgroups of task %s, its child and their threads" % pid)
+    with open("/proc/%s/task/%s/children" % (pid, pid)) as f:
+        pids = [pid] + f.read().split()
+
+    ret = 0
+    cg = ":name=%s:/%s\n" % (CGNAME, SUBNAME)
+    for p in pids:
+        for tid in os.listdir("/proc/%s/task" % p):
+            with open("/proc/%s/task/%s/cgroup" % (p, tid)) as f:
+                if not any(line.endswith(cg) for line in f):
+                    print("Thread %s of task %s is not in /%s"
+                          % (tid, p, SUBNAME))
+                    ret = 1
+
+    return ret
+
+
+if sys.argv[1] == "--post-restore":
+    sys.path.append("../lib")
+    import pycriu
+
+    # Tasks and threads which live in the same cgroups have to share one
+    # cgroup set, so no two sets of an image may be equal. The threads of
+    # the test are in the cgroups of their leader, so they have to be in
+    # its set: a thread in another set asks cgroupd to move it on restore.
+    # Each dump and pre-dump has a numbered directory. The one of a dump
+    # which failed on an injected fault is renamed, and is not looked at.
+    # Only a dump writes pstree.img, and the last directory has to hold
+    # one: the dump which was restored.
+    path = os.getenv("ZDTM_IMG_DIR")
+    exit_code = 0
+    dump = False
+    for d in sorted(filter(str.isdigit, os.listdir(path)), key=int):
+        img_dir = os.path.join(path, d)
+        dump = os.access(os.path.join(img_dir, "pstree.img"), os.F_OK)
+        if not dump:
+            print("No dump in %s, nothing to check" % img_dir)
+            continue
+        exit_code |= check_sets(img_dir)
+        exit_code |= check_threads(img_dir)
+
+    if not dump:
+        print("No dump to check in %s" % path)
+        exit_code = 1
+
+    # The test checks that all of its threads are in the root of their
+    # cgroup namespace. Seen from here, that is the cgroup it was in.
+    exit_code |= check_tasks(os.getenv("ZDTM_TEST_PID"))
+
+    sys.exit(exit_code)
+
+if sys.argv[1] == "--clean":
+    # The test can not remove the cgroup it is in itself, and on a failure it
+    # may not get to the cleanup at all. A leftover cgroup keeps the named
+    # hierarchy alive, so remove it here, once the test is gone.
+    tname = tempfile.mkdtemp()
+    if subprocess.call(["mount", "-t", "cgroup", "none", tname,
+                        "-o", "none,name=" + CGNAME]):
+        os.rmdir(tname)
+        sys.exit(1)
+
+    # On a failure, only the test's main process is waited for, and its child
+    # may still be exiting, so retry for a while on EBUSY.
+    cg = os.path.join(tname, SUBNAME)
+    for i in range(50):
+        if not os.access(cg, os.F_OK):
+            break
+        try:
+            os.rmdir(cg)
+        except OSError as e:
+            if i == 49:
+                print("Can't remove %s: %s" % (cg, e))
+            time.sleep(0.1)
+
+    print("Left there is: %s" % os.listdir(tname))
+    subprocess.call(["umount", tname])
+    os.rmdir(tname)
