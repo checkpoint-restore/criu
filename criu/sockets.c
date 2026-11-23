@@ -994,10 +994,6 @@ int collect_sockets(struct ns_id *ns)
 	if (tmp)
 		err = tmp;
 
-	/* don't need anymore */
-	close(nl);
-	ns->net.nlsk = -1;
-
 	if (err && (ns->type == NS_CRIU)) {
 		/*
 		 * If netns isn't dumped, criu will fail only

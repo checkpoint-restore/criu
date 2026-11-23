@@ -139,6 +139,7 @@ static int check_sock_diag(void)
 	}
 
 	ret = collect_sockets(&ns);
+	close(ns.net.nlsk);
 	if (!ret)
 		return 0;
 
