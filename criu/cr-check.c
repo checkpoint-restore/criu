@@ -885,7 +885,7 @@ static int check_aio_remap(void)
 	aio_context_t ctx = 0;
 	unsigned long len;
 	void *naddr;
-	int r;
+	int r, ret = -1;
 
 	if (syscall(SYS_io_setup, 16, &ctx) < 0) {
 		pr_perror("No AIO syscall");
@@ -894,27 +894,32 @@ static int check_aio_remap(void)
 
 	len = get_ring_len((unsigned long)ctx);
 	if (!len)
-		return -1;
+		goto out_destroy;
 
 	naddr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
 	if (naddr == MAP_FAILED) {
 		pr_perror("Can't find place for new AIO ring");
-		return -1;
+		goto out_destroy;
 	}
 
 	if (mremap((void *)ctx, len, len, MREMAP_FIXED | MREMAP_MAYMOVE, naddr) == MAP_FAILED) {
 		pr_perror("Can't remap AIO ring");
-		return -1;
+		munmap(naddr, len);
+		goto out_destroy;
 	}
 
 	ctx = (aio_context_t)naddr;
 	r = syscall(SYS_io_getevents, ctx, 0, 1, NULL, NULL);
 	if (r < 0) {
 		pr_perror("AIO remap doesn't work properly");
-		return -1;
+		goto out_destroy;
 	}
 
-	return 0;
+	ret = 0;
+
+out_destroy:
+	syscall(SYS_io_destroy, ctx);
+	return ret;
 }
 
 static int check_fdinfo_lock(void)
