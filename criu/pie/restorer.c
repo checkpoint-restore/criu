@@ -214,6 +214,31 @@ static int lsm_set_label(char *label, char *type, int procfd)
 	return 0;
 }
 
+/*
+ * Install inheritable bits before trimming the bounding set. A bit can
+ * remain inheritable after it has been dropped from the bounding set.
+ */
+static int restore_inheritable_caps(struct thread_creds_args *args)
+{
+	struct cap_header hdr = { .version = _LINUX_CAPABILITY_VERSION_3 };
+	struct cap_data data[_LINUX_CAPABILITY_U32S_3];
+	int i, ret;
+
+	ret = sys_capget(&hdr, data);
+	if (ret) {
+		pr_err("Unable to read temporary capabilities: %d\n", ret);
+		return -1;
+	}
+	for (i = 0; i < CR_CAP_SIZE; i++)
+		data[i].inh = args->cap_inh[i];
+	ret = sys_capset(&hdr, data);
+	if (ret) {
+		pr_err("Unable to restore inheritable capabilities: %d\n", ret);
+		return -1;
+	}
+	return 0;
+}
+
 static int restore_creds(struct thread_creds_args *args, int procfd, int lsm_type, uid_t uid)
 {
 	CredsEntry *ce = &args->creds;
@@ -299,6 +324,9 @@ static int restore_creds(struct thread_creds_args *args, int procfd, int lsm_typ
 	}
 
 skip_xids:
+	if (restore_inheritable_caps(args))
+		return -1;
+
 	/*
 	 * Third -- restore securebits. We don't need them in any
 	 * special state any longer.
