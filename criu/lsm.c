@@ -229,9 +229,34 @@ int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
 
 #endif
 
+/*
+ * securityfs may not be mounted in our mount namespace even though AppArmor is
+ * active: Podman, for example, unmounts everything under /sys/kernel before it
+ * runs the OCI runtime (and so CRIU) for a container with a user namespace.
+ * Fall back to the module parameter, which lives in the sysfs root mount.
+ */
+static bool apparmor_enabled(void)
+{
+	char c = 0;
+	int fd;
+
+	if (access(AA_SECURITYFS_PATH, F_OK) == 0)
+		return true;
+
+	fd = open("/sys/module/apparmor/parameters/enabled", O_RDONLY);
+	if (fd < 0)
+		return false;
+	if (read(fd, &c, 1) != 1)
+		c = 0;
+	close(fd);
+	if (c == 'Y')
+		pr_info("AppArmor is enabled but %s is not mounted here\n", AA_SECURITYFS_PATH);
+	return c == 'Y';
+}
+
 void kerndat_lsm(void)
 {
-	if (access(AA_SECURITYFS_PATH, F_OK) == 0) {
+	if (apparmor_enabled()) {
 		kdat.lsm = LSMTYPE__APPARMOR;
 		kdat.apparmor_ns_dumping_enabled = check_aa_ns_dumping();
 		return;
