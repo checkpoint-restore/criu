@@ -3095,7 +3095,7 @@ static void copy_caps(u32 *out_caps, u32 *in_caps, int n_words)
 	int i, cap_end;
 
 	for (i = kdat.last_cap + 1; i < 32 * n_words; ++i) {
-		if (~in_caps[i / 32] & (1 << (i % 32)))
+		if (~in_caps[i / 32] & (1U << (i % 32)))
 			continue;
 
 		pr_warn("Dropping unsupported capability %d > %d)\n", i, kdat.last_cap);
@@ -3106,7 +3106,7 @@ static void copy_caps(u32 *out_caps, u32 *in_caps, int n_words)
 	cap_end = (kdat.last_cap & 31) + 1;
 	memcpy(out_caps, in_caps, sizeof(*out_caps) * n_words);
 	if ((cap_end & 31) && n_words)
-		out_caps[n_words - 1] &= (1 << cap_end) - 1;
+		out_caps[n_words - 1] &= (1U << cap_end) - 1;
 	memset(out_caps + n_words, 0, sizeof(*out_caps) * (CR_CAP_SIZE - n_words));
 }
 

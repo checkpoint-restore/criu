@@ -349,13 +349,13 @@ skip_xids:
 		for (i = 0; i < 32; i++) {
 			if (b * 32 + i > args->cap_last_cap)
 				break;
-			if (args->cap_bnd[b] & (1 << i))
+			if (args->cap_bnd[b] & (1U << i))
 				/* already set */
 				continue;
 			ret = sys_prctl(PR_CAPBSET_DROP, i + b * 32, 0, 0, 0);
 			if (!ret)
 				continue;
-			if (!ce->has_no_new_privs || !ce->no_new_privs || args->cap_prm[b] & (1 << i)) {
+			if (!ce->has_no_new_privs || !ce->no_new_privs || args->cap_prm[b] & (1U << i)) {
 				pr_err("Unable to drop capability %d: %d\n", i + b * 32, ret);
 				return -1;
 			}
@@ -394,7 +394,7 @@ skip_xids:
 		for (i = 0; i < 32; i++) {
 			if (b * 32 + i > args->cap_last_cap)
 				break;
-			if ((args->cap_amb[b] & (1 << i)) == 0)
+			if ((args->cap_amb[b] & (1U << i)) == 0)
 				/* don't set */
 				continue;
 			ret = sys_prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i + b * 32, 0, 0);

@@ -93,12 +93,12 @@ int main(int argc, char **argv)
 			for (i = 0; i < 32; i++) {
 				if (b * 32 + i > cap_last_cap)
 					break;
-				if ((amb[b] & (1 << i)) > 0)
+				if ((amb[b] & (1U << i)) > 0)
 					ret = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i + b * 32, 0, 0);
 				else
 					ret = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, i + b * 32, 0, 0);
 				if (ret) {
-					pr_perror("Unable to set ambient capability %d to %d: %d", i + b * 32, amb[b] & (1 << i), ret);
+					pr_perror("Unable to set ambient capability %d to %d: %d", i + b * 32, amb[b] & (1U << i), ret);
 					return -1;
 				}
 			}
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 					goto bad;
 				}
 
-				amb_2[b] |= (ret << i);
+				amb_2[b] |= ((unsigned int)ret << i);
 			}
 		}
 
