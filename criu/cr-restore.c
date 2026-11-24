@@ -3096,6 +3096,11 @@ static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned lo
 	unsigned long this_pos;
 	struct thread_creds_args *args;
 
+	if (!valid_ambient_caps(ce)) {
+		pr_err("Ambient capabilities must be both permitted and inheritable\n");
+		return ERR_PTR(-EINVAL);
+	}
+
 	this_pos = rst_mem_align_cpos(RM_PRIVATE);
 
 	args = rst_mem_alloc(sizeof(*args), RM_PRIVATE);

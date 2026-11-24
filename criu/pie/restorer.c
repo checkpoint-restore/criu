@@ -239,6 +239,51 @@ static int restore_inheritable_caps(struct thread_creds_args *args)
 	return 0;
 }
 
+static int restore_ambient_caps(struct thread_creds_args *args)
+{
+	int b, i, ret, secbits;
+
+	for (b = 0; b < CR_CAP_SIZE; b++) {
+		if (args->cap_amb[b])
+			break;
+	}
+
+	/* Drop ambient bits inherited from CRIU, including for an empty image set. */
+	ret = sys_prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
+	if (ret && !(ret == -EINVAL && b == CR_CAP_SIZE)) {
+		pr_err("Unable to clear ambient capabilities: %d\n", ret);
+		return -1;
+	}
+	if (b == CR_CAP_SIZE)
+		return 0;
+
+	secbits = sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
+	if (secbits < 0) {
+		pr_err("Unable to read securebits: %d\n", secbits);
+		return -1;
+	}
+	if ((secbits & SECBIT_NO_CAP_AMBIENT_RAISE) && !(secbits & SECBIT_NO_CAP_AMBIENT_RAISE_LOCKED)) {
+		ret = sys_prctl(PR_SET_SECUREBITS, secbits & ~SECBIT_NO_CAP_AMBIENT_RAISE, 0, 0, 0);
+		if (ret) {
+			pr_err("Unable to clear unlocked ambient raise restriction: %d\n", ret);
+			return -1;
+		}
+	}
+
+	for (b = 0; b < CR_CAP_SIZE; b++) {
+		for (i = 0; i < 32 && b * 32 + i <= args->cap_last_cap; i++) {
+			if (!(args->cap_amb[b] & (1U << i)))
+				continue;
+			ret = sys_prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, b * 32 + i, 0, 0);
+			if (ret) {
+				pr_err("Unable to raise ambient capability %d: %d\n", b * 32 + i, ret);
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
 static int restore_creds(struct thread_creds_args *args, int procfd, int lsm_type, uid_t uid)
 {
 	CredsEntry *ce = &args->creds;
@@ -324,13 +369,11 @@ static int restore_creds(struct thread_creds_args *args, int procfd, int lsm_typ
 	}
 
 skip_xids:
-	if (restore_inheritable_caps(args))
+	/* Third -- prepare the inheritable set, then raise the saved ambient caps. */
+	if (restore_inheritable_caps(args) || restore_ambient_caps(args))
 		return -1;
 
-	/*
-	 * Third -- restore securebits. We don't need them in any
-	 * special state any longer.
-	 */
+	/* Fourth -- install the saved securebits, including any locks. */
 
 	if (sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0) != ce->secbits) {
 		ret = sys_prctl(PR_SET_SECUREBITS, ce->secbits, 0, 0, 0);
@@ -341,7 +384,7 @@ skip_xids:
 	}
 
 	/*
-	 * Fourth -- trim bset. This can only be done while
+	 * Fifth -- trim bset. This can only be done while
 	 * having the CAP_SETPCAP capability.
 	 */
 
@@ -369,8 +412,8 @@ skip_xids:
 	}
 
 	/*
-	 * Fifth -- restore caps. Nothing but cap bits are changed
-	 * at this stage, so just do it.
+	 * Sixth -- install the saved P/E/I sets, dropping temporary caps. The
+	 * kernel keeps ambient bits only if they are both permitted and inheritable.
 	 */
 
 	hdr.version = _LINUX_CAPABILITY_VERSION_3;
@@ -389,22 +432,6 @@ skip_xids:
 		pr_err("Unable to restore capabilities: %d\n", ret);
 		return -1;
 	}
-
-	for (b = 0; b < CR_CAP_SIZE; b++) {
-		for (i = 0; i < 32; i++) {
-			if (b * 32 + i > args->cap_last_cap)
-				break;
-			if ((args->cap_amb[b] & (1U << i)) == 0)
-				/* don't set */
-				continue;
-			ret = sys_prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i + b * 32, 0, 0);
-			if (!ret)
-				continue;
-			pr_err("Unable to raise ambient capability %d: %d\n", i + b * 32, ret);
-			return -1;
-		}
-	}
-
 
 	if (lsm_type != LSMTYPE__SELINUX) {
 		/*

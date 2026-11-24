@@ -45,6 +45,9 @@
 #ifndef PR_CAP_AMBIENT_RAISE
 #define PR_CAP_AMBIENT_RAISE 2
 #endif
+#ifndef PR_CAP_AMBIENT_CLEAR_ALL
+#define PR_CAP_AMBIENT_CLEAR_ALL 4
+#endif
 
 #ifndef PR_SET_MM
 #define PR_SET_MM	      35
