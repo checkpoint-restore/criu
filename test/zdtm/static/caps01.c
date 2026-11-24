@@ -127,6 +127,19 @@ int main(int argc, char **argv)
 			pr_perror("Unable to forbid ambient raises");
 			return -1;
 		}
+#ifdef AMBIENT_REDUCED_CAPS
+		if (prctl(PR_CAPBSET_DROP, CAP_SETPCAP, 0, 0, 0)) {
+			pr_perror("Unable to drop CAP_SETPCAP from the bounding set");
+			return -1;
+		}
+		data[0].prm &= ~(1U << CAP_SETPCAP);
+		data[0].eff &= ~(1U << CAP_SETPCAP);
+		if (capset(&hdr, data)) {
+			pr_perror("Unable to drop CAP_SETPCAP");
+			return -1;
+		}
+		amb[0] &= ~(1U << CAP_SETPCAP);
+#endif
 		for (b = 0; b < _LINUX_CAPABILITY_U32S_3; b++) {
 			saved[b] = data[b];
 			for (i = 0; i < 32 && b * 32 + i <= cap_last_cap; i++) {
