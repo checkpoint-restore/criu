@@ -17,6 +17,8 @@
 #include "page.h"
 #include "pagemap.h"
 #include "cr_options.h"
+#include "creds.h"
+#include "image.h"
 #include "plugin.h"
 #include "hugetlb.h"
 
@@ -30,6 +32,24 @@ cr_plugin_ctl_t cr_plugin_ctl;
 static int test_plugin_results[TEST_PLUGIN_HANDLERS];
 static unsigned int test_plugin_order[TEST_PLUGIN_HANDLERS];
 static unsigned int test_plugin_calls;
+
+static void test_copy_caps(void)
+{
+	u32 in[CR_CAP_SIZE] = { 0x80000003U, 1 };
+	u32 out[CR_CAP_SIZE];
+
+	copy_caps(out, in, 2, 32);
+	assert(out[0] == in[0] && out[1] == 1);
+	copy_caps(out, in, 1, 40);
+	assert(out[0] == in[0] && out[1] == 0);
+	copy_caps(out, in, 1, 31);
+	assert(out[0] == in[0] && out[1] == 0);
+	in[1] = ~0U;
+	copy_caps(out, in, 2, 63);
+	assert(out[0] == in[0] && out[1] == ~0U);
+	copy_caps(out, NULL, 0, 40);
+	assert(out[0] == 0 && out[1] == 0);
+}
 
 static int test_plugin_hook(unsigned int index, int id)
 {
@@ -696,6 +716,7 @@ int main(int argc, char *argv[], char *envp[])
 	configuration = malloc(10 * sizeof(char *));
 	log_init(NULL);
 
+	test_copy_caps();
 	test_bfd();
 	test_bwrite();
 	test_pagemap_offset_alignment();
