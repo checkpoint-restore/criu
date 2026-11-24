@@ -808,9 +808,14 @@ static int restore_content(void *data, struct cr_img *img, const IpcShmEntry *sh
 		ssize_t ret;
 
 		ret = read(ifd, data + off, size - off);
-		if (ret <= 0) {
-			pr_perror("Failed to write IPC shared memory data");
-			return (int)ret;
+		if (ret < 0) {
+			pr_perror("Failed to read IPC shared memory data");
+			return -1;
+		}
+		if (ret == 0) {
+			pr_err("Unexpected EOF in IPC shared memory image: %zd of %zd bytes read\n",
+			       off, size);
+			return -1;
 		}
 
 		off += ret;
