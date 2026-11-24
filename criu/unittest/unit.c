@@ -51,6 +51,44 @@ static void test_copy_caps(void)
 	assert(out[0] == 0 && out[1] == 0);
 }
 
+static void test_valid_ambient_caps(void)
+{
+	u32 ambient[] = { 1U << 31, 1 };
+	u32 permitted[] = { 1U << 31, 1 };
+	u32 inheritable[] = { 1U << 31, 1 };
+	CredsEntry ce = { .cap_amb = ambient, .cap_prm = permitted, .cap_inh = inheritable };
+
+	assert(valid_ambient_caps(&ce));
+	ce.n_cap_amb = ce.n_cap_prm = ce.n_cap_inh = 2;
+	assert(valid_ambient_caps(&ce));
+	permitted[0] = 0;
+	assert(!valid_ambient_caps(&ce));
+	permitted[0] = ambient[0];
+	inheritable[0] = 0;
+	assert(!valid_ambient_caps(&ce));
+	inheritable[0] = ambient[0];
+	inheritable[1] = 0;
+	assert(!valid_ambient_caps(&ce));
+	inheritable[1] = ambient[1];
+	ce.n_cap_prm = 1;
+	assert(!valid_ambient_caps(&ce));
+	ce.n_cap_prm = 2;
+	ce.n_cap_inh = 1;
+	assert(!valid_ambient_caps(&ce));
+	ce.n_cap_inh = 2;
+	permitted[1] = 0;
+	assert(!valid_ambient_caps(&ce));
+	permitted[1] = ambient[1];
+	ce.n_cap_prm = 0;
+	assert(!valid_ambient_caps(&ce));
+	ce.n_cap_prm = 2;
+	ce.n_cap_inh = 0;
+	assert(!valid_ambient_caps(&ce));
+	ce.n_cap_inh = 1;
+	ambient[1] = 0;
+	assert(valid_ambient_caps(&ce));
+}
+
 static int test_plugin_hook(unsigned int index, int id)
 {
 	assert(id == 42);
@@ -717,6 +755,7 @@ int main(int argc, char *argv[], char *envp[])
 	log_init(NULL);
 
 	test_copy_caps();
+	test_valid_ambient_caps();
 	test_bfd();
 	test_bwrite();
 	test_pagemap_offset_alignment();
