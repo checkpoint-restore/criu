@@ -1470,20 +1470,21 @@ static int ovl_mount(void)
 
 	if (cr_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) == -1) {
 		pr_perror("Unable to create tmpfs mount");
+		close(fsfd);
 		return -1;
 	}
 
 	tmpfs = cr_fsmount(fsfd, 0, 0);
+	close(fsfd);
 	if (tmpfs == -1) {
 		pr_perror("Unable to mount tmpfs");
 		return -1;
 	}
 
-	close(fsfd);
-
 	/* overlayfs can't be constructed on top of a detached mount. */
 	if (sys_move_mount(tmpfs, "", AT_FDCWD, "/tmp", MOVE_MOUNT_F_EMPTY_PATH)) {
 		pr_perror("Unable to attach tmpfs mount");
+		close(tmpfs);
 		return -1;
 	}
 	close(tmpfs);
@@ -1510,13 +1511,16 @@ static int ovl_mount(void)
 	    cr_fsconfig(fsfd, FSCONFIG_SET_STRING, "upperdir", "/tmp/u", 0) == -1 ||
 	    cr_fsconfig(fsfd, FSCONFIG_SET_STRING, "workdir", "/tmp/w", 0) == -1) {
 		pr_perror("Unable to configure overlayfs");
+		close(fsfd);
 		return -1;
 	}
 	if (cr_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) == -1) {
 		pr_perror("Unable to create overlayfs");
+		close(fsfd);
 		return -1;
 	}
 	ovl = cr_fsmount(fsfd, 0, 0);
+	close(fsfd);
 	if (ovl == -1) {
 		pr_perror("Unable to mount overlayfs");
 		return -1;
