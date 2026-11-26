@@ -2661,6 +2661,8 @@ static int prepare_mm(pid_t pid, struct task_restore_args *args)
 {
 	int exe_fd, i, ret = -1;
 	MmEntry *mm = rsti(current)->mm;
+	struct file_desc *exe_file;
+	u32 exe_flags = O_RDONLY;
 
 	args->mm = *mm;
 	args->mm.n_mm_saved_auxv = 0;
@@ -2676,7 +2678,19 @@ static int prepare_mm(pid_t pid, struct task_restore_args *args)
 		args->mm_saved_auxv[i] = (auxv_t)mm->mm_saved_auxv[i];
 	}
 
-	exe_fd = open_reg_by_id(mm->exe_file_id);
+	exe_file = find_file_desc_raw(FD_TYPES__REG, mm->exe_file_id);
+	if (!exe_file) {
+		pr_err("Can't find regfile for exe link %#x\n", mm->exe_file_id);
+		goto out;
+	}
+
+	/*
+	 * The exe link shares its regfile entry with any descriptor the task
+	 * has open on the same file, and so its open flags. PR_SET_MM_MAP
+	 * does not accept an O_PATH descriptor, so open the file read-only
+	 * here whatever flags that descriptor had.
+	 */
+	exe_fd = open_path(exe_file, do_open_reg_noseek_flags, &exe_flags);
 	if (exe_fd < 0)
 		goto out;
 

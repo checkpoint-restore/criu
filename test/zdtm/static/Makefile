@@ -158,6 +158,7 @@ TST_NOFILE	:=				\
 		sk-unix-unconn-seqpacket	\
 		ipc_namespace			\
 		selfexe00			\
+		selfexe_opath			\
 		sem				\
 		maps01				\
 		maps02				\
