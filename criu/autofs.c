@@ -229,6 +229,7 @@ static int autofs_find_read_fd(int pgrp, long pipe_ino)
 	if (fd_has_data(fd)) {
 		pr_err("Process %d autofs pipe fd %d is not empty.\n", pgrp, read_fd);
 		pr_err("Try again later.\n");
+		close(fd);
 		return -1;
 	}
 	close(fd);
