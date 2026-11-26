@@ -197,7 +197,11 @@ static int check_if_vma_is_vdso(enum vdso_check_t vcheck, int pagemap_fd, struct
 	if (not_vvar_or_vdso(vma))
 		return 0;
 
-	if ((vma->e->prot & VDSO_PROT) != VDSO_PROT)
+	/*
+	 * Both the kernel vDSO and our rt-vDSO proxy are never writable, so
+	 * don't poke at e.g. RWX areas that can start with a guard page.
+	 */
+	if (vma->e->prot != VDSO_PROT)
 		return 0;
 
 	args->start = vma->e->start;
