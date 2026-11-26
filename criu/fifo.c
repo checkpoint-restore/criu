@@ -128,7 +128,8 @@ static bool fifo_has_data(u32 id)
 	return false;
 }
 
-static int do_open_fifo(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+static int do_open_fifo(int ns_root_fd, struct reg_file_info *rfi,
+			const char *path, void *arg)
 {
 	struct fifo_info *info = arg;
 	int new_fifo = -1, fake_fifo = -1;
@@ -156,9 +157,9 @@ static int do_open_fifo(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 	 * process can proceed.
 	 */
 	if (!skip_fake_writer) {
-		fake_fifo = openat(ns_root_fd, rfi->path, O_RDWR);
+		fake_fifo = openat(ns_root_fd, path, O_RDWR);
 		if (fake_fifo < 0) {
-			pr_perror("Can't open fake fifo %#x [%s]", info->fe->id, rfi->path);
+			pr_perror("Can't open fake fifo %#x [%s]", info->fe->id, path);
 			return -1;
 		}
 
@@ -168,9 +169,9 @@ static int do_open_fifo(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 		}
 	}
 
-	new_fifo = openat(ns_root_fd, rfi->path, flags);
+	new_fifo = openat(ns_root_fd, path, flags);
 	if (new_fifo < 0) {
-		pr_perror("Can't open fifo %#x [%s]", info->fe->id, rfi->path);
+		pr_perror("Can't open fifo %#x [%s]", info->fe->id, path);
 		goto out;
 	}
 

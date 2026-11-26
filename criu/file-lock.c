@@ -460,11 +460,12 @@ int correct_file_leases_type(struct pid *pid, int fd, int lfd)
 	return 0;
 }
 
-static int open_break_cb(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+static int open_break_cb(int ns_root_fd, struct reg_file_info *rfi,
+			 const char *path, void *arg)
 {
 	int fd, flags = *(int *)arg | O_NONBLOCK;
 
-	fd = openat(ns_root_fd, rfi->path, flags);
+	fd = openat(ns_root_fd, path, flags);
 	if (fd >= 0) {
 		pr_err("Conflicting lease wasn't found\n");
 		close(fd);
