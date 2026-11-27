@@ -1,8 +1,11 @@
+prefix=@prefix@
+exec_prefix=${prefix}
 libdir=@libdir@
 includedir=@includedir@
 
 Name: CRIU
 Description: RPC library for userspace checkpoint and restore
 Version: @version@
+Requires.private: libprotobuf-c
 Libs: -L${libdir} -lcriu
-Cflags: -I${includedir}
+Cflags: -I${includedir} -I${includedir}/criu

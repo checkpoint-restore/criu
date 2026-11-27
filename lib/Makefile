@@ -52,7 +52,7 @@ install: lib-c lib-a lib-py lib/c/criu.pc.in
 	$(Q) install -m 644 $(UAPI_HEADERS) $(DESTDIR)$(INCLUDEDIR)/criu/
 	$(E) "  INSTALL " pkgconfig/criu.pc
 	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
-	$(Q) sed -e 's,@version@,$(CRIU_VERSION),' -e 's,@libdir@,$(LIBDIR),' -e 's,@includedir@,$(dir $(INCLUDEDIR)/criu/),' lib/c/criu.pc.in > lib/c/criu.pc
+	$(Q) sed -e 's,@version@,$(CRIU_VERSION),' -e 's,@prefix@,$(PREFIX),' -e 's,@libdir@,$(LIBDIR),' -e 's,@includedir@,$(INCLUDEDIR),' lib/c/criu.pc.in > lib/c/criu.pc
 	$(Q) install -m 644 lib/c/criu.pc $(DESTDIR)$(LIBDIR)/pkgconfig
 ifeq ($(SKIP_PIP_INSTALL),0)
 	$(E) "  INSTALL " pycriu
