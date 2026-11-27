@@ -1550,25 +1550,31 @@ void fini_cgroup(void)
 	cg_yard = NULL;
 }
 
-static int add_subtree_control_prop_prefix(char *input, char *output, char prefix)
+/*
+ * Turn a list of controller names separated by spaces or newlines, e.g.
+ * "cpu memory\n", into "<prefix>cpu <prefix>memory ". Returns the number of
+ * bytes written to @output, or -1 if they don't fit in @size bytes.
+ */
+static ssize_t add_subtree_control_prop_prefix(const char *input, char *output, size_t size, char prefix)
 {
-	char *current, *next;
 	size_t len, off = 0;
 
-	current = input;
-	do {
-		next = strchrnul(current, ' ');
-		len = next - current;
-
-		output[off] = prefix;
-		off++;
-		memcpy(output + off, current, len);
-		off += len;
-		output[off] = ' ';
-		off++;
-
-		current = next + 1;
-	} while (*next != '\0');
+	while (*input) {
+		len = strcspn(input, " \n");
+		if (len) {
+			if (len + 2 > size - off) {
+				pr_err("cgroup.subtree_control value is too long\n");
+				return -1;
+			}
+			output[off++] = prefix;
+			memcpy(output + off, input, len);
+			off += len;
+			output[off++] = ' ';
+		}
+		input += len;
+		if (*input)
+			input++;
+	}
 
 	return off;
 }
@@ -1577,23 +1583,29 @@ static int restore_cgroup_subtree_control(const CgroupPropEntry *cg_prop_entry_p
 {
 	char buf[1024];
 	char line[1024];
-	int ret, off = 0;
+	ssize_t ret, off = 0;
 
 	ret = read(fd, buf, sizeof(buf) - 1);
 	if (ret < 0) {
 		pr_perror("read from cgroup.subtree_control");
 		return ret;
 	}
-	/* Remove the trailing newline */
 	buf[ret] = '\0';
 
 	/* Remove all current subsys in subtree_control */
-	if (buf[0] != '\0')
-		off = add_subtree_control_prop_prefix(buf, line, '-');
+	if (buf[0] != '\0') {
+		off = add_subtree_control_prop_prefix(buf, line, sizeof(line), '-');
+		if (off < 0)
+			return -1;
+	}
 
 	/* Add subsys need to be restored in subtree_control */
-	if (cg_prop_entry_p->value[0] != '\0')
-		off += add_subtree_control_prop_prefix(cg_prop_entry_p->value, line + off, '+');
+	if (cg_prop_entry_p->value[0] != '\0') {
+		ret = add_subtree_control_prop_prefix(cg_prop_entry_p->value, line + off, sizeof(line) - off, '+');
+		if (ret < 0)
+			return -1;
+		off += ret;
+	}
 
 	/* Remove the trailing space */
 	if (off != 0) {
