@@ -1,0 +1,12 @@
+# Reduce the context only for Dockerfile.static builds. Other CRIU
+# container builds use Git metadata and tracked .so plugin symlinks.
+
+.git
+.github
+.circleci
+build/
+out/
+**/*.o
+**/*.a
+**/*.so
+**/*.d

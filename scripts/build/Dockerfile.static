@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1
+#
+# Build a fully static CRIU binary and export it to the host:
+#
+#   docker build -f scripts/build/Dockerfile.static -o build/static .
+#
+# Pass --build-arg PLUGINS="..." to build plugins into the binary.
+#
+# `make static` checks the binary with scripts/build/static/check-binary.sh.
+
+# musl, unlike glibc, can be linked statically without loading NSS modules
+# at run time.
+FROM docker.io/library/alpine:latest AS build
+
+# protoc, protoc-gen-c and descriptor.proto are build-time code generators;
+# the libraries are built from source by `make static`.
+# musl-fts-dev provides fts(3) for libselinux. clang needs binutils for
+# the linker and gcc for the static libgcc runtime.
+RUN apk add --no-cache \
+        autoconf \
+        automake \
+        bash \
+        binutils \
+        bison \
+        clang \
+        coreutils \
+        curl \
+        flex \
+        gcc \
+        libtool \
+        linux-headers \
+        llvm \
+        m4 \
+        make \
+        musl-fts-dev \
+        pkgconfig \
+        protobuf-c-compiler \
+        protobuf-dev \
+        tar \
+        xz
+
+ARG PLUGINS=
+COPY . /criu
+WORKDIR /criu
+RUN make static CC=clang PLUGINS="$PLUGINS"
+
+FROM scratch AS export
+COPY --from=build /criu/criu/criu /criu
