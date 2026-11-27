@@ -3607,7 +3607,9 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].clear_tid_addr = CORE_THREAD_ARCH_INFO(tcore)->clear_tid_addr;
 		core_get_tls(tcore, &thread_args[i].tls);
 
-		if (tcore->thread_core->has_cg_set && rsti(current)->cg_set != tcore->thread_core->cg_set) {
+		if (opts.manage_cgroups != CG_MODE_IGNORE &&
+		    tcore->thread_core->has_cg_set &&
+		    rsti(current)->cg_set != tcore->thread_core->cg_set) {
 			thread_args[i].cg_set = tcore->thread_core->cg_set;
 			thread_args[i].cgroupd_sk = dup(get_service_fd(CGROUPD_SK));
 		} else {
