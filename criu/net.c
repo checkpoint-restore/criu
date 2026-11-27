@@ -3453,6 +3453,7 @@ static inline FILE *redirect_nftables_output(struct nft_ctx *nft)
 	fp = fdopen(fd, "w");
 	if (!fp) {
 		pr_perror("fdopen() to redirect nftables output failed");
+		close(fd);
 		return NULL;
 	}
 
@@ -3495,8 +3496,10 @@ static inline int nftables_lock_network_internal(bool restore)
 	ret = NFT_RUN_CMD(nft, buf);
 	if (ret) {
 		/* The network has been locked on dump. */
-		if (restore && errno == EEXIST)
-			return 0;
+		if (restore && errno == EEXIST) {
+			exit_code = 0;
+			goto out;
+		}
 		goto err2;
 	}
 
@@ -3595,8 +3598,10 @@ static inline int nftables_network_unlock(void)
 		return -1;
 
 	fp = redirect_nftables_output(nft);
-	if (!fp)
+	if (!fp) {
+		nft_ctx_free(nft);
 		return -1;
+	}
 
 	snprintf(buf, sizeof(buf), "delete table %s", table);
 	if (NFT_RUN_CMD(nft, buf))
