@@ -34,10 +34,6 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "sockets: "
 
-#ifndef SOCK_DIAG_BY_FAMILY
-#define SOCK_DIAG_BY_FAMILY 20
-#endif
-
 #define SK_HASH_SIZE (1 << 14)
 
 #ifndef SO_GET_FILTER
@@ -994,9 +990,15 @@ int collect_sockets(struct ns_id *ns)
 	if (tmp)
 		err = tmp;
 
-	/* don't need anymore */
-	close(nl);
-	ns->net.nlsk = -1;
+	/*
+	 * Only the socket of CRIU's netns is used later, to query unix sockets
+	 * that the dump has missed (see unix_lookup_or_query()). If the dump
+	 * failed, unread records may be left on it, so close it as well.
+	 */
+	if (ns->type != NS_CRIU || err) {
+		close(nl);
+		ns->net.nlsk = -1;
+	}
 
 	if (err && (ns->type == NS_CRIU)) {
 		/*
@@ -1008,6 +1010,18 @@ int collect_sockets(struct ns_id *ns)
 	}
 
 	return err;
+}
+
+void close_diag_sockets(void)
+{
+	struct ns_id *ns;
+
+	for (ns = ns_ids; ns; ns = ns->next) {
+		if (ns->nd != &net_ns_desc || ns->net.nlsk < 0)
+			continue;
+		close(ns->net.nlsk);
+		ns->net.nlsk = -1;
+	}
 }
 
 static uint32_t last_ns_id = 0;

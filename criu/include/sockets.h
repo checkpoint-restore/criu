@@ -16,6 +16,10 @@ struct cr_imgset;
 struct nlmsghdr;
 struct cr_img;
 
+#ifndef SOCK_DIAG_BY_FAMILY
+#define SOCK_DIAG_BY_FAMILY 20
+#endif
+
 struct socket_desc {
 	unsigned int family;
 	unsigned int ino;
@@ -25,6 +29,7 @@ struct socket_desc {
 };
 
 extern int dump_socket(struct fd_parms *p, int lfd, FdinfoEntry *);
+extern void close_diag_sockets(void);
 extern int dump_socket_opts(int sk, int family, SkOptsEntry *soe);
 extern int restore_socket_opts(int sk, SkOptsEntry *soe);
 extern int sk_setbufs(int sk, uint32_t *bufs);

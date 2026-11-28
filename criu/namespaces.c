@@ -477,6 +477,8 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	if (nd == &net_ns_desc) {
 		INIT_LIST_HEAD(&nsid->net.ids);
 		INIT_LIST_HEAD(&nsid->net.links);
+		/* Set only for collected netns-es, see prep_ns_sockets() */
+		nsid->net.nlsk = -1;
 	}
 
 found:

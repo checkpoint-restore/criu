@@ -34,6 +34,8 @@
 #include "fdinfo.h"
 #include "kerndat.h"
 #include "rst-malloc.h"
+#include "net.h"
+#include "fault-injection.h"
 
 #include "protobuf.h"
 #include "images/sk-unix.pb-c.h"
@@ -324,6 +326,71 @@ err:
 	return -ENOENT;
 }
 
+static int unix_query_err(int err, struct ns_id *ns, void *arg)
+{
+	if (err != -ENOENT)
+		pr_err("Unix socket %u query failed: %d\n", *(unsigned int *)arg, err);
+	return err;
+}
+
+static struct unix_sk_desc *unix_query_one(unsigned int ino, struct ns_id *ns)
+{
+	struct {
+		struct nlmsghdr hdr;
+		struct unix_diag_req r;
+	} req = {
+		.hdr = {
+			.nlmsg_len = sizeof(req),
+			.nlmsg_type = SOCK_DIAG_BY_FAMILY,
+			.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
+			.nlmsg_seq = CR_NLMSG_SEQ,
+		},
+		.r = {
+			.sdiag_family = AF_UNIX,
+			.udiag_states = -1,
+			.udiag_ino = ino,
+			.udiag_cookie = { ~0U, ~0U },
+			.udiag_show = UDIAG_SHOW_NAME | UDIAG_SHOW_VFS | UDIAG_SHOW_PEER | UDIAG_SHOW_ICONS | UDIAG_SHOW_RQLEN,
+		},
+	};
+	if (ns->net.nlsk < 0)
+		return NULL;
+
+	if (do_rtnl_req(ns->net.nlsk, &req, sizeof(req), unix_receive_one, unix_query_err, ns, &ino))
+		return NULL;
+
+	return (struct unix_sk_desc *)lookup_socket_ino(ino, AF_UNIX);
+}
+
+/*
+ * Problem: The sock_diag dump of Unix sockets isn't atomic. unix_diag_dump() resumes each part using a hash bucket and the number of sockets already sent. If another process closes a socket between two parts, the next socket may be skipped, causing "not found" or "without peer" errors.
+ * Where it can happen: This race is possible only in a netns CRIU doesn't dump (e.g. its own netns with --network=host). In dumped netns, all tasks are frozen before socket collection, preventing concurrent socket changes.
+ * Fallback: If a dumped fd's socket or its peer is missing from the collected list and belongs to CRIU's netns, query it individually using an exact sock_diag request.
+ * Netns handling: Determine the socket's netns using SIOCGSKNS and look up its peer in the peer's own netns. This restriction is also important for kernels before v4.14, where unix_diag_get_exact() could return sockets from any netns.
+ * Why exact lookup works: An exact request (by inode, without NLM_F_DUMP) uses unix_diag_get_exact() to find the socket in a single call, avoiding the race as long as the socket remains open.
+ * Limitations:
+ * The reply must fit in unix_diag_get_exact()'s buffer. On x86_64 with 4 KB pages, listeners with more than ~1950 pending connections fail with -EMSGSIZE.
+ * Pending connections whose listeners were missed cannot be recovered because lookup_unix_listen_icons() searches only collected listeners.
+ */
+static struct unix_sk_desc *unix_lookup_or_query(unsigned int ino, int lfd, struct ns_id *ns)
+{
+	struct unix_sk_desc *sk;
+
+	sk = (struct unix_sk_desc *)lookup_socket(ino, PF_UNIX, 0);
+	if (sk)
+		return sk;
+
+	if (lfd >= 0)
+		ns = get_socket_ns(lfd);
+	if (!ns || ns->type != NS_CRIU)
+		return NULL;
+
+	sk = unix_query_one(ino, ns);
+	if (sk)
+		pr_warn("Unix socket %u was missed by the sock_diag dump, collected it by inode\n", ino);
+	return sk;
+}
+
 static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 {
 	struct unix_sk_desc *sk, *peer;
@@ -347,7 +414,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 
 	*fown = p->fown;
 
-	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino, PF_UNIX, 0);
+	sk = unix_lookup_or_query(p->stat.st_ino, lfd, NULL);
 	if (IS_ERR_OR_NULL(sk)) {
 		pr_err("Unix socket %d not found\n", (int)p->stat.st_ino);
 		goto err;
@@ -414,7 +481,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 	}
 
 	if (ue->peer) {
-		peer = (struct unix_sk_desc *)lookup_socket(ue->peer, PF_UNIX, 0);
+		peer = unix_lookup_or_query(ue->peer, -1, sk->sd.sk_ns);
 		if (IS_ERR_OR_NULL(peer)) {
 			pr_err("Unix socket %u without peer %u\n", ue->ino, ue->peer);
 			goto err;
@@ -865,6 +932,15 @@ int unix_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *arg)
 {
 	struct unix_diag_msg *m = NLMSG_DATA(h);
 	struct nlattr *tb[UNIX_DIAG_MAX + 1];
+
+	/*
+	 * Fault 141: discard all records from CRIU's netns dump to force
+	 * unix_query_one() to fetch each socket individually.
+	 */
+	if (fault_injected(FI_UNIX_DIAG_SKIP) && ns->type == NS_CRIU && (h->nlmsg_flags & NLM_F_MULTI)) {
+		pr_debug("Skipping unix socket %u (fault injected)\n", m->udiag_ino);
+		return 0;
+	}
 
 	nlmsg_parse(h, sizeof(struct unix_diag_msg), tb, UNIX_DIAG_MAX, NULL);
 
