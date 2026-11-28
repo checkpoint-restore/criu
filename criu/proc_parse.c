@@ -109,22 +109,39 @@ bool is_vma_range_fmt(char *line)
 	return __is_vma_range_fmt(line);
 }
 
-bool handle_vma_plugin(int *fd, struct stat *stat)
+static int handle_device_vma(pid_t pid, struct vma_area *vma, int fd)
 {
+	const struct stat *st = vma->vmst;
 	int ret;
 
-	ret = run_plugins(HANDLE_DEVICE_VMA, *fd, stat);
-	if (ret == -ENOTSUP) {
-		pr_err("No plugin handles mappings of device %u:%u\n", major(stat->st_rdev), minor(stat->st_rdev));
-		return false;
+	ret = run_plugins(OMIT_DEVICE_VMA, pid, vma->e->start, vma->e->end, st);
+	if (ret == 1) {
+		pr_info("Omitting device mapping %" PRIx64 "-%" PRIx64 " of %d at a plugin's request\n",
+			vma->e->start, vma->e->end, pid);
+		vma->e->status = VMA_AREA_OMITTED;
+		return 0;
 	}
-	/* Plugins return -1 or a negative errno, so the value is not always an errno. */
-	if (ret < 0) {
-		pr_err("handle_device_vma plugin failed: %d\n", ret);
-		return false;
+	if (ret != -ENOTSUP) {
+		pr_err("omit_device_vma plugin failed on %d's map %" PRIx64 ": %d\n", pid, vma->e->start, ret);
+		return -1;
 	}
 
-	return true;
+	/* A borrowed device file was already claimed, but each range can be omitted independently. */
+	if (vma->file_borrowed)
+		return 0;
+
+	ret = run_plugins(HANDLE_DEVICE_VMA, fd, st);
+	if (ret == -ENOTSUP) {
+		pr_err("No plugin handles device %u:%u on %d's map %" PRIx64 "\n", major(st->st_rdev),
+		       minor(st->st_rdev), pid, vma->e->start);
+		return -1;
+	}
+	if (ret < 0) {
+		pr_err("handle_device_vma plugin failed on %d's map %" PRIx64 ": %d\n", pid, vma->e->start, ret);
+		return -1;
+	}
+	vma->e->status |= VMA_EXT_PLUGIN;
+	return 0;
 }
 
 static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf,
@@ -466,6 +483,7 @@ static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd, st
 		 * have files from the same namespaces.
 		 */
 		vma->file_borrowed = true;
+		vma->vmst = prev->vmst;
 
 		return 0;
 	}
@@ -605,6 +623,8 @@ static inline int handle_vvar_vma(struct vma_area *vma)
 static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_path, DIR *map_files_dir,
 		      struct vma_file_info *vfi, struct vma_file_info *prev_vfi, int *vm_file_fd)
 {
+	const struct stat *st;
+
 	if (vma_get_mapfile(file_path, vma_area, map_files_dir, vfi, prev_vfi, vm_file_fd))
 		goto err_bogus_mapfile;
 
@@ -634,6 +654,14 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 		vma_area->e->status = VMA_AREA_REGULAR;
 	}
 
+	st = vma_area->vmst;
+	if (st && !S_ISREG(st->st_mode) && !(S_ISCHR(st->st_mode) && st->st_rdev == DEVZERO)) {
+		if (handle_device_vma(pid, vma_area, *vm_file_fd))
+			goto err;
+		if (vma_area_is(vma_area, VMA_AREA_OMITTED))
+			return 0;
+	}
+
 	/*
 	 * Some mapping hints for restore, we save this on
 	 * disk and restore might need to analyze it.
@@ -649,7 +677,6 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 		vma_area->e->flags |= (prev->e->flags & MAP_ANONYMOUS);
 		vma_area->e->status = prev->e->status;
 		vma_area->e->shmid = prev->e->shmid;
-		vma_area->vmst = prev->vmst;
 		vma_area->mnt_id = prev->mnt_id;
 
 		if (!(vma_area->e->status & VMA_AREA_SYSVIPC)) {
@@ -660,29 +687,13 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 				vma_area->e->status |= VMA_FILE_SHARED;
 		}
 	} else if (*vm_file_fd >= 0) {
-		struct stat *st_buf = vma_area->vmst;
 		int hugetlb_flag = 0;
 
-		if (S_ISREG(st_buf->st_mode)) {
-			/* regular file mapping -- supported */;
-			pr_debug("Found regular file mapping, OK\n");
-		} else if (S_ISCHR(st_buf->st_mode) && (st_buf->st_rdev == DEVZERO)) {
-			/* devzero mapping -- also makes sense */;
-			pr_debug("Found devzero mapping, OK\n");
-		} else if (handle_vma_plugin(vm_file_fd, st_buf)) {
-			pr_info("Found device file mapping, plugin is available\n");
-			vma_area->e->status |= VMA_EXT_PLUGIN;
-		} else {
-			/* non-regular mapping with no supporting plugin */
-			pr_err("Can't handle non-regular mapping on %d's map %" PRIx64 "\n", pid, vma_area->e->start);
-			goto err;
-		}
-
-		if ((is_anon_shmem_map(st_buf->st_dev) || is_hugetlb_dev(st_buf->st_dev, NULL)) &&
+		if ((is_anon_shmem_map(st->st_dev) || is_hugetlb_dev(st->st_dev, NULL)) &&
 		    !strncmp(file_path, "/SYSV", 5)) {
 			vma_area->e->flags |= MAP_ANONYMOUS;
 			vma_area->e->status |= VMA_ANON_SHARED;
-			vma_area->e->shmid = st_buf->st_ino;
+			vma_area->e->shmid = st->st_ino;
 			if (!(vma_area->e->flags & MAP_SHARED))
 				goto err_bogus_mapping;
 			pr_info("path: %s\n", file_path);
@@ -691,19 +702,19 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 			/* We dump memfd backed mapping, both normal and hugepage anonymous share
 			 * mapping using memfd approach when possible.
 			 */
-			if (is_memfd(st_buf->st_dev) || is_anon_shmem_map(st_buf->st_dev) ||
-			    can_dump_with_memfd_hugetlb(st_buf->st_dev, &hugetlb_flag, file_path, vma_area)) {
+			if (is_memfd(st->st_dev) || is_anon_shmem_map(st->st_dev) ||
+			    can_dump_with_memfd_hugetlb(st->st_dev, &hugetlb_flag, file_path, vma_area)) {
 				vma_area->e->status |= VMA_AREA_MEMFD;
 				vma_area->e->flags |= hugetlb_flag;
 				if (fault_injected(FI_HUGE_ANON_SHMEM_ID))
 					vma_area->e->shmid += FI_HUGE_ANON_SHMEM_ID_BASE;
-			} else if (is_hugetlb_dev(st_buf->st_dev, &hugetlb_flag)) {
+			} else if (is_hugetlb_dev(st->st_dev, &hugetlb_flag)) {
 				vma_area->e->flags |= hugetlb_flag;
 				vma_area->e->flags |= MAP_ANONYMOUS;
 
 				if (vma_area->e->flags & MAP_SHARED) {
 					vma_area->e->status |= VMA_ANON_SHARED;
-					vma_area->e->shmid = st_buf->st_ino;
+					vma_area->e->shmid = st->st_ino;
 				} else {
 					vma_area->e->status |= VMA_ANON_PRIVATE;
 				}
@@ -770,6 +781,9 @@ static int vma_list_add(struct vma_area *vma_area, struct vm_area_list *vma_area
 	} else if (vma_area->e->status & VMA_AREA_UPROBES) {
 		pr_debug("Skipping uprobes vma %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
 		         vma_area->e->end);
+		return 1;
+	} else if (vma_area->e->status & VMA_AREA_OMITTED) {
+		*prev_end = vma_area->e->end;
 		return 1;
 	} else if (vma_area->e->status & VMA_UNSUPP) {
 		pr_err("Unsupported mapping found %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
@@ -875,7 +889,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t du
 			}
 			/* Merge all vvar vma-s into one. */
 			prev_vma_area->e->end = vma_area->e->end;
-			xfree(vma_area);
+			free_vma_area(vma_area);
 			vma_area = NULL;
 		} else if (vma_area) {
 			int rc = vma_list_add(vma_area, vma_area_list, &prev_end, &vfi, &prev_vfi);
@@ -883,7 +897,8 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t du
 			if (rc < 0)
 				goto err;
 			if (rc > 0) {
-				xfree(vma_area);
+				prev_vfi.vma = NULL;
+				free_vma_area(vma_area);
 				vma_area = NULL;
 			}
 			prev_vma_area = vma_area;
@@ -948,7 +963,8 @@ err_n:
 	if (map_files_dir)
 		closedir(map_files_dir);
 
-	xfree(vma_area);
+	if (vma_area)
+		free_vma_area(vma_area);
 	return ret;
 }
 
