@@ -12,6 +12,8 @@ struct mountinfo_zdtm {
 	int shared_id;
 	int master_id;
 	char *fstype;
+	char *source;
+	char *super_opts;
 
 	/* list of all mounts */
 	struct list_head list;
@@ -64,6 +66,8 @@ struct mountinfo_topology {
 };
 
 extern int mntns_parse_mountinfo(struct mntns_zdtm *mntns);
+extern int mntns_parse_mountinfo_pid(struct mntns_zdtm *mntns, const char *pid);
+extern void mountinfo_zdtm_free(struct mountinfo_zdtm *mountinfo);
 extern void mntns_free_all(struct mntns_zdtm *mntns);
 extern int mntns_compare(struct mntns_zdtm *mntns_a, struct mntns_zdtm *mntns_b);
 

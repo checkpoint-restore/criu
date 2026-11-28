@@ -7,90 +7,37 @@
 
 #include "zdtmtst.h"
 #include "fs.h"
+#include "mountinfo.h"
 
-mnt_info_t *mnt_info_alloc(void)
+struct mountinfo_zdtm *get_cwd_mnt_info(void)
 {
-	mnt_info_t *m = malloc(sizeof(*m));
-	if (m)
-		memset(m, 0, sizeof(*m));
-	return m;
-}
-
-void mnt_info_free(mnt_info_t **m)
-{
-	if (m && *m) {
-		free(*m);
-		*m = NULL;
-	}
-}
-
-mnt_info_t *get_cwd_mnt_info(void)
-{
-	int mnt_id, parent_mnt_id;
-	unsigned int kmaj, kmin;
-	char *str = NULL, *cwd;
-	int ret;
-	FILE *f;
-
-	mnt_info_t *m = NULL;
-
-	char mountpoint[PATH_MAX];
-	char root[PATH_MAX];
-
-	char *fsname = NULL;
-	size_t str_len = 0, len = 0, best_len = 0;
-
-	f = fopen("/proc/self/mountinfo", "r");
-	if (!f)
-		return NULL;
+	struct mountinfo_zdtm *mi, *best = NULL;
+	size_t len, best_len = 0;
+	MNTNS_ZDTM(mntns);
+	char *cwd;
 
 	cwd = get_current_dir_name();
 	if (!cwd)
-		goto err;
+		return NULL;
 
-	m = mnt_info_alloc();
-	if (!m)
-		goto err;
+	if (mntns_parse_mountinfo(&mntns))
+		goto out;
 
-	while (getline(&str, &str_len, f) != -1) {
-		char *hyphen = strchr(str, '-');
-		ret = sscanf(str, "%i %i %u:%u %4095s %4095s", &mnt_id, &parent_mnt_id, &kmaj, &kmin, root, mountpoint);
-		if (ret != 6 || !hyphen)
-			goto err;
-		ret = sscanf(hyphen + 1, " %ms", &fsname);
-		if (ret != 1)
-			goto err;
-
-		len = strlen(mountpoint);
-		if (!strncmp(mountpoint, cwd, len)) {
-			if (len > best_len) {
-				best_len = len;
-
-				m->mnt_id = mnt_id;
-				m->parent_mnt_id = parent_mnt_id;
-				m->s_dev = MKKDEV(kmaj, kmin);
-
-				strncpy(m->root, root, sizeof(m->root));
-				strncpy(m->mountpoint, mountpoint, sizeof(m->mountpoint));
-				strncpy(m->fsname, fsname, sizeof(m->fsname) - 1);
-				m->fsname[sizeof(m->fsname) - 1] = 0;
-			}
+	list_for_each_entry(mi, &mntns.mountinfo_list, list) {
+		len = strlen(mi->mountpoint);
+		if (!strncmp(mi->mountpoint, cwd, len) && len > best_len) {
+			best_len = len;
+			best = mi;
 		}
-
-		free(fsname);
-		fsname = NULL;
 	}
 
+	/* Detach the result so that mntns_free_all() keeps it */
+	if (best)
+		list_del_init(&best->list);
 out:
-	free(str);
+	mntns_free_all(&mntns);
 	free(cwd);
-	fclose(f);
-
-	return m;
-
-err:
-	mnt_info_free(&m);
-	goto out;
+	return best;
 }
 
 int get_cwd_check_perm(char **result)

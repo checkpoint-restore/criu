@@ -43,7 +43,7 @@ static int check_file_lock(pid_t pid, pid_t child, int fd, char *expected_type, 
 
 		num = sscanf(buf, "%*s %*d:%15s %15s %15s %d", fl_flag, fl_type, fl_option, &fl_owner);
 		if (num < 4) {
-			pr_perror("Invalid lock info.");
+			pr_err("Invalid lock info\n");
 			break;
 		}
 

@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include "zdtmtst.h"
+#include "mountinfo.h"
 
 const char *test_doc = "Check that empty cgroups are preserved";
 const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
@@ -70,15 +71,14 @@ err_rd:
 	return -1;
 }
 
-bool test_exists(char *mountinfo_line, char *path)
+bool test_exists(char *mountpoint, char *path)
 {
-	char aux[1024], paux[1024];
+	char paux[1024];
 	struct stat st;
 
-	sscanf(mountinfo_line, "%*d %*d %*d:%*d %*s %1023s", aux);
-	test_msg("found cgroup at %s\n", aux);
+	test_msg("found cgroup at %s\n", mountpoint);
 
-	ssprintf(paux, "%s/%s", aux, path);
+	ssprintf(paux, "%s/%s", mountpoint, path);
 	if (stat(paux, &st)) {
 		return false;
 	}
@@ -92,7 +92,8 @@ bool test_exists(char *mountinfo_line, char *path)
 
 int main(int argc, char **argv)
 {
-	FILE *cgf;
+	struct mountinfo_zdtm *mi;
+	MNTNS_ZDTM(mntns);
 	bool found_zdtmtstroot = false, found_newroot = false;
 	char paux[1024];
 	int ret = -1;
@@ -127,22 +128,17 @@ int main(int argc, char **argv)
 		goto out_umount;
 	}
 
-	cgf = fopen("/proc/self/mountinfo", "r");
-	if (cgf == NULL) {
-		fail("No mountinfo file");
+	if (mntns_parse_mountinfo(&mntns)) {
+		fail("Can't parse mountinfo");
 		goto out_umount;
 	}
 
-	while (fgets(paux, sizeof(paux), cgf)) {
-		char *s;
-
-		s = strstr(paux, cgname);
-		if (s && test_exists(paux, "prefix")) {
+	list_for_each_entry(mi, &mntns.mountinfo_list, list) {
+		if (strstr(mi->super_opts, cgname) && test_exists(mi->mountpoint, "prefix")) {
 			found_zdtmtstroot = true;
 		}
 
-		s = strstr(paux, cgname2);
-		if (s && test_exists(paux, "newroot")) {
+		if (strstr(mi->super_opts, cgname2) && test_exists(mi->mountpoint, "newroot")) {
 			found_newroot = true;
 		}
 	}
@@ -161,7 +157,7 @@ int main(int argc, char **argv)
 	ret = 0;
 
 out_close:
-	fclose(cgf);
+	mntns_free_all(&mntns);
 out_umount:
 	sprintf(paux, "%s/%s", dirname, cgname);
 	umount(paux);

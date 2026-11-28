@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include "mountinfo.h"
 #include "fs.h"
 #include "xmalloc.h"
 
 /*
- * mountinfo contains mangled paths. space, tab and back slash were replaced
- * with usual octal escape. This function replaces these symbols back.
+ * mountinfo contains mangled paths. space, tab, newline and back slash (and
+ * '#' in the mount source) were replaced with usual octal escape. This
+ * function replaces these symbols back.
  */
 static void cure_path(char *path)
 {
@@ -24,8 +26,14 @@ static void cure_path(char *path)
 		} else if (!strncmp(path + i, "\\011", 4)) {
 			path[i - off] = '\t';
 			goto replace;
+		} else if (!strncmp(path + i, "\\012", 4)) {
+			path[i - off] = '\n';
+			goto replace;
 		} else if (!strncmp(path + i, "\\134", 4)) {
 			path[i - off] = '\\';
+			goto replace;
+		} else if (!strncmp(path + i, "\\043", 4)) {
+			path[i - off] = '#';
 			goto replace;
 		}
 		if (off)
@@ -48,12 +56,14 @@ static struct mountinfo_zdtm *mountinfo_zdtm_alloc(struct mntns_zdtm *mntns)
 	return new;
 }
 
-static void mountinfo_zdtm_free(struct mountinfo_zdtm *mountinfo)
+void mountinfo_zdtm_free(struct mountinfo_zdtm *mountinfo)
 {
 	list_del(&mountinfo->list);
 	xfree(mountinfo->mountpoint);
 	xfree(mountinfo->root);
 	xfree(mountinfo->fstype);
+	xfree(mountinfo->source);
+	xfree(mountinfo->super_opts);
 	xfree(mountinfo);
 }
 
@@ -65,26 +75,26 @@ static void mountinfo_zdtm_free_all(struct mntns_zdtm *mntns)
 		mountinfo_zdtm_free(mountinfo);
 }
 
-#define BUF_SIZE 4096
-char buf[BUF_SIZE];
-
-int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
+int mntns_parse_mountinfo_pid(struct mntns_zdtm *mntns, const char *pid)
 {
+	char path[PATH_MAX], *buf = NULL;
+	size_t buf_len = 0;
 	FILE *f;
 	int ret;
 
 	INIT_LIST_HEAD(&mntns->mountinfo_list);
 
-	f = fopen("/proc/self/mountinfo", "r");
+	ssprintf(path, "/proc/%s/mountinfo", pid);
+	f = fopen(path, "r");
 	if (!f) {
 		pr_perror("Failed to open mountinfo");
 		return -1;
 	}
 
-	while (fgets(buf, BUF_SIZE, f)) {
+	while (getline(&buf, &buf_len, f) != -1) {
 		struct mountinfo_zdtm *new;
 		unsigned int kmaj, kmin;
-		char *str, *hyphen, *shared, *master;
+		char *str, *hyphen, *shared, *master, *tail, *fstype, *source;
 		int n;
 
 		new = mountinfo_zdtm_alloc(mntns);
@@ -93,24 +103,25 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 			goto free;
 		}
 
-		ret = sscanf(buf, "%i %i %u:%u %ms %ms %*s %n", &new->mnt_id, &new->parent_mnt_id, &kmaj, &kmin,
+		hyphen = strstr(buf, " - ");
+		if (!hyphen) {
+			pr_err("Failed to find \" - \" in mountinfo line \"%s\"\n", buf);
+			goto free;
+		}
+		*hyphen++ = '\0';
+
+		ret = sscanf(buf, "%i %i %u:%u %ms %ms %*s%n", &new->mnt_id, &new->parent_mnt_id, &kmaj, &kmin,
 			     &new->root, &new->mountpoint, &n);
 		if (ret != 6) {
-			pr_perror("Failed to parse mountinfo line \"%s\"", buf);
+			pr_err("Failed to parse mountinfo line \"%s\"\n", buf);
 			goto free;
 		}
 		cure_path(new->root);
 		cure_path(new->mountpoint);
 		new->s_dev = MKKDEV(kmaj, kmin);
 
+		/* Optional fields, possibly empty */
 		str = buf + n;
-		hyphen = strstr(buf, " - ");
-		if (!hyphen) {
-			pr_perror("Failed to find \" - \" in mountinfo line \"%s\"", buf);
-			goto free;
-		}
-		*hyphen++ = '\0';
-
 		shared = strstr(str, "shared:");
 		if (shared)
 			new->shared_id = atoi(shared + 7);
@@ -118,19 +129,39 @@ int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
 		if (master)
 			new->master_id = atoi(master + 7);
 
-		ret = sscanf(hyphen, "- %ms", &new->fstype);
-		if (ret != 1) {
-			pr_perror("Failed to parse fstype in mountinfo tail \"%s\"", hyphen);
+		/*
+		 * Mount source may be empty, and sscanf() would skip it, so split
+		 * the tail after "- " on single spaces instead.
+		 */
+		tail = hyphen + 2;
+		fstype = strsep(&tail, " ");
+		source = strsep(&tail, " ");
+		if (!tail) {
+			pr_err("Failed to parse mountinfo tail of mount %d\n", new->mnt_id);
 			goto free;
 		}
+
+		new->fstype = xstrdup(fstype);
+		new->source = xstrdup(source);
+		new->super_opts = xstrdup(strsep(&tail, "\n"));
+		if (!new->fstype || !new->source || !new->super_opts)
+			goto free;
+		cure_path(new->source);
 	}
 
+	free(buf);
 	fclose(f);
 	return 0;
 free:
 	mountinfo_zdtm_free_all(mntns);
+	free(buf);
 	fclose(f);
 	return -1;
+}
+
+int mntns_parse_mountinfo(struct mntns_zdtm *mntns)
+{
+	return mntns_parse_mountinfo_pid(mntns, "self");
 }
 
 static struct mountinfo_topology *mountinfo_topology_alloc(struct mntns_zdtm *mntns, struct mountinfo_zdtm *mountinfo)

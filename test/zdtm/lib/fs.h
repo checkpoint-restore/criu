@@ -37,18 +37,8 @@ static inline dev_t kdev_to_odev(unsigned int kdev)
 	return makedev(major, minor);
 }
 
-typedef struct {
-	int mnt_id;
-	int parent_mnt_id;
-	unsigned int s_dev;
-	char root[PATH_MAX];
-	char mountpoint[PATH_MAX];
-	char fsname[64];
-} mnt_info_t;
-
-extern mnt_info_t *mnt_info_alloc(void);
-extern void mnt_info_free(mnt_info_t **m);
-extern mnt_info_t *get_cwd_mnt_info(void);
+struct mountinfo_zdtm;
+extern struct mountinfo_zdtm *get_cwd_mnt_info(void);
 
 /*
  * get_cwd_check_perm is called to check that cwd is actually usable for a calling
