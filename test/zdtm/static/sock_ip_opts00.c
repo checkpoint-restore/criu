@@ -38,6 +38,8 @@ struct sk_opt sk_opts_v4[] = {
 struct sk_opt sk_opts_v6[] = {
 	{ SOL_IPV6, IPV6_FREEBIND, IP_OPT_VAL },
 	{ SOL_IPV6, IPV6_RECVPKTINFO, IP_OPT_VAL },
+	{ SOL_IPV6, IPV6_TCLASS, 46 },
+	{ SOL_IPV6, IPV6_RECVTCLASS, IP_OPT_VAL },
 	{ SOL_IP, IP_RECVTOS, IP_OPT_VAL },
 };
 
