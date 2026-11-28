@@ -114,8 +114,13 @@ bool handle_vma_plugin(int *fd, struct stat *stat)
 	int ret;
 
 	ret = run_plugins(HANDLE_DEVICE_VMA, *fd, stat);
+	if (ret == -ENOTSUP) {
+		pr_err("No plugin handles mappings of device %u:%u\n", major(stat->st_rdev), minor(stat->st_rdev));
+		return false;
+	}
+	/* Plugins return -1 or a negative errno, so the value is not always an errno. */
 	if (ret < 0) {
-		pr_perror("handle_device_vma plugin failed");
+		pr_err("handle_device_vma plugin failed: %d\n", ret);
 		return false;
 	}
 
