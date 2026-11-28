@@ -311,6 +311,7 @@ int packet_receive_one(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 err:
 	xfree(sd->tx);
 	xfree(sd->rx);
+	xfree(sd->mreqs);
 	xfree(sd);
 	return -1;
 }
