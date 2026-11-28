@@ -29,6 +29,7 @@ struct sk_opt sk_opts_v4[] = {
 	{ SOL_IP, IP_TTL, 32 },
 	{ SOL_IP, IP_TOS, IPTOS_TOS(IPTOS_THROUGHPUT) },
 	{ SOL_IP, IP_RECVTOS, IP_OPT_VAL },
+	{ SOL_IP, IP_RECVTTL, IP_OPT_VAL },
 };
 
 #ifndef IPV6_FREEBIND
@@ -39,6 +40,7 @@ struct sk_opt sk_opts_v6[] = {
 	{ SOL_IPV6, IPV6_FREEBIND, IP_OPT_VAL },
 	{ SOL_IPV6, IPV6_RECVPKTINFO, IP_OPT_VAL },
 	{ SOL_IP, IP_RECVTOS, IP_OPT_VAL },
+	{ SOL_IP, IP_RECVTTL, IP_OPT_VAL },
 };
 
 struct sk_conf {
