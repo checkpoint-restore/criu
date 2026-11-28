@@ -87,12 +87,16 @@ test_stream() {
 	# Multi-page block compression is incompatible with the
 	# per-page image-streamer wire format, so exclude those tests from
 	# the streamed run (they are covered by the local -a runs).
+	# cpu-affinity2 uses a --pre-restore hook that modifies
+	# individual core-*.img files on disk, incompatible
+	# with the image streamer.
 	STREAM_TEST_EXCLUDE=(-x maps09 -x maps10
 		-x compress_pages_block00
 		-x compress_pages_block01
 		-x compress_pages_block02
 		-x compress_pages_block03
-		-x compress_pages_block04)
+		-x compress_pages_block04
+		-x cpu-affinity2)
 	./test/zdtm.py run --stream -p 2 --keep-going -a "${STREAM_TEST_EXCLUDE[@]}" "${ZDTM_OPTS[@]}"
 	if criu/criu check --feature compress; then
 		./test/zdtm.py run --stream --compress -t zdtm/static/maps00 -t zdtm/static/env00
