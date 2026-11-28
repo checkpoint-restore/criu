@@ -7,6 +7,7 @@
 #include "files.h"
 #include "common/list.h"
 #include "images/netdev.pb-c.h"
+#include "images/pidns.pb-c.h"
 #include "images/userns.pb-c.h"
 
 #ifndef CLONE_NEWNS
@@ -141,6 +142,10 @@ struct ns_id {
 		} net;
 
 		struct {
+			PidnsEntry *e;
+		} pid;
+
+		struct {
 			UsernsEntry *e;
 		} user;
 	};
@@ -168,6 +173,7 @@ extern int collect_mnt_namespaces(bool for_dump);
 extern int dump_mnt_namespaces(void);
 extern int dump_namespaces(struct pstree_item *item, unsigned int ns_flags);
 extern int prepare_namespace_before_tasks(void);
+extern int restore_pid_ns_last_pid(void);
 extern int prepare_namespace(struct pstree_item *item, unsigned long clone_flags);
 extern int prepare_userns_creds(void);
 
