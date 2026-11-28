@@ -3,6 +3,10 @@
 
 #include <stdbool.h>
 
+#define CUDA_PLUGIN_NAME	    "cuda_plugin"
+#define CUDA_PLUGIN_FORK_OPTION	    CUDA_PLUGIN_NAME ".fork-inherited"
+#define CUDA_PLUGIN_INHERITED_FILES CUDA_PLUGIN_NAME ".inherited-files"
+
 struct cuda_device_map;
 
 /* Maximum duration of one helper invocation in seconds; zero means unlimited. */
@@ -18,6 +22,7 @@ struct cuda_plugin_backend {
 	int (*dump_finish)(int ret);
 	void (*fini)(int stage, int ret);
 	int (*pause_devices)(int pid);
+	bool (*is_cuda_task)(int pid);
 	int (*checkpoint_devices)(int pid);
 	int (*resume_devices_late)(int pid, const struct cuda_device_map *device_map);
 };

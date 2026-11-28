@@ -1,5 +1,6 @@
 #include "criu-log.h"
 #include "cuda_device_map.h"
+#include "cuda_inherited.h"
 #include "cuda_plugin.h"
 #include "image.h"
 #include "plugin.h"
@@ -20,7 +21,6 @@
 #endif
 #define LOG_PREFIX "cuda_plugin: "
 
-#define CUDA_PLUGIN_NAME	      "cuda_plugin"
 #define CUDA_PLUGIN_BACKEND_OPTION    CUDA_PLUGIN_NAME ".backend"
 #define CUDA_PLUGIN_DEVICE_MAP_OPTION CUDA_PLUGIN_NAME ".device-map"
 #define CUDA_PLUGIN_TIMEOUT_OPTION    CUDA_PLUGIN_NAME ".timeout"
@@ -31,6 +31,9 @@ static const struct cuda_plugin_backend *active_backend;
 static char *device_map_option;
 static struct cuda_device_map restore_device_map;
 static bool cuda_tasks_handled;
+static bool inherited_scanned;
+static bool discard_inherited;
+static bool inherited_files_required;
 
 enum cuda_backend_selection {
 	CUDA_BACKEND_AUTO,
@@ -44,6 +47,7 @@ enum {
 	CUDA_PLUGIN_OPTION_BACKEND = 1000,
 	CUDA_PLUGIN_OPTION_DEVICE_MAP,
 	CUDA_PLUGIN_OPTION_TIMEOUT,
+	CUDA_PLUGIN_OPTION_FORK,
 };
 
 static bool cuda_plugin_option_matches(const char *arg, const char *name,
@@ -89,10 +93,12 @@ static int parse_cuda_plugin_options(int stage)
 	static const struct option long_options[] = {
 		{ CUDA_PLUGIN_BACKEND_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_BACKEND },
 		{ CUDA_PLUGIN_DEVICE_MAP_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_DEVICE_MAP },
+		{ CUDA_PLUGIN_FORK_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_FORK },
 		{ CUDA_PLUGIN_TIMEOUT_OPTION, optional_argument, NULL, CUDA_PLUGIN_OPTION_TIMEOUT },
 		{},
 	};
 	const char *backend_value = NULL;
+	const char *fork_value = NULL;
 	const char *device_map_value = NULL;
 	const char *timeout_value = NULL;
 	char *saved_optarg;
@@ -105,6 +111,7 @@ static int parse_cuda_plugin_options(int stage)
 	int ret;
 
 	backend_selection = CUDA_BACKEND_AUTO;
+	discard_inherited = false;
 	cuda_plugin_timeout = 0;
 	ret = criu_plugin_get_options(&argc, &argv);
 	if (ret) {
@@ -132,6 +139,10 @@ static int parse_cuda_plugin_options(int stage)
 						       optarg, &ret))
 				device_map_value = optarg;
 			break;
+		case CUDA_PLUGIN_OPTION_FORK:
+			if (cuda_plugin_option_matches(argv[optind - 1], CUDA_PLUGIN_FORK_OPTION, optarg, &ret))
+				fork_value = optarg;
+			break;
 		case CUDA_PLUGIN_OPTION_TIMEOUT:
 			if (cuda_plugin_option_matches(argv[optind - 1], CUDA_PLUGIN_TIMEOUT_OPTION, optarg, &ret))
 				timeout_value = optarg;
@@ -157,6 +168,15 @@ static int parse_cuda_plugin_options(int stage)
 		ret = parse_cuda_backend_option(backend_value);
 		if (ret)
 			return ret;
+	}
+
+	if (fork_value) {
+		if (!strcmp(fork_value, "discard"))
+			discard_inherited = true;
+		else if (strcmp(fork_value, "reject")) {
+			pr_err("Invalid %s value '%s' (expected reject or discard)\n", CUDA_PLUGIN_FORK_OPTION, fork_value);
+			return -EINVAL;
+		}
 	}
 
 	if (timeout_value) {
@@ -288,9 +308,48 @@ static int cuda_plugin_checkpoint_devices(int pid)
 	if (!active_backend)
 		return -ENOTSUP;
 
+	/*
+	 * CRIU calls this for every task once the whole tree is frozen. Before
+	 * the first CUDA task releases its GPU state, find the tasks that
+	 * inherited it across fork(): they still share it with their parent.
+	 */
+	if (!inherited_scanned) {
+		inherited_scanned = true;
+		if (cuda_tasks_handled && cuda_inherited_scan(active_backend->is_cuda_task, discard_inherited))
+			return -1;
+	}
+
 	return active_backend->checkpoint_devices(pid);
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__CHECKPOINT_DEVICES, cuda_plugin_checkpoint_devices);
+
+static int cuda_plugin_omit_device_vma(int pid, uint64_t start, uint64_t end, const struct stat *st)
+{
+	return cuda_inherited_omit_vma(pid, start, end, st) ? 1 : -ENOTSUP;
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__OMIT_DEVICE_VMA, cuda_plugin_omit_device_vma)
+
+static int cuda_plugin_dump_file(int fd, int id)
+{
+	return cuda_inherited_dump_file(fd, id);
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_EXT_FILE, cuda_plugin_dump_file)
+
+static int cuda_plugin_dump_devices_late(int pid)
+{
+	if (!cuda_tasks_handled)
+		return -ENOTSUP;
+
+	return cuda_inherited_dump_files() ? -1 : 0;
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__DUMP_DEVICES_LATE, cuda_plugin_dump_devices_late)
+
+static int cuda_plugin_restore_file(int id, bool *retry_needed)
+{
+	*retry_needed = false;
+	return cuda_inherited_restore_file(id);
+}
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESTORE_EXT_FILE, cuda_plugin_restore_file)
 
 static int cuda_plugin_resume_devices_late(int pid)
 {
@@ -312,10 +371,16 @@ static int cuda_plugin_restore_init(void)
 	if (ret)
 		goto out;
 
+	if (inherited_files_required) {
+		ret = cuda_inherited_restore_init();
+		if (ret)
+			goto out;
+	}
+
 	ret = cuda_device_map_resolve(device_map_option, &restore_device_map);
 out:
 	if (ret == -ENOTSUP) {
-		pr_err("Unable to prepare required CUDA GPU mapping state\n");
+		pr_err("Unable to prepare required CUDA restore state\n");
 		return -EIO;
 	}
 
@@ -330,6 +395,7 @@ static int cuda_plugin_init(int stage)
 
 	active_backend = NULL;
 	cuda_tasks_handled = false;
+	inherited_scanned = false;
 	memset(&restore_device_map, 0, sizeof(restore_device_map));
 	free(device_map_option);
 	device_map_option = NULL;
@@ -385,6 +451,7 @@ static int cuda_plugin_init(int stage)
 		ret = -1;
 		goto error;
 	}
+	inherited_files_required = restore_required && remove_inventory_plugin(CUDA_PLUGIN_INHERITED_FILES);
 
 	pr_info("selected %s backend for stage %d\n", active_backend->name, stage);
 	set_compel_interrupt_only_mode();
@@ -417,6 +484,8 @@ static void cuda_plugin_fini(int stage, int ret)
 
 	cuda_device_map_fini(&restore_device_map);
 	cuda_gpu_inventory_fini();
+	cuda_inherited_fini();
+	inherited_scanned = false;
 	free(device_map_option);
 	device_map_option = NULL;
 	cuda_tasks_handled = false;

@@ -36,11 +36,13 @@ unsupported/libcuda.so.1: libcuda.c
 		-DMOCK_CUDA_DRIVER_VERSION=12000 $< -o $@
 
 cuda-device-map-test: device-map.c $(CUDA_PLUGIN_DIR)/cuda_device_map.c $(CUDA_PLUGIN_DIR)/cuda.proto \
+		$(CUDA_PLUGIN_DIR)/cuda_inherited.c $(CUDA_PLUGIN_DIR)/cuda_inherited.h \
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c $(CUDA_PLUGIN_DIR)/cuda_wait.h
 	$(Q)$(MAKE) --no-print-directory -C $(CUDA_PLUGIN_DIR) cuda.pb-c.c
 	$(E) " LINK     " $@
-	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) \
+	$(Q)$(CC) $(CFLAGS) $(CUDA_TEST_CPPFLAGS) -I../../compel/include/uapi \
 		device-map.c $(CUDA_PLUGIN_DIR)/cuda_device_map.c $(CUDA_PLUGIN_DIR)/cuda.pb-c.c \
+		$(CUDA_PLUGIN_DIR)/cuda_inherited.c \
 		$(CUDA_PLUGIN_DIR)/cuda_wait.c \
 		-o $@ -Wl,--wrap,fork -Wl,--wrap,write -Wl,--wrap,close -ldl -lprotobuf-c
 

@@ -124,6 +124,11 @@ static struct pid_info *find_cuda_pid(int pid)
 	return NULL;
 }
 
+static bool is_cuda_task(int pid)
+{
+	return find_cuda_pid(pid) != NULL;
+}
+
 /* Stop CUDA operations on a task after a fatal failure. The other tasks can
  * still be rolled back, but no new lock or checkpoint is started.
  */
@@ -1036,6 +1041,7 @@ const struct cuda_plugin_backend cuda_driver_backend = {
 	.fini = cuda_driver_backend_fini,
 	.dump_finish = cuda_driver_backend_dump_finish,
 	.pause_devices = cuda_driver_pause_devices,
+	.is_cuda_task = is_cuda_task,
 	.checkpoint_devices = cuda_driver_checkpoint_devices,
 	.resume_devices_late = cuda_driver_resume_devices_late,
 };
