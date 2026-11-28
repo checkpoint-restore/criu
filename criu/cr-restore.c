@@ -1927,7 +1927,9 @@ static int catch_tasks(pid_t *pids, int nr_tasks)
 	return 0;
 }
 
-static void finalize_restore(void)
+static int restore_rlimits_by_criu(struct pstree_item *item);
+
+static int finalize_restore(void)
 {
 	struct pstree_item *item;
 
@@ -1938,6 +1940,10 @@ static void finalize_restore(void)
 
 		if (!task_alive(item))
 			continue;
+
+		/* Every thread is stopped on sigreturn and runs no restorer code */
+		if (restore_rlimits_by_criu(item))
+			return -1;
 
 		/* Unmap the restorer blob */
 		ctl = compel_prepare_noctx(pid, false);
@@ -1959,6 +1965,8 @@ static void finalize_restore(void)
 				kill(item->pid->real, SIGSTOP);
 		}
 	}
+
+	return 0;
 }
 
 static int finalize_restore_detach(void)
@@ -2339,7 +2347,8 @@ skip_ns_bouncing:
 	xfree(pids);
 	pids = NULL;
 
-	finalize_restore();
+	if (finalize_restore())
+		goto out_kill_network_unlocked;
 
 	/* just before releasing threads we have to restore rseq_cs */
 	if (restore_rseq_cs())
@@ -2955,6 +2964,77 @@ static int prepare_rlimits(int pid, struct task_restore_args *ta, CoreEntry *cor
 
 	ta->rlims_n = rls->n_rlimits;
 	return 0;
+}
+
+static int set_rlimit_by_criu(pid_t pid, int resource, rlim_t cur, rlim_t max)
+{
+	struct rlimit64 r;
+
+	if (!rlimit_set_by_criu(resource))
+		return 0;
+
+	r.rlim_cur = cur > max ? max : cur;
+	r.rlim_max = max;
+	if (syscall(__NR_prlimit64, pid, resource, &r, NULL)) {
+		pr_perror("Can't set rlimit %d of %d", resource, pid);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Applies the rlimits the restorer leaves alone, see rlimit_set_by_criu().
+ * The task read its image into its own memory, so read it again here.
+ */
+static int restore_rlimits_by_criu(struct pstree_item *item)
+{
+	pid_t pid = item->pid->real;
+	TaskRlimitsEntry *rls;
+	CoreEntry *core;
+	int i, ret = -1;
+
+	if (open_core(vpid(item), &core))
+		return -1;
+
+	rls = core->tc->rlimits;
+	if (rls) {
+		for (i = 0; i < rls->n_rlimits; i++)
+			if (set_rlimit_by_criu(pid, i, decode_rlim(rls->rlimits[i]->cur),
+					       decode_rlim(rls->rlimits[i]->max)))
+				goto out;
+	} else {
+		struct cr_img *img;
+
+		img = open_image(CR_FD_RLIMIT, O_RSTR, vpid(item));
+		if (!img)
+			goto out;
+
+		for (i = 0;; i++) {
+			RlimitEntry *re;
+			int err;
+
+			err = pb_read_one_eof(img, &re, PB_RLIMIT);
+			if (err <= 0) {
+				close_image(img);
+				if (err < 0)
+					goto out;
+				break;
+			}
+
+			err = set_rlimit_by_criu(pid, i, decode_rlim(re->cur), decode_rlim(re->max));
+			rlimit_entry__free_unpacked(re, NULL);
+			if (err) {
+				close_image(img);
+				goto out;
+			}
+		}
+	}
+
+	ret = 0;
+out:
+	core_entry__free_unpacked(core, NULL);
+	return ret;
 }
 
 static int signal_to_mem(SiginfoEntry *se)

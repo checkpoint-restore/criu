@@ -194,7 +194,7 @@ struct task_restore_args {
 	struct rst_aio_ring *rings;
 	unsigned int rings_n;
 
-	struct rlimit64 *rlims;
+	struct rlimit64 *rlims; /* the restorer skips rlimit_set_by_criu() ones */
 	unsigned int rlims_n;
 
 	pid_t *helpers /* the TASK_HELPERS to wait on at the end of restore */;
@@ -271,6 +271,20 @@ struct task_restore_args {
 static inline unsigned long restorer_stack(struct restore_mem_zone *mz)
 {
 	return RESTORE_ALIGN_STACK((long)&mz->stack, RESTORE_STACK_SIZE);
+}
+
+/*
+ * The restorer still opens files (the LSM label) and appends to the log
+ * after it applies the rlimits. A task that has used up its descriptor
+ * slots would fail those opens with EMFILE, and a write past RLIMIT_FSIZE
+ * queues SIGXFSZ, which kills the task on sigreturn. So the restorer
+ * leaves these as inherited from criu, and criu applies them once every
+ * thread is stopped on sigreturn, still with its own credentials and LSM
+ * context, and fails the restore if it cannot.
+ */
+static inline bool rlimit_set_by_criu(int resource)
+{
+	return resource == RLIMIT_NOFILE || resource == RLIMIT_FSIZE;
 }
 
 enum {
