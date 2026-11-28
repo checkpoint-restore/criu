@@ -596,7 +596,9 @@ CUDA_TST	=				\
 		cuda_mempool00			\
 		cuda_graph00			\
 		cuda_cublas00			\
-		cuda_multigpu00
+		cuda_multigpu00			\
+		cuda_fork00			\
+		cuda_fork01
 
 $(CUDA_TST:%=%.pid):	%.pid:	%
 	$(TEST_ENV) $(<D)/$(<F) --pidfile=$@ --outfile=$<.out
@@ -806,6 +808,7 @@ CUDA_LIBDIR ?= $(firstword $(wildcard $(CUDA_HOME)/lib64 $(CUDA_HOME)/lib) $(CUD
 CUDA_RPATH_LDFLAGS := -L$(CUDA_LIBDIR) -Xlinker -rpath -Xlinker $(CUDA_LIBDIR)
 CUDA_LDFLAGS := $(if $(wildcard $(CUDA_LIBDIR)/libcudart.so*),$(CUDA_RPATH_LDFLAGS))
 NVCCFLAGS ?= -allow-unsupported-compiler
+cuda_fork01: cuda_fork00.cu
 cuda_cublas00: CUDA_NVCC_LDLIBS += -lcublas
 cuda_streams00: NVCCFLAGS += -Xcompiler=-pthread
 

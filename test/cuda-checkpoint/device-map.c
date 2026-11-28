@@ -18,6 +18,8 @@
 #include "cr_options.h"
 #include "cuda.pb-c.h"
 #include "cuda_device_map.h"
+#include "cuda_inherited.h"
+#include "cuda_plugin.h"
 #include "image.h"
 
 #define MOCK_GPU_COUNT		    4
@@ -26,6 +28,7 @@
 #define CUDA_GPU_INVENTORY_MAX_SIZE (16 * 1024 * 1024)
 
 struct cr_options opts;
+struct pstree_item *root_item;
 unsigned int cuda_plugin_timeout;
 
 enum reply_behavior {
@@ -118,13 +121,19 @@ int criu_get_image_dir(void)
 	return image_dir_fd;
 }
 
+int add_inventory_plugin(const char *name)
+{
+	assert(!strcmp(name, CUDA_PLUGIN_INHERITED_FILES));
+	return 0;
+}
+
 int img_streamer_open(char *filename, int flags)
 {
 	int fd;
 
 	assert(getpid() == parent_pid);
 	assert(opts.stream);
-	assert(!strcmp(filename, CUDA_GPU_INVENTORY_IMAGE));
+	assert(!strcmp(filename, CUDA_GPU_INVENTORY_IMAGE) || !strcmp(filename, CUDA_INHERITED_FILES_IMAGE));
 	assert(flags == O_DUMP || flags == O_RSTR);
 	fd = openat(image_dir_fd, filename, flags, 0600);
 	return fd < 0 ? -errno : fd;
@@ -248,6 +257,65 @@ static void check_no_inventory_image(void)
 {
 	errno = 0;
 	assert(faccessat(image_dir_fd, CUDA_GPU_INVENTORY_IMAGE, F_OK, 0) == -1 && errno == ENOENT);
+}
+
+static void write_inherited_files(uint32_t *ids, size_t nr_ids)
+{
+	CudaInheritedFiles files = CUDA_INHERITED_FILES__INIT;
+	unsigned char data[32];
+	size_t size;
+	int fd;
+
+	files.has_version = true;
+	files.ids = ids;
+	files.n_ids = nr_ids;
+	size = cuda_inherited_files__get_packed_size(&files);
+	assert(size <= sizeof(data));
+	assert(cuda_inherited_files__pack(&files, data) == size);
+	fd = cuda_open_image(CUDA_INHERITED_FILES_IMAGE, true, &size);
+	assert(fd >= 0);
+	write_all(fd, data, size);
+	assert(close(fd) == 0);
+}
+
+static void check_inherited_files(void)
+{
+	uint32_t ids[] = { 17, 29 };
+	size_t nr_ids = sizeof(ids) / sizeof(ids[0]);
+	struct stat null_st;
+	int fd;
+
+	write_inherited_files(NULL, 0);
+	assert(cuda_inherited_restore_init() == -EINVAL);
+	write_inherited_files(ids, nr_ids);
+	opts.stream = true;
+	assert(cuda_inherited_restore_init() == 0);
+	assert(stat("/dev/null", &null_st) == 0);
+	for (size_t i = 0; i < nr_ids; i++) {
+		int status;
+		pid_t pid = fork();
+
+		assert(pid >= 0);
+		if (!pid) {
+			struct stat st;
+
+			fd = cuda_inherited_restore_file(ids[i]);
+			assert(fd >= 0 && fstat(fd, &st) == 0);
+			assert(S_ISCHR(st.st_mode) && st.st_rdev == null_st.st_rdev);
+			assert((fcntl(fd, F_GETFL) & (O_ACCMODE | O_NONBLOCK)) == O_RDWR);
+			assert(cuda_inherited_restore_file(1) == -ENOTSUP);
+			_exit(0);
+		}
+		assert(waitpid(pid, &status, 0) == pid);
+		assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+	}
+	cuda_inherited_fini();
+	opts.stream = false;
+	/* A dump without inherited descriptors reusing this directory. */
+	assert(cuda_inherited_dump_files() == 0);
+	assert(faccessat(image_dir_fd, CUDA_INHERITED_FILES_IMAGE, F_OK, 0) < 0 && errno == ENOENT);
+	assert(cuda_inherited_restore_init() == -ENOENT);
+	assert(cuda_inherited_restore_file(ids[0]) == -ENOTSUP);
 }
 
 static void check_syntax(void)
@@ -583,6 +651,7 @@ int main(void)
 	assert(image_dir_fd >= 0);
 
 	check_syntax();
+	check_inherited_files();
 
 	assert(setenv("CUDA_VISIBLE_DEVICES", visible_devices, 1) == 0);
 	assert(setenv("CUDA_DEVICE_ORDER", device_order, 1) == 0);

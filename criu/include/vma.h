@@ -76,6 +76,7 @@ struct vma_area {
 typedef int (*dump_filemap_t)(struct vma_area *vma_area, int fd);
 
 extern struct vma_area *alloc_vma_area(void);
+extern void free_vma_area(struct vma_area *vma);
 extern int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t cb);
 extern void free_mappings(struct vm_area_list *vma_area_list);
 

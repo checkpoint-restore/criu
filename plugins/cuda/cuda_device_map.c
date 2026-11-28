@@ -115,7 +115,7 @@ static int cuda_enumeration_read_all(struct cuda_wait *wait, int fd, void *buf, 
 	return 0;
 }
 
-static int cuda_img_read(int fd, void *buf, size_t len)
+int cuda_img_read(int fd, void *buf, size_t len)
 {
 	char *ptr = buf;
 
@@ -134,7 +134,7 @@ static int cuda_img_read(int fd, void *buf, size_t len)
 	return 0;
 }
 
-static int cuda_img_write(int fd, const void *buf, size_t len)
+int cuda_img_write(int fd, const void *buf, size_t len)
 {
 	const char *ptr = buf;
 
@@ -153,7 +153,7 @@ static int cuda_img_write(int fd, const void *buf, size_t len)
 	return 0;
 }
 
-static int cuda_img_at_eof(int fd)
+int cuda_img_at_eof(int fd)
 {
 	unsigned char byte;
 	ssize_t ret;
@@ -167,7 +167,7 @@ static int cuda_img_at_eof(int fd)
 	return 0;
 }
 
-static int cuda_open_inventory_image(bool write_image, size_t *size)
+int cuda_open_image(const char *name, bool write_image, size_t *size)
 {
 	uint32_t image_size;
 	int flags;
@@ -178,23 +178,21 @@ static int cuda_open_inventory_image(bool write_image, size_t *size)
 		image_size = (uint32_t)*size;
 
 	if (opts.stream) {
-		fd = img_streamer_open(CUDA_GPU_INVENTORY_IMAGE,
-				       write_image ? O_DUMP : O_RSTR);
+		fd = img_streamer_open((char *)name, write_image ? O_DUMP : O_RSTR);
 		if (fd < 0) {
 			ret = fd == -1 ? -EIO : fd;
 			if (write_image || ret != -ENOENT)
-				pr_err("Unable to open CUDA GPU inventory stream for %s: %s\n",
+				pr_err("Unable to open %s stream for %s: %s\n", name,
 				       write_image ? "writing" : "reading", strerror(-ret));
 			return ret;
 		}
 	} else {
 		flags = write_image ? O_WRONLY | O_CREAT | O_TRUNC : O_RDONLY;
-		fd = openat(criu_get_image_dir(), CUDA_GPU_INVENTORY_IMAGE, flags, 0600);
+		fd = openat(criu_get_image_dir(), name, flags, 0600);
 		if (fd < 0) {
 			ret = -errno;
 			if (write_image || ret != -ENOENT)
-				pr_perror("Unable to open %s for %s", CUDA_GPU_INVENTORY_IMAGE,
-					  write_image ? "writing" : "reading");
+				pr_perror("Unable to open %s for %s", name, write_image ? "writing" : "reading");
 			return ret;
 		}
 	}
@@ -204,8 +202,7 @@ static int cuda_open_inventory_image(bool write_image, size_t *size)
 	else
 		ret = cuda_img_read(fd, &image_size, sizeof(image_size));
 	if (ret) {
-		pr_err("Unable to %s CUDA GPU inventory size: %s\n",
-		       write_image ? "write" : "read", strerror(-ret));
+		pr_err("Unable to %s the size of %s: %s\n", write_image ? "write" : "read", name, strerror(-ret));
 		close(fd);
 		return ret;
 	}
@@ -213,6 +210,17 @@ static int cuda_open_inventory_image(bool write_image, size_t *size)
 		*size = image_size;
 
 	return fd;
+}
+
+int cuda_remove_image(const char *name)
+{
+	int ret;
+
+	if (opts.stream || !unlinkat(criu_get_image_dir(), name, 0) || errno == ENOENT)
+		return 0;
+	ret = -errno;
+	pr_perror("Unable to remove stale %s", name);
+	return ret;
 }
 
 static void *cuda_get_symbol(void *handle, const char *name)
@@ -525,7 +533,7 @@ static int cuda_write_inventory(const CudaGpuInventory *inventory)
 		return -EINVAL;
 	}
 
-	fd = cuda_open_inventory_image(true, &size);
+	fd = cuda_open_image(CUDA_GPU_INVENTORY_IMAGE, true, &size);
 	if (fd < 0) {
 		free(data);
 		return fd;
@@ -553,12 +561,7 @@ int cuda_gpu_inventory_dump(void)
 		pr_warn("Unable to save the CUDA GPU inventory (%d); restore will accept only UUID device maps\n",
 			ret);
 		/* Do not let restore use an inventory left by an earlier dump. */
-		if (!opts.stream && unlinkat(criu_get_image_dir(), CUDA_GPU_INVENTORY_IMAGE, 0) &&
-		    errno != ENOENT) {
-			pr_perror("Unable to remove stale %s", CUDA_GPU_INVENTORY_IMAGE);
-			return -errno;
-		}
-		return 0;
+		return cuda_remove_image(CUDA_GPU_INVENTORY_IMAGE);
 	}
 
 	ret = cuda_write_inventory(&list.inventory);
@@ -644,7 +647,7 @@ int cuda_gpu_inventory_restore_init(void)
 
 	cuda_gpu_inventory_fini();
 
-	fd = cuda_open_inventory_image(false, &size);
+	fd = cuda_open_image(CUDA_GPU_INVENTORY_IMAGE, false, &size);
 	if (fd == -ENOENT)
 		return 0;
 	if (fd < 0)

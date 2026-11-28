@@ -106,15 +106,21 @@ int __attribute__((weak)) arch_set_thread_regs(struct pstree_item *item, bool wi
 	return 0;
 }
 
+void free_vma_area(struct vma_area *vma)
+{
+	if (!vma->file_borrowed)
+		xfree(vma->vmst);
+	xfree(vma->aufs_rpath);
+	xfree(vma->aufs_fpath);
+	xfree(vma);
+}
+
 void free_mappings(struct vm_area_list *vma_area_list)
 {
 	struct vma_area *vma_area, *p;
 
-	list_for_each_entry_safe(vma_area, p, &vma_area_list->h, list) {
-		if (!vma_area->file_borrowed)
-			free(vma_area->vmst);
-		free(vma_area);
-	}
+	list_for_each_entry_safe(vma_area, p, &vma_area_list->h, list)
+		free_vma_area(vma_area);
 
 	vm_area_list_init(vma_area_list);
 }

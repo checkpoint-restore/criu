@@ -68,6 +68,7 @@ enum {
 
 	CR_PLUGIN_HOOK__UPDATE_INETSK = 15,
 	CR_PLUGIN_HOOK__DUMP_FINISH = 16,
+	CR_PLUGIN_HOOK__OMIT_DEVICE_VMA = 17,
 
 	CR_PLUGIN_HOOK__MAX
 };
@@ -99,6 +100,15 @@ DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__UPDATE_INETSK, uint32_t family, uint32_
  * handlers must accept a second call and roll back on it.
  */
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_FINISH, int ret);
+/*
+ * OMIT_DEVICE_VMA asks whether the mapping [start, end) of a device file in
+ * task pid holds no state of that task, so that the task is dumped without it
+ * and restored with nothing mapped there. It runs before HANDLE_DEVICE_VMA.
+ * Return 1 to omit the mapping, -ENOTSUP to leave it to other plugins, or a
+ * negative value to fail the dump.
+ */
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__OMIT_DEVICE_VMA, int pid, uint64_t start, uint64_t end,
+			 const struct stat *stat);
 
 enum {
 	CR_PLUGIN_STAGE__DUMP,

@@ -209,6 +209,59 @@ bypass `PTRACE_O_TRACECLONE` and create an untraced process outside the
 checkpointed tree. When checkpointing untrusted workloads, it is therefore
 recommended to blacklist `CLONE_UNTRACED` using seccomp filters.
 
+# Processes Forked After CUDA Started
+
+When a process that started CUDA calls fork() without exec(), the worker
+inherits its NVIDIA descriptors and some of its mappings. Only the calling
+thread survives in the worker, so it has no CUDA restore thread. The NVIDIA
+driver marks managed UVM mappings `VM_DONTCOPY` by default. Other mappings,
+including shared system memory mapped through `/dev/nvidiactl`, can remain
+accessible to the worker even if it never calls CUDA. PyTorch's inductor,
+for example, compiles in workers forked from a process that queried the GPU.
+
+By default the plugin stops the dump if its scan finds NVIDIA mappings or
+descriptors in such a worker. Use the following dump option only if the
+application can release those address ranges and use `/dev/null` in place of
+the affected open files wherever they are referenced.
+
+```sh
+criu dump ... --plugin-option=cuda_plugin.fork-inherited=discard
+```
+
+Once the whole tree is frozen and before the first CUDA task is checkpointed,
+the plugin checks every descendant of a CUDA task that has no CUDA state of
+its own. The scan covers character-device majors registered exclusively under
+NVIDIA driver names in `/proc/devices`. Each mapping must match a CUDA
+ancestor's device, inode, address range and file offset. Each descriptor must
+refer to the same open file as one held by a CUDA ancestor (`kcmp(KCMP_FILE)`).
+With discard enabled, CRIU omits the matching mappings and restores the
+descriptors on `/dev/null`, preserving their numbers. The plugin writes their
+file IDs to `cuda-inherited-files.img` after dumping all tasks and adds
+`cuda_plugin.inherited-files` to the inventory. If that entry is present,
+restore requires the file and reads it before forking. The CUDA tasks
+themselves are checkpointed as usual.
+
+The dump fails before any CUDA task is checkpointed if the scan finds
+NVIDIA state in a descendant that cannot be matched, for example a device
+it opened itself or a mapping its CUDA parent has since dropped. The log
+names the task and the unmatched mapping or descriptor. If a previous dump
+checkpointed a CUDA task and then resumed it, that task may now hold different
+open files or mappings from the ones its descendants inherited.
+
+When a user namespace prevents CRIU from following `/proc/PID/map_files`,
+the scan uses a pathname only if its filesystem device and inode match the
+mapping. CRIU handles any unresolved mapping during its normal VMA scan. An
+unsupported device mapping in that case can fail the dump after the CUDA
+ancestor has been checkpointed.
+
+The checks use the state visible when CRIU freezes the tree. An independently
+created mapping of the same device inode at the same addresses and offset is
+indistinguishable from a forked copy. CRIU also assigns one file ID to every
+reference to the same open file description. If the application passed that
+file to another task or queued it on a Unix socket, those references will
+also refer to /dev/null on restore. The placeholder opens read-write and
+has the file status flags and operations of /dev/null.
+
 # Testing
 
 The CPU-only regression tests exercise both backends with mock CUDA APIs and
@@ -225,6 +278,14 @@ sudo python3 test/cuda-checkpoint/backend-errors.py
 
 Real CUDA workloads are still needed to validate GPU checkpoint/restore and
 measure backend performance.
+
+`cuda_fork00` checks a process forked after CUDA started across checkpoint and
+restore, and `cuda_fork01` that a forked process holding NVIDIA state of its
+own is refused:
+
+```
+sudo ./test/zdtm.py run -t zdtm/static/cuda_fork00 -t zdtm/static/cuda_fork01 --cuda-checkpoint
+```
 
 # Known Limitations
 * Currently GPU memory contents are brought into main system memory and CRIU
@@ -245,11 +306,6 @@ measure backend performance.
   remaining references for these applications as in most cases NVML is used to
   get info such as gpu count and some capabilities and these values are never
   accessed again and unlikely to change.
-* CUDA applications that fork() but don't call exec() but also don't issue any
-  CUDA API calls will have some leftover references to /dev/nvidia* and fail to
-  checkpoint as a result. This can be worked around in a similar fashion to the
-  NVML case where the leftover references can be ignored as CUDA is not fork()
-  safe anyway.
 * Restore without a device map requires compatible GPUs with the original
   UUIDs. A device map permits different UUIDs, but the target GPUs must still be
   compatible with the checkpoint and provide enough memory.

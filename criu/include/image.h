@@ -102,6 +102,7 @@
 #define VMA_AREA_GUARD	 (1 << 16)
 #define VMA_AREA_UPROBES	(1 << 17)
 #define VMA_AREA_NOT_ACCOUNTABLE (1 << 18)
+#define VMA_AREA_OMITTED	 (1 << 19) /* Left out at a plugin's request; never in an image */
 
 #define VMA_EXT_PLUGIN	  (1 << 27)
 #define VMA_CLOSE	  (1 << 28)
@@ -228,6 +229,7 @@ extern void close_image(struct cr_img *);
 extern int add_inventory_plugin(const char *name);
 extern int check_inventory_plugins(void);
 extern bool has_inventory_plugin(const char *name);
+extern bool remove_inventory_plugin(const char *name);
 extern bool check_and_remove_inventory_plugin(const char *name);
 
 #endif /* __CR_IMAGE_H__ */

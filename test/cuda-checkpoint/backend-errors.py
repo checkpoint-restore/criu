@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -51,7 +52,7 @@ def target(directory, mixed=False, duration=300):
 def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
              expected_success=True, leave_running=False, action_script=None,
              restore_detached=True, command_timeout=30, freezing_timeout=10,
-             plugin_timeout=None, **variables):
+             plugin_timeout=None, unprivileged=False, **variables):
     environment = {key: value for key, value in os.environ.items()
                    if not key.startswith("CRIU_CUDA_MOCK_")}
     environment.update(CRIU_FAULT="138", LD_LIBRARY_PATH=str(library or MOCK),
@@ -62,6 +63,8 @@ def run_criu(directory, operation, *, pid=None, plugin=None, library=None,
                "--images-dir", str(directory), "--log-file", f"{operation}.log",
                "--verbosity=4", "--libdir", str(plugin or ROOT / "plugins/cuda"),
                "--shell-job", "--timeout", str(freezing_timeout)]
+    if unprivileged:
+        command.append("--unprivileged")
     if plugin_timeout is not None:
         command += ["--plugin-option", f"cuda_plugin.timeout={plugin_timeout}"]
     if operation == "dump":
@@ -88,6 +91,8 @@ def test_discovery(work):
     for error in (1, 3):  # INVALID_VALUE and NOT_INITIALIZED mean non-CUDA here.
         directory = work / f"cpu-{error}"
         directory.mkdir()
+        # A CPU-only dump must leave any old CUDA image alone.
+        (directory / "cuda-inherited-files.img").mkdir()
         with target(directory) as (process, pids):
             log = run_criu(directory, "dump", pid=pids[0],
                            CRIU_CUDA_MOCK_TID_ERROR=str(error))
@@ -107,6 +112,8 @@ def test_discovery(work):
         assert f"Checkpointing CUDA devices on pid {pids[1]} " in log
         assert f"Checkpointing CUDA devices on pid {pids[0]} " not in log
         process.wait(timeout=5)
+        # An ordinary CUDA image can share a directory with a stale sidecar.
+        (directory / "cuda-inherited-files.img").write_bytes(b"stale")
         log = run_criu(directory, "restore", CRIU_CUDA_MOCK_INITIAL_STATE="checkpointed", **variables)
         assert f"resuming devices on pid {pids[1]}\n" in log
         assert f"resuming devices on pid {pids[0]}\n" not in log
@@ -124,6 +131,20 @@ def test_discovery(work):
         assert not (directory / "cli.marker").exists()
         assert process.poll() is None
         assert_untraced(pids[0])
+
+
+def test_userns_mappings(directory):
+    with target(directory, mixed=True) as (process, pids):
+        # Only the parent uses CUDA. Reaching the injected backend error
+        # proves that scanning the exec'd worker's ordinary mappings succeeded.
+        log = run_criu(directory, "dump", pid=process.pid, unprivileged=True,
+                       expected_success=False, CRIU_CUDA_MOCK_TID_ERROR="3",
+                       CRIU_CUDA_MOCK_CUDA_PID=str(process.pid),
+                       CRIU_CUDA_MOCK_CHECKPOINT_ERROR_AFTER_TRANSITION="1")
+        assert f"cuCheckpointProcessCheckpoint({process.pid}) failed" in log, log
+        assert "skipping inherited NVIDIA state" not in log, log
+        for pid in pids:
+            assert_untraced(pid)
 
 
 def build_inventory_failure_plugin(work):
@@ -362,6 +383,31 @@ if __name__ == "__main__":
         raise SystemExit("these checks use assert; run without python -O")
     with tempfile.TemporaryDirectory(prefix="criu-cuda-backend-errors-") as directory:
         work = Path(directory)
+        if sys.argv[1:] == ["--userns-mappings"]:
+            test_userns_mappings(work)
+            sys.exit(0)
+
+        unshare = ["unshare", "--user", "--map-root-user", "--mount", "--propagation", "private"]
+        if subprocess.run([*unshare, "true"]).returncode == 0:
+            # Exercise the scan even on machines without an NVIDIA driver.
+            # The worker's /dev/null descriptors are on a mixed major. The
+            # scan must leave them alone even if the NVIDIA entry comes first.
+            devices = work / "devices"
+            null_major = os.major(os.stat(os.devnull).st_rdev)
+            devices.write_text(f"Character devices:\n0 nvidia-mock\n"
+                               f"{null_major} nvidia-test\n{null_major} mem\n")
+            # The nested namespace may lack permission to traverse the
+            # checkout owner's home. Bind the inherited checkout directory.
+            checkout = work / "checkout"
+            checkout.mkdir()
+            subprocess.run([*unshare, "sh", "-c",
+                            'mount --no-canonicalize --bind . "$1" && '
+                            'mount --bind "$2" /proc/devices && shift 2 && exec "$@"',
+                            "sh", str(checkout), str(devices), sys.executable,
+                            str(checkout / Path(__file__).resolve().relative_to(ROOT)), "--userns-mappings"],
+                           cwd=ROOT, check=True)
+        else:
+            print("Nested user namespaces unavailable, skipping the map_files permission test")
         test_discovery(work)
         test_inventory_failure(work)
         test_dump_finish(work)

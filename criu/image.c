@@ -265,16 +265,10 @@ bool has_inventory_plugin(const char *name)
 	return n_inventory_plugins > 0 && find_inventory_plugin(name);
 }
 
-/**
- * Similar to the above function, check if the 'plugins' field contains
- * the specified plugin name, but if it is found, remove it from the list.
- */
-bool check_and_remove_inventory_plugin(const char *name)
+/* Consume an explicit requirement. Older inventories contain no such entries. */
+bool remove_inventory_plugin(const char *name)
 {
 	struct inventory_plugin *p;
-
-	if (n_inventory_plugins == -1)
-		return true; /* backwards compatibility */
 
 	p = find_inventory_plugin(name);
 	if (!p)
@@ -285,6 +279,12 @@ bool check_and_remove_inventory_plugin(const char *name)
 	xfree(p);
 	n_inventory_plugins--;
 	return true;
+}
+
+bool check_and_remove_inventory_plugin(const char *name)
+{
+	/* An inventory without a plugin list enables every installed plugin. */
+	return n_inventory_plugins == -1 || remove_inventory_plugin(name);
 }
 
 /**

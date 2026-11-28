@@ -14,3 +14,13 @@ message cuda_gpu_inventory {
 	optional uint32 version = 1 [default = 1];
 	repeated cuda_gpu gpus = 2;
 }
+
+// Plugin-private payload framed by a uint32 byte count in
+// cuda-inherited-files.img. Each id is the id of an external file whose
+// descriptor a task inherited from a CUDA process across fork(), restored
+// open on /dev/null.
+message cuda_inherited_files {
+	// Payload schema version. Unknown versions must be rejected.
+	optional uint32 version = 1 [default = 1];
+	repeated uint32 ids = 2;
+}
