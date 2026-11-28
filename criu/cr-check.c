@@ -602,13 +602,13 @@ static int parse_special_maps(struct special_mapping *vmas, size_t nr)
 
 	while (fgets(buf, sizeof(buf), maps)) {
 		unsigned long start, end;
-		int r, tail;
+		int r, tail = -1;
 		size_t i;
 
 		r = sscanf(buf, "%lx-%lx %*s %*s %*s %*s %n\n", &start, &end, &tail);
-		if (r != 2) {
+		if (r != 2 || tail < 0) {
 			fclose(maps);
-			pr_err("Bad maps format %d.%d (%s)\n", r, tail, buf + tail);
+			pr_err("Bad maps format: %s\n", buf);
 			return -1;
 		}
 
@@ -856,12 +856,12 @@ static unsigned long get_ring_len(unsigned long addr)
 
 	while (fgets(buf, sizeof(buf), maps)) {
 		unsigned long start, end;
-		int r, tail;
+		int r, tail = -1;
 
 		r = sscanf(buf, "%lx-%lx %*s %*s %*s %*s %n\n", &start, &end, &tail);
-		if (r != 2) {
+		if (r != 2 || tail < 0) {
 			fclose(maps);
-			pr_err("Bad maps format %d.%d (%s)\n", r, tail, buf + tail);
+			pr_err("Bad maps format: %s\n", buf);
 			return 0;
 		}
 
