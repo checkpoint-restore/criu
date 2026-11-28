@@ -175,7 +175,7 @@ HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
 export AFLAGS CFLAGS USERCLFAGS HOSTCFLAGS
 
 # Default target
-all: criu lib crit cuda_plugin
+all: criu lib crit cuda_plugin tpu_plugin
 .PHONY: all
 
 #
@@ -313,6 +313,10 @@ clean-cuda_plugin:
 	$(Q) $(MAKE) -C plugins/cuda clean
 .PHONY: clean-cuda_plugin
 
+clean-tpu_plugin:
+	$(Q) $(MAKE) -C plugins/tpu clean
+.PHONY: clean-tpu_plugin
+
 clean-top:
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(MAKE) -C soccr/test clean
@@ -320,9 +324,9 @@ clean-top:
 	$(Q) $(RM) .gitid
 .PHONY: clean-top
 
-clean: clean-top clean-amdgpu_plugin clean-cuda_plugin
+clean: clean-top clean-amdgpu_plugin clean-cuda_plugin clean-tpu_plugin
 
-mrproper-top: clean-top clean-amdgpu_plugin clean-cuda_plugin
+mrproper-top: clean-top clean-amdgpu_plugin clean-cuda_plugin clean-tpu_plugin
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) $(COMPEL_VERSION_HEADER)
@@ -357,6 +361,10 @@ amdgpu_plugin: criu
 cuda_plugin: criu
 	$(Q) $(MAKE) -C plugins/cuda all
 .PHONY: cuda_plugin
+
+tpu_plugin: criu
+	$(Q) $(MAKE) -C plugins/tpu all
+.PHONY: tpu_plugin
 
 crit: lib
 	$(Q) $(MAKE) -C crit
@@ -445,6 +453,7 @@ help:
 	@echo '      indent          - Indent C code'
 	@echo '      amdgpu_plugin   - Make AMD GPU plugin'
 	@echo '      cuda_plugin     - Make NVIDIA CUDA plugin'
+	@echo '      tpu_plugin      - Make Google TPU plugin'
 .PHONY: help
 
 ruff:
