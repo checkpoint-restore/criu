@@ -2143,6 +2143,9 @@ int cr_dump_tasks(pid_t pid)
 			goto err;
 	}
 
+	/* All fds are dumped, unix sockets aren't queried anymore */
+	close_diag_sockets();
+
 	/*
 	 * This hook finalizes global device state. Run every implementation so
 	 * that one plugin cannot prevent another from completing its work.
@@ -2221,6 +2224,7 @@ int cr_dump_tasks(pid_t pid)
 
 	exit_code = write_img_inventory(&he, parent_ie);
 err:
+	close_diag_sockets();
 	free_inventory(&he);
 	if (parent_ie)
 		inventory_entry__free_unpacked(parent_ie, NULL);

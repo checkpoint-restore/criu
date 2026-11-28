@@ -73,7 +73,7 @@ echo "zdtm/static/vfork00: criu dump crash detected as expected"
 ./test/zdtm.py run -t zdtm/static/inotify_cgroup2 --fault 140 -f h,ns || fail
 ./test/zdtm.py run -t zdtm/static/inotify_cgroup2 --fault 140 --pre 2 -f h,ns || fail
 
-# 141 drops every other record of the unix sock_diag dump, as the kernel
-# can do under socket churn, thus the missed sockets must be queried by inode
+# 141 drops every record of the unix sock_diag dump of CRIU's netns, so all
+# the sockets there must be queried by inode (h flavor: no netns is dumped)
 ./test/zdtm.py run -t zdtm/static/sockets00 -t zdtm/static/sockets_spair -t zdtm/static/socket_queues \
-	-t zdtm/static/sk-unix01 -t zdtm/static/sk-unix01-seqpacket --fault 141 -f h,ns || fail
+	-t zdtm/static/sk-unix01 -t zdtm/static/sk-unix01-seqpacket --fault 141 -f h || fail

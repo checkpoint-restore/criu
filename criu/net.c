@@ -3761,7 +3761,7 @@ static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 	}
 
 	if (for_dump) {
-		ret = ns->net.nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
+		ret = ns->net.nlsk = socket(PF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_SOCK_DIAG);
 		if (ret < 0) {
 			pr_perror("Can't create sock diag socket");
 			goto err_nl;
