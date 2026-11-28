@@ -1,0 +1,2 @@
+{'flavor': 'h', 'flags': 'suid noauto cuda crfail', 'dopts': '--plugin-option=cuda_plugin.fork-inherited=discard',
+ 'dump_error': "it is not a CUDA ancestor's open file", 'timeout': 60}

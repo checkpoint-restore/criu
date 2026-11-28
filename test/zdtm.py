@@ -1174,8 +1174,9 @@ class criu_rpc:
 
 
 class criu:
-    def __init__(self, opts):
+    def __init__(self, opts, dump_error=None):
         self.__test = None
+        self.__dump_error = dump_error
         self.__dump_path = None
         self.__iter = 0
         self.__prev_dump_iter = None
@@ -1312,6 +1313,15 @@ class criu:
         os.setresgid(58467, 58467, 58467)
         os.setresuid(18943, 18943, 18943)
 
+    def __raise_expected_failure(self, action, ret, log):
+        if self.__dump_error:
+            if action != 'dump' or not ret or self.__criu.exit_signal(ret):
+                raise test_fail_exc(f"expected dump rejection, got {action} exit status {ret}")
+            with open(os.path.join(self.__ddir(), log), errors='replace') as fd:
+                if not any(self.__dump_error in line for line in fd):
+                    raise test_fail_exc(f"dump failed without '{self.__dump_error}'")
+        raise test_fail_expected_exc(action)
+
     def __criu_act(self, action, opts=[], log=None, nowait=False):
         if not log:
             log = action + ".log"
@@ -1376,7 +1386,7 @@ class criu:
             if os.read(status_fds[0], 1) != b'\0':
                 ret = ret.wait()
                 if self.__test.blocking():
-                    raise test_fail_expected_exc(action)
+                    self.__raise_expected_failure(action, ret, log)
                 else:
                     raise test_fail_exc("criu %s exited with %s" %
                                         (action, ret))
@@ -1415,7 +1425,7 @@ class criu:
                 os.path.join(__ddir, "restore-succeeded"), os.F_OK)
             if (self.__test.blocking() and not self.__criu.exit_signal(ret)) or \
                (self.__sat and action == 'restore' and rst_succeeded):
-                raise test_fail_expected_exc(action)
+                self.__raise_expected_failure(action, ret, log)
             else:
                 raise test_fail_exc("CRIU %s" % action)
 
@@ -2330,7 +2340,7 @@ def do_run_test(tname, tdesc, flavs, opts):
             continue
         flav = flavors[f](opts)
         t = tclass(tname, tdesc, flav, fcg, opts['rootless'])
-        cr_api = criu(opts)
+        cr_api = criu(opts, tdesc.get('dump_error'))
 
         try:
             t.start()
@@ -2939,6 +2949,9 @@ class group:
         self.__deps = set()
 
     def __is_mergeable_desc(self, desc):
+        # Each test expecting a particular dump error must trigger it itself.
+        if self.__desc.get('dump_error') or desc.get('dump_error'):
+            return False
         # For now make it full match
         if self.__desc.get('flags') != desc.get('flags'):
             return False
@@ -2947,6 +2960,8 @@ class group:
         if self.__desc.get('arch') != desc.get('arch'):
             return False
         if self.__desc.get('opts') != desc.get('opts'):
+            return False
+        if self.__desc.get('dopts') != desc.get('dopts'):
             return False
         if self.__desc.get('feature') != desc.get('feature'):
             return False
