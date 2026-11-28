@@ -32,6 +32,7 @@ struct seize_task_status {
 	int vpid;
 	int ppid;
 	int seccomp_mode;
+	bool seccomp_suspend_failed;
 };
 
 /*
