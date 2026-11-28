@@ -155,11 +155,10 @@ static int irmap_update_dir(struct irmap *t)
 		if (dir_dots(de))
 			continue;
 
-		nr++;
-		if (xrealloc_safe(&t->kids, nr * sizeof(struct irmap)))
+		if (xrealloc_safe(&t->kids, (nr + 1) * sizeof(struct irmap)))
 			goto out_err;
 
-		k = &t->kids[nr - 1];
+		k = &t->kids[nr++];
 
 		k->kids = NULL;	 /* for xrealloc above */
 		k->ino = 0;	 /* for irmap_update_stat */
@@ -179,7 +178,10 @@ static int irmap_update_dir(struct irmap *t)
 	return 0;
 
 out_err:
+	while (nr--)
+		xfree(t->kids[nr].path);
 	xfree(t->kids);
+	t->kids = NULL;
 	closedir(dfd);
 	return -1;
 }
