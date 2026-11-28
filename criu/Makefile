@@ -90,6 +90,7 @@ $(obj)/criu: $(PROGRAM-BUILTINS)
 UNIT-BUILTINS		+= $(obj)/util.o
 UNIT-BUILTINS		+= $(obj)/extmem.o
 UNIT-BUILTINS		+= images/extmem.o
+UNIT-BUILTINS		+= $(obj)/creds.o
 UNIT-BUILTINS		+= $(obj)/bfd.o
 UNIT-BUILTINS		+= $(obj)/config.o
 UNIT-BUILTINS		+= $(obj)/plugin-options.o

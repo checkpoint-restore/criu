@@ -14,6 +14,9 @@ TST_NOFILE	:=				\
 		pid00				\
 		caps00				\
 		caps01				\
+		caps_ambient_locked		\
+		caps_ambient_no_raise		\
+		caps_ambient_reduced		\
 		wait00				\
 		zombie00			\
 		zombie01			\

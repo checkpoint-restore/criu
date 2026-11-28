@@ -34,6 +34,7 @@
 
 #include "clone-noasan.h"
 #include "cr_options.h"
+#include "creds.h"
 #include "servicefd.h"
 #include "image.h"
 #include "img-streamer.h"
@@ -3111,30 +3112,15 @@ static bool groups_match(gid_t *groups, int n_groups)
 	return ret;
 }
 
-static void copy_caps(u32 *out_caps, u32 *in_caps, int n_words)
-{
-	int i, cap_end;
-
-	for (i = kdat.last_cap + 1; i < 32 * n_words; ++i) {
-		if (~in_caps[i / 32] & (1 << (i % 32)))
-			continue;
-
-		pr_warn("Dropping unsupported capability %d > %d)\n", i, kdat.last_cap);
-		/* extra caps will be cleared below */
-	}
-
-	n_words = min(n_words, (kdat.last_cap + 31) / 32);
-	cap_end = (kdat.last_cap & 31) + 1;
-	memcpy(out_caps, in_caps, sizeof(*out_caps) * n_words);
-	if ((cap_end & 31) && n_words)
-		out_caps[n_words - 1] &= (1 << cap_end) - 1;
-	memset(out_caps + n_words, 0, sizeof(*out_caps) * (CR_CAP_SIZE - n_words));
-}
-
 static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 {
 	unsigned long this_pos;
 	struct thread_creds_args *args;
+
+	if (!valid_ambient_caps(ce)) {
+		pr_err("Ambient capabilities must be both permitted and inheritable\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	this_pos = rst_mem_align_cpos(RM_PRIVATE);
 
@@ -3224,11 +3210,11 @@ static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned lo
 	args->creds.groups = NULL;
 	args->creds.lsm_profile = NULL;
 
-	copy_caps(args->cap_inh, ce->cap_inh, ce->n_cap_inh);
-	copy_caps(args->cap_eff, ce->cap_eff, ce->n_cap_eff);
-	copy_caps(args->cap_prm, ce->cap_prm, ce->n_cap_prm);
-	copy_caps(args->cap_bnd, ce->cap_bnd, ce->n_cap_bnd);
-	copy_caps(args->cap_amb, ce->cap_amb, ce->n_cap_amb);
+	copy_caps(args->cap_inh, ce->cap_inh, ce->n_cap_inh, kdat.last_cap);
+	copy_caps(args->cap_eff, ce->cap_eff, ce->n_cap_eff, kdat.last_cap);
+	copy_caps(args->cap_prm, ce->cap_prm, ce->n_cap_prm, kdat.last_cap);
+	copy_caps(args->cap_bnd, ce->cap_bnd, ce->n_cap_bnd, kdat.last_cap);
+	copy_caps(args->cap_amb, ce->cap_amb, ce->n_cap_amb, kdat.last_cap);
 
 	if (ce->n_groups && !groups_match(ce->groups, ce->n_groups)) {
 		unsigned int *groups;

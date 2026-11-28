@@ -17,6 +17,8 @@
 #include "page.h"
 #include "pagemap.h"
 #include "cr_options.h"
+#include "creds.h"
+#include "image.h"
 #include "plugin.h"
 #include "hugetlb.h"
 
@@ -30,6 +32,62 @@ cr_plugin_ctl_t cr_plugin_ctl;
 static int test_plugin_results[TEST_PLUGIN_HANDLERS];
 static unsigned int test_plugin_order[TEST_PLUGIN_HANDLERS];
 static unsigned int test_plugin_calls;
+
+static void test_copy_caps(void)
+{
+	u32 in[CR_CAP_SIZE] = { 0x80000003U, 1 };
+	u32 out[CR_CAP_SIZE];
+
+	copy_caps(out, in, 2, 32);
+	assert(out[0] == in[0] && out[1] == 1);
+	copy_caps(out, in, 1, 40);
+	assert(out[0] == in[0] && out[1] == 0);
+	copy_caps(out, in, 1, 31);
+	assert(out[0] == in[0] && out[1] == 0);
+	in[1] = ~0U;
+	copy_caps(out, in, 2, 63);
+	assert(out[0] == in[0] && out[1] == ~0U);
+	copy_caps(out, NULL, 0, 40);
+	assert(out[0] == 0 && out[1] == 0);
+}
+
+static void test_valid_ambient_caps(void)
+{
+	u32 ambient[] = { 1U << 31, 1 };
+	u32 permitted[] = { 1U << 31, 1 };
+	u32 inheritable[] = { 1U << 31, 1 };
+	CredsEntry ce = { .cap_amb = ambient, .cap_prm = permitted, .cap_inh = inheritable };
+
+	assert(valid_ambient_caps(&ce));
+	ce.n_cap_amb = ce.n_cap_prm = ce.n_cap_inh = 2;
+	assert(valid_ambient_caps(&ce));
+	permitted[0] = 0;
+	assert(!valid_ambient_caps(&ce));
+	permitted[0] = ambient[0];
+	inheritable[0] = 0;
+	assert(!valid_ambient_caps(&ce));
+	inheritable[0] = ambient[0];
+	inheritable[1] = 0;
+	assert(!valid_ambient_caps(&ce));
+	inheritable[1] = ambient[1];
+	ce.n_cap_prm = 1;
+	assert(!valid_ambient_caps(&ce));
+	ce.n_cap_prm = 2;
+	ce.n_cap_inh = 1;
+	assert(!valid_ambient_caps(&ce));
+	ce.n_cap_inh = 2;
+	permitted[1] = 0;
+	assert(!valid_ambient_caps(&ce));
+	permitted[1] = ambient[1];
+	ce.n_cap_prm = 0;
+	assert(!valid_ambient_caps(&ce));
+	ce.n_cap_prm = 2;
+	ce.n_cap_inh = 0;
+	assert(!valid_ambient_caps(&ce));
+	ce.n_cap_inh = 1;
+	ambient[1] = 0;
+	assert(valid_ambient_caps(&ce));
+}
 
 static int test_plugin_hook(unsigned int index, int id)
 {
@@ -696,6 +754,8 @@ int main(int argc, char *argv[], char *envp[])
 	configuration = malloc(10 * sizeof(char *));
 	log_init(NULL);
 
+	test_copy_caps();
+	test_valid_ambient_caps();
 	test_bfd();
 	test_bwrite();
 	test_pagemap_offset_alignment();

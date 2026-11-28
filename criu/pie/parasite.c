@@ -349,7 +349,7 @@ static int dump_creds(struct parasite_dump_creds *args)
 				return -1;
 			}
 			if (ret)
-				args->cap_bnd[i] |= (1 << j);
+				args->cap_bnd[i] |= (1U << j);
 		}
 
 		for (j = 0; j < 32; j++) {
@@ -361,7 +361,7 @@ static int dump_creds(struct parasite_dump_creds *args)
 				return -1;
 			}
 			if (ret)
-				args->cap_amb[i] |= (1 << j);
+				args->cap_amb[i] |= (1U << j);
 		}
 	}
 

@@ -15,6 +15,7 @@ obj-$(CONFIG_LZ4)	+= compression.o
 obj-y			+= cr-check.o
 obj-y			+= cr-dedup.o
 obj-y			+= cr-dump.o
+obj-y			+= creds.o
 obj-y			+= cr-errno.o
 obj-y			+= cr-restore.o
 obj-y			+= cr-service.o
